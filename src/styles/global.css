@@ -1,17 +1,209 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   HariLeaf Agritech — Global Styles
+   Design system: "The Digital Greenhouse"
+   Font: Manrope Variable (self-hosted via @fontsource-variable)
+   Colors: Material Design 3 tonal palette rooted in Hari Teal + Leaf Olive
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* ─── Font ──────────────────────────────────────────────────────────────────── */
+@import '@fontsource-variable/manrope';
+
+/* ─── Tailwind ──────────────────────────────────────────────────────────────── */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Design tokens ─────────────────────────────────────────────────────────── */
+/* These CSS custom properties mirror the Tailwind config so that non-Tailwind
+   contexts (e.g., inline SVGs, third-party widgets) can access brand values.  */
 :root {
-  /* Animation timing */
-  --duration-fast: 150ms;
-  --duration-base: 300ms;
-  --duration-slow: 500ms;
-  --duration-slower: 800ms;
+  /* Brand primitive colors (from brand_tokens.css) */
+  --color-hari-teal:    #7fc8ba;
+  --color-leaf-olive:   #9fb17d;
+  --color-deep-forest:  #2e3a2e;
+  --color-soil-brown:   #6b5b4b;
+  --color-off-white:    #f7f9f5;
+  --color-mid-grey:     #6b6f6a;
 
-  /* Easing */
-  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
-  --ease-out: cubic-bezier(0, 0, 0.2, 1);
-  --ease-in: cubic-bezier(0.4, 0, 1, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* Interactive primary (MD3 dark teal) */
+  --color-primary:      #196a5e;
+  --color-on-primary:   #ffffff;
+
+  /* Surface hierarchy */
+  --color-surface:               #f7faf4;
+  --color-surface-container-low: #f1f5ee;
+  --color-surface-container:     #ecefe8;
+  --color-on-surface:            #191d19;
+  --color-on-surface-variant:    #3f4946;
+
+  /* Brand gradient — Hari Teal → Leaf Olive */
+  --brand-gradient:   linear-gradient(135deg, #7fc8ba 0%, #9fb17d 100%);
+  --brand-gradient-r: linear-gradient(to right, #7fc8ba, #9fb17d);
+  --brand-gradient-b: linear-gradient(to bottom, #7fc8ba, #9fb17d);
+
+  /* ─── Animation timing ────────────────────────────────────────────── */
+  /* Easing: a single organic ease-out for all transitions (DESIGN.md §6.2) */
+  --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);    /* snappy exit — primary easing */
+  --ease-in:     cubic-bezier(0.4, 0, 1, 1);        /* smooth enter */
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);      /* standard */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* playful bounce — use sparingly */
+
+  --duration-fast:   150ms;   /* hover states, micro-interactions */
+  --duration-normal: 300ms;   /* standard transitions */
+  --duration-slow:   500ms;   /* entrance animations */
+  --duration-slower: 800ms;   /* hero entrances, large reveals */
+
+  /* ─── Glassmorphism values (nav, modals) ─────────────────────────── */
+  --glass-bg:   rgba(247, 250, 244, 0.70);
+  --glass-blur: 20px;
+}
+
+/* ─── Base layer ────────────────────────────────────────────────────────────── */
+@layer base {
+
+  /* Smooth scrolling for the whole page */
+  html {
+    scroll-behavior: smooth;
+    /* Subpixel font rendering — critical for Manrope's fine strokes */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Body: Manrope Variable for everything.
+     background/color match the surface and on-surface MD3 tokens. */
+  body {
+    font-family: 'Manrope Variable', 'Manrope', system-ui, sans-serif;
+    background-color: #f7faf4;  /* surface */
+    color: #191d19;             /* on-surface */
+    line-height: 1.65;
+  }
+
+  /* Headings: tight tracking and tighter line-height for editorial impact.
+     DESIGN.md: "use on_surface with -2% letter spacing for authority" */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: 'Manrope Variable', 'Manrope', system-ui, sans-serif;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: #191d19;  /* on-surface — never pure black per DESIGN.md */
+  }
+
+  /* Body text: softer on-surface-variant for reduced eye strain (DESIGN.md) */
+  p {
+    line-height: 1.7;
+  }
+
+  /* Anchor reset — individual components apply their own link styles */
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  /* Selection: brand primary container colors */
+  ::selection {
+    background-color: #7fc8ba;   /* primary-container */
+    color: #00201b;              /* on-primary-fixed */
+  }
+
+  /* Focus ring: brand primary, accessible for keyboard navigation.
+     Use outline-variant ghost border fallback per DESIGN.md §4 */
+  :focus-visible {
+    outline: 2px solid #196a5e;
+    outline-offset: 3px;
+    border-radius: 0.25rem;
+  }
+
+  /* Remove default margin on headings and paragraphs (let spacing
+     utilities manage vertical rhythm) */
+  h1, h2, h3, h4, h5, h6, p {
+    margin: 0;
+  }
+
+  /* Image defaults — block display prevents phantom gap below images */
+  img,
+  video {
+    display: block;
+    max-width: 100%;
+  }
+
+  /* Button reset — components apply full styling */
+  button {
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  /* Input/textarea: inherit font from body */
+  input,
+  textarea,
+  select {
+    font-family: inherit;
+  }
+}
+
+/* ─── Reduced motion ────────────────────────────────────────────────────────── */
+/* Respects user's OS accessibility preference.
+   Disables ALL animations and transitions. Scroll behaviour becomes instant. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ─── Utilities ─────────────────────────────────────────────────────────────── */
+/* Custom classes that cannot be expressed as pure Tailwind utilities */
+@layer utilities {
+
+  /* Brand gradient background — applied to hero CTAs, large feature sections */
+  .brand-gradient {
+    background: linear-gradient(135deg, #7fc8ba 0%, #9fb17d 100%);
+  }
+  .brand-gradient-r {
+    background: linear-gradient(to right, #7fc8ba, #9fb17d);
+  }
+
+  /* Gradient text — used sparingly on large headings */
+  .text-brand-gradient {
+    background: linear-gradient(to right, #7fc8ba, #9fb17d);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Glassmorphism — nav bar, modal headers, floating cards.
+     DESIGN.md: "surface at 70% opacity with backdrop-blur of 20px" */
+  .glass-nav {
+    background: rgba(247, 250, 244, 0.70);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  /* Lighter glass for forms/cards on image backgrounds */
+  .glass-card {
+    background: rgba(255, 255, 255, 0.60);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(127, 200, 186, 0.10);
+  }
+
+  /* Tracking utilities for label text (DESIGN.md: "+5% letter spacing") */
+  .tracking-label {
+    letter-spacing: 0.05em;
+  }
+
+  /* Tight tracking for display headlines */
+  .tracking-display {
+    letter-spacing: -0.025em;
+  }
 }
