@@ -5,7 +5,7 @@
     "headlineHighlight": "Sustainable",
     "headlineSuffix": "Legacy.",
     "description": "HariLeaf Agritech was born from a singular vision: to bridge the gap between ancient agricultural wisdom and the precision of modern technology.",
-    "image": "/images/general/about-hero.jpg",
+    "image": "/images/general/about-hero.png",
     "stat": {
       "value": "12+",
       "label": "Global Farming Patents"
@@ -15,7 +15,7 @@
     "title": "Our Mission",
     "icon": "eco",
     "body": "To empower growers worldwide by deploying intelligent, autonomous cultivation systems that maximize yield while minimizing environmental impact. We are committed to reducing water consumption by 90% and eliminating the need for synthetic pesticides through digital biological control.",
-    "image": "/images/general/mission-sensor.jpg",
+    "image": "/images/general/mission-sensor.png",
     "imageAlt": "Young plant sprout being measured by a digital sensor in a high-tech lab setting"
   },
   "vision": {
