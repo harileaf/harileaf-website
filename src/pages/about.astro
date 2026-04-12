@@ -12,7 +12,6 @@ const page    = aboutJson;
 const hero    = page.hero;
 const mission = page.mission;
 const vision  = page.vision;
-const journey = page.journey;
 const values  = page.values;
 const cta     = page.cta;
 const seo     = page.seo;
@@ -154,69 +153,7 @@ const pageDesc     = seo?.metaDescription ?? 'HariLeaf Agritech was born from a 
 
 
   <!-- ═══════════════════════════════════════════════════
-       SECTION 3 — THE JOURNEY (Asymmetric Timeline)
-       ═══════════════════════════════════════════════════ -->
-  <section class="py-32 bg-surface">
-    <div class="max-w-7xl mx-auto px-8">
-
-      <FadeIn>
-        <div class="max-w-3xl mb-20">
-          <h2 class="text-4xl font-bold mb-6">{journey.title}</h2>
-          <p class="text-on-surface-variant text-lg">{journey.description}</p>
-        </div>
-      </FadeIn>
-
-      <div class="space-y-32">
-        {journey.entries.map((entry: { year: string; title: string; body: string; image: string; imageAlt: string }, index: number) => {
-          const isEven = index % 2 === 1; // 2021 entry (index 1) has image left
-          return (
-            <div class="grid md:grid-cols-2 gap-16 items-center">
-              {isEven ? (
-                <>
-                  <!-- Image LEFT -->
-                  <FadeIn direction="left" class="order-2 md:order-1">
-                    <div class="rounded-xl overflow-hidden bg-surface-container-low p-2">
-                      <img src={entry.image} alt={entry.imageAlt} class="rounded-lg w-full" loading="lazy" />
-                    </div>
-                  </FadeIn>
-                  <!-- Text RIGHT -->
-                  <FadeIn direction="right" class="order-1 md:order-2">
-                    <div>
-                      <span class="text-primary font-extrabold text-7xl opacity-20 block mb-4" aria-hidden="true">{entry.year}</span>
-                      <h3 class="text-2xl font-bold mb-4">{entry.title}</h3>
-                      <p class="text-on-surface-variant leading-relaxed">{entry.body}</p>
-                    </div>
-                  </FadeIn>
-                </>
-              ) : (
-                <>
-                  <!-- Text LEFT -->
-                  <FadeIn direction="left">
-                    <div>
-                      <span class="text-primary font-extrabold text-7xl opacity-20 block mb-4" aria-hidden="true">{entry.year}</span>
-                      <h3 class="text-2xl font-bold mb-4">{entry.title}</h3>
-                      <p class="text-on-surface-variant leading-relaxed">{entry.body}</p>
-                    </div>
-                  </FadeIn>
-                  <!-- Image RIGHT -->
-                  <FadeIn direction="right">
-                    <div class="rounded-xl overflow-hidden bg-surface-container-low p-2">
-                      <img src={entry.image} alt={entry.imageAlt} class="rounded-lg w-full" loading="lazy" />
-                    </div>
-                  </FadeIn>
-                </>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-    </div>
-  </section>
-
-
-  <!-- ═══════════════════════════════════════════════════
-       SECTION 4 — CORE VALUES ("What Guides Us")
+       SECTION 3 — CORE VALUES ("What Guides Us")
        ═══════════════════════════════════════════════════ -->
   <section class="py-24 bg-surface-container-high">
     <div class="max-w-7xl mx-auto px-8 text-center mb-16">

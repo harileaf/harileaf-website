@@ -1,26 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 72">
-  <g fill="#7fc8ba">
-
-    <!-- Top-left petal: circle with downward V notch at base -->
-    <path d="M 14 33 L 9 27 A 12 12 0 1 1 19 27 Z"/>
-
-    <!-- Top-right petal: circle with downward V notch at base -->
-    <path d="M 42 33 L 37 27 A 12 12 0 1 1 47 27 Z"/>
-
-    <!-- Center horizontal bar -->
-    <rect x="2" y="33" width="52" height="6" rx="3"/>
-
-    <!-- Center dividing line (slightly lighter) -->
-    <rect x="2" y="36" width="52" height="1.5" fill="white" opacity="0.35"/>
-
-    <!-- Bottom horizontal bar -->
-    <rect x="2" y="33" width="52" height="6" rx="3"/>
-
-    <!-- Bottom-left petal: circle with upward V notch at top -->
-    <path d="M 14 39 L 9 45 A 12 12 0 1 0 19 45 Z"/>
-
-    <!-- Bottom-right petal: circle with upward V notch at top -->
-    <path d="M 42 39 L 37 45 A 12 12 0 1 0 47 45 Z"/>
-
-  </g>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" width="16" height="16">
+<path d="M0 0 C1.98 0 3.96 0 6 0 C6 3.3 6 6.6 6 10 C4.02 10 2.04 10 0 10 C0 6.7 0 3.4 0 0 Z " fill="#8FC5A8" transform="translate(5,3)"/>
 </svg>
