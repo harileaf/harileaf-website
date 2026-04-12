@@ -2,13 +2,12 @@
 export const prerender = true;
 import SiteLayout from '../layouts/SiteLayout.astro';
 import FadeIn from '../components/animations/FadeIn.astro';
-import CountUp from '../components/animations/CountUp.astro';
 import SEO from '../components/seo/SEO.astro';
 import JsonLd from '../components/seo/JsonLd.astro';
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://harileaf.ag');
-const pageTitle = 'Technology | HariLeaf Agritech — The Digital Greenhouse';
-const pageDesc  = "Synthesizing organic growth with computational precision. Our infrastructure doesn't just monitor nature; it accelerates its potential through a closed-loop ecosystem of AI and hardware.";
+const pageTitle = 'Technology | HariLeaf Agritech — The New Frontier of Outdoor AgTech';
+const pageDesc  = 'The Digital Greenhouse ecosystem bridges the gap between laboratory precision and the untamed reality of open-field farming through integrated autonomous infrastructure.';
 ---
 
 <SiteLayout title={pageTitle} description={pageDesc}>
@@ -28,166 +27,317 @@ const pageDesc  = "Synthesizing organic growth with computational precision. Our
   <!-- ═══════════════════════════════════════════════════
        SECTION 1 — HERO
        ═══════════════════════════════════════════════════ -->
-  <section class="relative px-8 pt-20 pb-32 overflow-hidden">
-    <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+  <section class="relative px-6 py-20 lg:py-32 overflow-x-hidden">
+    <div class="max-w-7xl mx-auto flex flex-col lg:flex-row items-center gap-16">
 
       <!-- Left column -->
-      <div class="lg:col-span-7 z-10">
+      <div class="lg:w-1/2 space-y-8">
         <FadeIn>
-          <span class="inline-block px-4 py-1.5 rounded-full bg-secondary-container text-on-secondary-container text-xs font-bold tracking-widest uppercase mb-6">
-            Precision Engineering
-          </span>
+          <div class="space-y-4">
+            <span class="label-md uppercase tracking-widest text-secondary font-bold">The New Frontier</span>
+            <h1 class="text-5xl lg:text-7xl font-bold tracking-tight text-on-surface leading-[1.1]">
+              Outdoor AgTech <br/>
+              <span class="text-primary italic">Perfected.</span>
+            </h1>
+          </div>
         </FadeIn>
         <FadeIn delay={100}>
-          <h1 class="text-6xl md:text-7xl font-extrabold tracking-tighter text-on-surface leading-[1.1] mb-8">
-            The Digital <br/><span class="text-primary italic">Greenhouse.</span>
-          </h1>
-        </FadeIn>
-        <FadeIn delay={200}>
-          <p class="text-xl text-on-surface-variant max-w-xl leading-relaxed mb-10">
-            Synthesizing organic growth with computational precision. Our infrastructure doesn't just monitor nature; it accelerates its potential through a closed-loop ecosystem of AI and hardware.
+          <p class="text-lg lg:text-xl text-on-surface-variant max-w-xl leading-relaxed">
+            The Digital Greenhouse ecosystem bridges the gap between laboratory precision and the untamed reality of open-field farming through integrated autonomous infrastructure.
           </p>
         </FadeIn>
-        <FadeIn delay={300}>
-          <a
-            href="#core-ecosystem"
-            class="brand-gradient text-on-primary px-8 py-4 rounded-full font-bold flex items-center gap-2 w-fit hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-          >
-            Explore Infrastructure
-            <span class="material-symbols-outlined" aria-hidden="true">arrow_downward</span>
-          </a>
+        <FadeIn delay={200}>
+          <div class="flex flex-wrap gap-4 pt-4">
+            <a
+              href="#cycle-of-precision"
+              class="brand-gradient text-on-primary px-8 py-4 rounded-full font-bold shadow-lg hover:scale-105 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            >
+              Explore Infrastructure
+            </a>
+            <a
+              href="/contact"
+              class="bg-surface-container-highest text-primary px-8 py-4 rounded-full font-bold hover:bg-surface-container-high transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            >
+              Read Whitepaper
+            </a>
+          </div>
         </FadeIn>
       </div>
 
       <!-- Right column -->
-      <FadeIn direction="right" class="lg:col-span-5 relative">
-        <div class="aspect-square rounded-[2rem] overflow-hidden shadow-2xl relative">
+      <FadeIn direction="right" class="lg:w-1/2 relative">
+        <!-- Decorative blur -->
+        <div class="aspect-square rounded-full brand-gradient opacity-10 absolute -top-10 -right-10 blur-3xl w-full" aria-hidden="true"></div>
+        <!-- Rotated image frame -->
+        <div class="relative bg-surface-container-low rounded-xl p-4 transform rotate-2">
           <img
-            src="/images/general/digital-greenhouse.jpg"
-            alt="Futuristic vertical greenhouse with glowing LED arrays and hydroponic systems"
-            class="w-full h-full object-cover"
+            src="/images/technology/hero-field.jpg"
+            alt="Ultra-modern agritech field with autonomous drones flying over lush crop rows at sunrise with digital data overlays"
+            class="rounded-lg shadow-2xl w-full h-[500px] object-cover"
             loading="eager"
           />
-          <div class="absolute inset-0 bg-gradient-to-t from-primary/40 to-transparent"></div>
-        </div>
-        <!-- Floating data chip -->
-        <div class="absolute -bottom-6 -left-6 bg-surface-container-lowest p-6 rounded-xl shadow-xl flex items-center gap-4">
-          <div class="h-12 w-12 rounded-full bg-primary-container/20 flex items-center justify-center">
-            <span class="material-symbols-outlined text-primary" aria-hidden="true">hub</span>
-          </div>
-          <div>
-            <div class="text-2xl font-bold text-on-surface">99.8%</div>
-            <div class="text-xs font-bold text-on-surface-variant tracking-wider uppercase">System Uptime</div>
+          <!-- Floating stat card -->
+          <div class="absolute -bottom-6 -left-6 bg-surface-container-lowest p-6 rounded-lg shadow-xl max-w-[200px]">
+            <span class="material-symbols-outlined text-primary text-3xl mb-2 block" aria-hidden="true">monitoring</span>
+            <p class="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Live Precision</p>
+            <p class="text-2xl font-black text-secondary">99.4%</p>
           </div>
         </div>
       </FadeIn>
 
     </div>
-    <!-- Decorative background bloom -->
-    <div class="absolute top-0 right-0 -z-10 w-1/2 h-full brand-gradient opacity-10 blur-[120px] rounded-full translate-x-1/2" aria-hidden="true"></div>
   </section>
 
 
   <!-- ═══════════════════════════════════════════════════
-       SECTION 2 — CORE ECOSYSTEM (Asymmetric Bento Grid)
+       SECTION 2 — THE CYCLE OF PRECISION
        ═══════════════════════════════════════════════════ -->
-  <section id="core-ecosystem" class="bg-surface-container-low py-32 px-8">
-    <div class="max-w-7xl mx-auto">
+  <section id="cycle-of-precision" class="bg-surface-container-low py-24">
+    <div class="max-w-7xl mx-auto px-6">
 
       <FadeIn>
-        <div class="flex flex-col md:flex-row justify-between items-end mb-20 gap-8">
-          <div class="max-w-2xl">
-            <h2 class="text-4xl font-bold tracking-tight mb-4">Core Ecosystem</h2>
-            <p class="text-on-surface-variant text-lg">Our technology stack is a symbiotic layer designed to harmonize the soil, the atmosphere, and the data stream.</p>
-          </div>
-          <div class="flex gap-4 shrink-0" aria-hidden="true">
-            <div class="h-1 w-24 bg-primary rounded-full"></div>
-            <div class="h-1 w-8 bg-outline-variant rounded-full"></div>
-            <div class="h-1 w-8 bg-outline-variant rounded-full"></div>
-          </div>
+        <div class="text-center mb-16 space-y-4">
+          <h2 class="text-3xl lg:text-4xl font-bold">The Cycle of Precision</h2>
+          <p class="text-on-surface-variant max-w-2xl mx-auto">
+            A self-sustaining loop of data, action, and optimization that turns variability into predictability.
+          </p>
         </div>
       </FadeIn>
 
-      <div class="grid grid-cols-1 md:grid-cols-12 gap-8">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
+        <!-- Dashed connector line (desktop only) -->
+        <div class="hidden md:block absolute top-1/2 left-0 w-full h-1 border-t-2 border-dashed border-outline-variant -translate-y-1/2 opacity-30" aria-hidden="true"></div>
 
-        <!-- Card 1: Hyper-Local Sensor Mesh (8-col) -->
-        <FadeIn class="md:col-span-8">
-          <div class="bg-surface-container-lowest rounded-xl p-10 flex flex-col justify-between overflow-hidden relative group h-full">
-            <div class="max-w-md z-10">
-              <span class="material-symbols-outlined text-4xl text-primary mb-6 block" aria-hidden="true">sensors</span>
-              <h3 class="text-2xl font-bold mb-4">Hyper-Local Sensor Mesh</h3>
-              <p class="text-on-surface-variant mb-8">
-                Deploying thousands of nanometer-scale probes that track soil moisture, pH, and nitrogen levels at the root-tip level. Real-time telemetry delivered every 400ms.
-              </p>
-              <ul class="space-y-3">
-                <li class="flex items-center gap-3 text-sm font-semibold">
-                  <span class="material-symbols-outlined text-secondary" style="font-variation-settings:'FILL' 1" aria-hidden="true">check_circle</span>
-                  Carbon Sequestration Tracking
-                </li>
-                <li class="flex items-center gap-3 text-sm font-semibold">
-                  <span class="material-symbols-outlined text-secondary" style="font-variation-settings:'FILL' 1" aria-hidden="true">check_circle</span>
-                  Multi-Spectrum Light Analysis
-                </li>
-              </ul>
+        <!-- Step 1: Persevere -->
+        <FadeIn>
+          <div class="bg-surface-container-lowest p-8 rounded-xl relative z-10 hover:translate-y-[-8px] transition-transform shadow-sm h-full">
+            <div class="w-16 h-16 rounded-full brand-gradient flex items-center justify-center mb-6 shadow-md">
+              <span class="material-symbols-outlined text-white text-3xl" aria-hidden="true">sensors</span>
             </div>
-            <div
-              class="absolute top-0 right-0 h-full w-1/3 bg-cover opacity-20 group-hover:opacity-40 transition-opacity duration-500"
-              style="background-image: url('/images/general/sensor-mesh.jpg');"
-              aria-hidden="true"
-            ></div>
-          </div>
-        </FadeIn>
-
-        <!-- Card 2: Neural Growth Engine (4-col) -->
-        <FadeIn delay={100} class="md:col-span-4">
-          <div class="bg-primary text-on-primary rounded-xl p-10 flex flex-col justify-end h-full">
-            <div class="mb-12">
-              <span class="material-symbols-outlined text-5xl" aria-hidden="true">psychology</span>
-            </div>
-            <h3 class="text-2xl font-bold mb-4">Neural Growth Engine</h3>
-            <p class="text-primary-container text-sm leading-relaxed">
-              Edge-AI processors that calculate predictive harvest cycles with 94% accuracy, adjusting irrigation in real-time based on upcoming weather patterns.
+            <h3 class="text-xl font-bold mb-3">01. Persevere</h3>
+            <p class="text-sm text-on-surface-variant leading-relaxed">
+              Continuous data harvest from the Underground Mesh and Borne aerial systems creates a high-fidelity digital twin of the field.
             </p>
           </div>
         </FadeIn>
 
-        <!-- Card 3: Aero-Surveillance (4-col) -->
-        <FadeIn class="md:col-span-4">
-          <div class="bg-surface-container-highest rounded-xl p-10 flex flex-col h-full">
-            <span class="material-symbols-outlined text-4xl text-secondary mb-6" aria-hidden="true">air</span>
-            <h3 class="text-2xl font-bold mb-4">Aero-Surveillance</h3>
-            <p class="text-on-surface-variant mb-6">
-              Fully autonomous drone fleets equipped with LiDAR and multispectral cameras to identify crop stress before it's visible to the human eye.
+        <!-- Step 2: Synthesize -->
+        <FadeIn delay={100}>
+          <div class="bg-surface-container-lowest p-8 rounded-xl relative z-10 hover:translate-y-[-8px] transition-transform shadow-sm h-full">
+            <div class="w-16 h-16 rounded-full brand-gradient flex items-center justify-center mb-6 shadow-md">
+              <span class="material-symbols-outlined text-white text-3xl" aria-hidden="true">psychology</span>
+            </div>
+            <h3 class="text-xl font-bold mb-3">02. Synthesize</h3>
+            <p class="text-sm text-on-surface-variant leading-relaxed">
+              Edge computing clusters process billion-point datasets in real-time, identifying metabolic shifts before they become visible to the eye.
             </p>
-            <div class="mt-auto pt-8 border-t border-outline-variant/30">
-              <div class="flex items-center gap-2">
-                <span class="h-2 w-2 rounded-full bg-secondary" aria-hidden="true"></span>
-                <span class="text-xs font-bold uppercase tracking-widest text-secondary">Active Deployment</span>
+          </div>
+        </FadeIn>
+
+        <!-- Step 3: Execute -->
+        <FadeIn delay={200}>
+          <div class="bg-surface-container-lowest p-8 rounded-xl relative z-10 hover:translate-y-[-8px] transition-transform shadow-sm h-full">
+            <div class="w-16 h-16 rounded-full brand-gradient flex items-center justify-center mb-6 shadow-md">
+              <span class="material-symbols-outlined text-white text-3xl" aria-hidden="true">precision_manufacturing</span>
+            </div>
+            <h3 class="text-xl font-bold mb-3">03. Execute</h3>
+            <p class="text-sm text-on-surface-variant leading-relaxed">
+              Autonomous fleets deploy targeted micro-interventions, ensuring every drop of water and milligram of nutrient is perfectly placed.
+            </p>
+          </div>
+        </FadeIn>
+
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       SECTION 3 — DEEP DIVE: THE TRIAD
+       ═══════════════════════════════════════════════════ -->
+  <section class="py-24 max-w-7xl mx-auto px-6 space-y-32">
+
+    <!-- Sub-section A: Aerial Surveillance: Borne™ -->
+    <FadeIn>
+      <div class="flex flex-col lg:flex-row items-center gap-16">
+        <!-- Left: text -->
+        <div class="lg:w-1/2">
+          <div class="inline-flex items-center gap-2 bg-secondary-container text-on-secondary-container px-4 py-1 rounded-full text-xs font-bold mb-6">
+            <span class="material-symbols-outlined text-sm" aria-hidden="true">flight</span>
+            AERIAL STRATUM
+          </div>
+          <h2 class="text-4xl font-bold mb-6">Aerial Surveillance: Borne™</h2>
+          <p class="text-on-surface-variant text-lg leading-relaxed mb-8">
+            Our Borne fleet doesn't just watch; it analyzes. Equipped with hyperspectral imaging and LiDAR, these autonomous sentinels detect moisture stress and pest pressure days before a manual inspection could.
+          </p>
+          <ul class="space-y-4">
+            <li class="flex items-center gap-3">
+              <span class="material-symbols-outlined text-primary" style="font-variation-settings:'FILL' 1" aria-hidden="true">check_circle</span>
+              <span class="font-medium">10cm Vertical Precision Navigation</span>
+            </li>
+            <li class="flex items-center gap-3">
+              <span class="material-symbols-outlined text-primary" style="font-variation-settings:'FILL' 1" aria-hidden="true">check_circle</span>
+              <span class="font-medium">Multi-Spectrum Chlorophyll Analysis</span>
+            </li>
+            <li class="flex items-center gap-3">
+              <span class="material-symbols-outlined text-primary" style="font-variation-settings:'FILL' 1" aria-hidden="true">check_circle</span>
+              <span class="font-medium">Solar-Linked Charging Hubs</span>
+            </li>
+          </ul>
+        </div>
+        <!-- Right: image -->
+        <div class="lg:w-1/2">
+          <div class="bg-surface-container rounded-3xl overflow-hidden aspect-[4/3]">
+            <img
+              src="/images/technology/borne-drone.jpg"
+              alt="Sleek aerodynamic agritech drone soaring over a high-tech vineyard at sunset"
+              class="w-full h-full object-cover"
+              loading="lazy"
+            />
+          </div>
+        </div>
+      </div>
+    </FadeIn>
+
+    <!-- Sub-section B: The Underground Mesh (reversed layout) -->
+    <FadeIn>
+      <div class="flex flex-col lg:flex-row-reverse items-center gap-16">
+        <!-- Right: text (visually on right due to row-reverse) -->
+        <div class="lg:w-1/2">
+          <div class="inline-flex items-center gap-2 bg-tertiary-container text-on-tertiary-container px-4 py-1 rounded-full text-xs font-bold mb-6">
+            <span class="material-symbols-outlined text-sm" aria-hidden="true">grid_view</span>
+            SUB-SURFACE STRATUM
+          </div>
+          <h2 class="text-4xl font-bold mb-6">The Underground Mesh</h2>
+          <p class="text-on-surface-variant text-lg leading-relaxed mb-8">
+            The secret to open-field control lies beneath the surface. Our decentralized mesh network of subterranean sensors monitors the rhizosphere—the root zone—with unprecedented density.
+          </p>
+          <div class="grid grid-cols-2 gap-6">
+            <div class="bg-surface-container-low p-6 rounded-xl">
+              <p class="text-primary font-black text-3xl mb-1">98%</p>
+              <p class="text-xs uppercase font-bold text-on-surface-variant">Mesh Reliability</p>
+            </div>
+            <div class="bg-surface-container-low p-6 rounded-xl">
+              <p class="text-secondary font-black text-3xl mb-1">5yr+</p>
+              <p class="text-xs uppercase font-bold text-on-surface-variant">Battery Lifespan</p>
+            </div>
+          </div>
+        </div>
+        <!-- Left: image with decorative bg -->
+        <div class="lg:w-1/2 relative">
+          <div class="absolute inset-0 bg-primary opacity-5 rounded-3xl -rotate-3" aria-hidden="true"></div>
+          <div class="bg-surface-container rounded-3xl overflow-hidden aspect-[4/3] relative">
+            <img
+              src="/images/technology/underground-mesh.jpg"
+              alt="Cross-section view of soil showing digital sensor nodes attached to plant roots with data light pulses"
+              class="w-full h-full object-cover"
+              loading="lazy"
+            />
+          </div>
+        </div>
+      </div>
+    </FadeIn>
+
+    <!-- Sub-section C: The Autonomous Fleet -->
+    <FadeIn>
+      <div class="flex flex-col lg:flex-row items-center gap-16">
+        <!-- Left: text -->
+        <div class="lg:w-1/2">
+          <div class="inline-flex items-center gap-2 bg-primary-container text-on-primary-container px-4 py-1 rounded-full text-xs font-bold mb-6">
+            <span class="material-symbols-outlined text-sm" aria-hidden="true">smart_toy</span>
+            ACTUATION STRATUM
+          </div>
+          <h2 class="text-4xl font-bold mb-6">The Autonomous Fleet</h2>
+          <p class="text-on-surface-variant text-lg leading-relaxed mb-8">
+            Muscle meets intelligence. Our electric autonomous units navigate complex terrains to perform mechanical weeding, precision spraying, and harvest assistance without human oversight.
+          </p>
+          <blockquote class="p-6 bg-surface-container-highest rounded-xl border-l-4 border-primary">
+            <p class="italic text-on-surface-variant">
+              "By removing the tractor from the equation, we eliminate soil compaction and carbon emissions in one single technological leap."
+            </p>
+            <p class="mt-4 font-bold text-sm">— Dr. Aris Varma, CTO</p>
+          </blockquote>
+        </div>
+        <!-- Right: image -->
+        <div class="lg:w-1/2">
+          <div class="bg-surface-container rounded-3xl overflow-hidden aspect-[4/3]">
+            <img
+              src="/images/technology/autonomous-fleet.jpg"
+              alt="A swarm of small electric autonomous farm vehicles moving through a vegetable field under clear blue skies"
+              class="w-full h-full object-cover"
+              loading="lazy"
+            />
+          </div>
+        </div>
+      </div>
+    </FadeIn>
+
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       SECTION 4 — QUANTIFIABLE GROWTH
+       ═══════════════════════════════════════════════════ -->
+  <section class="bg-emerald-900 text-emerald-50 py-24 overflow-hidden relative">
+    <!-- Decorative giant icon -->
+    <div class="absolute top-0 right-0 w-1/3 h-full opacity-10" aria-hidden="true">
+      <span class="material-symbols-outlined text-[400px] absolute -top-20 -right-20">biotech</span>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-6 relative z-10">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-20">
+
+        <!-- Left: text content -->
+        <FadeIn>
+          <div>
+            <h2 class="text-4xl lg:text-5xl font-black mb-8 leading-tight">
+              Quantifiable Growth. <br/>Scientific Proof.
+            </h2>
+            <p class="text-emerald-100/70 text-lg mb-12">
+              The HariLeaf tech stack isn't just about innovation—it's about outcomes. We track every variable to prove that sustainable tech is more profitable than legacy methods.
+            </p>
+            <div class="space-y-12">
+              <div class="flex items-start gap-6">
+                <div class="text-4xl font-black text-secondary-fixed shrink-0">01</div>
+                <div>
+                  <h4 class="text-xl font-bold mb-2">Water Optimization</h4>
+                  <p class="text-emerald-100/60">
+                    40% reduction in water waste through rhizosphere monitoring and localized atmospheric conditioning.
+                  </p>
+                </div>
+              </div>
+              <div class="flex items-start gap-6">
+                <div class="text-4xl font-black text-secondary-fixed shrink-0">02</div>
+                <div>
+                  <h4 class="text-xl font-bold mb-2">Nitrogen Management</h4>
+                  <p class="text-emerald-100/60">
+                    Precise application reduces fertilizer runoff by 65%, protecting local watersheds and soil health.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
         </FadeIn>
 
-        <!-- Card 4: The HariLake Platform (8-col) -->
-        <FadeIn delay={100} class="md:col-span-8">
-          <div class="bg-surface-container-lowest rounded-xl flex flex-col md:flex-row overflow-hidden h-full">
-            <div class="p-10 flex-1">
-              <h3 class="text-2xl font-bold mb-4">The HariLake Platform</h3>
-              <p class="text-on-surface-variant mb-8">
-                A centralized dashboard for global farm management. Scale from one hectare to thousands with a single unified interface.
-              </p>
-              <a href="/solutions" class="text-primary font-bold flex items-center gap-2 group/link">
-                View Data Architecture
-                <span class="material-symbols-outlined group-hover/link:translate-x-1 transition-transform" aria-hidden="true">chevron_right</span>
-              </a>
-            </div>
-            <div class="w-full md:w-1/2 bg-surface-container h-64 md:h-auto relative overflow-hidden">
-              <img
-                src="/images/general/harilake-dashboard.jpg"
-                alt="HariLake agricultural data dashboard with heatmaps and terrain models"
-                class="w-full h-full object-cover"
-                loading="lazy"
-              />
+        <!-- Right: bar chart card -->
+        <FadeIn delay={100}>
+          <div class="flex items-center">
+            <div class="bg-white/5 backdrop-blur-md p-10 rounded-2xl border border-white/10 w-full">
+              <span class="label-md mb-6 block text-emerald-300">Technology Impact Map</span>
+              <div class="h-64 flex items-end gap-2 px-2">
+                <div class="bg-emerald-400/20 w-full h-1/4 rounded-t-lg"></div>
+                <div class="bg-emerald-400/40 w-full h-2/5 rounded-t-lg"></div>
+                <div class="bg-emerald-400/60 w-full h-3/5 rounded-t-lg"></div>
+                <div class="bg-primary-container w-full h-4/5 rounded-t-lg shadow-[0_0_20px_rgba(127,200,186,0.3)]"></div>
+                <div class="bg-white w-full h-full rounded-t-lg shadow-[0_0_30px_rgba(255,255,255,0.2)]"></div>
+              </div>
+              <div class="mt-8 flex justify-between text-xs font-bold text-emerald-100/40 uppercase tracking-widest">
+                <span>Traditional</span>
+                <span>Hybrid</span>
+                <span>HariLeaf v1</span>
+                <span>HariLeaf v2</span>
+                <span>Next Gen</span>
+              </div>
             </div>
           </div>
         </FadeIn>
@@ -198,115 +348,23 @@ const pageDesc  = "Synthesizing organic growth with computational precision. Our
 
 
   <!-- ═══════════════════════════════════════════════════
-       SECTION 3 — DRONE-LED REMEDIATION
+       SECTION 5 — CTA
        ═══════════════════════════════════════════════════ -->
-  <section class="py-32 px-8 bg-surface">
-    <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-24 items-center">
-
-      <!-- Left: image -->
-      <FadeIn direction="left" class="relative order-2 lg:order-1">
-        <div class="relative z-10 rounded-2xl overflow-hidden shadow-2xl">
-          <img
-            src="/images/general/drone-field.jpg"
-            alt="Agricultural drone hovering over a field at sunrise"
-            class="w-full aspect-[4/5] object-cover"
-            loading="lazy"
-          />
-        </div>
-        <div class="absolute -top-12 -right-12 w-64 h-64 brand-gradient opacity-20 blur-3xl -z-10 rounded-full" aria-hidden="true"></div>
-      </FadeIn>
-
-      <!-- Right: features -->
-      <FadeIn direction="right" class="order-1 lg:order-2">
-        <h2 class="text-4xl font-bold tracking-tight mb-8">Drone-Led Remediation</h2>
-        <div class="space-y-12">
-          {[
-            {
-              icon: 'location_searching',
-              title: 'Spot-Application Technology',
-              body: 'Our drones reduce chemical usage by up to 90% by applying nutrients and protection only where specifically needed, identified by AI.',
-            },
-            {
-              icon: 'auto_mode',
-              title: 'Swarm Intelligence',
-              body: 'Fleet-wide coordination allows dozens of units to cover large areas simultaneously, sharing data to optimize flight paths and battery life.',
-            },
-            {
-              icon: 'battery_charging_full',
-              title: 'Self-Sustaining Docks',
-              body: 'Solar-powered base stations allow for 24/7 operations without human intervention, ensuring constant monitoring of sensitive crops.',
-            },
-          ].map((item) => (
-            <div class="flex gap-6">
-              <div class="shrink-0 h-14 w-14 rounded-full bg-surface-container-high flex items-center justify-center">
-                <span class="material-symbols-outlined text-primary" aria-hidden="true">{item.icon}</span>
-              </div>
-              <div>
-                <h4 class="text-xl font-bold mb-2">{item.title}</h4>
-                <p class="text-on-surface-variant">{item.body}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </FadeIn>
-
-    </div>
-  </section>
-
-
-  <!-- ═══════════════════════════════════════════════════
-       SECTION 4 — METRICS / STATS BAR
-       ═══════════════════════════════════════════════════ -->
-  <section class="py-24 px-8 border-y border-outline-variant/10">
-    <div class="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-12">
-      {[
-        { value: 40,  decimals: 0, suffix: '%',  label: 'Water Reduction'   },
-        { value: 2.5, decimals: 1, suffix: 'x',  label: 'Yield Increase'    },
-        { value: 0,   decimals: 0, suffix: '%',  label: 'Soil Runoff'       },
-        { value: 12,  decimals: 0, suffix: 'ms', label: 'Latency Response'  },
-      ].map((stat) => (
-        <div class="text-center">
-          <CountUp
-            value={stat.value}
-            suffix={stat.suffix}
-            decimals={stat.decimals}
-            class="text-5xl font-extrabold text-primary mb-2 block"
-          />
-          <div class="text-xs font-bold uppercase tracking-[0.2em] text-on-surface-variant">{stat.label}</div>
-        </div>
-      ))}
-    </div>
-  </section>
-
-
-  <!-- ═══════════════════════════════════════════════════
-       SECTION 5 — CTA (Gradient Banner)
-       ═══════════════════════════════════════════════════ -->
-  <section class="py-32 px-8">
+  <section class="py-32 px-6 text-center">
     <FadeIn>
-      <div class="max-w-5xl mx-auto brand-gradient rounded-3xl p-16 text-center text-on-primary shadow-2xl relative overflow-hidden">
-        <div class="relative z-10">
-          <h2 class="text-5xl font-bold tracking-tight mb-8">Ready to evolve your harvest?</h2>
-          <p class="text-xl opacity-90 max-w-2xl mx-auto mb-12">
-            Join the global network of farms utilizing the HariLeaf ecosystem to build a more resilient food future.
-          </p>
-          <div class="flex flex-col sm:flex-row justify-center gap-6">
-            <a
-              href="/contact"
-              class="bg-on-primary text-primary px-10 py-5 rounded-full font-extrabold shadow-lg hover:scale-105 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
-            >
-              Get Started Today
-            </a>
-            <a
-              href="/contact?interest=demo"
-              class="border-2 border-on-primary text-on-primary px-10 py-5 rounded-full font-extrabold hover:bg-on-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
-            >
-              Request a Demo
-            </a>
-          </div>
+      <div class="max-w-4xl mx-auto space-y-10">
+        <h2 class="text-4xl lg:text-6xl font-bold tracking-tight">Ready to upgrade your soil?</h2>
+        <p class="text-xl text-on-surface-variant">
+          Join the waitlist for the 2025 deployment cycle. Limited slots available for commercial enterprise farms.
+        </p>
+        <div class="flex justify-center">
+          <a
+            href="/contact"
+            class="brand-gradient text-white px-10 py-5 rounded-full font-black text-lg shadow-xl hover:scale-105 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          >
+            Secure Your Fleet
+          </a>
         </div>
-        <!-- Decorative glass overlay -->
-        <div class="absolute top-0 left-0 w-full h-full bg-white/10 backdrop-blur-3xl -z-0 opacity-50" aria-hidden="true"></div>
       </div>
     </FadeIn>
   </section>
