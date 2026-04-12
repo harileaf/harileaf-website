@@ -5,13 +5,13 @@
   "logo": "/images/brand/logo-color.png",
   "logoDark": "/images/brand/logo-white.png",
   "favicon": "/images/brand/icon-color.png",
-  "email": "hello@harileaf.agri",
-  "phone": "+65-8299-4400",
-  "address": "Level 24, Green Spire Plaza, Singapore 018982",
+  "email": "contact@harileaf.org",
+  "phone": "+91-9820966177",
+  "address": "Borivali Mumbai",
   "socialLinks": [
-    { "platform": "linkedin",  "url": "https://linkedin.com/company/harileaf" },
-    { "platform": "twitter",   "url": "https://twitter.com/harileaf" },
-    { "platform": "instagram", "url": "https://instagram.com/harileaf" }
+    { "platform": "linkedin",  "url": "https://linkedin.com/" },
+    { "platform": "twitter",   "url": "https://twitter.com" },
+    { "platform": "instagram", "url": "https://instagram.com/" }
   ],
   "defaultOgImage": "/images/brand/og-default.png"
 }

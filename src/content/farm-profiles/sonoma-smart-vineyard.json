@@ -1,11 +1,11 @@
 {
-  "name": "Sonoma Smart Vineyard",
-  "location": "California, USA",
+  "name": "Wada",
+  "location": "Palghar, MH",
   "heroImage": "/images/farms/sonoma-vineyard.jpg",
   "cropType": "Pinot Noir, Chardonnay Grapes",
-  "farmSize": "480 hectares — 6 distinct micro-terroir zones",
-  "challenge": "California's unpredictable drought cycles were forcing the vineyard to over-irrigate as a precaution, wasting up to 40% of applied water. Without granular soil data, vintners were making irrigation decisions blindly, resulting in inconsistent grape quality across the 6 micro-terroir zones and year-on-year yield variance of ±28%.",
-  "solution": "HariLeaf installed Soil-DNA Analytics sensors across all 6 zones, feeding real-time chemical composition data into HydroLogic Hub's predictive models. LeafSense AI Vision cameras mounted on end-of-row posts monitor canopy health, UV exposure, and early disease signatures. Data is unified in a single dashboard updated every 15 minutes.",
+  "farmSize": "42+ Acres — 6 distinct micro-terroir zones",
+  "challenge": "Palghar's unpredictable drought cycles were forcing the farm to over-irrigate as a precaution, wasting up to 40% of applied water. Without granular soil data, farmers were making irrigation decisions blindly, resulting in inconsistent produce quality across the 6 micro-terroir zones and year-on-year yield variance of ±28%.",
+  "solution": "HariLeaf installed Soil-DNA Analytics sensors across all  zones, feeding real-time chemical composition data into predictive models. LeafSense AI Vision cameras mounted on end-of-row posts monitor canopy health, UV exposure, and early disease signatures. Data is unified in a single dashboard updated every 15 minutes.",
   "results": [
     { "metric": "Water Saving", "value": "72%", "context": "reduction in total irrigation volume" },
     { "metric": "Yield Consistency", "value": "+31%", "context": "reduction in year-on-year variance" },
@@ -14,14 +14,14 @@
     { "metric": "UV Index", "value": "4.2 Low", "context": "current canopy exposure reading" },
     { "metric": "Last Rain", "value": "3d ago", "context": "from integrated weather station" }
   ],
-  "farmerQuote": "We went from guessing at irrigation to knowing exactly what each row of vines needs, hour by hour. Our water bill is down 72% and the grapes have never been more consistent.",
-  "farmerName": "Maria Castellanos",
-  "farmerRole": "Vineyard Director, Sonoma Smart Vineyard",
+  "farmerQuote": "We went from guessing at irrigation to knowing exactly what each row of vines needs, hour by hour. Our water bill is down 72% and the produce have never been more consistent.",
+  "farmerName": "Kishan singh",
+  "farmerRole": "Farm manager",
   "featured": true,
-  "publishedAt": "2024-05-22",
+  "publishedAt": "2025-12-22",
   "seo": {
-    "metaTitle": "Sonoma Smart Vineyard, California — HariLeaf Farm Profile",
-    "metaDescription": "Learn how Sonoma Smart Vineyard cut water use by 72% and improved yield consistency by 31% using HariLeaf's Soil-DNA Analytics and HydroLogic Hub.",
+    "metaTitle": "Wada palghar Maharshtra — HariLeaf Farm Profile",
+    "metaDescription": "Learn how Wada farmers Vineyard cut water use by 72% and improved yield consistency by 31% using HariLeaf's Soil-DNA Analytics.",
     "noIndex": false
   }
 }

@@ -7,8 +7,8 @@
     "description": "HariLeaf Agritech was born from a singular vision: to bridge the gap between ancient agricultural wisdom and the precision of modern technology.",
     "image": "/images/general/about-hero.png",
     "stat": {
-      "value": "12+",
-      "label": "Global Farming Patents"
+      "value": "10+",
+      "label": "Farms"
     }
   },
   "mission": {
@@ -30,7 +30,7 @@
     "description": "From a small garage workshop to a global leader in agritech, our path has been defined by relentless curiosity and a passion for the planet.",
     "entries": [
       {
-        "year": "2018",
+        "year": "2016",
         "title": "The Seed is Planted",
         "body": "HariLeaf was founded by a team of agronomists and software engineers who saw the potential for IoT in vertical farming. Our first prototype reduced energy consumption by 40%.",
         "image": "/images/about/2018-founding.jpg",

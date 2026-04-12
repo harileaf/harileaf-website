@@ -22,18 +22,18 @@
     "heading": "Reach Us Directly",
     "location": {
       "title": "Main Laboratory",
-      "line1": "Level 24, Green Spire Plaza",
-      "line2": "Sustainable District, Singapore 018982"
+      "line1": "Borivali",
+      "line2": "Mumbai"
     },
     "email": {
       "title": "Email",
-      "addresses": ["hello@harileaf.agri", "press@harileaf.agri"]
+      "addresses": ["contact@harileaf.org", "harileafagritech@gmail.com"]
     },
     "whatsapp": {
       "title": "WhatsApp",
-      "number": "+65 8299 4400",
+      "number": "+91 9820966177",
       "note": "Instant chat support available",
-      "link": "https://wa.me/6582994400"
+      "link": "https://wa.me/9820966177"
     }
   },
   "sustainabilityBanner": {
