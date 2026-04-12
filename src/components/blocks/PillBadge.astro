@@ -1,0 +1,50 @@
+---
+/**
+ * PillBadge — pill-shaped label used above hero headings on every page.
+ *
+ * From homepage design:
+ *   <div class="inline-flex items-center gap-2 px-3 py-1 bg-secondary-container
+ *     text-on-secondary-container rounded-full text-xs font-bold tracking-widest uppercase">
+ *     <span class="material-symbols-outlined text-sm" style="font-variation-settings:'FILL' 1;">eco</span>
+ *     Sustainable Innovation
+ *   </div>
+ *
+ * Props:
+ *   text      — badge label text (auto-uppercased by CSS)
+ *   icon      — Material Symbol name (optional)
+ *   iconFill  — whether to fill the icon (default: true)
+ *   bg        — Tailwind bg class (default: 'bg-secondary-container')
+ *   color     — Tailwind text class (default: 'text-on-secondary-container')
+ *   class     — extra classes
+ */
+interface Props {
+  text: string;
+  icon?: string;
+  iconFill?: boolean;
+  bg?: string;
+  color?: string;
+  class?: string;
+}
+
+const {
+  text,
+  icon,
+  iconFill = true,
+  bg = 'bg-secondary-container',
+  color = 'text-on-secondary-container',
+  class: className = '',
+} = Astro.props;
+
+const fillSetting = iconFill
+  ? "font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 20;"
+  : "font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;";
+---
+
+<div class:list={['inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold tracking-widest uppercase', bg, color, className]}>
+  {icon && (
+    <span class="material-symbols-outlined text-sm leading-none" style={fillSetting} aria-hidden="true">
+      {icon}
+    </span>
+  )}
+  {text}
+</div>

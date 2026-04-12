@@ -1,0 +1,31 @@
+---
+/**
+ * SectionLabel — small uppercase label that opens every section.
+ *
+ * From designs:
+ *   "THE DIGITAL GREENHOUSE" — text-primary
+ *   "PRECISION FIELD TECHNOLOGY" — text-secondary
+ *   "RESTORING THE EARTH" — text-tertiary
+ *   Inner page hero labels — text-white or text-primary
+ *
+ * Classes: text-xs font-bold uppercase tracking-widest (0.2em per contact design)
+ */
+interface Props {
+  text: string;
+  color?: 'primary' | 'secondary' | 'tertiary' | 'white';
+  class?: string;
+}
+
+const { text, color = 'primary', class: className = '' } = Astro.props;
+
+const colorClasses = {
+  primary:   'text-primary',
+  secondary: 'text-secondary',
+  tertiary:  'text-tertiary',
+  white:     'text-white',
+};
+---
+
+<span class:list={['block text-xs font-bold uppercase tracking-[0.2em]', colorClasses[color], className]}>
+  {text}
+</span>

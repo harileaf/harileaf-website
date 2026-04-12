@@ -1,0 +1,242 @@
+---
+export const prerender = true;
+import BaseLayout from '../layouts/BaseLayout.astro';
+import FadeIn from '../components/animations/FadeIn.astro';
+import SEO from '../components/seo/SEO.astro';
+import JsonLd from '../components/seo/JsonLd.astro';
+import siteJson from '../content/site-settings.json';
+
+const logoSrc  = siteJson.logo  ?? '/images/brand/logo-color.png';
+const siteName = siteJson.title ?? 'HariLeaf Agritech';
+const SITE_BASE = (Astro.site ?? new URL('https://harileaf.ag')).origin;
+
+const orgSchema = {
+  name: siteName,
+  url: SITE_BASE,
+  logo: { '@type': 'ImageObject', url: `${SITE_BASE}${logoSrc}` },
+  address: {
+    '@type': 'PostalAddress',
+    streetAddress: 'Level 24, Green Spire Plaza',
+    addressLocality: 'Singapore',
+    postalCode: '018982',
+    addressCountry: 'SG',
+  },
+  contactPoint: {
+    '@type': 'ContactPoint',
+    email: siteJson.email ?? 'hello@harileaf.agri',
+    contactType: 'customer support',
+  },
+  sameAs: (siteJson.socialLinks ?? []).map((s: { url: string }) => s.url),
+};
+---
+
+<BaseLayout noIndex={true}>
+  <Fragment slot="head">
+    <SEO
+      title="404: Seed Not Found | HariLeaf Agritech"
+      description="Our autonomous drones searched every hectare, but they couldn't find the page you're looking for."
+      noIndex={true}
+    />
+    <JsonLd type="Organization" data={orgSchema} />
+  </Fragment>
+
+  <div class="min-h-screen flex flex-col bg-surface">
+
+    <!-- ── Minimal Header ─────────────────────────────────────────────────── -->
+    <!-- Suppresses full nav per "Destination Rule" — 404 is a dead end -->
+    <header class="fixed top-0 w-full z-50 glass-nav">
+      <div class="flex justify-between items-center w-full px-8 py-6 max-w-screen-2xl mx-auto">
+        <a
+          href="/"
+          class="flex items-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:rounded-sm"
+        >
+          <img src={logoSrc} alt={siteName} class="h-8 w-auto" loading="eager" />
+          <span class="text-xl font-bold text-primary tracking-tight">{siteName}</span>
+        </a>
+        <span class="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+          System Status: Optimal
+        </span>
+      </div>
+    </header>
+
+    <!-- ── Main Content ───────────────────────────────────────────────────── -->
+    <main class="flex-grow flex items-center justify-center pt-24 pb-16 px-6">
+      <div class="max-w-6xl w-full grid grid-cols-1 md:grid-cols-12 gap-12 items-center">
+
+        <!-- LEFT: Content — appears below illustration on mobile -->
+        <FadeIn direction="left" class="md:col-span-6 flex flex-col items-start text-left space-y-8 order-2 md:order-1">
+
+          <!-- 404 + heading -->
+          <div class="space-y-3">
+            <!-- Gradient "404" — desktop -->
+            <span class="text-brand-gradient text-8xl font-extrabold tracking-tighter opacity-90 hidden md:block" aria-hidden="true">
+              404
+            </span>
+            <!-- Desktop heading -->
+            <h1 class="hidden md:block text-5xl font-extrabold text-on-surface leading-tight tracking-tight">
+              Oops! Looks like this field is <span class="text-primary">fallow.</span>
+            </h1>
+            <!-- Mobile combined heading -->
+            <h1 class="block md:hidden text-4xl font-extrabold text-on-surface leading-tight tracking-tight">
+              <span class="text-brand-gradient">404:</span> Lost in the Fields.
+            </h1>
+          </div>
+
+          <!-- Description -->
+          <p class="text-lg text-on-surface-variant font-medium leading-relaxed max-w-md">
+            <!-- Desktop description -->
+            <span class="hidden md:inline">
+              Our autonomous drones searched every hectare, but they couldn't find the page you're looking for. It might have been harvested early or moved to a new plot.
+            </span>
+            <!-- Mobile description -->
+            <span class="inline md:hidden">
+              We couldn't find this page. It's likely out standing in its field (literally).
+            </span>
+          </p>
+
+          <!-- CTA buttons -->
+          <div class="flex flex-col sm:flex-row flex-wrap gap-4 pt-4 w-full sm:w-auto">
+            <a
+              href="/"
+              class="brand-gradient text-on-primary font-bold px-8 py-4 rounded-full transition-transform hover:scale-105 active:scale-95 shadow-lg shadow-primary/10 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            >
+              <!-- Mobile label -->
+              <span class="block md:hidden">Return Home</span>
+              <!-- Desktop label -->
+              <span class="hidden md:block">Back to the Home Farm</span>
+            </a>
+            <a
+              href="/technology"
+              class="bg-surface-container-highest text-primary font-bold px-8 py-4 rounded-full transition-colors hover:bg-primary-container/20 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            >
+              <!-- Mobile label -->
+              <span class="block md:hidden">Contact Support</span>
+              <!-- Desktop label -->
+              <span class="hidden md:block">Check our Tech</span>
+            </a>
+          </div>
+
+          <!-- Text links row -->
+          <div class="pt-8 flex items-center gap-8">
+            <a
+              href="/solutions"
+              class="text-sm font-bold text-tertiary uppercase tracking-widest hover:text-primary transition-colors flex items-center gap-2"
+            >
+              <span class="material-symbols-outlined text-sm" aria-hidden="true">agriculture</span>
+              <span class="hidden md:inline">View our Solutions</span>
+              <span class="inline md:hidden">View Crops</span>
+            </a>
+            <a
+              href="/contact"
+              class="text-sm font-bold text-tertiary uppercase tracking-widest hover:text-primary transition-colors flex items-center gap-2"
+            >
+              <span class="material-symbols-outlined text-sm" aria-hidden="true">support_agent</span>
+              <span class="hidden md:inline">Contact Support</span>
+              <span class="inline md:hidden">Analytics</span>
+            </a>
+          </div>
+
+        </FadeIn>
+
+        <!-- RIGHT: Illustration — appears first on mobile -->
+        <FadeIn direction="right" delay={150} class="md:col-span-6 relative order-1 md:order-2">
+
+          <!-- Main image card -->
+          <div class="relative z-10 p-4 bg-surface-container-low rounded-xl shadow-ambient">
+            <div class="overflow-hidden rounded-lg aspect-square bg-surface-container-lowest flex items-center justify-center">
+              <!-- Farm illustration placeholder — tractor lost in the field -->
+              <div class="w-full h-full relative overflow-hidden bg-gradient-to-b from-[#c8eaf5] via-[#d4eedb] to-[#c8dba4] flex items-end justify-center">
+                <!-- Sky layer -->
+                <div class="absolute inset-0 bg-gradient-to-b from-[#b8def5]/80 via-transparent to-transparent"></div>
+                <!-- Field rows — depth illusion -->
+                <div class="absolute bottom-0 left-0 right-0 h-2/3 bg-gradient-to-t from-[#7fc8ba]/50 via-[#9fb17d]/30 to-transparent"></div>
+                <!-- Crop row lines -->
+                <div class="absolute bottom-0 left-0 right-0 flex flex-col justify-end gap-0 overflow-hidden" style="height: 55%">
+                  {Array.from({length: 9}).map((_, i) => (
+                    <div
+                      class="border-t border-[#196a5e]/10"
+                      style={`height: ${6 + i * 2}px; opacity: ${0.3 + i * 0.08}`}
+                    />
+                  ))}
+                </div>
+                <!-- Central tractor icon -->
+                <div class="relative z-10 flex flex-col items-center mb-8 gap-2">
+                  <span
+                    class="material-symbols-outlined text-primary/70 select-none"
+                    style="font-size: 6rem; font-variation-settings: 'FILL' 1"
+                    aria-hidden="true"
+                  >agriculture</span>
+                  <!-- Question mark bubble -->
+                  <div class="bg-white/80 rounded-full px-3 py-1 shadow-card flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-error animate-pulse"></span>
+                    <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">GPS Lost</span>
+                  </div>
+                </div>
+                <!-- Ground foliage icons -->
+                <div class="absolute bottom-4 left-0 right-0 flex justify-center gap-3 opacity-50">
+                  {Array.from({length: 5}).map(() => (
+                    <span
+                      class="material-symbols-outlined text-secondary/60"
+                      style="font-size: 1.5rem; font-variation-settings: 'FILL' 1"
+                      aria-hidden="true"
+                    >grass</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Floating chip: Drone Status (top-right) -->
+          <div class="absolute -top-6 -right-6 bg-surface-container-highest p-4 rounded-lg shadow-xl flex items-center gap-3 z-20">
+            <div class="p-2 bg-error-container rounded-full flex-shrink-0">
+              <span
+                class="material-symbols-outlined text-error"
+                style="font-size: 1.25rem; font-variation-settings: 'FILL' 1"
+                aria-hidden="true"
+              >error</span>
+            </div>
+            <div>
+              <p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Drone Status</p>
+              <p class="text-sm font-bold text-on-surface">GPS Signal Lost</p>
+            </div>
+          </div>
+
+          <!-- Floating chip: Sensor Data (bottom-left) -->
+          <div class="absolute -bottom-4 -left-8 bg-surface-container-lowest p-5 rounded-lg shadow-float z-20 max-w-[200px]">
+            <div class="flex items-center gap-2 mb-2">
+              <div class="w-2 h-2 rounded-full bg-primary flex-shrink-0"></div>
+              <p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Sensor Data</p>
+            </div>
+            <p class="text-xs font-medium text-tertiary leading-snug">
+              Seed missing in Sector 7G. Re-routing harvester to base camp...
+            </p>
+          </div>
+
+          <!-- Decorative ambient blurs -->
+          <div class="absolute top-1/2 -right-12 w-24 h-24 brand-gradient opacity-10 rounded-full blur-3xl pointer-events-none" aria-hidden="true"></div>
+          <div class="absolute bottom-0 -left-12 w-48 h-48 bg-primary-container opacity-20 rounded-full blur-3xl pointer-events-none" aria-hidden="true"></div>
+
+        </FadeIn>
+
+      </div>
+    </main>
+
+    <!-- ── Minimal Footer ─────────────────────────────────────────────────── -->
+    <!-- Light footer — NOT the dark emerald site footer (dead-end destination) -->
+    <footer class="w-full mt-auto py-12 bg-surface-container-low">
+      <div class="flex flex-col md:flex-row justify-between items-center px-12 gap-6 max-w-screen-2xl mx-auto">
+        <span class="text-xs uppercase tracking-widest text-secondary">
+          &copy; 2024 HariLeaf Agritech. Rooted in Innovation.
+        </span>
+        <div class="flex flex-wrap justify-center gap-8">
+          <a href="/privacy"  class="text-xs uppercase tracking-widest text-tertiary hover:text-primary underline underline-offset-4 transition-colors">Privacy Policy</a>
+          <a href="/terms"    class="text-xs uppercase tracking-widest text-tertiary hover:text-primary underline underline-offset-4 transition-colors">Terms of Service</a>
+          <a href="/contact"  class="text-xs uppercase tracking-widest text-tertiary hover:text-primary underline underline-offset-4 transition-colors">Contact Support</a>
+          <a href="/status"   class="text-xs uppercase tracking-widest text-tertiary hover:text-primary underline underline-offset-4 transition-colors">Status</a>
+        </div>
+      </div>
+    </footer>
+
+  </div>
+
+</BaseLayout>

@@ -1,0 +1,104 @@
+---
+/**
+ * SEO — single source of truth for all page meta tags.
+ *
+ * Place inside BaseLayout's <head> slot on every page:
+ *   <SEO slot="head" title="Technology" description="..." />
+ *
+ * Title behaviour:
+ *   - If title already contains "HariLeaf", it is used verbatim.
+ *   - Otherwise " | HariLeaf Agritech" is appended automatically.
+ *   - Homepage passes the full brand-first title so no suffix is added.
+ *
+ * Canonical URL:
+ *   - Auto-derived from Astro.url + Astro.site.
+ *   - Pass canonicalUrl to override (e.g. paginated pages).
+ *
+ * OG Image:
+ *   - Pass ogImage (root-relative or absolute URL).
+ *   - Falls back to /images/brand/og-default.png from site-settings.
+ *
+ * Props:
+ *   title        — page title (raw or fully formatted)
+ *   description  — meta description (auto-truncated to 160 chars)
+ *   ogImage      — OG/Twitter image URL (absolute preferred)
+ *   canonicalUrl — override canonical URL
+ *   noIndex      — add noindex, nofollow
+ *   ogType       — OG type (default: 'website')
+ *   twitterCard  — Twitter card type (default: 'summary_large_image')
+ */
+import siteJson from '../../content/site-settings.json';
+
+interface Props {
+  title?: string;
+  description?: string;
+  ogImage?: string | URL;
+  canonicalUrl?: string | URL;
+  noIndex?: boolean;
+  ogType?: string;
+  twitterCard?: 'summary' | 'summary_large_image';
+}
+
+const {
+  title,
+  description,
+  ogImage,
+  canonicalUrl,
+  noIndex = false,
+  ogType = 'website',
+  twitterCard = 'summary_large_image',
+} = Astro.props;
+
+// ── Site defaults from CMS ────────────────────────────────────────────────────
+const SITE_NAME    = siteJson.title       ?? 'HariLeaf Agritech';
+const SITE_DESC    = siteJson.description ?? 'Sustainable intelligence for the modern grower.';
+const DEFAULT_OG   = siteJson.defaultOgImage ?? '/images/brand/og-default.png';
+const SITE_BASE    = (Astro.site ?? new URL('https://harileaf.ag')).origin;
+
+// ── Title — append suffix if brand name not already present ──────────────────
+const rawTitle = title ?? SITE_NAME;
+const pageTitle = rawTitle.includes('HariLeaf')
+  ? rawTitle
+  : `${rawTitle} | ${SITE_NAME}`;
+
+// ── Description — truncate to 160 chars ──────────────────────────────────────
+const rawDesc   = description ?? SITE_DESC;
+const pageDesc  = rawDesc.length > 160
+  ? rawDesc.slice(0, 157).trimEnd() + '…'
+  : rawDesc;
+
+// ── Canonical URL ─────────────────────────────────────────────────────────────
+const canonical = canonicalUrl
+  ? String(canonicalUrl)
+  : String(new URL(Astro.url.pathname, SITE_BASE));
+
+// ── OG Image — must be absolute URL ──────────────────────────────────────────
+const resolveImage = (img: string | URL | undefined): string => {
+  if (!img) return `${SITE_BASE}${DEFAULT_OG}`;
+  const s = String(img);
+  return s.startsWith('http') ? s : `${SITE_BASE}${s}`;
+};
+const ogImageUrl = resolveImage(ogImage);
+---
+
+<!-- Primary -->
+<title>{pageTitle}</title>
+<meta name="description" content={pageDesc} />
+<link rel="canonical" href={canonical} />
+{noIndex && <meta name="robots" content="noindex, nofollow" />}
+
+<!-- Open Graph -->
+<meta property="og:type"        content={ogType} />
+<meta property="og:title"       content={pageTitle} />
+<meta property="og:description" content={pageDesc} />
+<meta property="og:url"         content={canonical} />
+<meta property="og:image"       content={ogImageUrl} />
+<meta property="og:image:width"  content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:site_name"   content={SITE_NAME} />
+
+<!-- Twitter / X Card -->
+<meta name="twitter:card"        content={twitterCard} />
+<meta name="twitter:title"       content={pageTitle} />
+<meta name="twitter:description" content={pageDesc} />
+<meta name="twitter:image"       content={ogImageUrl} />

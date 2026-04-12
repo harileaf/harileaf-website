@@ -1,0 +1,97 @@
+---
+/**
+ * CountUp — number that animates from 0 to target when scrolled into view.
+ *
+ * Fires once via IntersectionObserver. Uses ease-out quadratic easing
+ * for natural deceleration. Formats with commas; auto-abbreviates large
+ * numbers (≥1,000,000 → M, ≥1,000 → k) when the raw display would be
+ * unwieldy — unless the suffix already implies a unit.
+ *
+ * Props:
+ *   value    — target number
+ *   prefix   — rendered before the number (e.g. "$")
+ *   suffix   — rendered after the number (e.g. "+", "%", "M", "Gallons/Yr")
+ *   duration — animation duration in ms (default 2000)
+ *   decimals — decimal places (default 0)
+ *   class    — extra classes on the wrapper span
+ */
+interface Props {
+  value: number;
+  prefix?: string;
+  suffix?: string;
+  duration?: number;
+  decimals?: number;
+  class?: string;
+}
+
+const {
+  value,
+  prefix = '',
+  suffix = '',
+  duration = 2000,
+  decimals = 0,
+  class: className = '',
+} = Astro.props;
+
+// Static fallback rendered server-side (shown until JS fires)
+const formatted = value.toLocaleString('en-US', { maximumFractionDigits: decimals });
+const uid = `cu-${Math.random().toString(36).slice(2, 8)}`;
+---
+
+<span
+  id={uid}
+  class:list={['tabular-nums', className]}
+  aria-label={`${prefix}${formatted}${suffix}`}
+>
+  {prefix}<span data-count-target={value} data-count-decimals={decimals}>{formatted}</span>{suffix}
+</span>
+
+<script define:vars={{ uid, value, prefix, suffix, duration, decimals }}>
+  (function () {
+    const wrapper = document.getElementById(uid);
+    if (!wrapper) return;
+    const display = wrapper.querySelector('[data-count-target]');
+    if (!display) return;
+
+    let started = false;
+
+    // Ease-out quadratic: decelerates to a smooth stop
+    function easeOut(t) { return 1 - (1 - t) * (1 - t); }
+
+    function format(n) {
+      return n.toLocaleString('en-US', { maximumFractionDigits: decimals, minimumFractionDigits: decimals });
+    }
+
+    function run() {
+      if (started) return;
+      started = true;
+      const start = performance.now();
+      function tick(now) {
+        const elapsed = now - start;
+        const progress = Math.min(elapsed / duration, 1);
+        const current = easeOut(progress) * value;
+        display.textContent = format(current);
+        if (progress < 1) requestAnimationFrame(tick);
+        else display.textContent = format(value);
+      }
+      requestAnimationFrame(tick);
+    }
+
+    // Respect prefers-reduced-motion: snap to final value immediately
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      display.textContent = format(value);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          run();
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.3 }
+    );
+    observer.observe(wrapper);
+  })();
+</script>

@@ -1,0 +1,314 @@
+---
+export const prerender = true;
+import SiteLayout from '../layouts/SiteLayout.astro';
+import FadeIn from '../components/animations/FadeIn.astro';
+import CountUp from '../components/animations/CountUp.astro';
+import SEO from '../components/seo/SEO.astro';
+import JsonLd from '../components/seo/JsonLd.astro';
+
+const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://harileaf.ag');
+const pageTitle = 'Technology | HariLeaf Agritech — The Digital Greenhouse';
+const pageDesc  = "Synthesizing organic growth with computational precision. Our infrastructure doesn't just monitor nature; it accelerates its potential through a closed-loop ecosystem of AI and hardware.";
+---
+
+<SiteLayout title={pageTitle} description={pageDesc}>
+  <slot name="head" slot="head">
+    <SEO title={pageTitle} description={pageDesc} canonicalUrl={canonicalURL} />
+    <JsonLd
+      type="BreadcrumbList"
+      data={{
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Home',       item: 'https://harileaf.ag/' },
+          { '@type': 'ListItem', position: 2, name: 'Technology', item: 'https://harileaf.ag/technology' },
+        ],
+      }}
+    />
+  </slot>
+
+  <!-- ═══════════════════════════════════════════════════
+       SECTION 1 — HERO
+       ═══════════════════════════════════════════════════ -->
+  <section class="relative px-8 pt-20 pb-32 overflow-hidden">
+    <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+
+      <!-- Left column -->
+      <div class="lg:col-span-7 z-10">
+        <FadeIn>
+          <span class="inline-block px-4 py-1.5 rounded-full bg-secondary-container text-on-secondary-container text-xs font-bold tracking-widest uppercase mb-6">
+            Precision Engineering
+          </span>
+        </FadeIn>
+        <FadeIn delay={100}>
+          <h1 class="text-6xl md:text-7xl font-extrabold tracking-tighter text-on-surface leading-[1.1] mb-8">
+            The Digital <br/><span class="text-primary italic">Greenhouse.</span>
+          </h1>
+        </FadeIn>
+        <FadeIn delay={200}>
+          <p class="text-xl text-on-surface-variant max-w-xl leading-relaxed mb-10">
+            Synthesizing organic growth with computational precision. Our infrastructure doesn't just monitor nature; it accelerates its potential through a closed-loop ecosystem of AI and hardware.
+          </p>
+        </FadeIn>
+        <FadeIn delay={300}>
+          <a
+            href="#core-ecosystem"
+            class="brand-gradient text-on-primary px-8 py-4 rounded-full font-bold flex items-center gap-2 w-fit hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          >
+            Explore Infrastructure
+            <span class="material-symbols-outlined" aria-hidden="true">arrow_downward</span>
+          </a>
+        </FadeIn>
+      </div>
+
+      <!-- Right column -->
+      <FadeIn direction="right" class="lg:col-span-5 relative">
+        <div class="aspect-square rounded-[2rem] overflow-hidden shadow-2xl relative">
+          <img
+            src="/images/general/digital-greenhouse.jpg"
+            alt="Futuristic vertical greenhouse with glowing LED arrays and hydroponic systems"
+            class="w-full h-full object-cover"
+            loading="eager"
+          />
+          <div class="absolute inset-0 bg-gradient-to-t from-primary/40 to-transparent"></div>
+        </div>
+        <!-- Floating data chip -->
+        <div class="absolute -bottom-6 -left-6 bg-surface-container-lowest p-6 rounded-xl shadow-xl flex items-center gap-4">
+          <div class="h-12 w-12 rounded-full bg-primary-container/20 flex items-center justify-center">
+            <span class="material-symbols-outlined text-primary" aria-hidden="true">hub</span>
+          </div>
+          <div>
+            <div class="text-2xl font-bold text-on-surface">99.8%</div>
+            <div class="text-xs font-bold text-on-surface-variant tracking-wider uppercase">System Uptime</div>
+          </div>
+        </div>
+      </FadeIn>
+
+    </div>
+    <!-- Decorative background bloom -->
+    <div class="absolute top-0 right-0 -z-10 w-1/2 h-full brand-gradient opacity-10 blur-[120px] rounded-full translate-x-1/2" aria-hidden="true"></div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       SECTION 2 — CORE ECOSYSTEM (Asymmetric Bento Grid)
+       ═══════════════════════════════════════════════════ -->
+  <section id="core-ecosystem" class="bg-surface-container-low py-32 px-8">
+    <div class="max-w-7xl mx-auto">
+
+      <FadeIn>
+        <div class="flex flex-col md:flex-row justify-between items-end mb-20 gap-8">
+          <div class="max-w-2xl">
+            <h2 class="text-4xl font-bold tracking-tight mb-4">Core Ecosystem</h2>
+            <p class="text-on-surface-variant text-lg">Our technology stack is a symbiotic layer designed to harmonize the soil, the atmosphere, and the data stream.</p>
+          </div>
+          <div class="flex gap-4 shrink-0" aria-hidden="true">
+            <div class="h-1 w-24 bg-primary rounded-full"></div>
+            <div class="h-1 w-8 bg-outline-variant rounded-full"></div>
+            <div class="h-1 w-8 bg-outline-variant rounded-full"></div>
+          </div>
+        </div>
+      </FadeIn>
+
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-8">
+
+        <!-- Card 1: Hyper-Local Sensor Mesh (8-col) -->
+        <FadeIn class="md:col-span-8">
+          <div class="bg-surface-container-lowest rounded-xl p-10 flex flex-col justify-between overflow-hidden relative group h-full">
+            <div class="max-w-md z-10">
+              <span class="material-symbols-outlined text-4xl text-primary mb-6 block" aria-hidden="true">sensors</span>
+              <h3 class="text-2xl font-bold mb-4">Hyper-Local Sensor Mesh</h3>
+              <p class="text-on-surface-variant mb-8">
+                Deploying thousands of nanometer-scale probes that track soil moisture, pH, and nitrogen levels at the root-tip level. Real-time telemetry delivered every 400ms.
+              </p>
+              <ul class="space-y-3">
+                <li class="flex items-center gap-3 text-sm font-semibold">
+                  <span class="material-symbols-outlined text-secondary" style="font-variation-settings:'FILL' 1" aria-hidden="true">check_circle</span>
+                  Carbon Sequestration Tracking
+                </li>
+                <li class="flex items-center gap-3 text-sm font-semibold">
+                  <span class="material-symbols-outlined text-secondary" style="font-variation-settings:'FILL' 1" aria-hidden="true">check_circle</span>
+                  Multi-Spectrum Light Analysis
+                </li>
+              </ul>
+            </div>
+            <div
+              class="absolute top-0 right-0 h-full w-1/3 bg-cover opacity-20 group-hover:opacity-40 transition-opacity duration-500"
+              style="background-image: url('/images/general/sensor-mesh.jpg');"
+              aria-hidden="true"
+            ></div>
+          </div>
+        </FadeIn>
+
+        <!-- Card 2: Neural Growth Engine (4-col) -->
+        <FadeIn delay={100} class="md:col-span-4">
+          <div class="bg-primary text-on-primary rounded-xl p-10 flex flex-col justify-end h-full">
+            <div class="mb-12">
+              <span class="material-symbols-outlined text-5xl" aria-hidden="true">psychology</span>
+            </div>
+            <h3 class="text-2xl font-bold mb-4">Neural Growth Engine</h3>
+            <p class="text-primary-container text-sm leading-relaxed">
+              Edge-AI processors that calculate predictive harvest cycles with 94% accuracy, adjusting irrigation in real-time based on upcoming weather patterns.
+            </p>
+          </div>
+        </FadeIn>
+
+        <!-- Card 3: Aero-Surveillance (4-col) -->
+        <FadeIn class="md:col-span-4">
+          <div class="bg-surface-container-highest rounded-xl p-10 flex flex-col h-full">
+            <span class="material-symbols-outlined text-4xl text-secondary mb-6" aria-hidden="true">air</span>
+            <h3 class="text-2xl font-bold mb-4">Aero-Surveillance</h3>
+            <p class="text-on-surface-variant mb-6">
+              Fully autonomous drone fleets equipped with LiDAR and multispectral cameras to identify crop stress before it's visible to the human eye.
+            </p>
+            <div class="mt-auto pt-8 border-t border-outline-variant/30">
+              <div class="flex items-center gap-2">
+                <span class="h-2 w-2 rounded-full bg-secondary" aria-hidden="true"></span>
+                <span class="text-xs font-bold uppercase tracking-widest text-secondary">Active Deployment</span>
+              </div>
+            </div>
+          </div>
+        </FadeIn>
+
+        <!-- Card 4: The HariLake Platform (8-col) -->
+        <FadeIn delay={100} class="md:col-span-8">
+          <div class="bg-surface-container-lowest rounded-xl flex flex-col md:flex-row overflow-hidden h-full">
+            <div class="p-10 flex-1">
+              <h3 class="text-2xl font-bold mb-4">The HariLake Platform</h3>
+              <p class="text-on-surface-variant mb-8">
+                A centralized dashboard for global farm management. Scale from one hectare to thousands with a single unified interface.
+              </p>
+              <a href="/solutions" class="text-primary font-bold flex items-center gap-2 group/link">
+                View Data Architecture
+                <span class="material-symbols-outlined group-hover/link:translate-x-1 transition-transform" aria-hidden="true">chevron_right</span>
+              </a>
+            </div>
+            <div class="w-full md:w-1/2 bg-surface-container h-64 md:h-auto relative overflow-hidden">
+              <img
+                src="/images/general/harilake-dashboard.jpg"
+                alt="HariLake agricultural data dashboard with heatmaps and terrain models"
+                class="w-full h-full object-cover"
+                loading="lazy"
+              />
+            </div>
+          </div>
+        </FadeIn>
+
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       SECTION 3 — DRONE-LED REMEDIATION
+       ═══════════════════════════════════════════════════ -->
+  <section class="py-32 px-8 bg-surface">
+    <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-24 items-center">
+
+      <!-- Left: image -->
+      <FadeIn direction="left" class="relative order-2 lg:order-1">
+        <div class="relative z-10 rounded-2xl overflow-hidden shadow-2xl">
+          <img
+            src="/images/general/drone-field.jpg"
+            alt="Agricultural drone hovering over a field at sunrise"
+            class="w-full aspect-[4/5] object-cover"
+            loading="lazy"
+          />
+        </div>
+        <div class="absolute -top-12 -right-12 w-64 h-64 brand-gradient opacity-20 blur-3xl -z-10 rounded-full" aria-hidden="true"></div>
+      </FadeIn>
+
+      <!-- Right: features -->
+      <FadeIn direction="right" class="order-1 lg:order-2">
+        <h2 class="text-4xl font-bold tracking-tight mb-8">Drone-Led Remediation</h2>
+        <div class="space-y-12">
+          {[
+            {
+              icon: 'location_searching',
+              title: 'Spot-Application Technology',
+              body: 'Our drones reduce chemical usage by up to 90% by applying nutrients and protection only where specifically needed, identified by AI.',
+            },
+            {
+              icon: 'auto_mode',
+              title: 'Swarm Intelligence',
+              body: 'Fleet-wide coordination allows dozens of units to cover large areas simultaneously, sharing data to optimize flight paths and battery life.',
+            },
+            {
+              icon: 'battery_charging_full',
+              title: 'Self-Sustaining Docks',
+              body: 'Solar-powered base stations allow for 24/7 operations without human intervention, ensuring constant monitoring of sensitive crops.',
+            },
+          ].map((item) => (
+            <div class="flex gap-6">
+              <div class="shrink-0 h-14 w-14 rounded-full bg-surface-container-high flex items-center justify-center">
+                <span class="material-symbols-outlined text-primary" aria-hidden="true">{item.icon}</span>
+              </div>
+              <div>
+                <h4 class="text-xl font-bold mb-2">{item.title}</h4>
+                <p class="text-on-surface-variant">{item.body}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </FadeIn>
+
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       SECTION 4 — METRICS / STATS BAR
+       ═══════════════════════════════════════════════════ -->
+  <section class="py-24 px-8 border-y border-outline-variant/10">
+    <div class="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-12">
+      {[
+        { value: 40,  decimals: 0, suffix: '%',  label: 'Water Reduction'   },
+        { value: 2.5, decimals: 1, suffix: 'x',  label: 'Yield Increase'    },
+        { value: 0,   decimals: 0, suffix: '%',  label: 'Soil Runoff'       },
+        { value: 12,  decimals: 0, suffix: 'ms', label: 'Latency Response'  },
+      ].map((stat) => (
+        <div class="text-center">
+          <CountUp
+            value={stat.value}
+            suffix={stat.suffix}
+            decimals={stat.decimals}
+            class="text-5xl font-extrabold text-primary mb-2 block"
+          />
+          <div class="text-xs font-bold uppercase tracking-[0.2em] text-on-surface-variant">{stat.label}</div>
+        </div>
+      ))}
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       SECTION 5 — CTA (Gradient Banner)
+       ═══════════════════════════════════════════════════ -->
+  <section class="py-32 px-8">
+    <FadeIn>
+      <div class="max-w-5xl mx-auto brand-gradient rounded-3xl p-16 text-center text-on-primary shadow-2xl relative overflow-hidden">
+        <div class="relative z-10">
+          <h2 class="text-5xl font-bold tracking-tight mb-8">Ready to evolve your harvest?</h2>
+          <p class="text-xl opacity-90 max-w-2xl mx-auto mb-12">
+            Join the global network of farms utilizing the HariLeaf ecosystem to build a more resilient food future.
+          </p>
+          <div class="flex flex-col sm:flex-row justify-center gap-6">
+            <a
+              href="/contact"
+              class="bg-on-primary text-primary px-10 py-5 rounded-full font-extrabold shadow-lg hover:scale-105 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+            >
+              Get Started Today
+            </a>
+            <a
+              href="/contact?interest=demo"
+              class="border-2 border-on-primary text-on-primary px-10 py-5 rounded-full font-extrabold hover:bg-on-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+            >
+              Request a Demo
+            </a>
+          </div>
+        </div>
+        <!-- Decorative glass overlay -->
+        <div class="absolute top-0 left-0 w-full h-full bg-white/10 backdrop-blur-3xl -z-0 opacity-50" aria-hidden="true"></div>
+      </div>
+    </FadeIn>
+  </section>
+
+</SiteLayout>

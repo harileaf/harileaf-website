@@ -1,0 +1,322 @@
+---
+export const prerender = true;
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import FadeIn from '../../components/animations/FadeIn.astro';
+import StaggerChildren from '../../components/animations/StaggerChildren.astro';
+import SEO from '../../components/seo/SEO.astro';
+import JsonLd from '../../components/seo/JsonLd.astro';
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+interface FarmResult {
+  metric: string;
+  value: string;
+  context?: string;
+}
+
+interface FarmSeo {
+  metaTitle?: string;
+  metaDescription?: string;
+  noIndex?: boolean;
+}
+
+interface Farm {
+  name: string;
+  location: string;
+  heroImage?: string;
+  cropType?: string;
+  farmSize?: string;
+  challenge: string;
+  solution: string;
+  results: FarmResult[];
+  farmerQuote?: string;
+  farmerName?: string;
+  farmerRole?: string;
+  featured?: boolean;
+  publishedAt?: string;
+  seo?: FarmSeo;
+}
+
+// ── Static paths — one per farm profile JSON ──────────────────────────────────
+export async function getStaticPaths() {
+  const modules = import.meta.glob<Record<string, unknown>>(
+    '../../content/farm-profiles/*.json',
+    { eager: true }
+  );
+  return Object.entries(modules).map(([path, mod]) => {
+    const slug = path.split('/').pop()!.replace('.json', '');
+    // Vite JSON modules expose the object as the default export
+    const farm = (mod.default ?? mod) as Farm;
+    return { params: { slug }, props: { farm, slug } };
+  });
+}
+
+const { farm } = Astro.props as { farm: Farm; slug: string };
+
+// ── Page meta ─────────────────────────────────────────────────────────────────
+const siteBase = Astro.site ?? 'https://harileaf.ag';
+const canonicalURL = new URL(Astro.url.pathname, siteBase);
+const pageTitle  = farm.seo?.metaTitle  ?? `${farm.name} | HariLeaf Agritech`;
+const pageDesc   = farm.seo?.metaDescription ?? `${farm.name} — ${farm.location}. ${farm.challenge.slice(0, 140)}`;
+const heroImg    = farm.heroImage ?? '/images/general/about-hero.jpg';
+
+// Split results: first 3 are primary impact metrics, rest are telemetry/detail stats
+const primaryResults   = farm.results.slice(0, 3);
+const telemetryResults = farm.results.slice(3);
+
+// ── JSON-LD ───────────────────────────────────────────────────────────────────
+const breadcrumbSchema = {
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Home',      item: `${siteBase}/` },
+    { '@type': 'ListItem', position: 2, name: 'Solutions', item: `${siteBase}/solutions` },
+    { '@type': 'ListItem', position: 3, name: farm.name,   item: String(canonicalURL) },
+  ],
+};
+---
+
+<SiteLayout title={pageTitle} description={pageDesc}>
+  <slot name="head" slot="head">
+    <SEO
+      title={pageTitle}
+      description={pageDesc}
+      canonicalUrl={canonicalURL}
+      noIndex={farm.seo?.noIndex ?? false}
+      ogImage={heroImg.startsWith('/') ? `${siteBase}${heroImg}` : heroImg}
+    />
+    <JsonLd type="BreadcrumbList" data={breadcrumbSchema} />
+  </slot>
+
+  <!-- ═══════════════════════════════════════════════════
+       HERO
+       ═══════════════════════════════════════════════════ -->
+  <section class="relative pt-32 pb-0 overflow-hidden bg-surface-container-low">
+
+    <!-- Breadcrumb -->
+    <FadeIn>
+      <nav class="max-w-7xl mx-auto px-6 mb-8" aria-label="Breadcrumb">
+        <ol class="flex items-center gap-2 text-sm text-on-surface-variant">
+          <li><a href="/" class="hover:text-primary transition-colors">Home</a></li>
+          <li aria-hidden="true"><span class="material-symbols-outlined text-xs">chevron_right</span></li>
+          <li><a href="/solutions" class="hover:text-primary transition-colors">Solutions</a></li>
+          <li aria-hidden="true"><span class="material-symbols-outlined text-xs">chevron_right</span></li>
+          <li class="text-on-surface font-semibold truncate max-w-[200px]">{farm.name}</li>
+        </ol>
+      </nav>
+    </FadeIn>
+
+    <div class="max-w-7xl mx-auto px-6 pb-16 grid grid-cols-1 lg:grid-cols-12 gap-12 items-end">
+
+      <!-- Text -->
+      <div class="lg:col-span-7">
+        <FadeIn>
+          <div class="flex items-center gap-3 mb-6">
+            <span class="flex items-center gap-1.5 px-3 py-1 bg-on-surface text-white rounded-full text-[10px] font-bold uppercase tracking-widest">
+              <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse" aria-hidden="true"></span>
+              Live Telemetry
+            </span>
+            {farm.cropType && (
+              <span class="px-3 py-1 bg-secondary-container text-on-secondary-container rounded-full text-xs font-bold uppercase tracking-tighter">
+                {farm.cropType}
+              </span>
+            )}
+          </div>
+        </FadeIn>
+        <FadeIn delay={100}>
+          <h1 class="text-5xl lg:text-6xl font-extrabold text-on-surface leading-[1.1] mb-4 tracking-tighter">
+            {farm.name}
+          </h1>
+        </FadeIn>
+        <FadeIn delay={150}>
+          <p class="text-on-surface-variant flex items-center gap-1.5 text-lg mb-6">
+            <span class="material-symbols-outlined text-base" aria-hidden="true">location_on</span>
+            {farm.location}
+          </p>
+        </FadeIn>
+        {farm.farmSize && (
+          <FadeIn delay={200}>
+            <p class="text-on-surface-variant text-base mb-8">
+              <span class="font-semibold text-on-surface">Scale:</span> {farm.farmSize}
+            </p>
+          </FadeIn>
+        )}
+
+        <!-- Primary impact metrics -->
+        {primaryResults.length > 0 && (
+          <FadeIn delay={250}>
+            <div class="grid grid-cols-3 gap-4">
+              {primaryResults.map((r) => (
+                <div class="bg-surface-container-lowest rounded-xl p-4">
+                  <span class="text-[10px] font-bold text-outline uppercase tracking-widest block mb-1">{r.metric}</span>
+                  <p class="text-2xl font-extrabold text-primary leading-none">{r.value}</p>
+                  {r.context && <p class="text-xs text-on-surface-variant mt-1">{r.context}</p>}
+                </div>
+              ))}
+            </div>
+          </FadeIn>
+        )}
+      </div>
+
+      <!-- Hero image -->
+      <FadeIn direction="right" class="lg:col-span-5">
+        <div class="rounded-xl overflow-hidden aspect-[4/3] brand-gradient p-1 shadow-2xl">
+          <img
+            src={heroImg}
+            alt={`${farm.name} — ${farm.location}`}
+            class="w-full h-full object-cover rounded-lg"
+            loading="eager"
+          />
+        </div>
+      </FadeIn>
+
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       CHALLENGE → SOLUTION → RESULTS
+       ═══════════════════════════════════════════════════ -->
+  <section class="py-24 bg-surface">
+    <div class="max-w-7xl mx-auto px-6">
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 mb-24">
+
+        <!-- Challenge -->
+        <FadeIn>
+          <div>
+            <div class="flex items-center gap-3 mb-6">
+              <div class="w-10 h-10 rounded-full bg-error-container flex items-center justify-center shrink-0">
+                <span class="material-symbols-outlined text-error text-xl" aria-hidden="true">warning</span>
+              </div>
+              <h2 class="text-2xl font-extrabold tracking-tighter">The Challenge</h2>
+            </div>
+            <p class="text-on-surface-variant text-lg leading-relaxed">{farm.challenge}</p>
+          </div>
+        </FadeIn>
+
+        <!-- Solution -->
+        <FadeIn delay={100}>
+          <div>
+            <div class="flex items-center gap-3 mb-6">
+              <div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center shrink-0">
+                <span class="material-symbols-outlined text-secondary text-xl" aria-hidden="true">lightbulb</span>
+              </div>
+              <h2 class="text-2xl font-extrabold tracking-tighter">The Solution</h2>
+            </div>
+            <p class="text-on-surface-variant text-lg leading-relaxed">{farm.solution}</p>
+          </div>
+        </FadeIn>
+
+      </div>
+
+      <!-- Results grid -->
+      <FadeIn>
+        <div class="mb-12">
+          <h2 class="text-3xl font-extrabold tracking-tighter mb-2">Results</h2>
+          <p class="text-on-surface-variant">Measurable outcomes since deploying HariLeaf technology.</p>
+        </div>
+      </FadeIn>
+
+      <StaggerChildren class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {farm.results.map((r) => (
+          <div class="bg-surface-container-low rounded-xl p-6">
+            <span class="text-[10px] font-bold text-outline uppercase tracking-widest block mb-2">{r.metric}</span>
+            <p class="text-3xl font-extrabold text-primary leading-none mb-2">{r.value}</p>
+            {r.context && <p class="text-xs text-on-surface-variant leading-snug">{r.context}</p>}
+          </div>
+        ))}
+      </StaggerChildren>
+
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       LIVE TELEMETRY (if extra stats exist)
+       ═══════════════════════════════════════════════════ -->
+  {telemetryResults.length > 0 && (
+    <section class="py-12 bg-surface-container-low">
+      <div class="max-w-7xl mx-auto px-6">
+        <FadeIn>
+          <div class="flex items-center gap-3 mb-8">
+            <span class="flex items-center gap-1.5 px-3 py-1 bg-on-surface text-white rounded-full text-[10px] font-bold uppercase tracking-widest">
+              <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse" aria-hidden="true"></span>
+              Live Telemetry
+            </span>
+            <span class="text-sm text-on-surface-variant">Updated every 15 minutes</span>
+          </div>
+        </FadeIn>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {telemetryResults.map((r) => (
+            <FadeIn>
+              <div class="bg-surface-container-lowest rounded-xl p-6 border border-outline-variant/20">
+                <span class="text-[10px] font-bold text-outline uppercase tracking-widest block mb-2">{r.metric}</span>
+                <p class="text-2xl font-extrabold text-on-surface leading-none mb-1">{r.value}</p>
+                {r.context && <p class="text-xs text-on-surface-variant">{r.context}</p>}
+              </div>
+            </FadeIn>
+          ))}
+        </div>
+      </div>
+    </section>
+  )}
+
+
+  <!-- ═══════════════════════════════════════════════════
+       FARMER QUOTE
+       ═══════════════════════════════════════════════════ -->
+  {farm.farmerQuote && (
+    <section class="py-20 bg-surface">
+      <div class="max-w-4xl mx-auto px-6">
+        <FadeIn>
+          <figure class="text-center">
+            <blockquote class="text-2xl lg:text-3xl font-bold text-on-surface leading-relaxed mb-8 tracking-tight">
+              &ldquo;{farm.farmerQuote}&rdquo;
+            </blockquote>
+            {(farm.farmerName || farm.farmerRole) && (
+              <figcaption class="flex flex-col items-center gap-1">
+                {farm.farmerName && (
+                  <span class="font-bold text-on-surface">{farm.farmerName}</span>
+                )}
+                {farm.farmerRole && (
+                  <span class="text-sm text-on-surface-variant">{farm.farmerRole}</span>
+                )}
+              </figcaption>
+            )}
+          </figure>
+        </FadeIn>
+      </div>
+    </section>
+  )}
+
+
+  <!-- ═══════════════════════════════════════════════════
+       CTA
+       ═══════════════════════════════════════════════════ -->
+  <section class="max-w-7xl mx-auto px-6 mb-24">
+    <FadeIn>
+      <div class="brand-gradient rounded-xl p-12 flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl" aria-hidden="true"></div>
+        <div class="relative z-10">
+          <h2 class="text-3xl font-extrabold text-white mb-3 tracking-tighter">Transform your farm like {farm.name.split(' ')[0]}.</h2>
+          <p class="text-white/80 max-w-lg">
+            Our solutions scale from single-site pilots to multinational deployments. Let's talk about what's right for you.
+          </p>
+        </div>
+        <div class="flex gap-4 relative z-10 flex-wrap">
+          <a
+            href="/contact?interest=demo"
+            class="bg-white text-primary px-8 py-4 rounded-full font-bold shadow-lg hover:scale-105 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+          >
+            Schedule Demo
+          </a>
+          <a
+            href="/solutions"
+            class="bg-primary/20 backdrop-blur-md text-white border border-white/30 px-8 py-4 rounded-full font-bold hover:bg-primary/40 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+          >
+            All Solutions
+          </a>
+        </div>
+      </div>
+    </FadeIn>
+  </section>
+
+</SiteLayout>

@@ -1,0 +1,53 @@
+---
+/**
+ * FadeIn — fades + slides an element into view on scroll.
+ *
+ * Sets [data-animate] so the global IntersectionObserver in BaseLayout
+ * adds .in-view when the element enters the viewport.
+ * CSS in global.css drives the actual transition.
+ *
+ * Directions:
+ *   'up'    → translateY(20px) → translateY(0)   [default, data-animate=""]
+ *   'left'  → translateX(-20px) → translateX(0)   [data-animate="left"]
+ *   'right' → translateX(20px) → translateX(0)    [data-animate="right"]
+ *
+ * Stagger: set --index via StaggerChildren or manually.
+ *
+ * Props:
+ *   delay     — additional transition-delay in ms (added on top of stagger)
+ *   direction — 'up' | 'left' | 'right' (default 'up')
+ *   duration  — transition duration ms; overrides --duration-slow (default 500)
+ *   as        — HTML element (default 'div')
+ *   class     — extra classes
+ */
+interface Props {
+  delay?: number;
+  direction?: 'up' | 'left' | 'right';
+  duration?: number;
+  as?: keyof HTMLElementTagNameMap;
+  class?: string;
+}
+
+const {
+  delay = 0,
+  direction = 'up',
+  duration = 500,
+  as: Tag = 'div',
+  class: className = '',
+} = Astro.props;
+
+// 'up' uses the base [data-animate] selector (translateY); others are named values
+const animateAttr = direction === 'up' ? '' : direction;
+
+const inlineStyle: string[] = [];
+if (duration !== 500) inlineStyle.push(`--duration-anim: ${duration}ms`);
+if (delay > 0)        inlineStyle.push(`--anim-delay: ${delay}ms`);
+---
+
+<Tag
+  data-animate={animateAttr}
+  class:list={[className]}
+  style={inlineStyle.length ? inlineStyle.join('; ') : undefined}
+>
+  <slot />
+</Tag>

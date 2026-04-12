@@ -1,0 +1,63 @@
+---
+/**
+ * Button — five variants from the design system.
+ *
+ * primary    → brand-gradient bg, white text, rounded-full (standard CTA)
+ * secondary  → bg-surface-container-highest, text-primary, rounded-full
+ * dark       → bg-on-primary text-primary (white bg, primary text — for use inside gradient sections)
+ * outline    → border-2 border-on-primary text-on-primary (for use inside gradient sections)
+ * nav        → brand-gradient, scale-95, active:opacity-80 (nav/header CTA button)
+ *
+ * Sizes:
+ *   sm  → px-6 py-2.5 text-sm
+ *   md  → px-8 py-4      (default)
+ *   lg  → px-10 py-4 text-lg
+ *
+ * Renders <a> when href provided, <button> otherwise.
+ */
+interface Props {
+  variant?: 'primary' | 'secondary' | 'dark' | 'outline' | 'nav';
+  href?: string;
+  size?: 'sm' | 'md' | 'lg';
+  type?: 'button' | 'submit' | 'reset';
+  class?: string;
+  [key: string]: unknown;
+}
+
+const {
+  variant = 'primary',
+  href,
+  size = 'md',
+  type = 'button',
+  class: className = '',
+  ...rest
+} = Astro.props;
+
+const sizeMap = {
+  sm: 'px-6 py-2.5 text-sm',
+  md: 'px-8 py-4',
+  lg: 'px-10 py-4 text-lg',
+};
+
+const variantMap = {
+  primary:   'brand-gradient text-on-primary font-bold rounded-full hover:opacity-90 active:scale-[0.98]',
+  secondary: 'bg-surface-container-highest text-primary font-bold rounded-full hover:bg-surface-container-high active:scale-[0.98]',
+  dark:      'bg-on-primary text-primary font-bold rounded-full hover:shadow-lg active:scale-[0.98]',
+  outline:   'border-2 border-on-primary text-on-primary font-bold rounded-full hover:bg-on-primary/10 active:scale-[0.98]',
+  nav:       'brand-gradient text-on-primary font-semibold rounded-full scale-95 active:opacity-80',
+};
+
+const base = [
+  'inline-flex items-center justify-center gap-2 transition-all duration-200',
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
+  sizeMap[size],
+  variantMap[variant],
+  className,
+].join(' ');
+---
+
+{href ? (
+  <a href={href} class={base} {...rest}><slot /></a>
+) : (
+  <button type={type} class={base} {...rest}><slot /></button>
+)}

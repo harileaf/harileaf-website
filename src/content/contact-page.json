@@ -1,0 +1,50 @@
+{
+  "hero": {
+    "label": "CONTACT US",
+    "headline": "Connect with the",
+    "headlineGradient": "future",
+    "headlineEnd": "of agritech.",
+    "mobileHeadline": "Let's Grow Together.",
+    "subheadline": "Have questions about our technology or sustainability reports? Our specialists are ready to help you grow."
+  },
+  "form": {
+    "heading": "Send a Message",
+    "web3formsKey": "YOUR_WEB3FORMS_KEY",
+    "turnstileSiteKey": "1x00000000000000000000AA",
+    "subjects": [
+      "General Inquiry",
+      "Partnership Opportunities",
+      "Technical Support",
+      "Media & Press"
+    ]
+  },
+  "contactInfo": {
+    "heading": "Reach Us Directly",
+    "location": {
+      "title": "Main Laboratory",
+      "line1": "Level 24, Green Spire Plaza",
+      "line2": "Sustainable District, Singapore 018982"
+    },
+    "email": {
+      "title": "Email",
+      "addresses": ["hello@harileaf.agri", "press@harileaf.agri"]
+    },
+    "whatsapp": {
+      "title": "WhatsApp",
+      "number": "+65 8299 4400",
+      "note": "Instant chat support available",
+      "link": "https://wa.me/6582994400"
+    }
+  },
+  "sustainabilityBanner": {
+    "headline": "Committed to Zero-Waste Communication.",
+    "body": "Every interaction with our team is documented in our carbon-neutral cloud system, ensuring our digital footprint remains as small as our soil one.",
+    "buttonLabel": "Download Report",
+    "buttonUrl": "/sustainability-report"
+  },
+  "seo": {
+    "metaTitle": "Contact Us | HariLeaf Agritech — Connect with the Future of Farming",
+    "metaDescription": "Get in touch with HariLeaf Agritech. Join the digital greenhouse revolution. Reach out for technology solutions, farm partnerships, or sustainability inquiries.",
+    "noIndex": false
+  }
+}

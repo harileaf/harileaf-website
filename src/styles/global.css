@@ -197,6 +197,64 @@
     border: 1px solid rgba(127, 200, 186, 0.10);
   }
 
+  /* Material Symbols Outlined icon defaults (matches design files) */
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    line-height: 1;
+    vertical-align: middle;
+    display: inline-block;
+  }
+
+  /* ── Scroll-triggered animation system ─────────────────────────────────────
+     Elements with [data-animate] start hidden. The global IntersectionObserver
+     in BaseLayout adds .in-view when they enter the viewport.
+     Only transform + opacity are animated (GPU-composited, no layout thrash).
+     ──────────────────────────────────────────────────────────────────────── */
+
+  /* Base state: invisible + shifted down */
+  [data-animate] {
+    opacity: 0;
+    transform: translateY(20px);
+    transition:
+      opacity   var(--duration-anim, var(--duration-slow, 500ms)) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)),
+      transform var(--duration-anim, var(--duration-slow, 500ms)) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+    /* Stagger: StaggerChildren sets --index; --anim-delay is from FadeIn's delay prop */
+    transition-delay: calc(
+      var(--index, 0) * var(--stagger, 100ms) + var(--anim-delay, 0ms)
+    );
+  }
+
+  /* Visible state added by IntersectionObserver */
+  [data-animate].in-view {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Directional variants */
+  [data-animate="left"]  { transform: translateX(-20px); }
+  [data-animate="right"] { transform: translateX(20px);  }
+
+  [data-animate="left"].in-view,
+  [data-animate="right"].in-view { transform: translateX(0); }
+
+  /* Reduced motion: skip animation entirely, show content immediately */
+  @media (prefers-reduced-motion: reduce) {
+    [data-animate] {
+      opacity: 1;
+      transform: none;
+      transition: none;
+      transition-delay: 0ms;
+    }
+  }
+
+  /* Card hover effects — centralised here so all card components inherit
+     these utilities without repeating them in each component. */
+
+  /* Feature cards: bg transition (bg-surface-container → bg-surface-container-high) */
+  .card-hover {
+    transition: background-color 150ms var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+  }
+
   /* Tracking utilities for label text (DESIGN.md: "+5% letter spacing") */
   .tracking-label {
     letter-spacing: 0.05em;

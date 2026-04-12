@@ -1,0 +1,234 @@
+---
+/**
+ * Header — glassmorphic fixed nav bar (updated design).
+ *
+ * Desktop (≥768px):
+ *   [Logo]  ·····  [Technology] [Solutions & Farms] [About] [Contact]  [Get Started →]
+ *
+ * Mobile (<768px):
+ *   [Logo]  ·····················  [Get Started] [≡]
+ *   Nav hidden behind hamburger full-screen overlay.
+ *
+ * Design spec (from homepage_desktop/code.html):
+ *   outer: fixed top-0 w-full z-50 bg-[#F7FAF4]/70 backdrop-blur-md transition-colors duration-300
+ *   inner: flex justify-between items-center max-w-7xl mx-auto px-6 py-4
+ *   active link: text-[#196A5E] border-b-2 border-[#196A5E] pb-1
+ *   inactive: text-[#3F4946] pb-1 hover:text-[#196A5E] transition-all duration-200
+ *   CTA: brand-gradient text-on-primary px-6 py-2.5 rounded-full font-semibold
+ *        scale-95 active:opacity-80 transition-all duration-200
+ *   NO shadow-sm (removed in new design)
+ *
+ * Data: reads from navigation.json + site-settings.json
+ *
+ * Props (optional):
+ *   ctaVariant  — 'gradient' (default, brand-gradient) | 'container' (bg-primary-container)
+ *   logoSize    — 'sm' (default, h-10) | 'md' (h-12)
+ */
+import navJson  from '../../content/navigation.json';
+import siteJson from '../../content/site-settings.json';
+
+interface Props {
+  ctaVariant?: 'gradient' | 'container';
+  logoSize?: 'sm' | 'md';
+}
+
+const {
+  ctaVariant = 'gradient',
+  logoSize   = 'sm',
+} = Astro.props;
+
+const ctaClass = ctaVariant === 'container'
+  ? 'bg-primary-container text-on-primary-container px-6 py-2 rounded-full font-semibold scale-95 active:opacity-80 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2'
+  : 'brand-gradient text-on-primary px-6 py-2.5 rounded-full font-semibold scale-95 active:opacity-80 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2';
+
+const logoSizeClass = logoSize === 'md' ? 'h-12' : 'h-10';
+
+const items = navJson.items ?? [
+  { label: 'Technology',        url: '/technology', children: [] },
+  { label: 'Solutions & Farms', url: '/solutions',  children: [] },
+  { label: 'About',             url: '/about',      children: [] },
+  { label: 'Contact',           url: '/contact',    children: [] },
+];
+
+const cta = {
+  label: navJson.ctaButton?.label ?? 'Get Started',
+  url:   navJson.ctaButton?.url   ?? '/contact',
+};
+
+const logoSrc  = siteJson.logo  ?? '/images/brand/logo-color.png';
+const siteName = siteJson.title ?? 'HariLeaf';
+
+const currentPath = Astro.url.pathname;
+const isActive = (url: string) =>
+  url === '/' ? currentPath === '/' : currentPath === url || currentPath.startsWith(url + '/');
+---
+
+<header
+  class="fixed top-0 w-full z-50 bg-[#F7FAF4]/70 backdrop-blur-md transition-colors duration-300"
+  role="banner"
+>
+  <nav
+    class="flex justify-between items-center max-w-7xl mx-auto px-6 py-4"
+    aria-label="Primary navigation"
+  >
+
+    <!-- Logo -->
+    <a
+      href="/"
+      class="flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:rounded-sm"
+      aria-label={`${siteName} — home`}
+    >
+      <img
+        src={logoSrc}
+        alt={siteName}
+        width="140"
+        height="40"
+        class:list={[logoSizeClass, 'w-auto']}
+        loading="eager"
+      />
+    </a>
+
+    <!-- Desktop nav links -->
+    <div class="hidden md:flex items-center gap-8">
+      {items.map((item) => (
+        <a
+          href={item.url}
+          class:list={[
+            'pb-1 font-manrope font-medium tracking-tight transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:rounded-sm',
+            isActive(item.url)
+              ? 'text-[#196A5E] border-b-2 border-[#196A5E]'
+              : 'text-[#3F4946] hover:text-[#196A5E]',
+          ]}
+          aria-current={isActive(item.url) ? 'page' : undefined}
+        >
+          {item.label}
+        </a>
+      ))}
+    </div>
+
+    <!-- Right: CTA + mobile hamburger -->
+    <div class="flex items-center gap-3">
+      <a
+        href={cta.url}
+        class={ctaClass}
+      >
+        {cta.label}
+      </a>
+
+      <!-- Hamburger — mobile only -->
+      <button
+        id="mobile-menu-toggle"
+        type="button"
+        class="md:hidden flex h-9 w-9 items-center justify-center rounded-lg text-[#3F4946] transition-colors hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        aria-expanded="false"
+        aria-controls="mobile-menu"
+        aria-label="Open navigation menu"
+      >
+        <span id="hamburger-icon" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <rect y="3"  width="20" height="2" rx="1" fill="currentColor"/>
+            <rect y="9"  width="20" height="2" rx="1" fill="currentColor"/>
+            <rect y="15" width="20" height="2" rx="1" fill="currentColor"/>
+          </svg>
+        </span>
+        <span id="close-icon" aria-hidden="true" class="hidden">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M4 4L16 16M16 4L4 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </span>
+      </button>
+    </div>
+
+  </nav>
+</header>
+
+<!-- Mobile menu overlay -->
+<div
+  id="mobile-menu"
+  class="fixed inset-0 z-40 flex flex-col bg-surface md:hidden"
+  aria-label="Mobile navigation"
+  aria-hidden="true"
+  style="display: none;"
+>
+  <!-- Spacer matches header height (py-4 + h-10 logo ≈ 72px) -->
+  <div class="h-[72px] shrink-0"></div>
+  <nav class="flex flex-1 flex-col overflow-y-auto px-6 py-8">
+    <ul class="space-y-1" role="list">
+      {items.map((item) => (
+        <li>
+          <a
+            href={item.url}
+            class:list={[
+              'flex items-center justify-between rounded-xl px-4 py-4 text-lg font-semibold tracking-tight transition-colors',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+              isActive(item.url)
+                ? 'bg-[#196A5E]/10 text-[#196A5E]'
+                : 'text-on-surface hover:bg-surface-container-low hover:text-[#196A5E]',
+            ]}
+            aria-current={isActive(item.url) ? 'page' : undefined}
+          >
+            {item.label}
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="opacity-40" aria-hidden="true">
+              <path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </a>
+        </li>
+      ))}
+    </ul>
+    <div class="mt-auto pt-8 pb-4">
+      <a
+        href={cta.url}
+        class="brand-gradient block w-full rounded-full px-8 py-4 text-center text-base font-semibold text-on-primary transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+      >
+        {cta.label}
+      </a>
+    </div>
+  </nav>
+</div>
+
+<div
+  id="mobile-backdrop"
+  class="fixed inset-0 z-30 bg-on-surface/20 md:hidden backdrop-blur-sm"
+  aria-hidden="true"
+  style="display: none;"
+></div>
+
+<script>
+  const toggle    = document.getElementById('mobile-menu-toggle');
+  const menu      = document.getElementById('mobile-menu');
+  const backdrop  = document.getElementById('mobile-backdrop');
+  const hamburger = document.getElementById('hamburger-icon');
+  const closeIcon = document.getElementById('close-icon');
+  let isOpen = false;
+
+  function openMenu() {
+    isOpen = true;
+    menu?.removeAttribute('style');
+    menu?.setAttribute('aria-hidden', 'false');
+    backdrop?.removeAttribute('style');
+    toggle?.setAttribute('aria-expanded', 'true');
+    toggle?.setAttribute('aria-label', 'Close navigation menu');
+    hamburger?.classList.add('hidden');
+    closeIcon?.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    menu?.querySelector<HTMLAnchorElement>('a')?.focus();
+  }
+
+  function closeMenu() {
+    isOpen = false;
+    menu?.setAttribute('style', 'display: none;');
+    menu?.setAttribute('aria-hidden', 'true');
+    backdrop?.setAttribute('style', 'display: none;');
+    toggle?.setAttribute('aria-expanded', 'false');
+    toggle?.setAttribute('aria-label', 'Open navigation menu');
+    hamburger?.classList.remove('hidden');
+    closeIcon?.classList.add('hidden');
+    document.body.style.overflow = '';
+    toggle?.focus();
+  }
+
+  toggle?.addEventListener('click', () => { isOpen ? closeMenu() : openMenu(); });
+  backdrop?.addEventListener('click', closeMenu);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isOpen) closeMenu(); });
+  menu?.querySelectorAll('a').forEach((link) => link.addEventListener('click', closeMenu));
+</script>

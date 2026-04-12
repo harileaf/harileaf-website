@@ -1,0 +1,23 @@
+---
+/**
+ * StatItem — single stat inside StatsBar.
+ *
+ * From design (solutions page metric ribbon):
+ *   text-center text-on-primary
+ *   value: text-5xl font-black mb-2
+ *   label: text-xs font-bold uppercase tracking-widest opacity-80
+ */
+interface Props {
+  value: string;
+  label: string;
+  prefix?: string;
+  suffix?: string;
+}
+
+const { value, label, prefix = '', suffix = '' } = Astro.props;
+---
+
+<div class="text-center text-on-primary">
+  <p class="text-5xl font-black mb-2">{prefix}{value}{suffix}</p>
+  <p class="text-xs font-bold uppercase tracking-widest opacity-80">{label}</p>
+</div>

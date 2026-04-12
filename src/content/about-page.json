@@ -1,0 +1,86 @@
+{
+  "hero": {
+    "badge": "Our Roots",
+    "headline": "Cultivating a",
+    "headlineHighlight": "Sustainable",
+    "headlineSuffix": "Legacy.",
+    "description": "HariLeaf Agritech was born from a singular vision: to bridge the gap between ancient agricultural wisdom and the precision of modern technology.",
+    "image": "/images/general/about-hero.jpg",
+    "stat": {
+      "value": "12+",
+      "label": "Global Farming Patents"
+    }
+  },
+  "mission": {
+    "title": "Our Mission",
+    "icon": "eco",
+    "body": "To empower growers worldwide by deploying intelligent, autonomous cultivation systems that maximize yield while minimizing environmental impact. We are committed to reducing water consumption by 90% and eliminating the need for synthetic pesticides through digital biological control.",
+    "image": "/images/general/mission-sensor.jpg",
+    "imageAlt": "Young plant sprout being measured by a digital sensor in a high-tech lab setting"
+  },
+  "vision": {
+    "title": "Our Vision",
+    "body": "\"A world where food security is a fundamental right, powered by a decentralized network of intelligent green spaces that breathe life back into our urban and rural landscapes.\"",
+    "pills": ["Resilience", "Transparency", "Harmony"],
+    "image": "/images/general/vision-aerial.jpg",
+    "imageAlt": "Aerial view of a circular sustainable farm design integrated with solar panels and natural irrigation canals"
+  },
+  "journey": {
+    "title": "The Journey",
+    "description": "From a small garage workshop to a global leader in agritech, our path has been defined by relentless curiosity and a passion for the planet.",
+    "entries": [
+      {
+        "year": "2018",
+        "title": "The Seed is Planted",
+        "body": "HariLeaf was founded by a team of agronomists and software engineers who saw the potential for IoT in vertical farming. Our first prototype reduced energy consumption by 40%.",
+        "image": "/images/about/2018-founding.jpg",
+        "imageAlt": "Founders working on early prototype in a small workshop"
+      },
+      {
+        "year": "2021",
+        "title": "Scaling Up",
+        "body": "Our first commercial-scale \"LeafNode\" facility launched in Singapore, proving that high-density urban farming could be both profitable and sustainable on a massive scale.",
+        "image": "/images/about/2021-commercial.jpg",
+        "imageAlt": "Large scale commercial greenhouse with thousands of plants and robotic arms"
+      },
+      {
+        "year": "2024",
+        "title": "The Digital Greenhouse",
+        "body": "Today, HariLeaf monitors over 5 million square feet of growing space across 12 countries, using AI to optimize every drop of water and every joule of energy.",
+        "image": "/images/about/2024-global.jpg",
+        "imageAlt": "Modern high-tech office with a large dashboard showing real-time global agricultural data"
+      }
+    ]
+  },
+  "values": {
+    "title": "What Guides Us",
+    "items": [
+      {
+        "icon": "nature_people",
+        "title": "Human-Centric Tech",
+        "description": "Technology is a tool for humans, not a replacement. We build systems that augment the farmer's intuition."
+      },
+      {
+        "icon": "science",
+        "title": "Scientific Integrity",
+        "description": "Every claim we make is backed by rigorous peer-reviewed data and real-world farm results."
+      },
+      {
+        "icon": "water_drop",
+        "title": "Radical Sustainability",
+        "description": "We don't just aim for \"less bad.\" We strive for regenerative systems that give back to the earth."
+      }
+    ]
+  },
+  "cta": {
+    "headline": "Ready to Join the Revolution?",
+    "body": "Whether you're a commercial grower or a sustainability partner, let's cultivate the future together.",
+    "primaryButton": { "label": "Get in Touch", "url": "/contact" },
+    "secondaryButton": { "label": "View Solutions", "url": "/solutions" }
+  },
+  "seo": {
+    "metaTitle": "About Us | HariLeaf Agritech \u2014 Cultivating a Sustainable Legacy",
+    "metaDescription": "HariLeaf Agritech was born from a singular vision: to bridge the gap between ancient agricultural wisdom and the precision of modern technology.",
+    "noIndex": false
+  }
+}

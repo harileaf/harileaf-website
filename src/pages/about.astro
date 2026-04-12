@@ -1,0 +1,271 @@
+---
+export const prerender = true;
+import SiteLayout from '../layouts/SiteLayout.astro';
+import FadeIn from '../components/animations/FadeIn.astro';
+import StaggerChildren from '../components/animations/StaggerChildren.astro';
+import SEO from '../components/seo/SEO.astro';
+import JsonLd from '../components/seo/JsonLd.astro';
+import aboutJson from '../content/about-page.json';
+
+// ── CMS data ──────────────────────────────────────────────────────────────────
+const page    = aboutJson;
+const hero    = page.hero;
+const mission = page.mission;
+const vision  = page.vision;
+const journey = page.journey;
+const values  = page.values;
+const cta     = page.cta;
+const seo     = page.seo;
+
+const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://harileaf.ag');
+const pageTitle    = seo?.metaTitle    ?? 'About Us | HariLeaf Agritech — Cultivating a Sustainable Legacy';
+const pageDesc     = seo?.metaDescription ?? 'HariLeaf Agritech was born from a singular vision: to bridge the gap between ancient agricultural wisdom and the precision of modern technology.';
+---
+
+<SiteLayout
+  title={pageTitle}
+  description={pageDesc}
+  noIndex={seo?.noIndex ?? false}
+  headerCtaVariant="container"
+  headerLogoSize="md"
+>
+  <slot name="head" slot="head">
+    <SEO title={pageTitle} description={pageDesc} canonicalUrl={canonicalURL} />
+    <JsonLd
+      type="BreadcrumbList"
+      data={{
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://harileaf.ag/' },
+          { '@type': 'ListItem', position: 2, name: 'About', item: 'https://harileaf.ag/about' },
+        ],
+      }}
+    />
+  </slot>
+
+  <!-- ═══════════════════════════════════════════════════
+       SECTION 1 — HERO
+       ═══════════════════════════════════════════════════ -->
+  <header class="relative pt-32 pb-24 overflow-hidden">
+    <div class="max-w-7xl mx-auto px-8 grid lg:grid-cols-2 gap-16 items-center">
+
+      <!-- Left: Text -->
+      <div class="z-10">
+        <FadeIn>
+          <span class="inline-block px-4 py-1 rounded-full bg-secondary-container text-on-secondary-container text-sm font-bold tracking-widest uppercase mb-6">
+            {hero.badge}
+          </span>
+        </FadeIn>
+        <FadeIn delay={100}>
+          <h1 class="text-6xl font-extrabold leading-[1.1] text-on-surface mb-8 tracking-tighter">
+            {hero.headline} <span class="text-primary">{hero.headlineHighlight}</span> {hero.headlineSuffix}
+          </h1>
+        </FadeIn>
+        <FadeIn delay={200}>
+          <p class="text-xl text-on-surface-variant leading-relaxed mb-10 max-w-xl">
+            {hero.description}
+          </p>
+        </FadeIn>
+      </div>
+
+      <!-- Right: Image + floating stat -->
+      <FadeIn direction="right" class="relative">
+        <div class="aspect-[4/5] rounded-xl overflow-hidden shadow-2xl">
+          <img
+            src={hero.image}
+            alt="Futuristic indoor hydroponic farm with vibrant green leafy vegetables glowing under soft LED lights"
+            class="w-full h-full object-cover"
+            loading="eager"
+          />
+        </div>
+        <div class="absolute -bottom-8 -left-8 bg-surface-container-lowest p-8 rounded-lg shadow-xl max-w-xs">
+          <p class="text-primary font-bold text-4xl mb-1">{hero.stat.value}</p>
+          <p class="text-sm font-label uppercase tracking-widest text-on-surface-variant">{hero.stat.label}</p>
+        </div>
+      </FadeIn>
+
+    </div>
+  </header>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       SECTION 2 — MISSION & VISION (Bento Grid)
+       ═══════════════════════════════════════════════════ -->
+  <section class="py-24 bg-surface-container-low">
+    <div class="max-w-7xl mx-auto px-8">
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-8">
+
+        <!-- Row 1: Mission card (7-col) -->
+        <FadeIn class="md:col-span-7">
+          <div class="bg-surface-container-lowest p-12 rounded-xl flex flex-col justify-between h-full">
+            <div>
+              <div class="w-12 h-12 brand-gradient rounded-lg flex items-center justify-center mb-8">
+                <span class="material-symbols-outlined text-white" aria-hidden="true">{mission.icon}</span>
+              </div>
+              <h2 class="text-3xl font-bold mb-6">{mission.title}</h2>
+              <p class="text-lg text-on-surface-variant leading-relaxed">
+                {mission.body}
+              </p>
+            </div>
+          </div>
+        </FadeIn>
+
+        <!-- Row 1: Mission image (5-col) -->
+        <FadeIn delay={100} class="md:col-span-5">
+          <div class="rounded-xl overflow-hidden h-full min-h-[300px]">
+            <img
+              src={mission.image}
+              alt={mission.imageAlt}
+              class="w-full h-full object-cover"
+              loading="lazy"
+            />
+          </div>
+        </FadeIn>
+
+        <!-- Row 2: Vision image (4-col) -->
+        <FadeIn class="md:col-span-4">
+          <div class="rounded-xl overflow-hidden h-full min-h-[280px]">
+            <img
+              src={vision.image}
+              alt={vision.imageAlt}
+              class="w-full h-full object-cover"
+              loading="lazy"
+            />
+          </div>
+        </FadeIn>
+
+        <!-- Row 2: Vision card (8-col) -->
+        <FadeIn delay={100} class="md:col-span-8">
+          <div class="bg-primary text-white p-12 rounded-xl flex flex-col justify-center h-full">
+            <h2 class="text-3xl font-bold mb-6">{vision.title}</h2>
+            <p class="text-xl font-light leading-relaxed opacity-90">
+              {vision.body}
+            </p>
+            <div class="mt-8 flex gap-4 flex-wrap">
+              {vision.pills.map((pill: string) => (
+                <span class="px-4 py-2 bg-white/10 rounded-full text-sm">{pill}</span>
+              ))}
+            </div>
+          </div>
+        </FadeIn>
+
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       SECTION 3 — THE JOURNEY (Asymmetric Timeline)
+       ═══════════════════════════════════════════════════ -->
+  <section class="py-32 bg-surface">
+    <div class="max-w-7xl mx-auto px-8">
+
+      <FadeIn>
+        <div class="max-w-3xl mb-20">
+          <h2 class="text-4xl font-bold mb-6">{journey.title}</h2>
+          <p class="text-on-surface-variant text-lg">{journey.description}</p>
+        </div>
+      </FadeIn>
+
+      <div class="space-y-32">
+        {journey.entries.map((entry: { year: string; title: string; body: string; image: string; imageAlt: string }, index: number) => {
+          const isEven = index % 2 === 1; // 2021 entry (index 1) has image left
+          return (
+            <div class="grid md:grid-cols-2 gap-16 items-center">
+              {isEven ? (
+                <>
+                  <!-- Image LEFT -->
+                  <FadeIn direction="left" class="order-2 md:order-1">
+                    <div class="rounded-xl overflow-hidden bg-surface-container-low p-2">
+                      <img src={entry.image} alt={entry.imageAlt} class="rounded-lg w-full" loading="lazy" />
+                    </div>
+                  </FadeIn>
+                  <!-- Text RIGHT -->
+                  <FadeIn direction="right" class="order-1 md:order-2">
+                    <div>
+                      <span class="text-primary font-extrabold text-7xl opacity-20 block mb-4" aria-hidden="true">{entry.year}</span>
+                      <h3 class="text-2xl font-bold mb-4">{entry.title}</h3>
+                      <p class="text-on-surface-variant leading-relaxed">{entry.body}</p>
+                    </div>
+                  </FadeIn>
+                </>
+              ) : (
+                <>
+                  <!-- Text LEFT -->
+                  <FadeIn direction="left">
+                    <div>
+                      <span class="text-primary font-extrabold text-7xl opacity-20 block mb-4" aria-hidden="true">{entry.year}</span>
+                      <h3 class="text-2xl font-bold mb-4">{entry.title}</h3>
+                      <p class="text-on-surface-variant leading-relaxed">{entry.body}</p>
+                    </div>
+                  </FadeIn>
+                  <!-- Image RIGHT -->
+                  <FadeIn direction="right">
+                    <div class="rounded-xl overflow-hidden bg-surface-container-low p-2">
+                      <img src={entry.image} alt={entry.imageAlt} class="rounded-lg w-full" loading="lazy" />
+                    </div>
+                  </FadeIn>
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       SECTION 4 — CORE VALUES ("What Guides Us")
+       ═══════════════════════════════════════════════════ -->
+  <section class="py-24 bg-surface-container-high">
+    <div class="max-w-7xl mx-auto px-8 text-center mb-16">
+      <FadeIn>
+        <h2 class="text-4xl font-bold">{values.title}</h2>
+      </FadeIn>
+    </div>
+    <StaggerChildren class="max-w-7xl mx-auto px-8 grid md:grid-cols-3 gap-8">
+      {values.items.map((item: { icon: string; title: string; description: string }) => (
+        <div class="bg-surface-container-lowest p-10 rounded-xl">
+          <span
+            class="material-symbols-outlined text-primary text-4xl mb-6 block"
+            style="font-variation-settings:'FILL' 1"
+            aria-hidden="true"
+          >{item.icon}</span>
+          <h4 class="text-xl font-bold mb-4">{item.title}</h4>
+          <p class="text-on-surface-variant">{item.description}</p>
+        </div>
+      ))}
+    </StaggerChildren>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       SECTION 5 — CTA (Gradient Banner)
+       ═══════════════════════════════════════════════════ -->
+  <section class="py-24">
+    <div class="max-w-5xl mx-auto px-8">
+      <FadeIn>
+        <div class="brand-gradient rounded-[2rem] p-16 text-center text-on-primary">
+          <h2 class="text-4xl font-extrabold mb-6">{cta.headline}</h2>
+          <p class="text-xl mb-10 opacity-90 max-w-2xl mx-auto">{cta.body}</p>
+          <div class="flex justify-center gap-6 flex-wrap">
+            <a
+              href={cta.primaryButton.url}
+              class="bg-on-surface text-surface px-8 py-4 rounded-full font-bold hover:scale-105 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+            >
+              {cta.primaryButton.label}
+            </a>
+            <a
+              href={cta.secondaryButton.url}
+              class="border-2 border-on-primary text-on-primary px-8 py-4 rounded-full font-bold hover:bg-on-primary hover:text-primary transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+            >
+              {cta.secondaryButton.label}
+            </a>
+          </div>
+        </div>
+      </FadeIn>
+    </div>
+  </section>
+
+</SiteLayout>

@@ -1,0 +1,103 @@
+---
+/**
+ * MissionVisionCard — about page mission/vision bento cells.
+ *
+ * MISSION (type='mission'):
+ *   bg-surface-container-lowest (white), rounded-[2.5rem] p-12
+ *   Icon (eco, FILL 1) inside brand-gradient rounded-lg container
+ *   h2 "Our Mission", body text in text-on-surface-variant
+ *
+ * VISION (type='vision'):
+ *   bg-primary text-white, rounded-[2.5rem] p-12
+ *   Large quote mark, body text (italic)
+ *   Optional pill tags (e.g. Resilience, Transparency, Harmony)
+ *   Decorative large leaf icon background (opacity-10)
+ *
+ * Props:
+ *   type        — 'mission' | 'vision'
+ *   headline    — card heading (defaults: "Our Mission" / "Our Vision")
+ *   body        — body text
+ *   tags        — array of tag strings shown as pills (vision card)
+ *   linkLabel   — optional footer link text (mission card)
+ *   linkHref    — optional footer link href
+ *   class       — extra classes (typically col-span)
+ */
+interface Props {
+  type: 'mission' | 'vision';
+  headline?: string;
+  body: string;
+  tags?: string[];
+  linkLabel?: string;
+  linkHref?: string;
+  class?: string;
+}
+
+const {
+  type,
+  headline,
+  body,
+  tags = [],
+  linkLabel,
+  linkHref = '#',
+  class: className = '',
+} = Astro.props;
+
+const defaultHeadlines = { mission: 'Our Mission', vision: 'Our Vision' };
+const title = headline ?? defaultHeadlines[type];
+---
+
+{type === 'mission' ? (
+  <div class:list={['bg-surface-container-lowest rounded-[2.5rem] p-12 flex flex-col justify-between border border-outline-variant/10', className]}>
+    <div class="space-y-6">
+      <!-- Icon in brand-gradient container -->
+      <div class="w-14 h-14 brand-gradient rounded-xl flex items-center justify-center">
+        <span
+          class="material-symbols-outlined text-on-primary text-3xl"
+          style="font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;"
+          aria-hidden="true"
+        >eco</span>
+      </div>
+      <h2 class="text-4xl font-extrabold text-on-surface">{title}</h2>
+      <p class="text-lg text-on-surface-variant leading-relaxed">{body}</p>
+    </div>
+    {linkLabel && (
+      <div class="mt-8">
+        <a
+          href={linkHref}
+          class="inline-flex items-center gap-2 text-primary font-bold hover:gap-3 transition-all focus-visible:outline-none focus-visible:underline"
+        >
+          {linkLabel}
+          <span class="material-symbols-outlined text-sm" aria-hidden="true">arrow_forward</span>
+        </a>
+      </div>
+    )}
+    <slot />
+  </div>
+) : (
+  <div class:list={['bg-primary text-white rounded-[2.5rem] p-12 flex flex-col justify-between relative overflow-hidden', className]}>
+    <!-- Decorative background icon -->
+    <div class="absolute -bottom-12 -right-12 opacity-10 pointer-events-none" aria-hidden="true">
+      <span
+        class="material-symbols-outlined text-[18rem]"
+        style="font-variation-settings: 'FILL' 1;"
+      >energy_savings_leaf</span>
+    </div>
+
+    <div class="relative z-10 space-y-6">
+      <!-- Large quote mark -->
+      <span class="text-7xl font-black text-white/30 leading-none select-none" aria-hidden="true">"</span>
+      <h2 class="text-4xl font-extrabold">{title}</h2>
+      <p class="text-lg text-white/80 leading-relaxed italic">{body}</p>
+    </div>
+
+    {tags.length > 0 && (
+      <div class="relative z-10 flex flex-wrap gap-2 mt-8">
+        {tags.map((tag) => (
+          <span class="px-4 py-1.5 bg-white/20 text-white text-xs font-bold rounded-full tracking-wide">{tag}</span>
+        ))}
+      </div>
+    )}
+
+    <slot />
+  </div>
+)}

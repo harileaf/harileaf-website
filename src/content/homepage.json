@@ -1,0 +1,96 @@
+{
+  "hero": {
+    "badge": "Sustainable Innovation",
+    "badgeIcon": "eco",
+    "headline": "Autonomous Intelligence",
+    "highlightText": "For The Open Field.",
+    "description": "HariLeaf bridges the gap between biological potential and technological precision. Our mission-driven autonomous systems monitor, nurture, and optimize open-field farming at scale.",
+    "image": "/images/general/hero-field.jpg",
+    "ctaPrimary": {
+      "label": "Explore Our Tech",
+      "url": "/technology"
+    },
+    "ctaSecondary": {
+      "label": "Watch Drone Demo",
+      "url": "/technology#demo"
+    },
+    "floatingChip": {
+      "value": "HL-Sentinel V3",
+      "label": "Active Fleet"
+    }
+  },
+  "bentoSection": {
+    "headline": "Precision Engineering for Nature.",
+    "description": "We don't just build machines; we cultivate digital ecosystems that empower farmers to grow more with less impact.",
+    "linkText": "View Technical Whitepaper",
+    "linkHref": "/technology",
+    "cards": [
+      {
+        "id": "multispectral",
+        "colSpan": 8,
+        "variant": "image-bg",
+        "title": "Multispectral Analysis",
+        "description": "Drones equipped with advanced sensors detect nutrient deficiencies before they become visible to the human eye.",
+        "icon": "sensors",
+        "iconFill": true,
+        "image": "/images/general/sensors.jpg"
+      },
+      {
+        "id": "zero-waste",
+        "colSpan": 4,
+        "variant": "gradient",
+        "title": "Zero-Waste Autonomy",
+        "description": "Proprietary AI pathing reduces energy consumption by 40% compared to traditional field scouting.",
+        "icon": "auto_awesome",
+        "iconFill": true
+      },
+      {
+        "id": "variable-rate",
+        "colSpan": 4,
+        "variant": "default",
+        "title": "Variable Rate Delivery",
+        "description": "Precisely target irrigation and nutrition down to the individual plant level.",
+        "icon": "water_drop",
+        "iconFill": true,
+        "iconColor": "text-secondary"
+      },
+      {
+        "id": "dashboard",
+        "colSpan": 8,
+        "variant": "dark-stat",
+        "title": "Real-time Dashboard",
+        "description": "Access your farm's vital signs from anywhere in the world with encrypted satellite uplinks.",
+        "statValue": "98%",
+        "statLabel": "Accuracy in Yield Prediction",
+        "progressPercent": 80
+      }
+    ]
+  },
+  "editorialSection": {
+    "headline": "Regenerative Tech.",
+    "headlineLineTwo": "Rooted in Stability.",
+    "body": "At HariLeaf, we believe the future of farming isn't just about high-tech gadgets; it's about making technology a servant of the soil. Our open-field solutions are designed to restore ecological balance while meeting the demands of a growing population.",
+    "image": "/images/general/organic-farm.jpg",
+    "checklist": [
+      {
+        "title": "Carbon Sequestration Tracking",
+        "description": "Measure and monetize your farm's ability to pull CO2 from the atmosphere."
+      },
+      {
+        "title": "Biodiversity Preservation",
+        "description": "Autonomous systems that navigate around local flora and fauna without disruption."
+      }
+    ]
+  },
+  "ctaSection": {
+    "headline": "Ready to digitize your field?",
+    "body": "Join the hundred of farms worldwide using HariLeaf to optimize their harvests and protect the planet.",
+    "primaryButton": { "label": "Schedule a Consultation", "url": "/contact" },
+    "secondaryButton": { "label": "Download Brochure", "url": "/technology" }
+  },
+  "seo": {
+    "metaTitle": "HariLeaf Agritech | Cultivating a Sustainable Future",
+    "metaDescription": "HariLeaf autonomous systems monitor, nurture, and optimize open-field farming at scale. Precision engineering for nature.",
+    "noIndex": false
+  }
+}

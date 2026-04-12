@@ -1,0 +1,42 @@
+---
+/**
+ * StatsBar — brand-gradient horizontal metrics ribbon.
+ *
+ * From solutions page design:
+ *   <section class="brand-gradient py-16 px-6">
+ *     <div class="max-w-7xl mx-auto flex flex-wrap justify-center md:justify-between gap-12">
+ *       <!-- StatItems -->
+ *     </div>
+ *   </section>
+ *
+ * Props:
+ *   stats — array of { value, label, prefix?, suffix? }
+ *   background — 'gradient' | 'dark' (default: 'gradient')
+ */
+import StatItem from './StatItem.astro';
+
+interface Stat {
+  value: string;
+  label: string;
+  prefix?: string;
+  suffix?: string;
+}
+
+interface Props {
+  stats: Stat[];
+  background?: 'gradient' | 'dark';
+  class?: string;
+}
+
+const { stats, background = 'gradient', class: className = '' } = Astro.props;
+
+const bgClass = background === 'dark' ? 'bg-on-surface' : 'brand-gradient';
+---
+
+<section class:list={['py-16 px-6', bgClass, className]}>
+  <div class="max-w-7xl mx-auto flex flex-wrap justify-center md:justify-between gap-12">
+    {stats.map((stat) => (
+      <StatItem value={stat.value} label={stat.label} prefix={stat.prefix} suffix={stat.suffix} />
+    ))}
+  </div>
+</section>

@@ -1,0 +1,20 @@
+---
+/**
+ * Container — max-w-7xl centred with px-6 side padding.
+ * Matches the `max-w-7xl mx-auto px-6` pattern from all design files.
+ *
+ * Props:
+ *   as    — HTML element to render (default: "div")
+ *   class — additional classes to merge
+ */
+interface Props {
+  as?: keyof HTMLElementTagNameMap;
+  class?: string;
+}
+
+const { as: Tag = 'div', class: className = '' } = Astro.props;
+---
+
+<Tag class:list={['mx-auto max-w-7xl px-6', className]}>
+  <slot />
+</Tag>

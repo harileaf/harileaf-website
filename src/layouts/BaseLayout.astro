@@ -1,0 +1,83 @@
+---
+/**
+ * BaseLayout — bare HTML shell.
+ * Every page in the site extends this layout.
+ *
+ * Does NOT render any SEO meta tags — those are entirely owned by
+ * src/components/seo/SEO.astro, which every page places in <slot name="head">.
+ *
+ * Props:
+ *   noIndex  — kept for API compat; SEO.astro reads it directly from Astro.props
+ */
+import '../styles/global.css';
+import { ClientRouter } from 'astro:transitions';
+
+interface Props {
+  noIndex?: boolean;
+  [key: string]: unknown; // accept title/description/ogImage without error (unused here)
+}
+---
+
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!-- Preconnect for external resources -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!-- Material Symbols Outlined variable font (FILL, wght, GRAD, opsz) -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
+    />
+
+    <!-- Favicons -->
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    <!--
+      All SEO tags (title, description, canonical, OG, Twitter, robots)
+      are injected here by pages via:  <SEO ... slot="head" />
+      DO NOT add <title> or <meta> SEO tags to this layout.
+    -->
+    <slot name="head" />
+
+    <!-- Astro View Transitions — smooth cross-page animations -->
+    <ClientRouter />
+  </head>
+  <body class="bg-surface text-on-surface selection:bg-primary-container selection:text-on-primary-container">
+    <slot />
+
+    <!-- Global scroll observer — fires .in-view on [data-animate] elements -->
+    <script is:inline>
+      (function () {
+        var observer = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (entry) {
+              if (entry.isIntersecting) {
+                entry.target.classList.add('in-view');
+                observer.unobserve(entry.target);
+              }
+            });
+          },
+          { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
+        );
+        function observe() {
+          document.querySelectorAll('[data-animate]').forEach(function (el) {
+            observer.observe(el);
+          });
+        }
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', observe);
+        } else {
+          observe();
+        }
+        // Re-run after View Transitions swap new content in
+        document.addEventListener('astro:page-load', observe);
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,313 @@
+---
+export const prerender = true;
+import SiteLayout from '../layouts/SiteLayout.astro';
+import FadeIn from '../components/animations/FadeIn.astro';
+import SEO from '../components/seo/SEO.astro';
+import JsonLd from '../components/seo/JsonLd.astro';
+
+const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://harileaf.ag');
+const pageTitle = 'Solutions & Farms | HariLeaf Agritech';
+const pageDesc  = 'Explore our ecosystem of precision software solutions and global farm projects. AI-driven vision to hyper-efficient irrigation, grounding technology in the soil.';
+---
+
+<SiteLayout title={pageTitle} description={pageDesc}>
+  <slot name="head" slot="head">
+    <SEO title={pageTitle} description={pageDesc} canonicalUrl={canonicalURL} />
+    <JsonLd
+      type="BreadcrumbList"
+      data={{
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Home',              item: 'https://harileaf.ag/' },
+          { '@type': 'ListItem', position: 2, name: 'Solutions & Farms', item: 'https://harileaf.ag/solutions' },
+        ],
+      }}
+    />
+  </slot>
+
+  <!-- ═══════════════════════════════════════════════════
+       HERO
+       ═══════════════════════════════════════════════════ -->
+  <section class="max-w-7xl mx-auto px-6 pt-32 pb-20">
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-12 items-center">
+
+      <!-- Text -->
+      <div class="md:col-span-7">
+        <FadeIn>
+          <span class="text-secondary font-bold tracking-widest text-xs uppercase mb-4 block">Sustainable Innovation</span>
+        </FadeIn>
+        <FadeIn delay={100}>
+          <h1 class="text-6xl font-extrabold text-on-surface leading-[1.1] mb-6 tracking-tighter">
+            Architecting the <span class="text-primary">Future of Farming</span> with AI &amp; Data.
+          </h1>
+        </FadeIn>
+        <FadeIn delay={200}>
+          <p class="text-on-surface-variant text-xl leading-relaxed max-w-2xl">
+            Explore our ecosystem of precision software solutions and global farm projects. From AI-driven vision to hyper-efficient irrigation, we are grounding technology in the soil.
+          </p>
+        </FadeIn>
+      </div>
+
+      <!-- Image -->
+      <FadeIn direction="right" class="md:col-span-5 relative">
+        <div class="rounded-xl overflow-hidden aspect-square brand-gradient p-1">
+          <img
+            src="/images/general/solutions-hero.jpg"
+            alt="Young plant growing in high-tech indoor farm"
+            class="w-full h-full object-cover rounded-lg"
+            loading="eager"
+          />
+        </div>
+      </FadeIn>
+
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       PRECISION SOFTWARE ECOSYSTEM
+       ═══════════════════════════════════════════════════ -->
+  <section class="bg-surface-container-low py-24">
+    <div class="max-w-7xl mx-auto px-6">
+
+      <FadeIn>
+        <div class="mb-16">
+          <h2 class="text-3xl font-bold tracking-tight mb-2">Precision Software Ecosystem</h2>
+          <p class="text-on-surface-variant">Intelligent platforms designed for maximum yield and zero waste.</p>
+        </div>
+      </FadeIn>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+        <!-- LeafSense AI Vision (2-col) -->
+        <FadeIn class="md:col-span-2">
+          <div class="bg-surface-container-lowest p-10 rounded-xl flex flex-col justify-between group h-full">
+            <div>
+              <span class="material-symbols-outlined text-primary text-4xl mb-6 block" aria-hidden="true">visibility</span>
+              <h3 class="text-2xl font-bold mb-4">LeafSense AI Vision</h3>
+              <p class="text-on-surface-variant text-lg mb-8 max-w-lg">
+                Real-time computer vision that detects pest infestations, nutrient deficiencies, and growth rates with 98% accuracy before they become visible to the human eye.
+              </p>
+            </div>
+            <div class="flex items-center justify-between">
+              <div class="flex gap-2">
+                <span class="px-3 py-1 bg-surface-container-highest rounded-full text-xs font-bold text-secondary uppercase tracking-tighter">AI Driven</span>
+                <span class="px-3 py-1 bg-surface-container-highest rounded-full text-xs font-bold text-secondary uppercase tracking-tighter">Live Monitor</span>
+              </div>
+              <span class="material-symbols-outlined text-outline-variant group-hover:text-primary transition-colors" aria-hidden="true">arrow_forward</span>
+            </div>
+          </div>
+        </FadeIn>
+
+        <!-- HydroLogic Hub -->
+        <FadeIn delay={100}>
+          <div class="bg-primary text-white p-10 rounded-xl flex flex-col justify-between h-full">
+            <div>
+              <span class="material-symbols-outlined text-primary-container text-4xl mb-6 block" aria-hidden="true">water_drop</span>
+              <h3 class="text-2xl font-bold mb-4">HydroLogic Hub</h3>
+              <p class="text-primary-container/90 leading-relaxed">
+                Automated sub-surface irrigation systems that reduce water consumption by 65% using predictive weather modeling and soil moisture telemetry.
+              </p>
+            </div>
+            <a href="/technology" class="mt-8 text-sm font-bold flex items-center gap-2 hover:gap-3 transition-all">
+              EXPLORE SYSTEM <span class="material-symbols-outlined text-sm" aria-hidden="true">arrow_right_alt</span>
+            </a>
+          </div>
+        </FadeIn>
+
+        <!-- Soil-DNA Analytics -->
+        <FadeIn>
+          <div class="bg-surface-container-lowest p-10 rounded-xl flex flex-col justify-between group h-full">
+            <div>
+              <span class="material-symbols-outlined text-secondary text-4xl mb-6 block" aria-hidden="true">biotech</span>
+              <h3 class="text-xl font-bold mb-3">Soil-DNA Analytics</h3>
+              <p class="text-on-surface-variant text-sm">
+                Deep-layer sensor integration providing chemical composition breakdowns in real-time.
+              </p>
+            </div>
+            <div class="mt-6 border-t border-outline-variant/10 pt-6">
+              <div class="flex justify-between items-center text-xs font-bold text-outline uppercase">
+                <span>Optimization</span>
+                <span class="text-primary">89%</span>
+              </div>
+              <div class="w-full h-1.5 bg-surface-container-highest rounded-full mt-2">
+                <div class="h-full brand-gradient rounded-full" style="width: 89%"></div>
+              </div>
+            </div>
+          </div>
+        </FadeIn>
+
+        <!-- AeroFleet Command (2-col, image) -->
+        <FadeIn delay={100} class="md:col-span-2">
+          <div class="relative rounded-xl overflow-hidden min-h-[300px] h-full">
+            <img
+              src="/images/general/drone-formation.jpg"
+              alt="Aerial view of autonomous agricultural drones flying in formation"
+              class="absolute inset-0 w-full h-full object-cover"
+              loading="lazy"
+            />
+            <div class="absolute inset-0 bg-gradient-to-t from-on-surface/90 to-transparent p-10 flex flex-col justify-end">
+              <h3 class="text-2xl font-bold text-white mb-2">AeroFleet Command</h3>
+              <p class="text-surface-container-highest/80 max-w-md">Autonomous drone management for large-scale field mapping and precision spraying.</p>
+            </div>
+          </div>
+        </FadeIn>
+
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       REAL-WORLD IMPACT (Farm Cards)
+       ═══════════════════════════════════════════════════ -->
+  <section class="py-24 bg-surface">
+    <div class="max-w-7xl mx-auto px-6">
+
+      <FadeIn>
+        <div class="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-6">
+          <div>
+            <h2 class="text-4xl font-extrabold tracking-tighter mb-4">Real-World Impact</h2>
+            <p class="text-on-surface-variant max-w-xl text-lg">
+              We don't just build software. We build the physical infrastructure that feeds the world. See live data from our flagship partner farms.
+            </p>
+          </div>
+          <div class="flex gap-4 shrink-0">
+            <button class="p-3 rounded-full border border-outline-variant text-outline hover:bg-surface-container-high transition-colors" aria-label="Previous farms">
+              <span class="material-symbols-outlined" aria-hidden="true">west</span>
+            </button>
+            <button class="p-3 rounded-full border border-outline-variant text-outline hover:bg-surface-container-high transition-colors" aria-label="Next farms">
+              <span class="material-symbols-outlined" aria-hidden="true">east</span>
+            </button>
+          </div>
+        </div>
+      </FadeIn>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+
+        <!-- Farm Card 1 — Oslo -->
+        <FadeIn>
+          <div class="bg-surface-container-low rounded-xl overflow-hidden flex flex-col">
+            <div class="h-72 relative">
+              <img
+                src="/images/farms/highland-vertical.jpg"
+                alt="Modern industrial vertical farm with rows of greens"
+                class="w-full h-full object-cover"
+                loading="lazy"
+              />
+              <div class="absolute top-4 right-4 bg-on-surface text-white px-3 py-1 rounded-full text-[10px] font-bold flex items-center gap-1.5 uppercase tracking-widest">
+                <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse" aria-hidden="true"></span> Live Telemetry
+              </div>
+            </div>
+            <div class="p-8">
+              <div class="flex justify-between items-start mb-6">
+                <div>
+                  <h4 class="text-2xl font-bold"><a href="/farms/the-highland-vertical" class="hover:text-primary transition-colors">The Highland Vertical, Oslo</a></h4>
+                  <p class="text-on-surface-variant flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm" aria-hidden="true">location_on</span> Oslo, Norway
+                  </p>
+                </div>
+                <div class="text-right">
+                  <span class="text-xs font-bold text-outline uppercase block">System Load</span>
+                  <span class="text-xl font-bold text-primary">94%</span>
+                </div>
+              </div>
+              <div class="grid grid-cols-3 gap-4 border-t border-outline-variant/20 pt-6">
+                <div>
+                  <span class="text-[10px] font-bold text-outline uppercase block mb-1">Temperature</span>
+                  <p class="text-lg font-bold">22.4°C</p>
+                </div>
+                <div>
+                  <span class="text-[10px] font-bold text-outline uppercase block mb-1">Humidity</span>
+                  <p class="text-lg font-bold">68%</p>
+                </div>
+                <div>
+                  <span class="text-[10px] font-bold text-outline uppercase block mb-1">CO2 Level</span>
+                  <p class="text-lg font-bold">840 ppm</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </FadeIn>
+
+        <!-- Farm Card 2 — Sonoma -->
+        <FadeIn delay={100}>
+          <div class="bg-surface-container-low rounded-xl overflow-hidden flex flex-col">
+            <div class="h-72 relative">
+              <img
+                src="/images/farms/sonoma-vineyard.jpg"
+                alt="Lush rolling vineyard at sunrise with smart sensors"
+                class="w-full h-full object-cover"
+                loading="lazy"
+              />
+              <div class="absolute top-4 right-4 bg-on-surface text-white px-3 py-1 rounded-full text-[10px] font-bold flex items-center gap-1.5 uppercase tracking-widest">
+                <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse" aria-hidden="true"></span> Live Telemetry
+              </div>
+            </div>
+            <div class="p-8">
+              <div class="flex justify-between items-start mb-6">
+                <div>
+                  <h4 class="text-2xl font-bold"><a href="/farms/sonoma-smart-vineyard" class="hover:text-primary transition-colors">Sonoma Smart Vineyard</a></h4>
+                  <p class="text-on-surface-variant flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm" aria-hidden="true">location_on</span> California, USA
+                  </p>
+                </div>
+                <div class="text-right">
+                  <span class="text-xs font-bold text-outline uppercase block">Water Saving</span>
+                  <span class="text-xl font-bold text-primary">72%</span>
+                </div>
+              </div>
+              <div class="grid grid-cols-3 gap-4 border-t border-outline-variant/20 pt-6">
+                <div>
+                  <span class="text-[10px] font-bold text-outline uppercase block mb-1">Soil Moisture</span>
+                  <p class="text-lg font-bold">42%</p>
+                </div>
+                <div>
+                  <span class="text-[10px] font-bold text-outline uppercase block mb-1">UV Index</span>
+                  <p class="text-lg font-bold">4.2 Low</p>
+                </div>
+                <div>
+                  <span class="text-[10px] font-bold text-outline uppercase block mb-1">Last Rain</span>
+                  <p class="text-lg font-bold">3d ago</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </FadeIn>
+
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       CTA BANNER
+       ═══════════════════════════════════════════════════ -->
+  <section class="max-w-7xl mx-auto px-6 mb-24">
+    <FadeIn>
+      <div class="brand-gradient rounded-xl p-16 flex flex-col md:flex-row items-center justify-between gap-12 relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl" aria-hidden="true"></div>
+        <div class="relative z-10">
+          <h2 class="text-4xl font-extrabold text-white mb-4 tracking-tighter">Ready to digitize your harvest?</h2>
+          <p class="text-white/80 text-lg max-w-xl">
+            Whether you're a family farm or a multinational agritech provider, our solutions are built to scale with your needs.
+          </p>
+        </div>
+        <div class="flex gap-4 relative z-10 flex-wrap">
+          <a
+            href="/contact?interest=demo"
+            class="bg-white text-primary px-8 py-4 rounded-full font-bold shadow-lg hover:scale-105 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+          >
+            Schedule Demo
+          </a>
+          <a
+            href="/technology"
+            class="bg-primary/20 backdrop-blur-md text-white border border-white/30 px-8 py-4 rounded-full font-bold hover:bg-primary/40 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+          >
+            Technical Specs
+          </a>
+        </div>
+      </div>
+    </FadeIn>
+  </section>
+
+</SiteLayout>

@@ -1,0 +1,28 @@
+{
+  "name": "The Highland Vertical",
+  "location": "Oslo, Norway",
+  "heroImage": "/images/farms/highland-vertical.jpg",
+  "cropType": "Mixed Greens, Microgreens, Herbs",
+  "farmSize": "3,200 sq m — 18 growing levels",
+  "challenge": "Operating in Norway's extreme latitude meant severe seasonal light deprivation for up to 20 hours a day in winter. Manual monitoring across 18 vertical growing levels was unsustainable, leading to inconsistent crop cycles, undetected pest outbreaks, and 35% higher water waste than industry benchmarks.",
+  "solution": "HariLeaf deployed the full LeafSense AI Vision stack across every tier of the facility, enabling real-time anomaly detection at 98% accuracy. HydroLogic Hub automated sub-surface irrigation using live soil moisture telemetry and predictive weather modeling, while AeroFleet drones conducted weekly structural and canopy surveys.",
+  "results": [
+    { "metric": "Yield Increase", "value": "+43%", "context": "compared to previous growing year" },
+    { "metric": "Water Reduction", "value": "68%", "context": "annual water consumption savings" },
+    { "metric": "Pest Detection Speed", "value": "4.2×", "context": "faster than manual inspection" },
+    { "metric": "System Load", "value": "94%", "context": "peak operational capacity" },
+    { "metric": "Temperature", "value": "22.4°C", "context": "stable year-round setpoint" },
+    { "metric": "Humidity", "value": "68%", "context": "optimal relative humidity maintained" },
+    { "metric": "CO2 Level", "value": "840 ppm", "context": "enhanced photosynthesis level" }
+  ],
+  "farmerQuote": "HariLeaf transformed how we grow. We now have complete visibility into every plant on every level, every single day — without ever setting foot on the floor.",
+  "farmerName": "Erik Andersen",
+  "farmerRole": "Head of Operations, The Highland Vertical",
+  "featured": true,
+  "publishedAt": "2024-03-15",
+  "seo": {
+    "metaTitle": "The Highland Vertical, Oslo — HariLeaf Farm Profile",
+    "metaDescription": "See how The Highland Vertical in Oslo achieved a 43% yield increase and 68% water reduction using HariLeaf's LeafSense AI Vision and HydroLogic Hub.",
+    "noIndex": false
+  }
+}

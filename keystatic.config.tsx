@@ -81,7 +81,7 @@ export default config({
   ui: {
     brand: { name: 'Harileaf' },
     navigation: {
-      Pages: ['homepage', 'technologyPage', 'farmsPage', 'aboutPage'],
+      Pages: ['homepage', 'technologyPage', 'farmsPage', 'aboutPage', 'contactPage'],
       Global: ['siteSettings', 'navigation', 'footer'],
       Collections: ['farmProfiles', 'techFeatures', 'teamMembers', 'testimonials', 'faqs'],
     },
@@ -581,6 +581,89 @@ export default config({
             ),
           },
           { label: 'CTA Section' }
+        ),
+
+        seo: fields.object(seoFields, { label: 'SEO' }),
+      },
+    }),
+
+    // ----------------------------------------------------------
+    // Contact Page
+    // ----------------------------------------------------------
+    contactPage: singleton({
+      label: 'Contact Page',
+      path: 'src/content/contact-page',
+      schema: {
+        hero: fields.object(
+          {
+            label: fields.text({ label: 'Label', description: 'Eyebrow label e.g. "CONTACT US"', validation: { isRequired: true } }),
+            headline: fields.text({ label: 'Headline (before gradient word)', validation: { isRequired: true } }),
+            headlineGradient: fields.text({ label: 'Headline Gradient Word', validation: { isRequired: true } }),
+            headlineEnd: fields.text({ label: 'Headline (after gradient word)', validation: { isRequired: true } }),
+            mobileHeadline: fields.text({ label: 'Mobile Headline', description: 'Shorter headline shown on small screens.' }),
+            subheadline: fields.text({ label: 'Subheadline', multiline: true, validation: { isRequired: true } }),
+          },
+          { label: 'Hero Section' }
+        ),
+
+        form: fields.object(
+          {
+            heading: fields.text({ label: 'Form Heading', validation: { isRequired: true } }),
+            web3formsKey: fields.text({ label: 'Web3Forms Access Key', description: 'Access key from web3forms.com for form submission.' }),
+            turnstileSiteKey: fields.text({ label: 'Cloudflare Turnstile Site Key', description: 'Site key from Cloudflare Turnstile for bot protection.' }),
+            subjects: fields.array(
+              fields.text({ label: 'Subject Option' }),
+              {
+                label: 'Subject Dropdown Options',
+                itemLabel: (props) => props.value ?? 'Option',
+              }
+            ),
+          },
+          { label: 'Contact Form' }
+        ),
+
+        contactInfo: fields.object(
+          {
+            heading: fields.text({ label: 'Section Heading', validation: { isRequired: true } }),
+            location: fields.object(
+              {
+                title: fields.text({ label: 'Title', validation: { isRequired: true } }),
+                line1: fields.text({ label: 'Address Line 1', validation: { isRequired: true } }),
+                line2: fields.text({ label: 'Address Line 2' }),
+              },
+              { label: 'Location' }
+            ),
+            email: fields.object(
+              {
+                title: fields.text({ label: 'Title', validation: { isRequired: true } }),
+                addresses: fields.array(
+                  fields.text({ label: 'Email Address', validation: { isRequired: true } }),
+                  { label: 'Email Addresses', itemLabel: (props) => props.value ?? 'Email' }
+                ),
+              },
+              { label: 'Email' }
+            ),
+            whatsapp: fields.object(
+              {
+                title: fields.text({ label: 'Title', validation: { isRequired: true } }),
+                number: fields.text({ label: 'Phone Number', validation: { isRequired: true } }),
+                note: fields.text({ label: 'Note', description: 'Short note shown below the number.' }),
+                link: fields.url({ label: 'WhatsApp Link (wa.me URL)' }),
+              },
+              { label: 'WhatsApp' }
+            ),
+          },
+          { label: 'Contact Info Sidebar' }
+        ),
+
+        sustainabilityBanner: fields.object(
+          {
+            headline: fields.text({ label: 'Headline', validation: { isRequired: true } }),
+            body: fields.text({ label: 'Body Text', multiline: true, validation: { isRequired: true } }),
+            buttonLabel: fields.text({ label: 'Button Label', validation: { isRequired: true } }),
+            buttonUrl: fields.url({ label: 'Button URL' }),
+          },
+          { label: 'Sustainability Banner' }
         ),
 
         seo: fields.object(seoFields, { label: 'SEO' }),

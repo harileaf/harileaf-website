@@ -1,0 +1,51 @@
+---
+/**
+ * ContactInfoItem — "Reach Us Directly" sidebar items on contact page.
+ *
+ * From contact page design:
+ *   <div class="flex items-start gap-5">
+ *     <div class="w-12 h-12 rounded-lg bg-primary-fixed flex items-center justify-center text-primary">
+ *       <span class="material-symbols-outlined">...</span>
+ *     </div>
+ *     <div>
+ *       <h4 class="font-bold text-on-surface">...</h4>
+ *       <p class="text-on-surface-variant mt-1 leading-relaxed">...</p>
+ *     </div>
+ *   </div>
+ *
+ * Props:
+ *   icon     — Material Symbol name
+ *   iconBg   — Tailwind bg class for icon container (e.g. 'bg-primary-fixed', 'bg-secondary-fixed')
+ *   iconColor — Tailwind text class for icon (e.g. 'text-primary', 'text-secondary')
+ *   title    — item label (e.g. "Main Laboratory")
+ *   details  — array of strings (lines of detail text)
+ */
+interface Props {
+  icon: string;
+  iconBg?: string;
+  iconColor?: string;
+  title: string;
+  details?: string[];
+}
+
+const {
+  icon,
+  iconBg = 'bg-primary-fixed',
+  iconColor = 'text-primary',
+  title,
+  details = [],
+} = Astro.props;
+---
+
+<div class="flex items-start gap-5">
+  <div class:list={['w-12 h-12 shrink-0 rounded-lg flex items-center justify-center', iconBg, iconColor]}>
+    <span class="material-symbols-outlined">{icon}</span>
+  </div>
+  <div>
+    <h4 class="font-bold text-on-surface">{title}</h4>
+    {details.map((line) => (
+      <p class="text-on-surface-variant mt-1 leading-relaxed">{line}</p>
+    ))}
+    <slot />
+  </div>
+</div>

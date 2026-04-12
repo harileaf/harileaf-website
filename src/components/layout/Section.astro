@@ -1,0 +1,39 @@
+---
+/**
+ * Section — full-width section wrapper with background, padding, and optional id.
+ * Default rhythm: py-24 px-6 (matches all design files).
+ *
+ * Props:
+ *   background — bg variant
+ *   id         — anchor link target
+ *   as         — HTML element (default: "section")
+ *   class      — additional classes
+ */
+interface Props {
+  background?: 'surface' | 'surface-container-low' | 'inverse-surface' | 'brand-gradient';
+  id?: string;
+  as?: keyof HTMLElementTagNameMap;
+  class?: string;
+}
+
+const {
+  background = 'surface',
+  id,
+  as: Tag = 'section',
+  class: className = '',
+} = Astro.props;
+
+const bgClasses: Record<NonNullable<Props['background']>, string> = {
+  'surface':               'bg-surface',
+  'surface-container-low': 'bg-surface-container-low',
+  'inverse-surface':       'bg-inverse-surface text-inverse-on-surface',
+  'brand-gradient':        'brand-gradient text-white',
+};
+---
+
+<Tag
+  id={id}
+  class:list={['py-24 px-6', bgClasses[background], className]}
+>
+  <slot />
+</Tag>

@@ -1,0 +1,368 @@
+---
+export const prerender = true;
+import SiteLayout from '../layouts/SiteLayout.astro';
+import SEO from '../components/seo/SEO.astro';
+import JsonLd from '../components/seo/JsonLd.astro';
+import contactJson from '../content/contact-page.json';
+
+const page     = contactJson;
+const hero     = page.hero;
+const form     = page.form;
+const info     = page.contactInfo;
+const banner   = page.sustainabilityBanner;
+const seo      = page.seo;
+
+const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://harileaf.ag');
+const pageTitle    = seo?.metaTitle    ?? 'Contact Us | HariLeaf Agritech — Connect with the Future of Farming';
+const pageDesc     = seo?.metaDescription ?? 'Get in touch with HariLeaf Agritech. Reach out for technology solutions, farm partnerships, or sustainability inquiries.';
+
+const success = Astro.url.searchParams.get('success') === 'true';
+---
+
+<SiteLayout title={pageTitle} description={pageDesc} noIndex={seo?.noIndex ?? false}>
+
+  <slot name="head" slot="head">
+    <SEO title={pageTitle} description={pageDesc} canonicalUrl={canonicalURL} />
+    <JsonLd
+      type="BreadcrumbList"
+      data={{
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Home',       item: 'https://harileaf.ag/' },
+          { '@type': 'ListItem', position: 2, name: 'Contact Us', item: 'https://harileaf.ag/contact' },
+        ],
+      }}
+    />
+    <JsonLd
+      type="ContactPage"
+      data={{
+        name: 'Contact HariLeaf Agritech',
+        url: String(canonicalURL),
+        description: pageDesc,
+        contactPoint: {
+          '@type': 'ContactPoint',
+          email: 'hello@harileaf.agri',
+          telephone: '+65-8299-4400',
+          contactType: 'customer support',
+          availableLanguage: 'English',
+        },
+      }}
+    />
+    <!-- Cloudflare Turnstile -->
+    <script is:inline src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+  </slot>
+
+  <!-- ═══════════════════════════════════════════════════
+       SECTION 1 — HERO
+       ═══════════════════════════════════════════════════ -->
+  <section class="relative h-[450px] w-full overflow-hidden">
+    <!-- Background image -->
+    <div class="absolute inset-0 z-0">
+      <img
+        src="/images/general/contact-hero.jpg"
+        alt="High-tech outdoor agriculture fields at dawn"
+        class="w-full h-full object-cover"
+        loading="eager"
+      />
+      <div class="absolute inset-0 bg-gradient-to-r from-on-background/80 via-on-background/40 to-transparent"></div>
+    </div>
+
+    <!-- Content -->
+    <div class="relative z-10 max-w-7xl mx-auto px-8 h-full flex flex-col justify-center">
+      <span class="text-primary-container font-bold tracking-[0.2em] text-xs uppercase mb-4">
+        {hero.label}
+      </span>
+
+      <!-- Desktop headline (hidden on mobile) -->
+      <h1 class="hidden sm:block text-5xl lg:text-7xl font-bold text-white tracking-tighter max-w-2xl leading-[1.1]">
+        {hero.headline} <span class="text-brand-gradient">{hero.headlineGradient}</span> {hero.headlineEnd}
+      </h1>
+
+      <!-- Mobile headline + quick actions -->
+      <div class="sm:hidden">
+        <h1 class="text-4xl font-bold text-white tracking-tighter leading-[1.1] mb-6">
+          {hero.mobileHeadline}
+        </h1>
+        <div class="flex gap-3 flex-wrap">
+          <a
+            href={`tel:${info.whatsapp.number.replace(/\s/g, '')}`}
+            class="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm border border-white/30 text-white px-5 py-2.5 rounded-full font-bold text-sm hover:bg-white/30 transition-colors"
+          >
+            <span class="material-symbols-outlined text-base" style="font-size:1rem">call</span>
+            Call Us
+          </a>
+          <a
+            href={`mailto:${info.email.addresses[0]}`}
+            class="inline-flex items-center gap-2 bg-primary/90 backdrop-blur-sm text-white px-5 py-2.5 rounded-full font-bold text-sm hover:brightness-105 transition-all"
+          >
+            <span class="material-symbols-outlined text-base" style="font-size:1rem">mail</span>
+            Email Us
+          </a>
+        </div>
+      </div>
+
+      <p class="mt-6 text-white/80 text-lg max-w-lg leading-relaxed hidden sm:block">
+        {hero.subheadline}
+      </p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════
+       SECTION 2 — FORM + CONTACT INFO
+       ═══════════════════════════════════════════════════ -->
+  <section class="bg-surface-container-low py-24 px-8">
+    <div class="max-w-7xl mx-auto">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-16 items-start">
+
+        <!-- LEFT: Contact Form (7 cols) -->
+        <div class="lg:col-span-7 glass-card rounded-lg p-8 md:p-12 shadow-sm">
+
+          <!-- Success banner -->
+          {success && (
+            <div class="mb-8 flex items-start gap-4 bg-primary-fixed/60 border border-primary/20 rounded-lg px-5 py-4">
+              <span class="material-symbols-outlined text-primary mt-0.5" style="font-variation-settings:'FILL' 1">check_circle</span>
+              <div>
+                <p class="font-bold text-on-surface">Message sent!</p>
+                <p class="text-on-surface-variant text-sm mt-0.5">Thanks for reaching out. Our team will get back to you within one business day.</p>
+              </div>
+            </div>
+          )}
+
+          <h2 class="text-3xl font-bold text-on-surface mb-8">{form.heading}</h2>
+
+          <form
+            method="POST"
+            action="https://api.web3forms.com/submit"
+            class="space-y-6"
+          >
+            <!-- Web3Forms hidden fields -->
+            <input type="hidden" name="access_key" value={form.web3formsKey} />
+            <input type="hidden" name="subject" value="New Contact Inquiry — HariLeaf Agritech" />
+            <input type="hidden" name="redirect" value={`${String(canonicalURL)}?success=true`} />
+            <input type="checkbox" name="botcheck" class="hidden" style="display:none" />
+
+            <!-- Row: Name + Email -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div class="space-y-2">
+                <label for="cf-name" class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                  Full Name
+                </label>
+                <input
+                  id="cf-name"
+                  name="name"
+                  type="text"
+                  required
+                  placeholder="John Doe"
+                  autocomplete="name"
+                  class="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary/40 focus:border-primary focus:outline-none text-on-surface transition-all placeholder:text-outline/40"
+                />
+              </div>
+              <div class="space-y-2">
+                <label for="cf-email" class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                  Email Address
+                </label>
+                <input
+                  id="cf-email"
+                  name="email"
+                  type="email"
+                  required
+                  placeholder="john@company.com"
+                  autocomplete="email"
+                  class="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary/40 focus:border-primary focus:outline-none text-on-surface transition-all placeholder:text-outline/40"
+                />
+              </div>
+            </div>
+
+            <!-- Subject -->
+            <div class="space-y-2">
+              <label for="cf-subject" class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                Subject
+              </label>
+              <select
+                id="cf-subject"
+                name="subject_choice"
+                class="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary/40 focus:border-primary focus:outline-none text-on-surface transition-all appearance-none"
+              >
+                {form.subjects.map((s) => (
+                  <option value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+
+            <!-- Message -->
+            <div class="space-y-2">
+              <label for="cf-message" class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                Your Message
+              </label>
+              <textarea
+                id="cf-message"
+                name="message"
+                rows={5}
+                required
+                placeholder="How can we help your harvest?"
+                class="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary/40 focus:border-primary focus:outline-none text-on-surface transition-all placeholder:text-outline/40 resize-none"
+              ></textarea>
+            </div>
+
+            <!-- Cloudflare Turnstile -->
+            <div class="cf-turnstile" data-sitekey={form.turnstileSiteKey}></div>
+
+            <!-- Submit -->
+            <button
+              type="submit"
+              class="brand-gradient text-on-primary w-full md:w-auto px-10 py-4 rounded-lg font-bold shadow-sm hover:brightness-105 transition-all active:scale-[0.98]"
+            >
+              Send Inquiry
+            </button>
+          </form>
+        </div>
+
+        <!-- RIGHT: Contact Details + Map (5 cols) -->
+        <div class="lg:col-span-5 space-y-12">
+
+          <!-- Contact items -->
+          <div class="space-y-8">
+            <h3 class="text-2xl font-bold text-on-surface">{info.heading}</h3>
+
+            <!-- Location -->
+            <div class="flex items-start gap-5">
+              <div class="w-12 h-12 rounded-lg bg-primary-fixed flex items-center justify-center text-primary flex-shrink-0">
+                <span class="material-symbols-outlined">location_on</span>
+              </div>
+              <div>
+                <h4 class="font-bold text-on-surface">{info.location.title}</h4>
+                <p class="text-on-surface-variant mt-1 leading-relaxed">
+                  {info.location.line1}<br />
+                  {info.location.line2}
+                </p>
+              </div>
+            </div>
+
+            <!-- Email -->
+            <div class="flex items-start gap-5">
+              <div class="w-12 h-12 rounded-lg bg-secondary-fixed flex items-center justify-center text-secondary flex-shrink-0">
+                <span class="material-symbols-outlined">mail</span>
+              </div>
+              <div>
+                <h4 class="font-bold text-on-surface">{info.email.title}</h4>
+                {info.email.addresses.map((addr) => (
+                  <p class="text-on-surface-variant mt-1">
+                    <a href={`mailto:${addr}`} class="hover:text-primary transition-colors">{addr}</a>
+                  </p>
+                ))}
+              </div>
+            </div>
+
+            <!-- WhatsApp -->
+            <div class="flex items-start gap-5">
+              <div class="w-12 h-12 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600 flex-shrink-0">
+                <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.72.937 3.659 1.432 5.631 1.433h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+                </svg>
+              </div>
+              <div>
+                <h4 class="font-bold text-on-surface">{info.whatsapp.title}</h4>
+                <p class="text-on-surface-variant mt-1">
+                  <a href={info.whatsapp.link} target="_blank" rel="noopener noreferrer" class="hover:text-primary transition-colors">
+                    {info.whatsapp.number}
+                  </a>
+                </p>
+                <p class="text-on-surface-variant text-xs italic">{info.whatsapp.note}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mini Map (desktop) / Global Presence (mobile) -->
+          <div>
+            <!-- Desktop map placeholder -->
+            <div class="hidden sm:block rounded-lg overflow-hidden aspect-video shadow-sm border border-outline-variant/30 bg-surface-container-high relative">
+              <!-- Map visual placeholder — replace with embedded map when ready -->
+              <div class="absolute inset-0 bg-gradient-to-br from-brand-50 to-brand-100" style="background: linear-gradient(135deg, #d6f1ec 0%, #a7e4da 40%, #7fc8ba 100%);">
+                <!-- Decorative grid lines to suggest a map -->
+                <svg class="w-full h-full opacity-20" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <pattern id="map-grid" width="32" height="32" patternUnits="userSpaceOnUse">
+                      <path d="M 32 0 L 0 0 0 32" fill="none" stroke="#196a5e" stroke-width="0.5"/>
+                    </pattern>
+                  </defs>
+                  <rect width="100%" height="100%" fill="url(#map-grid)" />
+                </svg>
+                <!-- Pin indicator -->
+                <div class="absolute inset-0 flex items-center justify-center">
+                  <div class="relative">
+                    <div class="w-5 h-5 bg-primary rounded-full animate-ping absolute -inset-0.5 opacity-60"></div>
+                    <div class="w-4 h-4 bg-primary rounded-full relative z-10 flex items-center justify-center shadow-lg">
+                    </div>
+                  </div>
+                </div>
+                <!-- Location label -->
+                <div class="absolute bottom-3 left-3 bg-white/80 backdrop-blur-sm rounded px-2.5 py-1.5 shadow-sm">
+                  <p class="text-xs font-bold text-on-surface">{info.location.title}</p>
+                  <p class="text-xs text-on-surface-variant">Singapore</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Mobile: Global Presence section -->
+            <div class="sm:hidden bg-surface-container rounded-lg p-6 border border-outline-variant/20">
+              <h4 class="font-bold text-on-surface mb-4 flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary" style="font-size:1.25rem">public</span>
+                Global Presence
+              </h4>
+              <div class="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p class="font-bold text-on-surface">Singapore</p>
+                  <p class="text-on-surface-variant text-xs">Main Laboratory</p>
+                </div>
+                <div>
+                  <p class="font-bold text-on-surface">India</p>
+                  <p class="text-on-surface-variant text-xs">R&amp;D Centre</p>
+                </div>
+                <div>
+                  <p class="font-bold text-on-surface">Netherlands</p>
+                  <p class="text-on-surface-variant text-xs">European Hub</p>
+                </div>
+                <div>
+                  <p class="font-bold text-on-surface">UAE</p>
+                  <p class="text-on-surface-variant text-xs">MENA Operations</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════
+       SECTION 3 — SUSTAINABILITY BANNER
+       ═══════════════════════════════════════════════════ -->
+  <section class="bg-on-background text-white py-16 px-8 overflow-hidden relative">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8 relative z-10">
+      <div>
+        <h2 class="text-3xl font-bold tracking-tight text-white">
+          {banner.headline}
+        </h2>
+        <p class="text-white/60 mt-2 max-w-xl leading-relaxed">
+          {banner.body}
+        </p>
+      </div>
+      <a
+        href={banner.buttonUrl ?? '#'}
+        class="bg-white text-on-background px-8 py-3 rounded-lg font-bold hover:bg-primary hover:text-white transition-colors whitespace-nowrap flex-shrink-0"
+      >
+        {banner.buttonLabel}
+      </a>
+    </div>
+
+    <!-- Decorative eco icon -->
+    <div class="absolute right-0 top-0 w-1/3 h-full opacity-10 pointer-events-none flex items-center justify-end overflow-hidden">
+      <span
+        class="material-symbols-outlined text-white select-none"
+        style="font-size: 15rem; font-variation-settings: 'FILL' 1; transform: translateX(4rem) translateY(2rem);"
+        aria-hidden="true"
+      >eco</span>
+    </div>
+  </section>
+
+</SiteLayout>

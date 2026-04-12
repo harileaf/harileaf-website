@@ -1,0 +1,111 @@
+---
+/**
+ * CaseStudyCard — "Farm Spotlight" case study layout.
+ *
+ * From solutions page "The Great Plains Precision Farm":
+ *   2-col grid: images left (staggered pair), content right
+ *   label (Farm Spotlight), h2, description
+ *   Checklist with bg-secondary-fixed icon circles
+ *   Blockquote: p-6 bg-surface-container-high rounded-xl border-l-4 border-primary
+ *
+ * Props:
+ *   label       — section label text (e.g. "Farm Spotlight")
+ *   labelColor  — label color token
+ *   title       — case study heading
+ *   body        — main description
+ *   image1      — primary image src
+ *   image2      — secondary image src (staggered)
+ *   imageAlt    — alt text
+ *   metrics     — array of { title, description } checklist items
+ *   quote       — blockquote text
+ *   quoteAuthor — attribution string
+ *   class       — extra classes
+ */
+interface CheckItem { title: string; description: string }
+
+interface Props {
+  label?: string;
+  labelColor?: 'primary' | 'secondary' | 'tertiary' | 'white';
+  title: string;
+  body: string;
+  image1?: string;
+  image2?: string;
+  imageAlt?: string;
+  metrics?: CheckItem[];
+  quote?: string;
+  quoteAuthor?: string;
+  class?: string;
+}
+
+const {
+  label,
+  labelColor = 'secondary',
+  title,
+  body,
+  image1,
+  image2,
+  imageAlt = '',
+  metrics = [],
+  quote,
+  quoteAuthor,
+  class: className = '',
+} = Astro.props;
+---
+
+<div class:list={['grid grid-cols-1 lg:grid-cols-2 gap-16 items-center', className]}>
+
+  <!-- Images (staggered pair) -->
+  <div class="order-2 lg:order-1">
+    <div class="grid grid-cols-2 gap-4">
+      {image1 && (
+        <div class="aspect-square rounded-xl overflow-hidden shadow-sm">
+          <img src={image1} alt={imageAlt} class="w-full h-full object-cover" loading="lazy" />
+        </div>
+      )}
+      {image2 && (
+        <div class="aspect-square rounded-xl overflow-hidden shadow-sm mt-8">
+          <img src={image2} alt={imageAlt} class="w-full h-full object-cover" loading="lazy" />
+        </div>
+      )}
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="order-1 lg:order-2">
+    {label && (
+      <span class:list={[
+        'block text-xs font-bold uppercase tracking-[0.2em] mb-4',
+        labelColor === 'secondary' ? 'text-secondary' : `text-${labelColor}`,
+      ]}>
+        {label}
+      </span>
+    )}
+    <h2 class="text-4xl font-bold text-on-surface mb-6">{title}</h2>
+    <p class="text-lg text-on-surface-variant mb-8 leading-relaxed">{body}</p>
+
+    {metrics.length > 0 && (
+      <ul class="space-y-6 mb-10">
+        {metrics.map((item) => (
+          <li class="flex items-start gap-4">
+            <div class="mt-1 w-6 h-6 shrink-0 rounded-full bg-secondary-fixed flex items-center justify-center">
+              <span class="material-symbols-outlined text-[16px] text-on-secondary-container">check</span>
+            </div>
+            <div>
+              <h4 class="font-bold text-on-surface">{item.title}</h4>
+              <p class="text-sm text-on-surface-variant">{item.description}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    )}
+
+    {quote && (
+      <blockquote class="p-6 bg-surface-container-high rounded-xl border-l-4 border-primary">
+        <p class="italic text-on-surface mb-4">"{quote}"</p>
+        {quoteAuthor && <p class="text-sm font-bold">— {quoteAuthor}</p>}
+      </blockquote>
+    )}
+
+    <slot />
+  </div>
+</div>

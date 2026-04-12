@@ -1,0 +1,98 @@
+---
+/**
+ * SectionHeading — section label + h2 + optional subtitle + optional right-side link.
+ *
+ * Two layouts:
+ *   left (default): stacked vertically, max-w-2xl
+ *   center:         text-center, max-w-2xl mx-auto
+ *   split:          flex row, heading left + optional link right (matches homepage bento header)
+ *
+ * From homepage design:
+ *   <div class="flex flex-col md:flex-row justify-between items-end mb-16 gap-6">
+ *     <div class="max-w-2xl">
+ *       <h2 class="text-4xl font-bold tracking-tight mb-4">Precision Engineering for Nature.</h2>
+ *       <p class="text-on-surface-variant text-lg">...</p>
+ *     </div>
+ *     <a class="text-primary font-bold inline-flex items-center gap-2 group" href="#">
+ *       View Technical Whitepaper
+ *       <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+ *     </a>
+ *   </div>
+ *
+ * Props:
+ *   label      — small uppercase label (optional, rendered via SectionLabel)
+ *   labelColor — color token for SectionLabel
+ *   title      — main h2 text
+ *   subtitle   — supporting paragraph (optional)
+ *   linkText   — right-side link text (optional, triggers split layout)
+ *   linkHref   — right-side link href
+ *   align      — 'left' | 'center' | 'split' (default: 'left')
+ *   as         — heading element: 'h2' | 'h3' (default: 'h2')
+ *   class      — extra classes on wrapper
+ */
+import SectionLabel from './SectionLabel.astro';
+
+interface Props {
+  label?: string;
+  labelColor?: 'primary' | 'secondary' | 'tertiary' | 'white';
+  title: string;
+  subtitle?: string;
+  linkText?: string;
+  linkHref?: string;
+  align?: 'left' | 'center' | 'split';
+  as?: 'h2' | 'h3';
+  class?: string;
+}
+
+const {
+  label,
+  labelColor = 'primary',
+  title,
+  subtitle,
+  linkText,
+  linkHref = '#',
+  align = 'left',
+  as: Tag = 'h2',
+  class: className = '',
+} = Astro.props;
+
+const isSplit = align === 'split' || !!linkText;
+const isCenter = align === 'center' && !isSplit;
+---
+
+{isSplit ? (
+  <div class:list={['flex flex-col md:flex-row justify-between items-end gap-6', className]}>
+    <div class="max-w-2xl">
+      {label && <SectionLabel text={label} color={labelColor} class="mb-4" />}
+      <Tag class="text-4xl font-bold tracking-tight text-on-surface">{title}</Tag>
+      {subtitle && <p class="text-on-surface-variant text-lg mt-3">{subtitle}</p>}
+    </div>
+    {linkText && (
+      <a
+        href={linkHref}
+        class="text-primary font-bold inline-flex items-center gap-2 group shrink-0 focus-visible:outline-none focus-visible:underline"
+      >
+        {linkText}
+        <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform" aria-hidden="true">arrow_forward</span>
+      </a>
+    )}
+  </div>
+) : (
+  <div class:list={['space-y-4', isCenter && 'text-center', className]}>
+    {label && <SectionLabel text={label} color={labelColor} />}
+    <Tag class:list={[
+      'text-4xl md:text-5xl font-extrabold tracking-tight text-on-surface mt-4',
+    ]}>
+      {title}
+    </Tag>
+    {subtitle && (
+      <p class:list={[
+        'text-on-surface-variant leading-relaxed mt-4',
+        isCenter ? 'max-w-2xl mx-auto' : 'max-w-xl',
+      ]}>
+        {subtitle}
+      </p>
+    )}
+    <slot />
+  </div>
+)}

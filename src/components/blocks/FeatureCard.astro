@@ -1,0 +1,100 @@
+---
+/**
+ * FeatureCard — feature card used across technology, solutions, and homepage sections.
+ *
+ * From solutions page "Software Intelligence Suite" design:
+ *   p-8 rounded-xl bg-surface-container hover:bg-surface-container-high transition-colors group
+ *   Top row: large icon (text-4xl text-primary) on left + arrow_forward on right
+ *   Title: text-xl font-bold mb-3
+ *   Description: text-on-surface-variant text-sm leading-relaxed mb-4
+ *   Optional tags row: pill badges at bottom
+ *
+ * Props:
+ *   icon        — Material Symbol name
+ *   iconFill    — fill the icon (default: false)
+ *   title       — card heading
+ *   description — body text
+ *   tags        — optional array of tag strings (rendered as pill labels)
+ *   showArrow   — show arrow_forward icon top-right (default: false)
+ *   href        — optional link (wraps whole card)
+ *   class       — extra classes
+ */
+interface Props {
+  icon?: string;
+  iconFill?: boolean;
+  title: string;
+  description: string;
+  tags?: string[];
+  showArrow?: boolean;
+  href?: string;
+  class?: string;
+}
+
+const {
+  icon,
+  iconFill = false,
+  title,
+  description,
+  tags = [],
+  showArrow = false,
+  href,
+  class: className = '',
+} = Astro.props;
+
+const fillStyle = iconFill
+  ? "font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;"
+  : "font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;";
+
+const cardClasses = [
+  'p-8 rounded-xl bg-surface-container hover:bg-surface-container-high transition-colors group block',
+  className,
+].join(' ');
+---
+
+{href ? (
+  <a href={href} class={cardClasses}>
+    {(icon || showArrow) && (
+      <div class="flex justify-between items-start mb-6">
+        {icon && (
+          <span class="material-symbols-outlined text-4xl text-primary" style={fillStyle} aria-hidden="true">{icon}</span>
+        )}
+        {showArrow && (
+          <span class="material-symbols-outlined text-on-surface-variant group-hover:translate-x-1 transition-transform" aria-hidden="true">arrow_forward</span>
+        )}
+      </div>
+    )}
+    <h3 class="text-xl font-bold mb-3 text-on-surface">{title}</h3>
+    <p class="text-on-surface-variant text-sm leading-relaxed">{description}</p>
+    {tags.length > 0 && (
+      <div class="flex flex-wrap gap-2 mt-4">
+        {tags.map((tag) => (
+          <span class="px-3 py-1 bg-secondary-fixed text-on-secondary-container text-xs font-bold rounded-full">{tag}</span>
+        ))}
+      </div>
+    )}
+    <slot />
+  </a>
+) : (
+  <div class={cardClasses}>
+    {(icon || showArrow) && (
+      <div class="flex justify-between items-start mb-6">
+        {icon && (
+          <span class="material-symbols-outlined text-4xl text-primary" style={fillStyle} aria-hidden="true">{icon}</span>
+        )}
+        {showArrow && (
+          <span class="material-symbols-outlined text-on-surface-variant group-hover:translate-x-1 transition-transform" aria-hidden="true">arrow_forward</span>
+        )}
+      </div>
+    )}
+    <h3 class="text-xl font-bold mb-3 text-on-surface">{title}</h3>
+    <p class="text-on-surface-variant text-sm leading-relaxed">{description}</p>
+    {tags.length > 0 && (
+      <div class="flex flex-wrap gap-2 mt-4">
+        {tags.map((tag) => (
+          <span class="px-3 py-1 bg-secondary-fixed text-on-secondary-container text-xs font-bold rounded-full">{tag}</span>
+        ))}
+      </div>
+    )}
+    <slot />
+  </div>
+)}

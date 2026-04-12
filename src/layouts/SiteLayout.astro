@@ -1,0 +1,80 @@
+---
+/**
+ * SiteLayout — full site shell: Header + main content + Footer.
+ * All public-facing pages use this layout.
+ *
+ * Automatically injects Organization JSON-LD on every page so individual
+ * pages don't need to repeat it. Pages only need to add page-specific schemas
+ * (BreadcrumbList, WebSite, FAQPage, etc.) in their <slot name="head">.
+ *
+ * Props: passed through to BaseLayout (unused there now, kept for compat)
+ */
+import BaseLayout from './BaseLayout.astro';
+import Header from '../components/layout/Header.astro';
+import Footer from '../components/layout/Footer.astro';
+import JsonLd from '../components/seo/JsonLd.astro';
+import siteJson from '../content/site-settings.json';
+
+interface Props {
+  title?: string;
+  description?: string;
+  ogImage?: string;
+  noIndex?: boolean;
+  headerCtaVariant?: 'gradient' | 'container';
+  headerLogoSize?: 'sm' | 'md';
+}
+
+const { title, description, ogImage, noIndex, headerCtaVariant, headerLogoSize } = Astro.props;
+
+const SITE_BASE = (Astro.site ?? new URL('https://harileaf.ag')).origin;
+
+// ── Organization schema — available on every marketing page ──────────────────
+const orgSchema = {
+  name: siteJson.title ?? 'HariLeaf Agritech',
+  url: SITE_BASE,
+  logo: {
+    '@type': 'ImageObject',
+    url: `${SITE_BASE}${siteJson.logo ?? '/images/brand/logo-color.png'}`,
+  },
+  address: {
+    '@type': 'PostalAddress',
+    streetAddress: 'Level 24, Green Spire Plaza',
+    addressLocality: 'Singapore',
+    postalCode: '018982',
+    addressCountry: 'SG',
+  },
+  contactPoint: {
+    '@type': 'ContactPoint',
+    email: siteJson.email ?? 'hello@harileaf.agri',
+    contactType: 'customer support',
+    availableLanguage: 'English',
+  },
+  sameAs: (siteJson.socialLinks ?? []).map((s: { url: string }) => s.url).filter(Boolean),
+};
+---
+
+<BaseLayout {title} {description} {ogImage} {noIndex}>
+
+  <!-- Organization schema — injected before page-specific head content -->
+  <JsonLd type="Organization" data={orgSchema} slot="head" />
+
+  <!-- Page-specific head content (SEO, BreadcrumbList, WebSite, etc.) -->
+  <slot name="head" slot="head" />
+
+  <!-- Skip-to-content — hidden until focused, for keyboard/screen-reader users -->
+  <a
+    href="#main"
+    class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:shadow-float focus:outline-none"
+    transition:name="skip-link"
+  >
+    Skip to main content
+  </a>
+
+  <Header ctaVariant={headerCtaVariant} logoSize={headerLogoSize} />
+
+  <main id="main" tabindex="-1">
+    <slot />
+  </main>
+
+  <Footer />
+</BaseLayout>

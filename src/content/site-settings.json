@@ -1,0 +1,17 @@
+{
+  "title": "HariLeaf Agritech",
+  "tagline": "Open-field farming reimagined",
+  "description": "HariLeaf merges the precision of controlled environments with the scale of the earth. Sustainable intelligence for the modern grower.",
+  "logo": "/images/brand/logo-color.png",
+  "logoDark": "/images/brand/logo-white.png",
+  "favicon": "/images/brand/icon-color.png",
+  "email": "hello@harileaf.agri",
+  "phone": "+65-8299-4400",
+  "address": "Level 24, Green Spire Plaza, Singapore 018982",
+  "socialLinks": [
+    { "platform": "linkedin",  "url": "https://linkedin.com/company/harileaf" },
+    { "platform": "twitter",   "url": "https://twitter.com/harileaf" },
+    { "platform": "instagram", "url": "https://instagram.com/harileaf" }
+  ],
+  "defaultOgImage": "/images/brand/og-default.png"
+}

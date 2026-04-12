@@ -1,0 +1,46 @@
+---
+/**
+ * StaggerChildren — wraps a set of children and sets --index on each
+ * direct child so FadeIn stagger delays work automatically.
+ *
+ * Each direct child gets [data-animate] + style="--index: N" injected
+ * via a tiny inline script that runs once at parse time.
+ *
+ * Props:
+ *   staggerDelay — ms between each child's animation (default 100ms)
+ *   as           — wrapper element (default 'div')
+ *   class        — extra classes on the wrapper
+ */
+interface Props {
+  staggerDelay?: number;
+  as?: keyof HTMLElementTagNameMap;
+  class?: string;
+}
+
+const {
+  staggerDelay = 100,
+  as: Tag = 'div',
+  class: className = '',
+} = Astro.props;
+
+const uid = `sc-${Math.random().toString(36).slice(2, 8)}`;
+---
+
+<Tag id={uid} class:list={[className]}>
+  <slot />
+</Tag>
+
+<script define:vars={{ uid, staggerDelay }}>
+  // Run after DOM is parsed. Assign --index to each direct child
+  // so [data-animate] transition-delay stagger works without JSX.
+  (function () {
+    const wrapper = document.getElementById(uid);
+    if (!wrapper) return;
+    const children = Array.from(wrapper.children);
+    children.forEach((child, i) => {
+      child.setAttribute('data-animate', child.getAttribute('data-animate') ?? '');
+      child.style.setProperty('--index', String(i));
+      child.style.setProperty('--stagger', `${staggerDelay}ms`);
+    });
+  })();
+</script>

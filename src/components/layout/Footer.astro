@@ -1,0 +1,92 @@
+---
+/**
+ * Footer — light 2-column layout (matches all design files).
+ *
+ * Layout:
+ *   LEFT:  Logo + description text + copyright
+ *   RIGHT: Legal links (row) + social icons
+ *
+ * Background: bg-[#F1F5EE] (surface-container-low)
+ */
+import footerJson from '../../content/footer.json';
+import siteJson   from '../../content/site-settings.json';
+
+const copyright  = footerJson.copyrightText ?? '© 2026 HariLeaf Agritech. Cultivating a sustainable future.';
+const legalLinks = footerJson.legalLinks    ?? [];
+
+const logoSrc  = siteJson.logo  ?? '/images/brand/logo-color.png';
+const siteName = siteJson.title ?? 'HariLeaf';
+
+const socials = siteJson.socialLinks ?? [];
+const socialIconMap: Record<string, string> = {
+  linkedin:  'business',
+  twitter:   'tag',
+  instagram: 'photo_camera',
+  facebook:  'share',
+  youtube:   'play_circle',
+  github:    'code',
+};
+---
+
+<footer class="w-full py-12 bg-[#F1F5EE]">
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-7xl mx-auto px-8">
+
+    <!-- LEFT: Logo + description + copyright -->
+    <div class="flex flex-col gap-4">
+      <a
+        href="/"
+        class="inline-block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:rounded-sm self-start"
+        aria-label={`${siteName} — home`}
+      >
+        <img
+          src={logoSrc}
+          alt={siteName}
+          width="140"
+          height="40"
+          class="h-10 w-auto"
+          loading="lazy"
+        />
+      </a>
+      <p class="font-manrope text-sm text-[#3F4946] max-w-sm leading-relaxed">
+        Leveraging artificial intelligence and deep-soil data to create a resilient, sustainable future for global agriculture.
+      </p>
+      <p class="font-manrope text-sm text-[#3F4946]">{copyright}</p>
+    </div>
+
+    <!-- RIGHT: Legal links + social icons -->
+    <div class="flex flex-col md:items-end gap-6">
+
+      <!-- Legal links -->
+      <nav aria-label="Legal links" class="flex flex-wrap gap-x-6 gap-y-2">
+        {legalLinks.map((link) => (
+          <a
+            href={link.url}
+            class="font-manrope text-sm text-[#3F4946] hover:underline decoration-[#7FC8BA] underline-offset-4 opacity-90 hover:opacity-100 transition-all focus-visible:outline-none focus-visible:underline"
+          >
+            {link.label}
+          </a>
+        ))}
+      </nav>
+
+      <!-- Social icons -->
+      {socials.length > 0 && (
+        <div class="flex gap-4">
+          {socials.map((s) => (
+            <a
+              href={s.url}
+              class="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center text-primary hover:scale-110 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={s.platform}
+            >
+              <span class="material-symbols-outlined text-xl" aria-hidden="true">
+                {socialIconMap[s.platform] ?? 'link'}
+              </span>
+            </a>
+          ))}
+        </div>
+      )}
+
+    </div>
+  </div>
+</footer>
