@@ -4,7 +4,7 @@
     "headline": "Open-field farming",
     "highlightText": "reimagined",
     "description": "HariLeaf merges the precision of controlled environments with the scale of the earth. Sustainable intelligence for the modern grower.",
-    "image": "/images/general/hero-field.jpg",
+    "image": "/images/general/hero-field.png",
     "ctaPrimary":   { "label": "Explore Solutions", "url": "/solutions" },
     "ctaSecondary": { "label": "Our Mission",       "url": "/about" }
   },
@@ -19,7 +19,7 @@
         "title": "Aerial Surveillance",
         "icon": "nest_remote_comfort_sensor",
         "description": "Real-time autonomous drone fleets mapping crop health, nitrogen levels, and irrigation needs across thousands of hectares.",
-        "image": "/images/general/drone-field.jpg"
+        "image": "/images/general/drone-field.png"
       },
       {
         "id": "soil-mesh",
@@ -36,7 +36,7 @@
     "label": "Restoring the Earth",
     "headline": "Technology that heals the soil.",
     "body": "We don't just extract; we enrich. HariLeaf's predictive algorithms reduce chemical runoff by 40% and optimize water usage to match natural rainfall patterns, fostering a truly regenerative ecosystem.",
-    "image": "/images/general/organic-farm.jpg",
+    "image": "/images/general/organic-farm.png",
     "metricLabel": "Carbon Offset",
     "metricValue": "14.2",
     "metricUnit": "MT/yr",
