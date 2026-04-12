@@ -1,96 +1,82 @@
 {
   "hero": {
-    "badge": "Sustainable Innovation",
-    "badgeIcon": "eco",
-    "headline": "Autonomous Intelligence",
-    "highlightText": "For The Open Field.",
-    "description": "HariLeaf bridges the gap between biological potential and technological precision. Our mission-driven autonomous systems monitor, nurture, and optimize open-field farming at scale.",
+    "label": "The Digital Greenhouse",
+    "headline": "Open-field farming",
+    "highlightText": "reimagined",
+    "description": "HariLeaf merges the precision of controlled environments with the scale of the earth. Sustainable intelligence for the modern grower.",
     "image": "/images/general/hero-field.jpg",
-    "ctaPrimary": {
-      "label": "Explore Our Tech",
-      "url": "/technology"
-    },
-    "ctaSecondary": {
-      "label": "Watch Drone Demo",
-      "url": "/technology#demo"
-    },
-    "floatingChip": {
-      "value": "HL-Sentinel V3",
-      "label": "Active Fleet"
-    }
+    "ctaPrimary":   { "label": "Explore Solutions", "url": "/solutions" },
+    "ctaSecondary": { "label": "Our Mission",       "url": "/about" }
   },
   "bentoSection": {
-    "headline": "Precision Engineering for Nature.",
-    "description": "We don't just build machines; we cultivate digital ecosystems that empower farmers to grow more with less impact.",
-    "linkText": "View Technical Whitepaper",
-    "linkHref": "/technology",
+    "label": "Precision Field Technology",
+    "headline": "The pulse of the field, captured in real-time.",
+    "description": "Leveraging multi-spectral imaging and subterranean sensing to optimize every acre.",
     "cards": [
       {
-        "id": "multispectral",
+        "id": "aerial-surveillance",
         "colSpan": 8,
-        "variant": "image-bg",
-        "title": "Multispectral Analysis",
-        "description": "Drones equipped with advanced sensors detect nutrient deficiencies before they become visible to the human eye.",
-        "icon": "sensors",
-        "iconFill": true,
-        "image": "/images/general/sensors.jpg"
+        "title": "Aerial Surveillance",
+        "icon": "nest_remote_comfort_sensor",
+        "description": "Real-time autonomous drone fleets mapping crop health, nitrogen levels, and irrigation needs across thousands of hectares.",
+        "image": "/images/general/drone-field.jpg"
       },
       {
-        "id": "zero-waste",
+        "id": "soil-mesh",
         "colSpan": 4,
-        "variant": "gradient",
-        "title": "Zero-Waste Autonomy",
-        "description": "Proprietary AI pathing reduces energy consumption by 40% compared to traditional field scouting.",
-        "icon": "auto_awesome",
-        "iconFill": true
-      },
-      {
-        "id": "variable-rate",
-        "colSpan": 4,
-        "variant": "default",
-        "title": "Variable Rate Delivery",
-        "description": "Precisely target irrigation and nutrition down to the individual plant level.",
-        "icon": "water_drop",
-        "iconFill": true,
-        "iconColor": "text-secondary"
-      },
-      {
-        "id": "dashboard",
-        "colSpan": 8,
-        "variant": "dark-stat",
-        "title": "Real-time Dashboard",
-        "description": "Access your farm's vital signs from anywhere in the world with encrypted satellite uplinks.",
-        "statValue": "98%",
-        "statLabel": "Accuracy in Yield Prediction",
-        "progressPercent": 80
+        "title": "Soil Mesh",
+        "icon": "grass",
+        "description": "Subterranean IoT sensors measuring pH, moisture, and microbial activity at the root level. Grounded data for grounded decisions.",
+        "statLabel": "Active Nodes",
+        "statValue": "12,400+"
       }
     ]
   },
   "editorialSection": {
-    "headline": "Regenerative Tech.",
-    "headlineLineTwo": "Rooted in Stability.",
-    "body": "At HariLeaf, we believe the future of farming isn't just about high-tech gadgets; it's about making technology a servant of the soil. Our open-field solutions are designed to restore ecological balance while meeting the demands of a growing population.",
+    "label": "Restoring the Earth",
+    "headline": "Technology that heals the soil.",
+    "body": "We don't just extract; we enrich. HariLeaf's predictive algorithms reduce chemical runoff by 40% and optimize water usage to match natural rainfall patterns, fostering a truly regenerative ecosystem.",
     "image": "/images/general/organic-farm.jpg",
+    "metricLabel": "Carbon Offset",
+    "metricValue": "14.2",
+    "metricUnit": "MT/yr",
     "checklist": [
+      "Regenerative Crop Rotation Models",
+      "Zero-Waste Irrigation Pipelines",
+      "Biodiversity Monitoring"
+    ]
+  },
+  "intelligenceSection": {
+    "label": "Modern Intelligence",
+    "headline": "The Brain Behind the Bloom.",
+    "cards": [
       {
-        "title": "Carbon Sequestration Tracking",
-        "description": "Measure and monetize your farm's ability to pull CO2 from the atmosphere."
+        "icon": "psychology",
+        "title": "Adaptive Learning",
+        "description": "Our AI models learn from every season, adapting to changing climates and local soil nuances automatically."
       },
       {
-        "title": "Biodiversity Preservation",
-        "description": "Autonomous systems that navigate around local flora and fauna without disruption."
+        "icon": "hub",
+        "title": "Unified Dashboard",
+        "description": "Manage a global network of farms from a single, intuitive interface designed for clarity and action."
+      },
+      {
+        "icon": "show_chart",
+        "title": "Yield Forecasting",
+        "description": "Predictive analytics that provide high-accuracy harvest windows and market-readiness timelines."
       }
     ]
   },
   "ctaSection": {
-    "headline": "Ready to digitize your field?",
-    "body": "Join the hundred of farms worldwide using HariLeaf to optimize their harvests and protect the planet.",
-    "primaryButton": { "label": "Schedule a Consultation", "url": "/contact" },
-    "secondaryButton": { "label": "Download Brochure", "url": "/technology" }
+    "headline": "Join the Agritech Revolution",
+    "body": "Experience the future of sustainable farming today. Let's grow something lasting.",
+    "inputPlaceholder": "Enter your email",
+    "buttonLabel": "Get Early Access",
+    "web3formsKey": ""
   },
   "seo": {
-    "metaTitle": "HariLeaf Agritech | Cultivating a Sustainable Future",
-    "metaDescription": "HariLeaf autonomous systems monitor, nurture, and optimize open-field farming at scale. Precision engineering for nature.",
+    "metaTitle": "HariLeaf Agritech | Open-field farming reimagined",
+    "metaDescription": "HariLeaf merges the precision of controlled environments with the scale of the earth. Sustainable intelligence for the modern grower.",
     "noIndex": false
   }
 }

@@ -7,20 +7,21 @@ import JsonLd from '../components/seo/JsonLd.astro';
 import homepageJson from '../content/homepage.json';
 import siteJson from '../content/site-settings.json';
 
-// ── CMS data ─────────────────────────────────────────────────────────────────
+// ── CMS data ──────────────────────────────────────────────────────────────────
 const page = homepageJson;
 const site = siteJson;
 
-const hero     = page.hero;
-const bento    = page.bentoSection;
-const editorial = page.editorialSection;
-const cta      = page.ctaSection;
-const seo      = page.seo;
+const hero         = page.hero;
+const bento        = page.bentoSection;
+const editorial    = page.editorialSection;
+const intelligence = page.intelligenceSection;
+const cta          = page.ctaSection;
+const seo          = page.seo;
 
-const siteName = site.title ?? 'HariLeaf Agritech';
+const siteName     = site.title ?? 'HariLeaf Agritech';
 const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://harileaf.ag');
-const pageTitle = seo?.metaTitle ?? `HariLeaf Agritech | Cultivating a Sustainable Future`;
-const pageDesc  = seo?.metaDescription ?? (site.description ?? 'Sustainable intelligence for the modern grower.');
+const pageTitle    = seo?.metaTitle    ?? 'HariLeaf Agritech | Open-field farming reimagined';
+const pageDesc     = seo?.metaDescription ?? (site.description ?? 'Sustainable intelligence for the modern grower.');
 ---
 
 <SiteLayout title={pageTitle} description={pageDesc} noIndex={seo?.noIndex ?? false}>
@@ -33,7 +34,6 @@ const pageDesc  = seo?.metaDescription ?? (site.description ?? 'Sustainable inte
       ogImage={site.defaultOgImage ? new URL(site.defaultOgImage, canonicalURL) : undefined}
       noIndex={seo?.noIndex ?? false}
     />
-    <!-- Organization is injected automatically by SiteLayout — no duplicate needed here -->
     <JsonLd
       type="WebSite"
       data={{
@@ -51,239 +51,63 @@ const pageDesc  = seo?.metaDescription ?? (site.description ?? 'Sustainable inte
 
 
   <!-- ══════════════════════════════════════════════════════════════
-       SECTION 1 — HERO (Grid layout)
+       SECTION 1 — HERO (Full-screen background image)
        ══════════════════════════════════════════════════════════════ -->
-  <section class="relative pt-32 pb-20 px-6 overflow-hidden">
-    <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+  <section class="relative min-h-screen flex items-center pt-20 overflow-hidden">
 
-      <!-- LEFT: text column -->
-      <div class="lg:col-span-7 space-y-8">
+    <!-- Background image + gradient overlay -->
+    <div class="absolute inset-0 z-0">
+      {hero.image ? (
+        <img
+          src={hero.image}
+          alt="Open-field farming reimagined — HariLeaf"
+          class="w-full h-full object-cover"
+          loading="eager"
+          fetchpriority="high"
+        />
+      ) : (
+        <div class="w-full h-full brand-gradient opacity-40"></div>
+      )}
+      <div class="absolute inset-0 bg-gradient-to-r from-surface via-surface/40 to-transparent"></div>
+    </div>
 
-        <!-- PillBadge: Sustainable Innovation -->
-        <FadeIn delay={0}>
-          <div class="inline-flex items-center gap-2 px-3 py-1 bg-secondary-container text-on-secondary-container rounded-full text-xs font-bold tracking-widest uppercase">
-            <span
-              class="material-symbols-outlined text-sm leading-none"
-              style="font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 20;"
-              aria-hidden="true"
-            >eco</span>
-            {hero.badge ?? 'Sustainable Innovation'}
-          </div>
+    <!-- Content -->
+    <div class="relative z-10 max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-12 w-full">
+      <div class="space-y-8">
+
+        <FadeIn>
+          <span class="text-xs uppercase tracking-widest text-primary font-bold">
+            {hero.label}
+          </span>
         </FadeIn>
 
-        <!-- H1 -->
         <FadeIn delay={100}>
-          <h1 class="text-5xl lg:text-7xl font-extrabold tracking-tight text-on-surface leading-[1.1]">
-            {hero.headline ?? 'Autonomous Intelligence'}<br />
-            <span class="text-brand-gradient">{hero.highlightText ?? 'For The Open Field.'}</span>
+          <h1 class="text-6xl md:text-7xl font-extrabold text-on-surface leading-[1.1] tracking-tighter">
+            {hero.headline}<br />
+            <span class="text-primary italic">{hero.highlightText}</span>.
           </h1>
         </FadeIn>
 
-        <!-- Description -->
         <FadeIn delay={200}>
-          <p class="text-xl text-on-surface-variant max-w-2xl leading-relaxed">
-            {hero.description ?? 'HariLeaf bridges the gap between biological potential and technological precision. Our mission-driven autonomous systems monitor, nurture, and optimize open-field farming at scale.'}
+          <p class="text-xl text-on-surface-variant max-w-lg leading-relaxed">
+            {hero.description}
           </p>
         </FadeIn>
 
-        <!-- CTAs -->
         <FadeIn delay={300}>
-          <div class="flex flex-wrap gap-4 pt-4">
+          <div class="flex items-center gap-4 flex-wrap">
             <a
-              href={hero.ctaPrimary?.url ?? '/technology'}
-              class="brand-gradient text-on-primary px-8 py-4 rounded-full text-lg font-bold hover:opacity-90 transition-opacity active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              href={hero.ctaPrimary.url}
+              class="brand-gradient text-white px-8 py-4 rounded-full font-bold shadow-lg hover:opacity-90 transition-opacity active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
-              {hero.ctaPrimary?.label ?? 'Explore Our Tech'}
+              {hero.ctaPrimary.label}
             </a>
             <a
-              href={hero.ctaSecondary?.url ?? '/technology#demo'}
-              class="bg-surface-container-highest text-primary px-8 py-4 rounded-full text-lg font-bold hover:bg-surface-container-high transition-colors active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              href={hero.ctaSecondary.url}
+              class="bg-surface-container-highest text-primary px-8 py-4 rounded-full font-bold hover:bg-surface-container-high transition-colors active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
-              {hero.ctaSecondary?.label ?? 'Watch Drone Demo'}
+              {hero.ctaSecondary.label}
             </a>
-          </div>
-        </FadeIn>
-
-      </div>
-
-      <!-- RIGHT: image column -->
-      <FadeIn direction="right" delay={150} class="lg:col-span-5 relative">
-
-        <div class="aspect-square rounded-xl overflow-hidden shadow-2xl relative">
-          {hero.image ? (
-            <img
-              src={hero.image}
-              alt="Autonomous drone flying over open farmland — HariLeaf"
-              class="w-full h-full object-cover"
-              loading="eager"
-              fetchpriority="high"
-            />
-          ) : (
-            <div class="w-full h-full brand-gradient opacity-30 flex items-center justify-center">
-              <span class="material-symbols-outlined text-on-primary text-[8rem] opacity-30" style="font-variation-settings: 'FILL' 1;">flight</span>
-            </div>
-          )}
-          <!-- Gradient overlay -->
-          <div class="absolute inset-0 bg-gradient-to-t from-on-surface/40 to-transparent"></div>
-
-          <!-- Floating glass card -->
-          <div
-            class="absolute bottom-6 left-6 right-6 p-6 rounded-lg"
-            style="background: rgba(0,0,0,0.35); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);"
-          >
-            <div class="flex items-center justify-between">
-              <div>
-                <p class="text-white/80 text-xs font-bold uppercase tracking-widest">
-                  {hero.floatingChip?.label ?? 'Active Fleet'}
-                </p>
-                <p class="text-white text-lg font-bold">
-                  {hero.floatingChip?.value ?? 'HL-Sentinel V3'}
-                </p>
-              </div>
-              <div class="bg-primary-container px-3 py-1 rounded-full text-on-primary-container text-xs font-bold">
-                LIVE DATA
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Decorative blur -->
-        <div
-          class="absolute -z-10 -top-12 -right-12 w-64 h-64 brand-gradient rounded-full opacity-20 blur-3xl pointer-events-none"
-          aria-hidden="true"
-        ></div>
-
-      </FadeIn>
-
-    </div>
-  </section>
-
-
-  <!-- ══════════════════════════════════════════════════════════════
-       SECTION 2 — PRECISION ENGINEERING (Bento Grid)
-       ══════════════════════════════════════════════════════════════ -->
-  <section class="py-24 bg-surface-container-low">
-    <div class="max-w-7xl mx-auto px-6">
-
-      <!-- Header row: heading + subtitle left, link right -->
-      <FadeIn>
-        <div class="flex flex-col md:flex-row justify-between items-end mb-16 gap-6">
-          <div class="max-w-2xl">
-            <h2 class="text-4xl font-bold tracking-tight mb-4">
-              {bento.headline ?? 'Precision Engineering for Nature.'}
-            </h2>
-            <p class="text-on-surface-variant text-lg">
-              {bento.description ?? "We don't just build machines; we cultivate digital ecosystems that empower farmers to grow more with less impact."}
-            </p>
-          </div>
-          <a
-            href={bento.linkHref ?? '/technology'}
-            class="text-primary font-bold inline-flex items-center gap-2 group shrink-0 focus-visible:outline-none focus-visible:underline"
-          >
-            {bento.linkText ?? 'View Technical Whitepaper'}
-            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform" aria-hidden="true">arrow_forward</span>
-          </a>
-        </div>
-      </FadeIn>
-
-      <!-- Bento grid: auto-rows-[280px] -->
-      <div class="grid grid-cols-1 md:grid-cols-12 gap-6 auto-rows-[280px]">
-
-        <!-- Card 1 (8-col): Multispectral Analysis — white bg + bg image -->
-        <FadeIn class="md:col-span-8">
-          <div class="rounded-xl bg-surface-container-lowest p-8 flex flex-col justify-between group overflow-hidden relative h-full">
-            <!-- Content: title + description at top -->
-            <div class="z-10 relative">
-              <h3 class="text-2xl font-bold mb-2">
-                {bento.cards?.[0]?.title ?? 'Multispectral Analysis'}
-              </h3>
-              <p class="text-on-surface-variant max-w-sm">
-                {bento.cards?.[0]?.description ?? 'Drones equipped with advanced sensors detect nutrient deficiencies before they become visible to the human eye.'}
-              </p>
-            </div>
-            <!-- Background image at opacity-10 -->
-            {bento.cards?.[0]?.image && (
-              <img
-                src={bento.cards[0].image}
-                alt=""
-                class="absolute right-0 bottom-0 w-1/2 h-full object-cover opacity-10 group-hover:opacity-20 transition-opacity"
-                loading="lazy"
-                aria-hidden="true"
-              />
-            )}
-            <!-- Icon at bottom -->
-            <div class="z-10 relative">
-              <span
-                class="material-symbols-outlined text-4xl text-primary"
-                style="font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;"
-                aria-hidden="true"
-              >{bento.cards?.[0]?.icon ?? 'sensors'}</span>
-            </div>
-          </div>
-        </FadeIn>
-
-        <!-- Card 2 (4-col): Zero-Waste Autonomy — brand-gradient -->
-        <FadeIn delay={100} class="md:col-span-4">
-          <div class="rounded-xl brand-gradient p-8 text-on-primary flex flex-col justify-end h-full">
-            <span
-              class="material-symbols-outlined text-4xl mb-4"
-              style="font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;"
-              aria-hidden="true"
-            >{bento.cards?.[1]?.icon ?? 'auto_awesome'}</span>
-            <h3 class="text-2xl font-bold mb-2">
-              {bento.cards?.[1]?.title ?? 'Zero-Waste Autonomy'}
-            </h3>
-            <p class="text-on-primary/80 text-sm">
-              {bento.cards?.[1]?.description ?? 'Proprietary AI pathing reduces energy consumption by 40% compared to traditional field scouting.'}
-            </p>
-          </div>
-        </FadeIn>
-
-        <!-- Card 3 (4-col): Variable Rate Delivery — white bg -->
-        <FadeIn delay={50} class="md:col-span-4">
-          <div class="rounded-xl bg-surface-container-lowest p-8 flex flex-col gap-4 h-full">
-            <span
-              class="material-symbols-outlined text-4xl text-secondary"
-              style="font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;"
-              aria-hidden="true"
-            >{bento.cards?.[2]?.icon ?? 'water_drop'}</span>
-            <h3 class="text-xl font-bold">
-              {bento.cards?.[2]?.title ?? 'Variable Rate Delivery'}
-            </h3>
-            <p class="text-on-surface-variant text-sm">
-              {bento.cards?.[2]?.description ?? 'Precisely target irrigation and nutrition down to the individual plant level.'}
-            </p>
-          </div>
-        </FadeIn>
-
-        <!-- Card 4 (8-col): Real-time Dashboard — dark stat card -->
-        <FadeIn delay={150} class="md:col-span-8">
-          <div class="rounded-xl bg-[#2D312D] p-8 flex items-center gap-8 text-white h-full">
-            <!-- Stat: left third -->
-            <div class="w-1/3 shrink-0">
-              <div class="text-5xl font-bold text-primary-container mb-1">
-                {bento.cards?.[3]?.statValue ?? '98%'}
-              </div>
-              <p class="text-white/60 text-xs uppercase tracking-widest font-bold">
-                {bento.cards?.[3]?.statLabel ?? 'Accuracy in Yield Prediction'}
-              </p>
-            </div>
-            <!-- Content: right -->
-            <div class="flex-1 space-y-4">
-              <h3 class="text-xl font-bold">
-                {bento.cards?.[3]?.title ?? 'Real-time Dashboard'}
-              </h3>
-              <p class="text-white/70 text-sm">
-                {bento.cards?.[3]?.description ?? "Access your farm's vital signs from anywhere in the world with encrypted satellite uplinks."}
-              </p>
-              <!-- Progress bar -->
-              <div class="h-2 w-full bg-white/10 rounded-full overflow-hidden">
-                <div
-                  class="h-full brand-gradient rounded-full"
-                  style={`width: ${bento.cards?.[3]?.progressPercent ?? 80}%`}
-                ></div>
-              </div>
-            </div>
           </div>
         </FadeIn>
 
@@ -293,58 +117,145 @@ const pageDesc  = seo?.metaDescription ?? (site.description ?? 'Sustainable inte
 
 
   <!-- ══════════════════════════════════════════════════════════════
-       SECTION 3 — EDITORIAL (2-column: image + checklist)
+       SECTION 2 — PRECISION FIELD TECHNOLOGY (2-card Bento)
        ══════════════════════════════════════════════════════════════ -->
   <section class="py-24 px-6">
-    <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
+    <div class="max-w-7xl mx-auto">
 
-      <!-- LEFT: image (order-2 on mobile → appears below on small screens) -->
-      <FadeIn direction="left" class="order-2 lg:order-1">
-        {editorial.image ? (
-          <img
-            src={editorial.image}
-            alt="Organic farm with geometric planting rows — HariLeaf regenerative agriculture"
-            class="rounded-xl shadow-lg w-full"
-            loading="lazy"
-          />
-        ) : (
-          <div class="aspect-video rounded-xl bg-surface-container flex items-center justify-center">
-            <span class="material-symbols-outlined text-[5rem] text-primary/20" style="font-variation-settings: 'FILL' 1;">agriculture</span>
+      <!-- Header row -->
+      <FadeIn>
+        <div class="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-4">
+          <div class="max-w-2xl">
+            <span class="text-xs uppercase tracking-widest text-secondary font-bold">
+              {bento.label}
+            </span>
+            <h2 class="text-4xl font-extrabold mt-4 tracking-tight">
+              {bento.headline}
+            </h2>
           </div>
-        )}
+          <p class="text-on-surface-variant max-w-xs text-sm">
+            {bento.description}
+          </p>
+        </div>
       </FadeIn>
 
-      <!-- RIGHT: text content (order-1 → appears first on mobile) -->
-      <FadeIn direction="right" class="order-1 lg:order-2 space-y-6">
+      <!-- Bento: 2 cards -->
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-8">
 
-        <h2 class="text-4xl font-bold tracking-tight">
-          {editorial.headline ?? 'Regenerative Tech.'}<br />
-          {editorial.headlineLineTwo ?? 'Rooted in Stability.'}
+        <!-- Card 1 (8-col): Aerial Surveillance — image bg, content at bottom -->
+        <FadeIn class="md:col-span-8">
+          <div class="group relative overflow-hidden rounded-xl bg-surface-container-low p-10 min-h-[400px] flex flex-col justify-end">
+            <div class="absolute inset-0 z-0">
+              {bento.cards[0].image && (
+                <img
+                  src={bento.cards[0].image}
+                  alt=""
+                  class="w-full h-full object-cover opacity-30 group-hover:scale-105 transition-transform duration-700"
+                  loading="lazy"
+                  aria-hidden="true"
+                />
+              )}
+              <div class="absolute inset-0 bg-gradient-to-t from-surface-container-low to-transparent"></div>
+            </div>
+            <div class="relative z-10">
+              <span
+                class="material-symbols-outlined text-primary text-4xl mb-4 block"
+                aria-hidden="true"
+              >{bento.cards[0].icon}</span>
+              <h3 class="text-2xl font-bold mb-2">{bento.cards[0].title}</h3>
+              <p class="text-on-surface-variant max-w-md">{bento.cards[0].description}</p>
+            </div>
+          </div>
+        </FadeIn>
+
+        <!-- Card 2 (4-col): Soil Mesh — stat footer -->
+        <FadeIn delay={100} class="md:col-span-4">
+          <div class="bg-surface-container-lowest p-8 rounded-xl flex flex-col justify-between border border-outline-variant/15 h-full">
+            <div>
+              <div class="w-12 h-12 bg-secondary-container rounded-lg flex items-center justify-center mb-6">
+                <span class="material-symbols-outlined text-on-secondary-container" aria-hidden="true">
+                  {bento.cards[1].icon}
+                </span>
+              </div>
+              <h3 class="text-xl font-bold mb-4">{bento.cards[1].title}</h3>
+              <p class="text-on-surface-variant text-sm leading-relaxed">{bento.cards[1].description}</p>
+            </div>
+            <div class="mt-8 pt-8 border-t border-outline-variant/10">
+              <div class="flex justify-between items-center">
+                <span class="text-xs font-bold uppercase tracking-widest text-secondary">
+                  {bento.cards[1].statLabel}
+                </span>
+                <span class="text-lg font-black text-secondary">
+                  {bento.cards[1].statValue}
+                </span>
+              </div>
+            </div>
+          </div>
+        </FadeIn>
+
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════════════════════
+       SECTION 3 — RESTORING THE EARTH (Editorial)
+       ══════════════════════════════════════════════════════════════ -->
+  <section class="bg-surface-container-low py-24 px-6">
+    <div class="max-w-7xl mx-auto grid md:grid-cols-2 gap-16 items-center">
+
+      <!-- LEFT: image + floating metric chip -->
+      <FadeIn direction="left" class="order-2 md:order-1 relative">
+        <div class="rounded-xl overflow-hidden shadow-xl">
+          {editorial.image ? (
+            <img
+              src={editorial.image}
+              alt="Young green sprout growing in rich soil — HariLeaf regenerative agriculture"
+              class="w-full aspect-[4/5] object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <div class="aspect-[4/5] bg-surface-container flex items-center justify-center">
+              <span
+                class="material-symbols-outlined text-[5rem] text-primary/20"
+                style="font-variation-settings: 'FILL' 1;"
+                aria-hidden="true"
+              >eco</span>
+            </div>
+          )}
+        </div>
+        <!-- Floating metric chip -->
+        <div class="absolute -bottom-6 -right-6 bg-surface-container-lowest p-6 rounded-xl shadow-lg max-w-[200px]">
+          <p class="text-xs font-bold text-tertiary mb-1">{editorial.metricLabel}</p>
+          <p class="text-2xl font-black text-on-surface">
+            {editorial.metricValue}<span class="text-sm font-medium"> {editorial.metricUnit}</span>
+          </p>
+        </div>
+      </FadeIn>
+
+      <!-- RIGHT: text + checklist -->
+      <FadeIn direction="right" class="order-1 md:order-2 space-y-8">
+        <span class="text-xs uppercase tracking-widest text-tertiary font-bold">
+          {editorial.label}
+        </span>
+        <h2 class="text-5xl font-extrabold leading-tight tracking-tighter">
+          {editorial.headline}
         </h2>
-
         <p class="text-lg text-on-surface-variant leading-relaxed">
-          {editorial.body ?? "At HariLeaf, we believe the future of farming isn't just about high-tech gadgets; it's about making technology a servant of the soil. Our open-field solutions are designed to restore ecological balance while meeting the demands of a growing population."}
+          {editorial.body}
         </p>
-
-        {(editorial.checklist?.length ?? 0) > 0 && (
-          <ul class="space-y-4 pt-4">
-            {editorial.checklist!.map((item) => (
-              <li class="flex gap-4 items-start">
-                <div class="bg-secondary-container p-1 rounded-full shrink-0 mt-0.5">
-                  <span
-                    class="material-symbols-outlined text-on-secondary-container text-lg"
-                    aria-hidden="true"
-                  >check</span>
-                </div>
-                <div>
-                  <span class="font-bold block">{item.title}</span>
-                  <span class="text-sm text-on-surface-variant">{item.description}</span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-
+        <ul class="space-y-4">
+          {editorial.checklist.map((item: string) => (
+            <li class="flex items-center gap-3">
+              <span
+                class="material-symbols-outlined text-primary flex-shrink-0"
+                style="font-variation-settings: 'FILL' 1;"
+                aria-hidden="true"
+              >check_circle</span>
+              <span class="font-medium">{item}</span>
+            </li>
+          ))}
+        </ul>
       </FadeIn>
 
     </div>
@@ -352,41 +263,74 @@ const pageDesc  = seo?.metaDescription ?? (site.description ?? 'Sustainable inte
 
 
   <!-- ══════════════════════════════════════════════════════════════
-       SECTION 4 — CTA (Gradient Banner)
+       SECTION 4 — MODERN INTELLIGENCE (3-col cards + CTA)
        ══════════════════════════════════════════════════════════════ -->
-  <section class="py-20 px-6">
-    <FadeIn>
-      <div class="max-w-5xl mx-auto brand-gradient rounded-xl p-12 text-center text-on-primary space-y-8 relative overflow-hidden">
+  <section class="py-24 px-6">
+    <div class="max-w-7xl mx-auto">
 
-        <h2 class="text-4xl font-bold relative z-10">
-          {cta.headline ?? 'Ready to digitize your field?'}
-        </h2>
-
-        <p class="text-xl text-on-primary/90 max-w-2xl mx-auto relative z-10">
-          {cta.body ?? 'Join the hundred of farms worldwide using HariLeaf to optimize their harvests and protect the planet.'}
-        </p>
-
-        <div class="flex flex-wrap justify-center gap-4 relative z-10">
-          <a
-            href={cta.primaryButton?.url ?? '/contact'}
-            class="bg-on-primary text-primary px-10 py-4 rounded-full font-bold text-lg hover:shadow-lg transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
-          >
-            {cta.primaryButton?.label ?? 'Schedule a Consultation'}
-          </a>
-          <a
-            href={cta.secondaryButton?.url ?? '/technology'}
-            class="border-2 border-on-primary text-on-primary px-10 py-4 rounded-full font-bold text-lg hover:bg-on-primary/10 transition-colors active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
-          >
-            {cta.secondaryButton?.label ?? 'Download Brochure'}
-          </a>
+      <!-- Header -->
+      <FadeIn>
+        <div class="text-center mb-16 space-y-4">
+          <span class="text-xs uppercase tracking-widest text-primary font-bold">
+            {intelligence.label}
+          </span>
+          <h2 class="text-4xl md:text-5xl font-extrabold tracking-tight">
+            {intelligence.headline}
+          </h2>
         </div>
+      </FadeIn>
 
-        <!-- Decorative blur circles -->
-        <div class="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl pointer-events-none" aria-hidden="true"></div>
-        <div class="absolute bottom-0 left-0 w-64 h-64 bg-black/10 rounded-full -ml-32 -mb-32 blur-3xl pointer-events-none" aria-hidden="true"></div>
-
+      <!-- 3-column feature cards -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        {intelligence.cards.map((card: { icon: string; title: string; description: string }, i: number) => (
+          <FadeIn delay={i * 100}>
+            <div class="p-8 rounded-xl bg-surface-container hover:bg-surface-container-high transition-colors group h-full">
+              <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <span class="material-symbols-outlined text-primary" aria-hidden="true">{card.icon}</span>
+              </div>
+              <h3 class="text-xl font-bold mb-3">{card.title}</h3>
+              <p class="text-on-surface-variant text-sm leading-relaxed">{card.description}</p>
+            </div>
+          </FadeIn>
+        ))}
       </div>
-    </FadeIn>
+
+      <!-- ── CTA Banner (email input) ────────────────────────────── -->
+      <FadeIn>
+        <div class="mt-20 rounded-2xl overflow-hidden relative p-12 text-center brand-gradient">
+          <div class="relative z-10 max-w-2xl mx-auto space-y-6">
+            <h3 class="text-3xl font-black text-white">{cta.headline}</h3>
+            <p class="text-white/90">{cta.body}</p>
+            <form
+              method="POST"
+              action="https://api.web3forms.com/submit"
+              class="flex flex-col md:flex-row gap-4 justify-center items-center"
+            >
+              <input type="hidden" name="access_key" value={cta.web3formsKey ?? ''} />
+              <input type="hidden" name="subject" value="Early Access Request — HariLeaf" />
+              <input type="checkbox" name="botcheck" class="hidden" style="display:none" />
+              <input
+                type="email"
+                name="email"
+                required
+                placeholder={cta.inputPlaceholder}
+                class="w-full md:w-80 px-6 py-4 rounded-full border-none focus:ring-2 focus:ring-white/50 focus:outline-none text-on-surface"
+              />
+              <button
+                type="submit"
+                class="bg-on-surface text-surface px-8 py-4 rounded-full font-bold hover:bg-on-surface/90 transition-colors active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 whitespace-nowrap"
+              >
+                {cta.buttonLabel}
+              </button>
+            </form>
+          </div>
+          <!-- Decorative blurs -->
+          <div class="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl pointer-events-none" aria-hidden="true"></div>
+          <div class="absolute bottom-0 left-0 w-64 h-64 bg-black/10 rounded-full -ml-32 -mb-32 blur-3xl pointer-events-none" aria-hidden="true"></div>
+        </div>
+      </FadeIn>
+
+    </div>
   </section>
 
 </SiteLayout>
