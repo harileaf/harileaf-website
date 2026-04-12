@@ -25,6 +25,10 @@ dist/
 .DS_Store
 Thumbs.db
 
+# Local design files and AI assistant context
+designs/
+.claude/
+
 # Editor
 .vscode/
 .idea/
