@@ -82,17 +82,20 @@ function initCursorGlow() {
   const glow = document.getElementById('hero-glow');
   if (!zone || !glow) return;
 
+  // Alias to a const so TypeScript keeps the narrowed non-null type in closures
+  const _glow = glow;
+
   let cx = 50, cy = 50, targetX = 50, targetY = 50;
 
   zone.addEventListener('mousemove', (e: MouseEvent) => {
     const rect = zone.getBoundingClientRect();
     targetX = ((e.clientX - rect.left) / rect.width) * 100;
     targetY = ((e.clientY - rect.top) / rect.height) * 100;
-    glow.style.opacity = '1';
+    _glow.style.opacity = '1';
   });
 
   zone.addEventListener('mouseleave', () => {
-    glow.style.opacity = '0';
+    _glow.style.opacity = '0';
   });
 
   function lerp(a: number, b: number, t: number) { return a + (b - a) * t; }
@@ -100,8 +103,8 @@ function initCursorGlow() {
   function animate() {
     cx = lerp(cx, targetX, 0.08);
     cy = lerp(cy, targetY, 0.08);
-    glow.style.setProperty('--cx', `${cx}%`);
-    glow.style.setProperty('--cy', `${cy}%`);
+    _glow.style.setProperty('--cx', `${cx}%`);
+    _glow.style.setProperty('--cy', `${cy}%`);
     glowRafId = requestAnimationFrame(animate);
   }
   glowRafId = requestAnimationFrame(animate);

@@ -208,38 +208,43 @@ const isActive = (url: string) =>
 
     if (!toggle || !menu || !backdrop) return;
 
+    // Assign to narrowed non-null locals so inner functions keep the narrowed type
+    const _toggle   = toggle;
+    const _menu     = menu;
+    const _backdrop = backdrop;
+
     let isOpen = false;
 
     function openMenu() {
       isOpen = true;
-      menu.classList.add('is-open');
-      backdrop.classList.add('is-open');
-      menu.setAttribute('aria-hidden', 'false');
-      toggle.setAttribute('aria-expanded', 'true');
-      toggle.setAttribute('aria-label', 'Close navigation menu');
+      _menu.classList.add('is-open');
+      _backdrop.classList.add('is-open');
+      _menu.setAttribute('aria-hidden', 'false');
+      _toggle.setAttribute('aria-expanded', 'true');
+      _toggle.setAttribute('aria-label', 'Close navigation menu');
       hamburger?.classList.add('hidden');
       closeIcon?.classList.remove('hidden');
       document.body.style.overflow = 'hidden';
-      setTimeout(() => menu.querySelector<HTMLAnchorElement>('a')?.focus(), 360);
+      setTimeout(() => _menu.querySelector<HTMLAnchorElement>('a')?.focus(), 360);
     }
 
     function closeMenu() {
       isOpen = false;
-      menu.classList.remove('is-open');
-      backdrop.classList.remove('is-open');
-      menu.setAttribute('aria-hidden', 'true');
-      toggle.setAttribute('aria-expanded', 'false');
-      toggle.setAttribute('aria-label', 'Open navigation menu');
+      _menu.classList.remove('is-open');
+      _backdrop.classList.remove('is-open');
+      _menu.setAttribute('aria-hidden', 'true');
+      _toggle.setAttribute('aria-expanded', 'false');
+      _toggle.setAttribute('aria-label', 'Open navigation menu');
       hamburger?.classList.remove('hidden');
       closeIcon?.classList.add('hidden');
       document.body.style.overflow = '';
-      toggle.focus();
+      _toggle.focus();
     }
 
-    toggle.addEventListener('click', () => { isOpen ? closeMenu() : openMenu(); }, { signal });
-    backdrop.addEventListener('click', closeMenu, { signal });
+    _toggle.addEventListener('click', () => { isOpen ? closeMenu() : openMenu(); }, { signal });
+    _backdrop.addEventListener('click', closeMenu, { signal });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isOpen) closeMenu(); }, { signal });
-    menu.querySelectorAll('a').forEach((link) => link.addEventListener('click', closeMenu, { signal }));
+    _menu.querySelectorAll('a').forEach((link) => link.addEventListener('click', closeMenu, { signal }));
   }
 
   // Runs on first load and after every View Transition navigation
