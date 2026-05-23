@@ -1,0 +1,115 @@
+---
+interface Props {
+  headline?: string;
+}
+const { headline = 'Growing in the open.' } = Astro.props;
+---
+
+<style>
+  @keyframes marquee-scroll {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+
+  .photo-track {
+    display: flex;
+    gap: 16px;
+    width: max-content;
+    animation: marquee-scroll 30s linear infinite;
+  }
+
+  .photo-track:hover,
+  .photo-track:focus-within {
+    animation-play-state: paused;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .photo-track { animation: none; }
+  }
+
+  .photo-card {
+    width: 280px;
+    height: 380px;
+    border-radius: 12px;
+    overflow: hidden;
+    flex-shrink: 0;
+    position: relative;
+    transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .photo-card:hover {
+    transform: rotate(1.5deg) scale(1.02);
+  }
+
+  .photo-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .photo-label {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 32px 16px 16px;
+    background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+    color: white;
+    font-size: 0.875rem;
+    font-weight: 700;
+  }
+</style>
+
+<section
+  id="photo-strip-section"
+  style="background:#0c110c; overflow:hidden; display:none;"
+  aria-label="Farm photos"
+>
+  <div class="max-w-7xl mx-auto px-6 pt-14 pb-6">
+    <p class="text-xs uppercase tracking-widest font-bold mb-2" style="color:rgba(159,177,125,0.7);">From Our Farm</p>
+    <h2 id="photo-strip-headline" class="text-3xl font-extrabold tracking-tight mb-10" style="color:#f0f0ee;">{headline}</h2>
+  </div>
+
+  <div style="overflow:hidden; padding-bottom:48px;">
+    <div class="photo-track" id="photo-track" aria-live="polite">
+      <!-- Cards injected by client script -->
+    </div>
+  </div>
+</section>
+
+<script>
+  async function initPhotoStrip() {
+    const res = await fetch('/api/photos');
+    if (!res.ok) return;
+    const photos: Array<{ key: string; label: string; url: string }> = await res.json();
+    if (!photos.length) return;
+
+    const track = document.getElementById('photo-track');
+    const section = document.getElementById('photo-strip-section');
+    if (!track || !section) return;
+
+    const doubled = [...photos, ...photos];
+    track.innerHTML = doubled
+      .map(
+        (p) => `
+        <div class="photo-card">
+          <img src="${p.url}" alt="${p.label}" loading="lazy" />
+          <div class="photo-label">${p.label}</div>
+        </div>`
+      )
+      .join('');
+
+    section.style.display = 'block';
+
+    const contentRes = await fetch('/api/content');
+    if (contentRes.ok) {
+      const content = await contentRes.json();
+      const headlineEl = document.getElementById('photo-strip-headline');
+      if (headlineEl && content.photoStripHeadline) {
+        headlineEl.textContent = content.photoStripHeadline;
+      }
+    }
+  }
+
+  initPhotoStrip();
+</script>
