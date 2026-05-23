@@ -11,6 +11,6 @@ export const DELETE: APIRoute = async ({ params, locals, cookies }) => {
   if (!key.startsWith('photos/')) {
     return new Response(JSON.stringify({ error: 'Invalid key' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
-  await deletePhoto(env.HARILEAF_CMS, env.HARILEAF_MEDIA, env.R2_PUBLIC_BASE ?? '', key);
+  await deletePhoto(env.HARILEAF_CMS, env.HARILEAF_MEDIA, key);
   return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
 };
