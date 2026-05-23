@@ -265,3 +265,94 @@
     letter-spacing: -0.025em;
   }
 }
+
+/* ── Nav link underline reveal ────────────────────────────────────────── */
+.nav-link-animated {
+  position: relative;
+}
+.nav-link-animated::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 1.5px;
+  background: linear-gradient(90deg, #196a5e, #9fb17d);
+  border-radius: 999px;
+  transition: width 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.nav-link-animated:hover::after {
+  width: 100%;
+}
+
+/* ── Gradient text shimmer — runs once on page load ─────────────────── */
+@keyframes shimmer-once {
+  0%   { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .text-brand-gradient {
+    background-size: 200% auto;
+    animation: shimmer-once 1.8s cubic-bezier(0.16, 1, 0.3, 1) 0.3s 1 forwards;
+  }
+}
+
+/* ── Button press feedback ───────────────────────────────────────────── */
+@media (prefers-reduced-motion: no-preference) {
+  button:active {
+    transform: scale(0.95);
+    transition: transform 80ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+  .brand-gradient:active {
+    transform: scale(0.95) !important;
+    transition: transform 80ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+    box-shadow: 0 0 0 3px rgba(127, 200, 186, 0.35) !important;
+  }
+  .btn-secondary:active {
+    transform: scale(0.95);
+    transition: transform 80ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+}
+
+/* ── Mobile menu slide transition ────────────────────────────────────── */
+#mobile-menu {
+  transform: translateX(100%);
+  transition: transform 350ms cubic-bezier(0.16, 1, 0.3, 1);
+  /* display:none removed — visibility controlled by transform */
+}
+#mobile-menu.is-open {
+  transform: translateX(0);
+}
+#mobile-menu li {
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 250ms, transform 250ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+#mobile-menu.is-open li:nth-child(1) { opacity: 1; transform: none; transition-delay: 80ms; }
+#mobile-menu.is-open li:nth-child(2) { opacity: 1; transform: none; transition-delay: 120ms; }
+#mobile-menu.is-open li:nth-child(3) { opacity: 1; transform: none; transition-delay: 160ms; }
+#mobile-menu.is-open li:nth-child(4) { opacity: 1; transform: none; transition-delay: 200ms; }
+#mobile-menu.is-open li:nth-child(5) { opacity: 1; transform: none; transition-delay: 240ms; }
+
+#mobile-backdrop {
+  opacity: 0;
+  transition: opacity 300ms;
+  /* display:none removed */
+}
+#mobile-backdrop.is-open {
+  opacity: 1;
+}
+
+/* ── Scroll progress bar ─────────────────────────────────────────────── */
+#scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  height: 2px;
+  width: 0%;
+  background: linear-gradient(90deg, #196a5e, #9fb17d);
+  pointer-events: none;
+  transition: width 80ms linear;
+}
