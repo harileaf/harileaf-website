@@ -5,16 +5,20 @@
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const isTouch = 'ontouchstart' in window;
 
+let scrollAbort: AbortController | null = null;
+let glowRafId: number | null = null;
+
 // ── 1. Scroll progress bar ─────────────────────────────────────────────────
 function initScrollProgress() {
   const bar = document.getElementById('scroll-progress');
   if (!bar) return;
+  scrollAbort = new AbortController();
   const update = () => {
     const scrollable = document.body.scrollHeight - window.innerHeight;
     if (scrollable <= 0) return;
     bar.style.width = `${Math.min((window.scrollY / scrollable) * 100, 100)}%`;
   };
-  window.addEventListener('scroll', update, { passive: true });
+  window.addEventListener('scroll', update, { passive: true, signal: scrollAbort.signal });
   update();
 }
 
@@ -93,13 +97,14 @@ function initCursorGlow() {
 
   function lerp(a: number, b: number, t: number) { return a + (b - a) * t; }
 
-  (function animate() {
+  function animate() {
     cx = lerp(cx, targetX, 0.08);
     cy = lerp(cy, targetY, 0.08);
     glow.style.setProperty('--cx', `${cx}%`);
     glow.style.setProperty('--cy', `${cy}%`);
-    requestAnimationFrame(animate);
-  })();
+    glowRafId = requestAnimationFrame(animate);
+  }
+  glowRafId = requestAnimationFrame(animate);
 }
 
 // ── Init & lifecycle ───────────────────────────────────────────────────────
@@ -114,6 +119,12 @@ function init() {
 
 document.addEventListener('astro:page-load', init);
 document.addEventListener('astro:before-swap', () => {
+  scrollAbort?.abort();
+  scrollAbort = null;
+  if (glowRafId !== null) {
+    cancelAnimationFrame(glowRafId);
+    glowRafId = null;
+  }
   const bar = document.getElementById('scroll-progress');
   if (bar) bar.style.width = '0%';
 });
