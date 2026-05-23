@@ -1,0 +1,74 @@
+---
+export const prerender = true;
+import SiteLayout from '../layouts/SiteLayout.astro';
+import FadeIn from '../components/animations/FadeIn.astro';
+import SEO from '../components/seo/SEO.astro';
+import contactJson from '../content/contact-page.json';
+
+const web3formsKey = contactJson.form.web3formsKey;
+const success = Astro.url.searchParams.get('success') === 'true';
+const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://harileaf.ag');
+const pageTitle = 'Organic Produce | HariLeaf Farm — Fruits, Vegetables & Flowers';
+const pageDesc  = 'Organically grown fruits, vegetables, herbs and flowers from HariLeaf Farm. Mangoes, Dragon Fruit, Roses and more — available in bulk, farm direct.';
+
+const mangoVarieties = ['Alphonso', 'Kesar Gir', 'Payri', 'Langda', 'Rajapuri', 'Badami'];
+---
+
+<SiteLayout title={pageTitle} description={pageDesc}>
+
+  <slot name="head" slot="head">
+    <SEO title={pageTitle} description={pageDesc} canonicalUrl={canonicalURL} />
+  </slot>
+
+  <!-- ══════════════════════════════════════════════════════
+       HERO — dark earthy gradient
+       ══════════════════════════════════════════════════════ -->
+  <section class="relative overflow-hidden" style="background: linear-gradient(135deg, #0e1a0e 0%, #1a2a1a 100%); min-height: 380px; display: flex; align-items: center; padding-top: 5rem;">
+
+    <!-- Colour blobs (CSS only, no images) -->
+    <div class="absolute inset-0 pointer-events-none" aria-hidden="true">
+      <div style="position:absolute;top:0;right:0;width:40%;height:100%;background:radial-gradient(ellipse at 90% 30%, rgba(255,160,30,0.15) 0%, transparent 55%);"></div>
+      <div style="position:absolute;bottom:0;left:0;width:40%;height:100%;background:radial-gradient(ellipse at 10% 80%, rgba(127,200,186,0.12) 0%, transparent 50%);"></div>
+    </div>
+
+    <!-- Decorative mango watermark -->
+    <div class="absolute right-8 top-1/2 -translate-y-1/2 text-[8rem] opacity-[0.14] select-none pointer-events-none" aria-hidden="true">🥭</div>
+
+    <div class="relative z-10 max-w-7xl mx-auto px-6 w-full">
+      <FadeIn>
+        <span class="text-xs uppercase tracking-widest font-bold" style="color: rgba(159,177,125,0.9);">
+          HariLeaf Farm · Organic Produce
+        </span>
+      </FadeIn>
+      <FadeIn delay={100}>
+        <h1 class="text-5xl md:text-6xl font-extrabold tracking-tighter leading-[1.1] mt-4 text-white">
+          From the earth,<br />
+          <span class="text-brand-gradient">directly to you.</span>
+        </h1>
+      </FadeIn>
+      <FadeIn delay={200}>
+        <p class="mt-5 text-lg max-w-xl leading-relaxed" style="color: rgba(255,255,255,0.55);">
+          18 varieties of fruits, vegetables, herbs and flowers — all organically grown on our farm, available for bulk orders.
+        </p>
+      </FadeIn>
+      <FadeIn delay={300}>
+        <div class="mt-7 flex flex-wrap gap-3">
+          {[
+            { icon: '🌱', label: '100% Organic' },
+            { icon: '🚜', label: 'Farm Direct' },
+            { icon: '📦', label: 'Bulk Available' },
+            { icon: '🚫', label: 'No Chemicals' },
+          ].map(b => (
+            <span
+              class="text-xs font-bold uppercase tracking-wider px-4 py-2 rounded-full"
+              style="background: rgba(255,255,255,0.08); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.12); color: rgba(255,255,255,0.75);"
+            >
+              {b.icon} {b.label}
+            </span>
+          ))}
+        </div>
+      </FadeIn>
+    </div>
+  </section>
+
+</SiteLayout>
