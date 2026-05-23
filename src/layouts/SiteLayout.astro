@@ -72,9 +72,16 @@ const orgSchema = {
 
   <Header ctaVariant={headerCtaVariant} logoSize={headerLogoSize} />
 
+  <!-- Scroll progress bar — filled by interactions.ts -->
+  <div id="scroll-progress" aria-hidden="true"></div>
+
   <main id="main" tabindex="-1">
     <slot />
   </main>
 
   <Footer />
 </BaseLayout>
+
+<script>
+  import '../scripts/interactions';
+</script>

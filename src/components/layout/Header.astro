@@ -94,10 +94,10 @@ const isActive = (url: string) =>
         <a
           href={item.url}
           class:list={[
-            'pb-1 font-manrope font-medium tracking-tight transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:rounded-sm',
+            'font-manrope font-medium tracking-tight transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:rounded-sm',
             isActive(item.url)
-              ? 'text-[#196A5E] border-b-2 border-[#196A5E]'
-              : 'text-[#3F4946] hover:text-[#196A5E]',
+              ? 'text-[#196A5E] border-b-2 border-[#196A5E] pb-1'
+              : 'text-[#3F4946] hover:text-[#196A5E] nav-link-animated',
           ]}
           aria-current={isActive(item.url) ? 'page' : undefined}
         >
@@ -148,7 +148,6 @@ const isActive = (url: string) =>
   class="fixed inset-0 z-40 flex flex-col bg-surface md:hidden"
   aria-label="Mobile navigation"
   aria-hidden="true"
-  style="display: none;"
 >
   <!-- Spacer matches header height (py-4 + h-10 logo ≈ 72px) -->
   <div class="h-[72px] shrink-0"></div>
@@ -190,45 +189,67 @@ const isActive = (url: string) =>
   id="mobile-backdrop"
   class="fixed inset-0 z-30 bg-on-surface/20 md:hidden backdrop-blur-sm"
   aria-hidden="true"
-  style="display: none;"
 ></div>
 
 <script>
-  const toggle    = document.getElementById('mobile-menu-toggle');
-  const menu      = document.getElementById('mobile-menu');
-  const backdrop  = document.getElementById('mobile-backdrop');
-  const hamburger = document.getElementById('hamburger-icon');
-  const closeIcon = document.getElementById('close-icon');
-  let isOpen = false;
+  let controller: AbortController | null = null;
 
-  function openMenu() {
-    isOpen = true;
-    menu?.removeAttribute('style');
-    menu?.setAttribute('aria-hidden', 'false');
-    backdrop?.removeAttribute('style');
-    toggle?.setAttribute('aria-expanded', 'true');
-    toggle?.setAttribute('aria-label', 'Close navigation menu');
-    hamburger?.classList.add('hidden');
-    closeIcon?.classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
-    menu?.querySelector<HTMLAnchorElement>('a')?.focus();
+  function initMobileMenu() {
+    // Tear down listeners from the previous page before re-initialising
+    controller?.abort();
+    controller = new AbortController();
+    const { signal } = controller;
+
+    const toggle    = document.getElementById('mobile-menu-toggle');
+    const menu      = document.getElementById('mobile-menu');
+    const backdrop  = document.getElementById('mobile-backdrop');
+    const hamburger = document.getElementById('hamburger-icon');
+    const closeIcon = document.getElementById('close-icon');
+
+    if (!toggle || !menu || !backdrop) return;
+
+    // Assign to narrowed non-null locals so inner functions keep the narrowed type
+    const _toggle   = toggle;
+    const _menu     = menu;
+    const _backdrop = backdrop;
+
+    let isOpen = false;
+
+    function openMenu() {
+      isOpen = true;
+      _menu.classList.add('is-open');
+      _backdrop.classList.add('is-open');
+      _menu.setAttribute('aria-hidden', 'false');
+      _toggle.setAttribute('aria-expanded', 'true');
+      _toggle.setAttribute('aria-label', 'Close navigation menu');
+      hamburger?.classList.add('hidden');
+      closeIcon?.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+      setTimeout(() => _menu.querySelector<HTMLAnchorElement>('a')?.focus(), 360);
+    }
+
+    function closeMenu() {
+      isOpen = false;
+      _menu.classList.remove('is-open');
+      _backdrop.classList.remove('is-open');
+      _menu.setAttribute('aria-hidden', 'true');
+      _toggle.setAttribute('aria-expanded', 'false');
+      _toggle.setAttribute('aria-label', 'Open navigation menu');
+      hamburger?.classList.remove('hidden');
+      closeIcon?.classList.add('hidden');
+      document.body.style.overflow = '';
+      _toggle.focus();
+    }
+
+    _toggle.addEventListener('click', () => { isOpen ? closeMenu() : openMenu(); }, { signal });
+    _backdrop.addEventListener('click', closeMenu, { signal });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isOpen) closeMenu(); }, { signal });
+    _menu.querySelectorAll('a').forEach((link) => link.addEventListener('click', closeMenu, { signal }));
   }
 
-  function closeMenu() {
-    isOpen = false;
-    menu?.setAttribute('style', 'display: none;');
-    menu?.setAttribute('aria-hidden', 'true');
-    backdrop?.setAttribute('style', 'display: none;');
-    toggle?.setAttribute('aria-expanded', 'false');
-    toggle?.setAttribute('aria-label', 'Open navigation menu');
-    hamburger?.classList.remove('hidden');
-    closeIcon?.classList.add('hidden');
-    document.body.style.overflow = '';
-    toggle?.focus();
-  }
+  // Runs on first load and after every View Transition navigation
+  document.addEventListener('astro:page-load', initMobileMenu);
 
-  toggle?.addEventListener('click', () => { isOpen ? closeMenu() : openMenu(); });
-  backdrop?.addEventListener('click', closeMenu);
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isOpen) closeMenu(); });
-  menu?.querySelectorAll('a').forEach((link) => link.addEventListener('click', closeMenu));
+  // Reset scroll-lock if user navigates away with the menu open
+  document.addEventListener('astro:before-swap', () => { document.body.style.overflow = ''; });
 </script>

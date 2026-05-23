@@ -2,6 +2,7 @@
 export const prerender = true;
 import SiteLayout from '../layouts/SiteLayout.astro';
 import FadeIn from '../components/animations/FadeIn.astro';
+import CountUp from '../components/animations/CountUp.astro';
 import SEO from '../components/seo/SEO.astro';
 import JsonLd from '../components/seo/JsonLd.astro';
 import homepageJson from '../content/homepage.json';
@@ -53,7 +54,15 @@ const pageDesc     = seo?.metaDescription ?? (site.description ?? 'Sustainable i
   <!-- ══════════════════════════════════════════════════════════════
        SECTION 1 — HERO (Full-screen background image)
        ══════════════════════════════════════════════════════════════ -->
-  <section class="relative min-h-screen flex items-center pt-20 overflow-hidden">
+  <section class="relative min-h-screen flex items-center pt-20 overflow-hidden" data-cursor-glow-zone>
+
+  <!-- Cursor glow — JS in interactions.ts moves via --cx/--cy CSS vars -->
+  <div
+    id="hero-glow"
+    class="absolute inset-0 pointer-events-none"
+    aria-hidden="true"
+    style="background: radial-gradient(600px circle at var(--cx, 50%) var(--cy, 50%), rgba(127,200,186,0.10) 0%, transparent 60%); opacity: 0; transition: opacity 600ms;"
+  ></div>
 
     <!-- Background image + gradient overlay -->
     <div class="absolute inset-0 z-0">
@@ -98,13 +107,15 @@ const pageDesc     = seo?.metaDescription ?? (site.description ?? 'Sustainable i
           <div class="flex items-center gap-4 flex-wrap">
             <a
               href={hero.ctaPrimary.url}
-              class="brand-gradient text-white px-8 py-4 rounded-full font-bold shadow-lg hover:opacity-90 transition-opacity active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              class="brand-gradient text-white px-8 py-4 rounded-full font-bold shadow-lg hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              data-magnetic
             >
               {hero.ctaPrimary.label}
             </a>
             <a
               href={hero.ctaSecondary.url}
-              class="bg-surface-container-highest text-primary px-8 py-4 rounded-full font-bold hover:bg-surface-container-high transition-colors active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              class="bg-surface-container-highest btn-secondary text-primary px-8 py-4 rounded-full font-bold hover:bg-surface-container-high transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              data-magnetic
             >
               {hero.ctaSecondary.label}
             </a>
@@ -144,7 +155,7 @@ const pageDesc     = seo?.metaDescription ?? (site.description ?? 'Sustainable i
 
         <!-- Card 1 (8-col): Aerial Surveillance — image bg, content at bottom -->
         <FadeIn class="md:col-span-8">
-          <div class="group relative overflow-hidden rounded-xl bg-surface-container-low p-10 min-h-[400px] flex flex-col justify-end">
+          <div class="group relative overflow-hidden rounded-xl bg-surface-container-low p-10 min-h-[400px] flex flex-col justify-end" data-tilt>
             <div class="absolute inset-0 z-0">
               {bento.cards[0].image && (
                 <img
@@ -170,7 +181,7 @@ const pageDesc     = seo?.metaDescription ?? (site.description ?? 'Sustainable i
 
         <!-- Card 2 (4-col): Soil Mesh — stat footer -->
         <FadeIn delay={100} class="md:col-span-4">
-          <div class="bg-surface-container-lowest p-8 rounded-xl flex flex-col justify-between border border-outline-variant/15 h-full">
+          <div class="bg-surface-container-lowest p-8 rounded-xl flex flex-col justify-between border border-outline-variant/15 h-full" data-tilt>
             <div>
               <div class="w-12 h-12 bg-secondary-container rounded-lg flex items-center justify-center mb-6">
                 <span class="material-symbols-outlined text-on-secondary-container" aria-hidden="true">
@@ -186,7 +197,7 @@ const pageDesc     = seo?.metaDescription ?? (site.description ?? 'Sustainable i
                   {bento.cards[1].statLabel}
                 </span>
                 <span class="text-lg font-black text-secondary">
-                  {bento.cards[1].statValue}
+                  <CountUp value={12400} suffix="+" />
                 </span>
               </div>
             </div>
@@ -228,7 +239,7 @@ const pageDesc     = seo?.metaDescription ?? (site.description ?? 'Sustainable i
         <div class="absolute -bottom-6 -right-6 bg-surface-container-lowest p-6 rounded-xl shadow-lg max-w-[200px]">
           <p class="text-xs font-bold text-tertiary mb-1">{editorial.metricLabel}</p>
           <p class="text-2xl font-black text-on-surface">
-            {editorial.metricValue}<span class="text-sm font-medium"> {editorial.metricUnit}</span>
+            <CountUp value={1.2} decimals={1} /><span class="text-sm font-medium"> {editorial.metricUnit}</span>
           </p>
         </div>
       </FadeIn>
@@ -353,7 +364,8 @@ const pageDesc     = seo?.metaDescription ?? (site.description ?? 'Sustainable i
           </div>
           <a
             href="/produce"
-            class="brand-gradient text-on-primary px-8 py-4 rounded-full font-bold shadow-lg hover:opacity-90 transition-opacity active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 whitespace-nowrap flex-shrink-0"
+            class="brand-gradient text-on-primary px-8 py-4 rounded-full font-bold shadow-lg hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 whitespace-nowrap flex-shrink-0"
+            data-magnetic
           >
             See all produce →
           </a>
