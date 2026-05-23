@@ -145,7 +145,63 @@ const mangoVarieties = ['Alphonso', 'Kesar Gir', 'Payri', 'Langda', 'Rajapuri', 
           </div>
         </FadeIn>
 
-        <!-- Remaining cells added below in Task 4 & 5 -->
+        <!-- ── Watermelon (col-span-5, tall) ── -->
+        <FadeIn delay={60} class="col-span-12 md:col-span-5">
+          <div
+            class="bento-card relative overflow-hidden rounded-xl p-5 flex flex-col justify-between border"
+            style="min-height:210px; background:radial-gradient(ellipse at 75% 15%, rgba(220,50,50,0.12), transparent 55%), rgba(255,255,255,0.04); border-color:rgba(255,255,255,0.07);"
+          >
+            <div class="organic-dot absolute top-2.5 right-2.5 w-1.5 h-1.5 rounded-full" style="background:#9fb17d;box-shadow:0 0 6px rgba(159,177,125,0.6);" aria-hidden="true"></div>
+            <div class="text-4xl">🍉</div>
+            <div>
+              <p class="text-sm font-bold" style="color:#f0f0ee;">Watermelon</p>
+              <p class="text-xs mt-0.5" style="color:rgba(240,240,238,0.38);">Fruit · Seasonal</p>
+            </div>
+          </div>
+        </FadeIn>
+
+        <!-- ── Row 2: Chicoo, Papaya, Lemon, Dragon Fruit ── -->
+        {[
+          { emoji: '🍈', name: 'Chicoo',       sub: 'Fruit',         delay: 0   },
+          { emoji: '🍈', name: 'Papaya',       sub: 'Fruit',         delay: 60  },
+          { emoji: '🍋', name: 'Lemon',        sub: 'Fruit',         delay: 120 },
+          { emoji: '🐉', name: 'Dragon Fruit', sub: 'Fruit · Exotic', delay: 180 },
+        ].map(item => (
+          <FadeIn delay={item.delay} class="col-span-6 md:col-span-3">
+            <div
+              class="bento-card relative overflow-hidden rounded-xl p-4 flex flex-col justify-between border"
+              style="min-height:110px; background:rgba(255,255,255,0.04); border-color:rgba(255,255,255,0.07);"
+            >
+              <div class="organic-dot absolute top-2.5 right-2.5 w-1.5 h-1.5 rounded-full" style="background:#9fb17d;box-shadow:0 0 6px rgba(159,177,125,0.6);" aria-hidden="true"></div>
+              <div class="text-3xl">{item.emoji}</div>
+              <div>
+                <p class="text-sm font-bold" style="color:#f0f0ee;">{item.name}</p>
+                <p class="text-xs mt-0.5" style="color:rgba(240,240,238,0.38);">{item.sub}</p>
+              </div>
+            </div>
+          </FadeIn>
+        ))}
+
+        <!-- ── Row 3: Black Jamun, Muskmelon, Laxman Fruit ── -->
+        {[
+          { emoji: '🫐', name: 'Black Jamun',  sub: 'Fruit · Seasonal', delay: 0   },
+          { emoji: '🍈', name: 'Muskmelon',    sub: 'Fruit · Seasonal', delay: 60  },
+          { emoji: '🍈', name: 'Laxman Fruit', sub: 'Fruit · Rare',      delay: 120 },
+        ].map(item => (
+          <FadeIn delay={item.delay} class="col-span-12 md:col-span-4">
+            <div
+              class="bento-card relative overflow-hidden rounded-xl p-4 flex flex-col justify-between border"
+              style="min-height:110px; background:rgba(255,255,255,0.04); border-color:rgba(255,255,255,0.07);"
+            >
+              <div class="organic-dot absolute top-2.5 right-2.5 w-1.5 h-1.5 rounded-full" style="background:#9fb17d;box-shadow:0 0 6px rgba(159,177,125,0.6);" aria-hidden="true"></div>
+              <div class="text-3xl">{item.emoji}</div>
+              <div>
+                <p class="text-sm font-bold" style="color:#f0f0ee;">{item.name}</p>
+                <p class="text-xs mt-0.5" style="color:rgba(240,240,238,0.38);">{item.sub}</p>
+              </div>
+            </div>
+          </FadeIn>
+        ))}
 
       </div>
     </div>
