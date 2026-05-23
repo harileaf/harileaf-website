@@ -333,4 +333,70 @@ const pageDesc     = seo?.metaDescription ?? (site.description ?? 'Sustainable i
     </div>
   </section>
 
+
+  <!-- ══════════════════════════════════════════════════════
+       PRODUCE TEASER
+       ══════════════════════════════════════════════════════ -->
+  <section class="bg-surface-container-low py-24 px-6">
+    <div class="max-w-7xl mx-auto">
+
+      <FadeIn>
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
+          <div>
+            <span class="text-xs uppercase tracking-widest text-secondary font-bold">From Our Farm</span>
+            <h2 class="text-4xl md:text-5xl font-extrabold tracking-tight mt-3 leading-tight">
+              Grown with care.<br />Available in bulk.
+            </h2>
+            <p class="text-on-surface-variant mt-4 max-w-lg leading-relaxed">
+              18 organically grown produce items — fruits, vegetables, herbs and flowers — direct from our fields to your table.
+            </p>
+          </div>
+          <a
+            href="/produce"
+            class="brand-gradient text-on-primary px-8 py-4 rounded-full font-bold shadow-lg hover:opacity-90 transition-opacity active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 whitespace-nowrap flex-shrink-0"
+          >
+            See all produce →
+          </a>
+        </div>
+      </FadeIn>
+
+      <!-- Produce chips -->
+      <FadeIn delay={100}>
+        <div class="flex flex-wrap gap-3">
+          {[
+            { emoji: '🥭', label: 'Alphonso Mangoes', badge: '6 varieties' },
+            { emoji: '🍉', label: 'Watermelon' },
+            { emoji: '🐉', label: 'Dragon Fruit' },
+            { emoji: '🌿', label: 'Methi · Cilantro' },
+            { emoji: '🌹', label: 'Roses · Marigold' },
+          ].map(chip => (
+            <a
+              href="/produce"
+              class="group flex items-center gap-2 bg-surface-container-lowest border border-outline-variant/25 rounded-full px-4 py-2.5 text-sm font-semibold text-on-surface hover:border-primary/30 hover:text-primary hover:-translate-y-0.5 transition-all shadow-card"
+            >
+              <span aria-hidden="true">{chip.emoji}</span>
+              <span>{chip.label}</span>
+              {chip.badge && (
+                <span class="text-xs font-bold bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded-full">
+                  {chip.badge}
+                </span>
+              )}
+            </a>
+          ))}
+          <a
+            href="/produce"
+            class="flex items-center gap-1 border border-primary/20 bg-primary/5 rounded-full px-4 py-2.5 text-sm font-bold text-primary hover:bg-primary/10 hover:-translate-y-0.5 transition-all"
+          >
+            +13 more →
+          </a>
+        </div>
+      </FadeIn>
+
+      <FadeIn delay={200}>
+        <p class="text-xs text-on-surface-variant mt-6">100% organic · Farm direct · Bulk orders welcome</p>
+      </FadeIn>
+
+    </div>
+  </section>
+
 </SiteLayout>
