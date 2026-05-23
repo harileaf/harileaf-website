@@ -47,8 +47,6 @@ const success = Astro.url.searchParams.get('success') === 'true';
         },
       }}
     />
-    <!-- Cloudflare Turnstile -->
-    <script is:inline src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
   </slot>
 
   <!-- ═══════════════════════════════════════════════════
@@ -203,9 +201,6 @@ const success = Astro.url.searchParams.get('success') === 'true';
               ></textarea>
             </div>
 
-            <!-- Cloudflare Turnstile -->
-            <div class="cf-turnstile" data-sitekey={form.turnstileSiteKey}></div>
-
             <!-- Submit -->
             <button
               type="submit"
@@ -271,60 +266,26 @@ const success = Astro.url.searchParams.get('success') === 'true';
             </div>
           </div>
 
-          <!-- Mini Map (desktop) / Global Presence (mobile) -->
-          <div>
-            <!-- Desktop map placeholder -->
-            <div class="hidden sm:block rounded-lg overflow-hidden aspect-video shadow-sm border border-outline-variant/30 bg-surface-container-high relative">
-              <!-- Map visual placeholder — replace with embedded map when ready -->
-              <div class="absolute inset-0 bg-gradient-to-br from-brand-50 to-brand-100" style="background: linear-gradient(135deg, #d6f1ec 0%, #a7e4da 40%, #7fc8ba 100%);">
-                <!-- Decorative grid lines to suggest a map -->
-                <svg class="w-full h-full opacity-20" xmlns="http://www.w3.org/2000/svg">
-                  <defs>
-                    <pattern id="map-grid" width="32" height="32" patternUnits="userSpaceOnUse">
-                      <path d="M 32 0 L 0 0 0 32" fill="none" stroke="#196a5e" stroke-width="0.5"/>
-                    </pattern>
-                  </defs>
-                  <rect width="100%" height="100%" fill="url(#map-grid)" />
-                </svg>
-                <!-- Pin indicator -->
-                <div class="absolute inset-0 flex items-center justify-center">
-                  <div class="relative">
-                    <div class="w-5 h-5 bg-primary rounded-full animate-ping absolute -inset-0.5 opacity-60"></div>
-                    <div class="w-4 h-4 bg-primary rounded-full relative z-10 flex items-center justify-center shadow-lg">
-                    </div>
-                  </div>
-                </div>
-                <!-- Location label -->
-                <div class="absolute bottom-3 left-3 bg-white/80 backdrop-blur-sm rounded px-2.5 py-1.5 shadow-sm">
-                  <p class="text-xs font-bold text-on-surface">{info.location.title}</p>
-                  <p class="text-xs text-on-surface-variant">Singapore</p>
+          <!-- Mini Map -->
+          <div class="rounded-lg overflow-hidden aspect-video shadow-sm border border-outline-variant/30 bg-surface-container-high relative">
+            <div class="absolute inset-0" style="background: linear-gradient(135deg, #d6f1ec 0%, #a7e4da 40%, #7fc8ba 100%);">
+              <svg class="w-full h-full opacity-20" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <pattern id="map-grid" width="32" height="32" patternUnits="userSpaceOnUse">
+                    <path d="M 32 0 L 0 0 0 32" fill="none" stroke="#196a5e" stroke-width="0.5"/>
+                  </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#map-grid)" />
+              </svg>
+              <div class="absolute inset-0 flex items-center justify-center">
+                <div class="relative">
+                  <div class="w-5 h-5 bg-primary rounded-full animate-ping absolute -inset-0.5 opacity-60"></div>
+                  <div class="w-4 h-4 bg-primary rounded-full relative z-10 flex items-center justify-center shadow-lg"></div>
                 </div>
               </div>
-            </div>
-
-            <!-- Mobile: Global Presence section -->
-            <div class="sm:hidden bg-surface-container rounded-lg p-6 border border-outline-variant/20">
-              <h4 class="font-bold text-on-surface mb-4 flex items-center gap-2">
-                <span class="material-symbols-outlined text-primary" style="font-size:1.25rem">public</span>
-                Global Presence
-              </h4>
-              <div class="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p class="font-bold text-on-surface">Singapore</p>
-                  <p class="text-on-surface-variant text-xs">Main Laboratory</p>
-                </div>
-                <div>
-                  <p class="font-bold text-on-surface">India</p>
-                  <p class="text-on-surface-variant text-xs">R&amp;D Centre</p>
-                </div>
-                <div>
-                  <p class="font-bold text-on-surface">Netherlands</p>
-                  <p class="text-on-surface-variant text-xs">European Hub</p>
-                </div>
-                <div>
-                  <p class="font-bold text-on-surface">UAE</p>
-                  <p class="text-on-surface-variant text-xs">MENA Operations</p>
-                </div>
+              <div class="absolute bottom-3 left-3 bg-white/80 backdrop-blur-sm rounded px-2.5 py-1.5 shadow-sm">
+                <p class="text-xs font-bold text-on-surface">{info.location.title}</p>
+                <p class="text-xs text-on-surface-variant">Singapore</p>
               </div>
             </div>
           </div>
