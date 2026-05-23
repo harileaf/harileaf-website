@@ -14,10 +14,6 @@ directory = "./dist/client"
 binding = "HARILEAF_CMS"
 id = "985fdea1a9594db6a58c722d5f8fe88f"
 
-# R2 bucket — add after enabling R2 in Cloudflare dashboard
-# [[r2_buckets]]
-# binding = "HARILEAF_MEDIA"
-# bucket_name = "harileaf-media"
-
-# [vars]
-# R2_PUBLIC_BASE = "https://pub-<your-hash>.r2.dev"
+[[r2_buckets]]
+binding = "HARILEAF_MEDIA"
+bucket_name = "harileaf-media"
