@@ -28,7 +28,8 @@ export default defineConfig({
       // Exclude CMS admin UI and API routes from the public sitemap
       filter: (page) =>
         !page.includes('/keystatic') &&
-        !page.includes('/api/'),
+        !page.includes('/api/') &&
+        !page.includes('/admin'),
     }),
     keystatic(),
   ],
