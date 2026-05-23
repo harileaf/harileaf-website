@@ -1,0 +1,137 @@
+---
+export const prerender = false;
+import { validateSession } from '../lib/auth';
+
+const { env } = Astro.locals.runtime;
+const authenticated = await validateSession(env.HARILEAF_CMS, Astro.cookies);
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — HariLeaf</title>
+  <link rel="icon" href="/favicon.ico" />
+  <meta name="robots" content="noindex, nofollow" />
+  <style>
+    /* Inline critical styles since we can't rely on Tailwind being loaded without the layout */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f6f6f3; color: #1a1a1a; min-height: 100vh; }
+    .brand-btn { background: linear-gradient(135deg, #196a5e 0%, #2d7a4f 100%); color: #fff; border: none; border-radius: 9999px; font-weight: 700; cursor: pointer; transition: opacity .15s; }
+    .brand-btn:hover { opacity: 0.88; }
+    .brand-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .card { background: #ebebea; border: 1px solid rgba(0,0,0,0.08); border-radius: 16px; padding: 2rem; }
+    input[type="password"], input[type="text"], textarea { background: #fff; border: 1px solid rgba(0,0,0,0.12); border-radius: 8px; padding: 0.75rem 1rem; font-size: 0.875rem; width: 100%; outline: none; transition: border-color .15s; }
+    input:focus, textarea:focus { border-color: #196a5e; box-shadow: 0 0 0 3px rgba(25,106,94,0.15); }
+    .tab-btn { background: none; border: none; border-bottom: 2px solid transparent; padding: 0.75rem 1.25rem; font-size: 0.875rem; font-weight: 700; cursor: pointer; color: #666; transition: color .15s, border-color .15s; }
+    .tab-btn.active { border-bottom-color: #196a5e; color: #196a5e; }
+    .hidden { display: none !important; }
+    .error { color: #c00; font-size: 0.875rem; }
+    .muted { color: #666; font-size: 0.875rem; }
+    label { display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #666; margin-bottom: 0.5rem; }
+  </style>
+</head>
+<body>
+
+{!authenticated ? (
+  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem;">
+    <div style="width:100%;max-width:380px;">
+      <div style="text-align:center;margin-bottom:2rem;">
+        <img src="/images/brand/logo-color.png" alt="HariLeaf" style="height:2.5rem;margin:0 auto 1rem;" />
+        <h1 style="font-size:1.5rem;font-weight:800;letter-spacing:-0.03em;">Admin Dashboard</h1>
+        <p class="muted" style="margin-top:0.25rem;">Enter your passphrase to continue</p>
+      </div>
+      <div class="card">
+        <div style="display:flex;flex-direction:column;gap:1rem;">
+          <div>
+            <label for="passphrase">Passphrase</label>
+            <input id="passphrase" type="password" placeholder="••••••••••••" autocomplete="current-password" />
+          </div>
+          <p id="login-error" class="error hidden">Incorrect passphrase. Try again.</p>
+          <button id="login-btn" class="brand-btn" style="padding:0.875rem;">Sign In</button>
+        </div>
+      </div>
+    </div>
+  </div>
+) : (
+  <div style="max-width:960px;margin:0 auto;padding:2.5rem 1.5rem;">
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2.5rem;">
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <img src="/images/brand/logo-color.png" alt="HariLeaf" style="height:2rem;" />
+        <span style="font-size:1.125rem;font-weight:800;color:#196a5e;">Admin</span>
+      </div>
+      <button id="logout-btn" style="background:none;border:none;cursor:pointer;font-size:0.875rem;font-weight:600;color:#666;">Sign out</button>
+    </div>
+
+    <div style="display:flex;border-bottom:1px solid rgba(0,0,0,0.1);margin-bottom:2rem;" role="tablist">
+      <button class="tab-btn active" data-tab="photos" role="tab">Photos</button>
+      <button class="tab-btn" data-tab="produce" role="tab">Produce</button>
+      <button class="tab-btn" data-tab="content" role="tab">Content</button>
+    </div>
+
+    <div id="tab-photos" class="tab-panel"></div>
+    <div id="tab-produce" class="tab-panel hidden"></div>
+    <div id="tab-content" class="tab-panel hidden"></div>
+  </div>
+)}
+
+<div id="toast-container" style="position:fixed;bottom:1.5rem;right:1.5rem;z-index:50;display:flex;flex-direction:column;gap:0.5rem;"></div>
+
+<script>
+  // ── Toast ──────────────────────────────────────────────
+  function showToast(message: string, type: 'success' | 'error' = 'success') {
+    const container = document.getElementById('toast-container')!;
+    const toast = document.createElement('div');
+    toast.style.cssText = `padding:0.75rem 1.25rem;border-radius:12px;font-size:0.875rem;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,0.15);background:${type === 'error' ? '#fde8e8' : '#e8f5f3'};color:${type === 'error' ? '#c00' : '#196a5e'};`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(() => toast.remove(), 300); }, 2700);
+  }
+
+  // ── Login ──────────────────────────────────────────────
+  const loginBtn = document.getElementById('login-btn') as HTMLButtonElement | null;
+  const loginError = document.getElementById('login-error');
+  const passphraseInput = document.getElementById('passphrase') as HTMLInputElement | null;
+
+  loginBtn?.addEventListener('click', async () => {
+    const passphrase = passphraseInput?.value ?? '';
+    if (!passphrase) return;
+    loginBtn.textContent = 'Signing in…';
+    loginBtn.disabled = true;
+    const res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ passphrase }),
+    });
+    if (res.ok) {
+      window.location.reload();
+    } else {
+      loginError?.classList.remove('hidden');
+      loginBtn.textContent = 'Sign In';
+      loginBtn.disabled = false;
+    }
+  });
+
+  passphraseInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') loginBtn?.click(); });
+
+  // ── Logout ─────────────────────────────────────────────
+  document.getElementById('logout-btn')?.addEventListener('click', async () => {
+    await fetch('/api/auth', { method: 'DELETE' });
+    window.location.reload();
+  });
+
+  // ── Tab switching ──────────────────────────────────────
+  document.querySelectorAll<HTMLButtonElement>('.tab-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
+      btn.classList.add('active');
+      document.getElementById(`tab-${btn.dataset.tab}`)?.classList.remove('hidden');
+    });
+  });
+</script>
+
+</body>
+</html>
