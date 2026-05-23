@@ -1,8 +1,8 @@
 ---
 export const prerender = false;
+import { env } from 'cloudflare:workers';
 import { validateSession } from '../lib/auth';
 
-const { env } = Astro.locals.runtime;
 const authenticated = await validateSession(env.HARILEAF_CMS, Astro.cookies);
 ---
 

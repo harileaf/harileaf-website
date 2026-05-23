@@ -1,8 +1,8 @@
 import type { APIRoute } from 'astro';
+import { env } from 'cloudflare:workers';
 import { verifyPassphrase, createSession, deleteSession, setSessionCookie, clearSessionCookie } from '../../lib/auth';
 
-export const POST: APIRoute = async ({ request, locals, cookies }) => {
-  const { env } = locals.runtime;
+export const POST: APIRoute = async ({ request, cookies }) => {
   let passphrase: string;
   try {
     const body = await request.json() as { passphrase?: string };
@@ -19,8 +19,7 @@ export const POST: APIRoute = async ({ request, locals, cookies }) => {
   return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
 };
 
-export const DELETE: APIRoute = async ({ locals, cookies }) => {
-  const { env } = locals.runtime;
+export const DELETE: APIRoute = async ({ cookies }) => {
   await deleteSession(env.HARILEAF_CMS, cookies);
   clearSessionCookie(cookies);
   return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });

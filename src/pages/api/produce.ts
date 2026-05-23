@@ -1,16 +1,15 @@
 import type { APIRoute } from 'astro';
+import { env } from 'cloudflare:workers';
 import { validateSession } from '../../lib/auth';
 import { getProduce, putProduce } from '../../lib/cms';
 import type { ProduceItem } from '../../lib/cms-types';
 
-export const GET: APIRoute = async ({ locals }) => {
-  const { env } = locals.runtime;
+export const GET: APIRoute = async () => {
   const items = await getProduce(env.HARILEAF_CMS);
   return new Response(JSON.stringify(items), { headers: { 'Content-Type': 'application/json' } });
 };
 
-export const PUT: APIRoute = async ({ request, locals, cookies }) => {
-  const { env } = locals.runtime;
+export const PUT: APIRoute = async ({ request, cookies }) => {
   if (!(await validateSession(env.HARILEAF_CMS, cookies))) {
     return new Response(JSON.stringify({ error: 'Unauthorised' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
   }

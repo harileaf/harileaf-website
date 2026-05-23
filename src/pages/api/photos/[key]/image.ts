@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
+import { env } from 'cloudflare:workers';
 
-export const GET: APIRoute = async ({ params, locals }) => {
-  const { env } = locals.runtime;
+export const GET: APIRoute = async ({ params }) => {
   const key = decodeURIComponent(params.key ?? '');
 
   if (!key.startsWith('photos/')) {

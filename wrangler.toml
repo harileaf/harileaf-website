@@ -11,6 +11,10 @@ routes = [
 directory = "./dist/client"
 
 [[kv_namespaces]]
+binding = "SESSION"
+id = "0984954f990b4e69874e1eba263a2a68"
+
+[[kv_namespaces]]
 binding = "HARILEAF_CMS"
 id = "985fdea1a9594db6a58c722d5f8fe88f"
 

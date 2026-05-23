@@ -1,9 +1,9 @@
 import type { APIRoute } from 'astro';
+import { env } from 'cloudflare:workers';
 import { validateSession } from '../../../lib/auth';
 import { deletePhoto } from '../../../lib/cms';
 
-export const DELETE: APIRoute = async ({ params, locals, cookies }) => {
-  const { env } = locals.runtime;
+export const DELETE: APIRoute = async ({ params, cookies }) => {
   if (!(await validateSession(env.HARILEAF_CMS, cookies))) {
     return new Response(JSON.stringify({ error: 'Unauthorised' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
   }
