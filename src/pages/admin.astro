@@ -131,6 +131,176 @@ const authenticated = await validateSession(env.HARILEAF_CMS, Astro.cookies);
       document.getElementById(`tab-${btn.dataset.tab}`)?.classList.remove('hidden');
     });
   });
+
+  // ── Photos tab ─────────────────────────────────────────
+  async function initPhotosTab() {
+    const panel = document.getElementById('tab-photos');
+    if (!panel) return;
+
+    panel.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:2rem;">
+        <div id="drop-zone" style="border:2px dashed rgba(0,0,0,0.15);border-radius:16px;padding:2rem;text-align:center;">
+          <p class="muted" style="margin-bottom:1rem;">Drag &amp; drop a photo, or click to browse</p>
+          <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp" style="display:none;" />
+          <div style="display:flex;flex-wrap:wrap;gap:0.75rem;justify-content:center;max-width:480px;margin:0 auto;">
+            <input type="text" id="photo-label" placeholder="Crop name (e.g. Alphonso Mango)" style="flex:1;min-width:200px;" />
+            <button id="browse-btn" class="brand-btn" style="padding:0.625rem 1.25rem;white-space:nowrap;">Choose File</button>
+          </div>
+          <p id="selected-file" class="muted" style="margin-top:0.75rem;font-size:0.75rem;"></p>
+          <div id="upload-progress" style="display:none;margin-top:1rem;background:rgba(0,0,0,0.08);border-radius:999px;height:6px;">
+            <div id="upload-bar" style="background:#196a5e;height:6px;border-radius:999px;width:0%;transition:width 0.1s;"></div>
+          </div>
+          <button id="upload-btn" style="display:none;margin-top:1rem;" class="brand-btn" style="padding:0.625rem 2rem;">Upload Photo</button>
+          <p id="upload-error" class="error" style="display:none;margin-top:0.5rem;"></p>
+        </div>
+
+        <div>
+          <p style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#666;margin-bottom:1rem;">Uploaded Photos</p>
+          <div id="photo-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:1rem;">
+            <p class="muted">Loading…</p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    let selectedFile: File | null = null;
+
+    async function loadPhotos() {
+      const grid = document.getElementById('photo-grid')!;
+      const res = await fetch('/api/photos');
+      const photos: Array<{ key: string; label: string; url: string }> = res.ok ? await res.json() : [];
+
+      if (!photos.length) {
+        grid.innerHTML = '<p class="muted">No photos yet. Upload your first farm photo above.</p>';
+        return;
+      }
+
+      grid.innerHTML = photos.map((p) => `
+        <div style="position:relative;border-radius:12px;overflow:hidden;aspect-ratio:3/4;background:#e0e0de;" data-key="${p.key}">
+          <img src="${p.url}" alt="${p.label}" style="width:100%;height:100%;object-fit:cover;" loading="lazy" />
+          <div style="position:absolute;inset:0;background:rgba(0,0,0,0);transition:background 0.2s;" class="photo-overlay">
+            <div style="position:absolute;bottom:0;left:0;right:0;padding:1.5rem 0.75rem 0.75rem;background:linear-gradient(to top,rgba(0,0,0,0.7),transparent);transform:translateY(100%);transition:transform 0.2s;" class="photo-actions">
+              <p style="color:#fff;font-size:0.75rem;font-weight:700;margin-bottom:0.5rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.label}</p>
+              <button data-key="${p.key}" class="delete-photo-btn" style="background:rgba(255,255,255,0.15);border:none;color:#fff;font-size:0.75rem;font-weight:700;padding:0.25rem 0.75rem;border-radius:999px;cursor:pointer;">Delete</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      // Hover reveal
+      grid.querySelectorAll<HTMLElement>('.photo-overlay').forEach((overlay) => {
+        const actions = overlay.querySelector<HTMLElement>('.photo-actions')!;
+        overlay.addEventListener('mouseenter', () => {
+          overlay.style.background = 'rgba(0,0,0,0.2)';
+          actions.style.transform = 'translateY(0)';
+        });
+        overlay.addEventListener('mouseleave', () => {
+          overlay.style.background = 'rgba(0,0,0,0)';
+          actions.style.transform = 'translateY(100%)';
+        });
+      });
+
+      grid.querySelectorAll<HTMLButtonElement>('.delete-photo-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          btn.textContent = '…';
+          btn.disabled = true;
+          const key = btn.dataset.key!;
+          const card = grid.querySelector(`[data-key="${key}"]`) as HTMLElement | null;
+          card?.remove();
+          const res = await fetch(`/api/photos/${encodeURIComponent(key)}`, { method: 'DELETE' });
+          if (!res.ok) {
+            loadPhotos();
+            showToast('Delete failed', 'error');
+          } else {
+            showToast('Photo deleted');
+          }
+        });
+      });
+    }
+
+    document.getElementById('browse-btn')?.addEventListener('click', () => {
+      (document.getElementById('file-input') as HTMLInputElement).click();
+    });
+
+    document.getElementById('drop-zone')?.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      (e.currentTarget as HTMLElement).style.borderColor = '#196a5e';
+    });
+
+    document.getElementById('drop-zone')?.addEventListener('dragleave', (e) => {
+      (e.currentTarget as HTMLElement).style.borderColor = 'rgba(0,0,0,0.15)';
+    });
+
+    document.getElementById('drop-zone')?.addEventListener('drop', (e) => {
+      e.preventDefault();
+      (e.currentTarget as HTMLElement).style.borderColor = 'rgba(0,0,0,0.15)';
+      const file = e.dataTransfer?.files[0];
+      if (file) handleFileSelect(file);
+    });
+
+    function handleFileSelect(file: File) {
+      const errEl = document.getElementById('upload-error')!;
+      if (file.size > 8 * 1024 * 1024) {
+        errEl.textContent = 'File exceeds 8 MB limit.';
+        errEl.style.display = 'block';
+        return;
+      }
+      selectedFile = file;
+      document.getElementById('selected-file')!.textContent = file.name;
+      (document.getElementById('upload-btn') as HTMLElement).style.display = 'inline-block';
+      errEl.style.display = 'none';
+    }
+
+    document.getElementById('file-input')?.addEventListener('change', (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) handleFileSelect(file);
+    });
+
+    document.getElementById('upload-btn')?.addEventListener('click', async () => {
+      const label = (document.getElementById('photo-label') as HTMLInputElement).value.trim();
+      const errEl = document.getElementById('upload-error')!;
+      if (!selectedFile || !label) {
+        errEl.textContent = 'Please select a file and enter a crop name.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      const form = new FormData();
+      form.append('file', selectedFile);
+      form.append('label', label);
+
+      const progressWrap = document.getElementById('upload-progress')!;
+      const progressBar = document.getElementById('upload-bar')!;
+      progressWrap.style.display = 'block';
+
+      const xhr = new XMLHttpRequest();
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) progressBar.style.width = `${Math.round((e.loaded / e.total) * 100)}%`;
+      });
+      xhr.addEventListener('load', () => {
+        progressWrap.style.display = 'none';
+        progressBar.style.width = '0%';
+        if (xhr.status === 201) {
+          selectedFile = null;
+          (document.getElementById('photo-label') as HTMLInputElement).value = '';
+          document.getElementById('selected-file')!.textContent = '';
+          (document.getElementById('upload-btn') as HTMLElement).style.display = 'none';
+          (document.getElementById('file-input') as HTMLInputElement).value = '';
+          showToast('Photo uploaded successfully');
+          loadPhotos();
+        } else {
+          errEl.textContent = 'Upload failed. Try again.';
+          errEl.style.display = 'block';
+        }
+      });
+      xhr.open('POST', '/api/photos');
+      xhr.send(form);
+    });
+
+    loadPhotos();
+  }
+
+  if (document.getElementById('tab-photos')) initPhotosTab();
 </script>
 
 </body>
