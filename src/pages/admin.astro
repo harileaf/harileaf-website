@@ -416,6 +416,78 @@ const authenticated = await validateSession(env.HARILEAF_CMS, Astro.cookies);
   }
 
   if (document.getElementById('tab-produce')) initProduceTab();
+
+  // ── Content tab ────────────────────────────────────────
+  async function initContentTab() {
+    const panel = document.getElementById('tab-content');
+    if (!panel) return;
+
+    const res = await fetch('/api/content');
+    const content: Record<string, string> = res.ok ? await res.json() : {};
+
+    const fields: Array<{ key: string; label: string; multiline?: boolean }> = [
+      { key: 'heroBadge',              label: 'Hero badge text' },
+      { key: 'heroLine1',              label: 'Hero headline — line 1' },
+      { key: 'heroLine2',              label: 'Hero headline — line 2' },
+      { key: 'heroSubtitle',           label: 'Hero subtitle', multiline: true },
+      { key: 'catalogueHeadline',      label: 'Catalogue section headline' },
+      { key: 'photoStripHeadline',     label: 'Photo strip headline' },
+      { key: 'organicPromiseHeadline', label: 'Organic promise headline', multiline: true },
+    ];
+
+    panel.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:1.5rem;max-width:640px;">
+        <p class="muted">Edit text on the produce page. Changes go live instantly after saving.</p>
+        ${fields.map((f) => `
+          <div>
+            <label for="cf-${f.key}">${f.label}</label>
+            ${f.multiline
+              ? `<textarea id="cf-${f.key}" data-key="${f.key}" rows="3" style="resize:vertical;">${content[f.key] ?? ''}</textarea>`
+              : `<input type="text" id="cf-${f.key}" data-key="${f.key}" value="${(content[f.key] ?? '').replace(/"/g, '&quot;')}" />`
+            }
+          </div>
+        `).join('')}
+        <div style="display:flex;align-items:center;gap:1rem;padding-top:1rem;border-top:1px solid rgba(0,0,0,0.08);">
+          <button id="save-content-btn" class="brand-btn" style="padding:0.75rem 2rem;">Save Changes</button>
+          <p id="content-save-status" class="muted" style="display:none;"></p>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('save-content-btn')?.addEventListener('click', async () => {
+      const btn = document.getElementById('save-content-btn') as HTMLButtonElement;
+      const status = document.getElementById('content-save-status')!;
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+
+      const updated: Record<string, string> = {};
+      panel.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('[data-key]').forEach((el) => {
+        updated[el.dataset.key!] = el.value;
+      });
+
+      const res = await fetch('/api/content', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated),
+      });
+
+      btn.disabled = false;
+      btn.textContent = 'Save Changes';
+      status.style.display = 'block';
+      if (res.ok) {
+        status.textContent = '✓ Saved';
+        status.style.color = '#196a5e';
+        showToast('Content saved successfully');
+      } else {
+        status.textContent = 'Save failed';
+        status.style.color = '#c00';
+        showToast('Save failed', 'error');
+      }
+      setTimeout(() => { status.style.display = 'none'; }, 3000);
+    });
+  }
+
+  if (document.getElementById('tab-content')) initContentTab();
 </script>
 
 </body>
