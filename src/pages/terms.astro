@@ -1,0 +1,131 @@
+---
+export const prerender = true;
+import SiteLayout from '../layouts/SiteLayout.astro';
+import FadeIn from '../components/animations/FadeIn.astro';
+import SEO from '../components/seo/SEO.astro';
+import JsonLd from '../components/seo/JsonLd.astro';
+import pageJson from '../content/terms-page.json';
+
+const { hero, sections, seo } = pageJson;
+
+const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://harileaf.ag');
+const pageTitle    = seo?.metaTitle    ?? 'Terms of Service | HariLeaf Agritech';
+const pageDesc     = seo?.metaDescription ?? '';
+---
+
+<SiteLayout title={pageTitle} description={pageDesc}>
+  <slot name="head" slot="head">
+    <SEO title={pageTitle} description={pageDesc} canonicalUrl={canonicalURL} />
+    <JsonLd
+      type="BreadcrumbList"
+      data={{
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Home',             item: 'https://harileaf.ag/' },
+          { '@type': 'ListItem', position: 2, name: 'Terms of Service', item: 'https://harileaf.ag/terms' },
+        ],
+      }}
+    />
+  </slot>
+
+  <!-- ═══════════════════════════════════════════════════
+       HERO
+       ═══════════════════════════════════════════════════ -->
+  <header class="pt-32 pb-16 border-b border-outline-variant">
+    <div class="max-w-7xl mx-auto px-8">
+      <FadeIn>
+        <span class="inline-block px-4 py-1 rounded-full bg-secondary-container text-on-secondary-container text-sm font-bold tracking-widest uppercase mb-6">
+          {hero.badge}
+        </span>
+      </FadeIn>
+      <FadeIn delay={100}>
+        <h1 class="text-5xl font-extrabold tracking-tighter text-on-surface mb-4">
+          {hero.title}
+        </h1>
+      </FadeIn>
+      <FadeIn delay={200}>
+        <p class="text-lg text-on-surface-variant mb-3">{hero.subtitle}</p>
+        <p class="text-sm text-tertiary font-medium">{hero.effectiveDate}</p>
+      </FadeIn>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════
+       BODY — sticky TOC + content
+       ═══════════════════════════════════════════════════ -->
+  <div class="max-w-7xl mx-auto px-8 py-16">
+    <div class="flex gap-16 items-start">
+
+      <!-- Sticky TOC -->
+      <aside class="hidden lg:block w-64 shrink-0 sticky top-28 self-start">
+        <p class="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-4">On this page</p>
+        <nav class="flex flex-col gap-1" id="toc">
+          {sections.map((s) => (
+            <a
+              href={`#${s.id}`}
+              class="toc-link text-sm text-on-surface-variant hover:text-primary transition-colors py-1 pl-3 border-l-2 border-transparent"
+              data-section={s.id}
+            >
+              {s.title}
+            </a>
+          ))}
+        </nav>
+      </aside>
+
+      <!-- Content -->
+      <div class="flex-1 min-w-0">
+        {sections.map((s, i) => (
+          <FadeIn delay={i * 60}>
+            <section id={s.id} class="mb-14 scroll-mt-32">
+              <h2 class="text-2xl font-bold text-on-surface mb-4">{s.title}</h2>
+              <p class="text-on-surface-variant leading-relaxed text-base">{s.body}</p>
+            </section>
+          </FadeIn>
+        ))}
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       FOOTER CTA
+       ═══════════════════════════════════════════════════ -->
+  <div class="border-t border-outline-variant">
+    <div class="max-w-7xl mx-auto px-8 py-12 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <p class="text-on-surface-variant text-sm">Questions about these terms?</p>
+      <a
+        href="/contact"
+        class="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-primary text-on-primary font-bold text-sm tracking-wide hover:opacity-90 transition-opacity"
+      >
+        Contact Us
+        <span class="material-symbols-outlined text-base" aria-hidden="true">arrow_forward</span>
+      </a>
+    </div>
+  </div>
+
+</SiteLayout>
+
+<script>
+  // Highlight active TOC link on scroll
+  const links = document.querySelectorAll<HTMLAnchorElement>('.toc-link');
+  const sections = Array.from(document.querySelectorAll<HTMLElement>('section[id]'));
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          links.forEach((l) => {
+            const active = l.dataset.section === entry.target.id;
+            l.classList.toggle('text-primary',        active);
+            l.classList.toggle('font-bold',           active);
+            l.classList.toggle('border-primary',      active);
+            l.classList.toggle('text-on-surface-variant', !active);
+            l.classList.toggle('border-transparent',  !active);
+          });
+        }
+      }
+    },
+    { rootMargin: '-30% 0px -60% 0px' }
+  );
+
+  sections.forEach((s) => observer.observe(s));
+</script>

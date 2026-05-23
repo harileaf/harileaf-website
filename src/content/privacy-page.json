@@ -1,0 +1,44 @@
+{
+  "seo": {
+    "metaTitle": "Privacy Policy | HariLeaf Agritech",
+    "metaDescription": "Learn how HariLeaf Agritech collects, uses, and protects your personal data across our agri-intelligence platform."
+  },
+  "hero": {
+    "badge": "Legal",
+    "title": "Privacy Policy",
+    "subtitle": "How we handle your data across the HariLeaf platform.",
+    "effectiveDate": "Effective 1 January 2026"
+  },
+  "sections": [
+    {
+      "id": "data-we-collect",
+      "title": "Data We Collect",
+      "body": "We collect information you provide directly — such as your name, email address, organisation name, and any details submitted through our contact or demo request forms. When you use our platform, we automatically collect technical data including IP addresses, browser type, pages visited, and device identifiers. For farm operators using HariLeaf's field intelligence tools, we may collect operational telemetry such as sensor readings, crop metadata, and field boundaries, solely to deliver and improve the service."
+    },
+    {
+      "id": "how-we-use-it",
+      "title": "How We Use It",
+      "body": "We use collected data to operate and improve the HariLeaf platform, respond to enquiries, send service-related communications, and personalise your experience. We may analyse aggregated, anonymised operational data to improve our AI models and produce industry insights. We do not sell your personal data to third parties. Marketing communications are opt-in only and you may unsubscribe at any time."
+    },
+    {
+      "id": "third-party-services",
+      "title": "Third-Party Services",
+      "body": "HariLeaf uses a limited set of trusted third-party processors — including cloud infrastructure, analytics, and communication providers — to deliver our services. These processors are contractually bound to handle your data in accordance with applicable data protection law. We do not permit them to use your data for their own purposes. A current list of sub-processors is available on request."
+    },
+    {
+      "id": "data-retention",
+      "title": "Data Retention",
+      "body": "We retain personal data only as long as necessary to fulfil the purpose for which it was collected, or as required by law. Account data is retained for the duration of the relationship plus 36 months. Contact and enquiry data is retained for 24 months. You may request deletion of your data at any time, subject to legal retention obligations."
+    },
+    {
+      "id": "your-rights",
+      "title": "Your Rights",
+      "body": "Depending on your jurisdiction, you may have the right to access, correct, delete, or port your personal data, as well as the right to restrict or object to certain processing. To exercise any of these rights, contact us at the address below. We will respond within 30 days. You also have the right to lodge a complaint with your local data protection authority."
+    },
+    {
+      "id": "contact",
+      "title": "Contact Us",
+      "body": "For questions about this policy or to make a data request, reach our privacy team at privacy@harileaf.org or write to: HariLeaf Agritech, Borivali, Mumbai, India. We aim to respond to all privacy enquiries within 30 days."
+    }
+  ]
+}
