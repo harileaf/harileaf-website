@@ -301,6 +301,121 @@ const authenticated = await validateSession(env.HARILEAF_CMS, Astro.cookies);
   }
 
   if (document.getElementById('tab-photos')) initPhotosTab();
+
+  // ── Produce tab ────────────────────────────────────────
+  async function initProduceTab() {
+    const panel = document.getElementById('tab-produce');
+    if (!panel) return;
+
+    let items: Array<{ emoji: string; name: string; category: string; seasonal: boolean }> = [];
+    const res = await fetch('/api/produce');
+    if (res.ok) items = await res.json();
+
+    function renderList() {
+      panel!.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:1.5rem;">
+          <p class="muted">Add, remove, or edit produce items. Changes save when you click Save.</p>
+          <div id="produce-list" style="display:flex;flex-direction:column;gap:0.5rem;"></div>
+          <button id="add-produce-btn" style="background:none;border:none;cursor:pointer;color:#196a5e;font-size:0.875rem;font-weight:700;text-align:left;padding:0;">+ Add produce</button>
+          <div style="display:flex;align-items:center;gap:1rem;padding-top:1rem;border-top:1px solid rgba(0,0,0,0.08);">
+            <button id="save-produce-btn" class="brand-btn" style="padding:0.75rem 2rem;">Save Changes</button>
+            <p id="produce-save-status" class="muted" style="display:none;"></p>
+          </div>
+        </div>
+      `;
+
+      const list = document.getElementById('produce-list')!;
+
+      function renderRows() {
+        list.innerHTML = items.map((item, i) => `
+          <div style="display:flex;align-items:center;gap:0.5rem;background:#ebebea;border-radius:12px;padding:0.75rem 1rem;" data-idx="${i}">
+            <input type="text" value="${item.emoji}" data-field="emoji" maxlength="2"
+              style="width:3rem;text-align:center;font-size:1.25rem;background:#fff;border:1px solid rgba(0,0,0,0.12);border-radius:8px;padding:0.375rem;" />
+            <input type="text" value="${item.name}" data-field="name" placeholder="Name"
+              style="flex:1;background:#fff;border:1px solid rgba(0,0,0,0.12);border-radius:8px;padding:0.5rem 0.75rem;font-size:0.875rem;" />
+            <input type="text" value="${item.category}" data-field="category" placeholder="Category"
+              style="width:8rem;background:#fff;border:1px solid rgba(0,0,0,0.12);border-radius:8px;padding:0.5rem 0.75rem;font-size:0.875rem;" />
+            <label style="display:flex;align-items:center;gap:0.375rem;font-size:0.75rem;white-space:nowrap;text-transform:none;letter-spacing:0;">
+              <input type="checkbox" data-field="seasonal" ${item.seasonal ? 'checked' : ''} style="accent-color:#196a5e;width:auto;" />
+              Seasonal
+            </label>
+            <button data-delete="${i}" style="background:none;border:none;cursor:pointer;color:#c00;font-weight:700;font-size:1rem;padding:0 0.25rem;">✕</button>
+          </div>
+        `).join('');
+
+        list.querySelectorAll<HTMLInputElement>('input[data-field]').forEach((input) => {
+          input.addEventListener('change', (e) => {
+            const row = (e.target as HTMLElement).closest('[data-idx]') as HTMLElement;
+            const idx = parseInt(row.dataset.idx!);
+            const field = (e.target as HTMLInputElement).dataset.field!;
+            if (field === 'seasonal') {
+              items[idx].seasonal = (e.target as HTMLInputElement).checked;
+            } else {
+              (items[idx] as Record<string, unknown>)[field] = (e.target as HTMLInputElement).value;
+            }
+          });
+        });
+
+        list.querySelectorAll<HTMLButtonElement>('[data-delete]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            items.splice(parseInt(btn.dataset.delete!), 1);
+            renderRows();
+          });
+        });
+      }
+
+      renderRows();
+
+      document.getElementById('add-produce-btn')?.addEventListener('click', () => {
+        items.push({ emoji: '🌿', name: '', category: 'Other', seasonal: false });
+        renderRows();
+        list.lastElementChild?.querySelector('input')?.focus();
+      });
+
+      document.getElementById('save-produce-btn')?.addEventListener('click', async () => {
+        const btn = document.getElementById('save-produce-btn') as HTMLButtonElement;
+        const status = document.getElementById('produce-save-status')!;
+        btn.disabled = true;
+        btn.textContent = 'Saving…';
+
+        // Sync latest input values before saving
+        list.querySelectorAll<HTMLInputElement>('input[data-field]').forEach((input) => {
+          const row = input.closest('[data-idx]') as HTMLElement;
+          const idx = parseInt(row.dataset.idx!);
+          const field = input.dataset.field!;
+          if (field === 'seasonal') {
+            items[idx].seasonal = input.checked;
+          } else {
+            (items[idx] as Record<string, unknown>)[field] = input.value;
+          }
+        });
+
+        const res = await fetch('/api/produce', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(items),
+        });
+
+        btn.disabled = false;
+        btn.textContent = 'Save Changes';
+        status.style.display = 'block';
+        if (res.ok) {
+          status.textContent = '✓ Saved';
+          status.style.color = '#196a5e';
+          showToast('Produce list saved');
+        } else {
+          status.textContent = 'Save failed';
+          status.style.color = '#c00';
+          showToast('Save failed', 'error');
+        }
+        setTimeout(() => { status.style.display = 'none'; }, 3000);
+      });
+    }
+
+    renderList();
+  }
+
+  if (document.getElementById('tab-produce')) initProduceTab();
 </script>
 
 </body>
