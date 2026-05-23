@@ -2,5 +2,22 @@ name = "harileaf"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
+routes = [
+  { pattern = "harileaf.org", custom_domain = true },
+  { pattern = "www.harileaf.org", custom_domain = true }
+]
+
 [assets]
 directory = "./dist/client"
+
+[[kv_namespaces]]
+binding = "HARILEAF_CMS"
+id = "985fdea1a9594db6a58c722d5f8fe88f"
+
+# R2 bucket — add after enabling R2 in Cloudflare dashboard
+# [[r2_buckets]]
+# binding = "HARILEAF_MEDIA"
+# bucket_name = "harileaf-media"
+
+# [vars]
+# R2_PUBLIC_BASE = "https://pub-<your-hash>.r2.dev"
