@@ -4,6 +4,7 @@ import SiteLayout from '../layouts/SiteLayout.astro';
 import FadeIn from '../components/animations/FadeIn.astro';
 import SEO from '../components/seo/SEO.astro';
 import contactJson from '../content/contact-page.json';
+import PhotoStrip from '../components/produce/PhotoStrip.astro';
 
 const web3formsKey = contactJson.form.web3formsKey;
 const success = Astro.url.searchParams.get('success') === 'true';
@@ -115,7 +116,7 @@ const mangoVarieties = ['Alphonso', 'Kesar Gir', 'Payri', 'Langda', 'Rajapuri', 
         <h2 class="text-3xl font-extrabold tracking-tight mb-10" style="color: #f0f0ee;">Everything we grow</h2>
       </FadeIn>
 
-      <div class="grid grid-cols-12 gap-2">
+      <div class="grid grid-cols-12 gap-2" id="bento-grid">
 
         <!-- ── Mango hero cell (col-span-7) ── -->
         <FadeIn class="col-span-12 md:col-span-7">
@@ -286,6 +287,8 @@ const mangoVarieties = ['Alphonso', 'Kesar Gir', 'Payri', 'Langda', 'Rajapuri', 
     </div>
   </section>
 
+<PhotoStrip />
+
 <!-- ══════════════════════════════════════════════════════
      EXPRESS INTEREST FORM — light section
      ══════════════════════════════════════════════════════ -->
@@ -430,5 +433,44 @@ const mangoVarieties = ['Alphonso', 'Kesar Gir', 'Payri', 'Langda', 'Rajapuri', 
     </FadeIn>
   </div>
 </section>
+
+<script>
+  async function hydrateBento() {
+    const res = await fetch('/api/produce');
+    if (!res.ok) return;
+    const items: Array<{ emoji: string; name: string; category: string; seasonal: boolean }> =
+      await res.json();
+    if (!items.length) return;
+
+    const contentRes = await fetch('/api/content');
+    const content = contentRes.ok ? await contentRes.json() : {};
+
+    const grid = document.getElementById('bento-grid');
+    if (!grid) return;
+
+    const staticCount = grid.querySelectorAll('.bento-card').length;
+    if (staticCount === items.length) return;
+
+    grid.innerHTML = items
+      .map(
+        (item) => `
+      <div class="col-span-6 md:col-span-3">
+        <div class="bento-card relative overflow-hidden rounded-xl p-4 flex flex-col justify-between border"
+             style="min-height:110px; background:rgba(255,255,255,0.04); border-color:rgba(255,255,255,0.07);">
+          <div class="organic-dot absolute top-2.5 right-2.5 w-1.5 h-1.5 rounded-full"
+               style="background:#9fb17d;box-shadow:0 0 6px rgba(159,177,125,0.6);" aria-hidden="true"></div>
+          <div class="text-3xl" aria-hidden="true">${item.emoji}</div>
+          <div>
+            <p class="text-sm font-bold" style="color:#f0f0ee;">${item.name}</p>
+            <p class="text-xs mt-0.5" style="color:rgba(240,240,238,0.38);">${item.category}${item.seasonal ? ' · Seasonal' : ''}</p>
+          </div>
+        </div>
+      </div>`
+      )
+      .join('');
+  }
+
+  hydrateBento();
+</script>
 
 </SiteLayout>

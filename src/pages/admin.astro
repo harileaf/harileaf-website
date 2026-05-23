@@ -1,0 +1,494 @@
+---
+export const prerender = false;
+import { validateSession } from '../lib/auth';
+
+const { env } = Astro.locals.runtime;
+const authenticated = await validateSession(env.HARILEAF_CMS, Astro.cookies);
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — HariLeaf</title>
+  <link rel="icon" href="/favicon.ico" />
+  <meta name="robots" content="noindex, nofollow" />
+  <style>
+    /* Inline critical styles since we can't rely on Tailwind being loaded without the layout */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f6f6f3; color: #1a1a1a; min-height: 100vh; }
+    .brand-btn { background: linear-gradient(135deg, #196a5e 0%, #2d7a4f 100%); color: #fff; border: none; border-radius: 9999px; font-weight: 700; cursor: pointer; transition: opacity .15s; }
+    .brand-btn:hover { opacity: 0.88; }
+    .brand-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .card { background: #ebebea; border: 1px solid rgba(0,0,0,0.08); border-radius: 16px; padding: 2rem; }
+    input[type="password"], input[type="text"], textarea { background: #fff; border: 1px solid rgba(0,0,0,0.12); border-radius: 8px; padding: 0.75rem 1rem; font-size: 0.875rem; width: 100%; outline: none; transition: border-color .15s; }
+    input:focus, textarea:focus { border-color: #196a5e; box-shadow: 0 0 0 3px rgba(25,106,94,0.15); }
+    .tab-btn { background: none; border: none; border-bottom: 2px solid transparent; padding: 0.75rem 1.25rem; font-size: 0.875rem; font-weight: 700; cursor: pointer; color: #666; transition: color .15s, border-color .15s; }
+    .tab-btn.active { border-bottom-color: #196a5e; color: #196a5e; }
+    .hidden { display: none !important; }
+    .error { color: #c00; font-size: 0.875rem; }
+    .muted { color: #666; font-size: 0.875rem; }
+    label { display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #666; margin-bottom: 0.5rem; }
+  </style>
+</head>
+<body>
+
+{!authenticated ? (
+  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem;">
+    <div style="width:100%;max-width:380px;">
+      <div style="text-align:center;margin-bottom:2rem;">
+        <img src="/images/brand/logo-color.png" alt="HariLeaf" style="height:2.5rem;margin:0 auto 1rem;" />
+        <h1 style="font-size:1.5rem;font-weight:800;letter-spacing:-0.03em;">Admin Dashboard</h1>
+        <p class="muted" style="margin-top:0.25rem;">Enter your passphrase to continue</p>
+      </div>
+      <div class="card">
+        <div style="display:flex;flex-direction:column;gap:1rem;">
+          <div>
+            <label for="passphrase">Passphrase</label>
+            <input id="passphrase" type="password" placeholder="••••••••••••" autocomplete="current-password" />
+          </div>
+          <p id="login-error" class="error hidden">Incorrect passphrase. Try again.</p>
+          <button id="login-btn" class="brand-btn" style="padding:0.875rem;">Sign In</button>
+        </div>
+      </div>
+    </div>
+  </div>
+) : (
+  <div style="max-width:960px;margin:0 auto;padding:2.5rem 1.5rem;">
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2.5rem;">
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <img src="/images/brand/logo-color.png" alt="HariLeaf" style="height:2rem;" />
+        <span style="font-size:1.125rem;font-weight:800;color:#196a5e;">Admin</span>
+      </div>
+      <button id="logout-btn" style="background:none;border:none;cursor:pointer;font-size:0.875rem;font-weight:600;color:#666;">Sign out</button>
+    </div>
+
+    <div style="display:flex;border-bottom:1px solid rgba(0,0,0,0.1);margin-bottom:2rem;" role="tablist">
+      <button class="tab-btn active" data-tab="photos" role="tab">Photos</button>
+      <button class="tab-btn" data-tab="produce" role="tab">Produce</button>
+      <button class="tab-btn" data-tab="content" role="tab">Content</button>
+    </div>
+
+    <div id="tab-photos" class="tab-panel"></div>
+    <div id="tab-produce" class="tab-panel hidden"></div>
+    <div id="tab-content" class="tab-panel hidden"></div>
+  </div>
+)}
+
+<div id="toast-container" style="position:fixed;bottom:1.5rem;right:1.5rem;z-index:50;display:flex;flex-direction:column;gap:0.5rem;"></div>
+
+<script>
+  // ── Toast ──────────────────────────────────────────────
+  function showToast(message: string, type: 'success' | 'error' = 'success') {
+    const container = document.getElementById('toast-container')!;
+    const toast = document.createElement('div');
+    toast.style.cssText = `padding:0.75rem 1.25rem;border-radius:12px;font-size:0.875rem;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,0.15);background:${type === 'error' ? '#fde8e8' : '#e8f5f3'};color:${type === 'error' ? '#c00' : '#196a5e'};`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(() => toast.remove(), 300); }, 2700);
+  }
+
+  // ── Login ──────────────────────────────────────────────
+  const loginBtn = document.getElementById('login-btn') as HTMLButtonElement | null;
+  const loginError = document.getElementById('login-error');
+  const passphraseInput = document.getElementById('passphrase') as HTMLInputElement | null;
+
+  loginBtn?.addEventListener('click', async () => {
+    const passphrase = passphraseInput?.value ?? '';
+    if (!passphrase) return;
+    loginBtn.textContent = 'Signing in…';
+    loginBtn.disabled = true;
+    const res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ passphrase }),
+    });
+    if (res.ok) {
+      window.location.reload();
+    } else {
+      loginError?.classList.remove('hidden');
+      loginBtn.textContent = 'Sign In';
+      loginBtn.disabled = false;
+    }
+  });
+
+  passphraseInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') loginBtn?.click(); });
+
+  // ── Logout ─────────────────────────────────────────────
+  document.getElementById('logout-btn')?.addEventListener('click', async () => {
+    await fetch('/api/auth', { method: 'DELETE' });
+    window.location.reload();
+  });
+
+  // ── Tab switching ──────────────────────────────────────
+  document.querySelectorAll<HTMLButtonElement>('.tab-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
+      btn.classList.add('active');
+      document.getElementById(`tab-${btn.dataset.tab}`)?.classList.remove('hidden');
+    });
+  });
+
+  // ── Photos tab ─────────────────────────────────────────
+  async function initPhotosTab() {
+    const panel = document.getElementById('tab-photos');
+    if (!panel) return;
+
+    panel.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:2rem;">
+        <div id="drop-zone" style="border:2px dashed rgba(0,0,0,0.15);border-radius:16px;padding:2rem;text-align:center;">
+          <p class="muted" style="margin-bottom:1rem;">Drag &amp; drop a photo, or click to browse</p>
+          <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp" style="display:none;" />
+          <div style="display:flex;flex-wrap:wrap;gap:0.75rem;justify-content:center;max-width:480px;margin:0 auto;">
+            <input type="text" id="photo-label" placeholder="Crop name (e.g. Alphonso Mango)" style="flex:1;min-width:200px;" />
+            <button id="browse-btn" class="brand-btn" style="padding:0.625rem 1.25rem;white-space:nowrap;">Choose File</button>
+          </div>
+          <p id="selected-file" class="muted" style="margin-top:0.75rem;font-size:0.75rem;"></p>
+          <div id="upload-progress" style="display:none;margin-top:1rem;background:rgba(0,0,0,0.08);border-radius:999px;height:6px;">
+            <div id="upload-bar" style="background:#196a5e;height:6px;border-radius:999px;width:0%;transition:width 0.1s;"></div>
+          </div>
+          <button id="upload-btn" style="display:none;margin-top:1rem;" class="brand-btn" style="padding:0.625rem 2rem;">Upload Photo</button>
+          <p id="upload-error" class="error" style="display:none;margin-top:0.5rem;"></p>
+        </div>
+
+        <div>
+          <p style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#666;margin-bottom:1rem;">Uploaded Photos</p>
+          <div id="photo-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:1rem;">
+            <p class="muted">Loading…</p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    let selectedFile: File | null = null;
+
+    async function loadPhotos() {
+      const grid = document.getElementById('photo-grid')!;
+      const res = await fetch('/api/photos');
+      const photos: Array<{ key: string; label: string; url: string }> = res.ok ? await res.json() : [];
+
+      if (!photos.length) {
+        grid.innerHTML = '<p class="muted">No photos yet. Upload your first farm photo above.</p>';
+        return;
+      }
+
+      grid.innerHTML = photos.map((p) => `
+        <div style="position:relative;border-radius:12px;overflow:hidden;aspect-ratio:3/4;background:#e0e0de;" data-key="${p.key}">
+          <img src="${p.url}" alt="${p.label}" style="width:100%;height:100%;object-fit:cover;" loading="lazy" />
+          <div style="position:absolute;inset:0;background:rgba(0,0,0,0);transition:background 0.2s;" class="photo-overlay">
+            <div style="position:absolute;bottom:0;left:0;right:0;padding:1.5rem 0.75rem 0.75rem;background:linear-gradient(to top,rgba(0,0,0,0.7),transparent);transform:translateY(100%);transition:transform 0.2s;" class="photo-actions">
+              <p style="color:#fff;font-size:0.75rem;font-weight:700;margin-bottom:0.5rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.label}</p>
+              <button data-key="${p.key}" class="delete-photo-btn" style="background:rgba(255,255,255,0.15);border:none;color:#fff;font-size:0.75rem;font-weight:700;padding:0.25rem 0.75rem;border-radius:999px;cursor:pointer;">Delete</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      // Hover reveal
+      grid.querySelectorAll<HTMLElement>('.photo-overlay').forEach((overlay) => {
+        const actions = overlay.querySelector<HTMLElement>('.photo-actions')!;
+        overlay.addEventListener('mouseenter', () => {
+          overlay.style.background = 'rgba(0,0,0,0.2)';
+          actions.style.transform = 'translateY(0)';
+        });
+        overlay.addEventListener('mouseleave', () => {
+          overlay.style.background = 'rgba(0,0,0,0)';
+          actions.style.transform = 'translateY(100%)';
+        });
+      });
+
+      grid.querySelectorAll<HTMLButtonElement>('.delete-photo-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          btn.textContent = '…';
+          btn.disabled = true;
+          const key = btn.dataset.key!;
+          const card = grid.querySelector(`[data-key="${key}"]`) as HTMLElement | null;
+          card?.remove();
+          const res = await fetch(`/api/photos/${encodeURIComponent(key)}`, { method: 'DELETE' });
+          if (!res.ok) {
+            loadPhotos();
+            showToast('Delete failed', 'error');
+          } else {
+            showToast('Photo deleted');
+          }
+        });
+      });
+    }
+
+    document.getElementById('browse-btn')?.addEventListener('click', () => {
+      (document.getElementById('file-input') as HTMLInputElement).click();
+    });
+
+    document.getElementById('drop-zone')?.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      (e.currentTarget as HTMLElement).style.borderColor = '#196a5e';
+    });
+
+    document.getElementById('drop-zone')?.addEventListener('dragleave', (e) => {
+      (e.currentTarget as HTMLElement).style.borderColor = 'rgba(0,0,0,0.15)';
+    });
+
+    document.getElementById('drop-zone')?.addEventListener('drop', (e) => {
+      e.preventDefault();
+      (e.currentTarget as HTMLElement).style.borderColor = 'rgba(0,0,0,0.15)';
+      const file = e.dataTransfer?.files[0];
+      if (file) handleFileSelect(file);
+    });
+
+    function handleFileSelect(file: File) {
+      const errEl = document.getElementById('upload-error')!;
+      if (file.size > 8 * 1024 * 1024) {
+        errEl.textContent = 'File exceeds 8 MB limit.';
+        errEl.style.display = 'block';
+        return;
+      }
+      selectedFile = file;
+      document.getElementById('selected-file')!.textContent = file.name;
+      (document.getElementById('upload-btn') as HTMLElement).style.display = 'inline-block';
+      errEl.style.display = 'none';
+    }
+
+    document.getElementById('file-input')?.addEventListener('change', (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) handleFileSelect(file);
+    });
+
+    document.getElementById('upload-btn')?.addEventListener('click', async () => {
+      const label = (document.getElementById('photo-label') as HTMLInputElement).value.trim();
+      const errEl = document.getElementById('upload-error')!;
+      if (!selectedFile || !label) {
+        errEl.textContent = 'Please select a file and enter a crop name.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      const form = new FormData();
+      form.append('file', selectedFile);
+      form.append('label', label);
+
+      const progressWrap = document.getElementById('upload-progress')!;
+      const progressBar = document.getElementById('upload-bar')!;
+      progressWrap.style.display = 'block';
+
+      const xhr = new XMLHttpRequest();
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) progressBar.style.width = `${Math.round((e.loaded / e.total) * 100)}%`;
+      });
+      xhr.addEventListener('load', () => {
+        progressWrap.style.display = 'none';
+        progressBar.style.width = '0%';
+        if (xhr.status === 201) {
+          selectedFile = null;
+          (document.getElementById('photo-label') as HTMLInputElement).value = '';
+          document.getElementById('selected-file')!.textContent = '';
+          (document.getElementById('upload-btn') as HTMLElement).style.display = 'none';
+          (document.getElementById('file-input') as HTMLInputElement).value = '';
+          showToast('Photo uploaded successfully');
+          loadPhotos();
+        } else {
+          errEl.textContent = 'Upload failed. Try again.';
+          errEl.style.display = 'block';
+        }
+      });
+      xhr.open('POST', '/api/photos');
+      xhr.send(form);
+    });
+
+    loadPhotos();
+  }
+
+  if (document.getElementById('tab-photos')) initPhotosTab();
+
+  // ── Produce tab ────────────────────────────────────────
+  async function initProduceTab() {
+    const panel = document.getElementById('tab-produce');
+    if (!panel) return;
+
+    let items: Array<{ emoji: string; name: string; category: string; seasonal: boolean }> = [];
+    const res = await fetch('/api/produce');
+    if (res.ok) items = await res.json();
+
+    function renderList() {
+      panel!.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:1.5rem;">
+          <p class="muted">Add, remove, or edit produce items. Changes save when you click Save.</p>
+          <div id="produce-list" style="display:flex;flex-direction:column;gap:0.5rem;"></div>
+          <button id="add-produce-btn" style="background:none;border:none;cursor:pointer;color:#196a5e;font-size:0.875rem;font-weight:700;text-align:left;padding:0;">+ Add produce</button>
+          <div style="display:flex;align-items:center;gap:1rem;padding-top:1rem;border-top:1px solid rgba(0,0,0,0.08);">
+            <button id="save-produce-btn" class="brand-btn" style="padding:0.75rem 2rem;">Save Changes</button>
+            <p id="produce-save-status" class="muted" style="display:none;"></p>
+          </div>
+        </div>
+      `;
+
+      const list = document.getElementById('produce-list')!;
+
+      function renderRows() {
+        list.innerHTML = items.map((item, i) => `
+          <div style="display:flex;align-items:center;gap:0.5rem;background:#ebebea;border-radius:12px;padding:0.75rem 1rem;" data-idx="${i}">
+            <input type="text" value="${item.emoji}" data-field="emoji" maxlength="2"
+              style="width:3rem;text-align:center;font-size:1.25rem;background:#fff;border:1px solid rgba(0,0,0,0.12);border-radius:8px;padding:0.375rem;" />
+            <input type="text" value="${item.name}" data-field="name" placeholder="Name"
+              style="flex:1;background:#fff;border:1px solid rgba(0,0,0,0.12);border-radius:8px;padding:0.5rem 0.75rem;font-size:0.875rem;" />
+            <input type="text" value="${item.category}" data-field="category" placeholder="Category"
+              style="width:8rem;background:#fff;border:1px solid rgba(0,0,0,0.12);border-radius:8px;padding:0.5rem 0.75rem;font-size:0.875rem;" />
+            <label style="display:flex;align-items:center;gap:0.375rem;font-size:0.75rem;white-space:nowrap;text-transform:none;letter-spacing:0;">
+              <input type="checkbox" data-field="seasonal" ${item.seasonal ? 'checked' : ''} style="accent-color:#196a5e;width:auto;" />
+              Seasonal
+            </label>
+            <button data-delete="${i}" style="background:none;border:none;cursor:pointer;color:#c00;font-weight:700;font-size:1rem;padding:0 0.25rem;">✕</button>
+          </div>
+        `).join('');
+
+        list.querySelectorAll<HTMLInputElement>('input[data-field]').forEach((input) => {
+          input.addEventListener('change', (e) => {
+            const row = (e.target as HTMLElement).closest('[data-idx]') as HTMLElement;
+            const idx = parseInt(row.dataset.idx!);
+            const field = (e.target as HTMLInputElement).dataset.field!;
+            if (field === 'seasonal') {
+              items[idx].seasonal = (e.target as HTMLInputElement).checked;
+            } else {
+              (items[idx] as Record<string, unknown>)[field] = (e.target as HTMLInputElement).value;
+            }
+          });
+        });
+
+        list.querySelectorAll<HTMLButtonElement>('[data-delete]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            items.splice(parseInt(btn.dataset.delete!), 1);
+            renderRows();
+          });
+        });
+      }
+
+      renderRows();
+
+      document.getElementById('add-produce-btn')?.addEventListener('click', () => {
+        items.push({ emoji: '🌿', name: '', category: 'Other', seasonal: false });
+        renderRows();
+        list.lastElementChild?.querySelector('input')?.focus();
+      });
+
+      document.getElementById('save-produce-btn')?.addEventListener('click', async () => {
+        const btn = document.getElementById('save-produce-btn') as HTMLButtonElement;
+        const status = document.getElementById('produce-save-status')!;
+        btn.disabled = true;
+        btn.textContent = 'Saving…';
+
+        // Sync latest input values before saving
+        list.querySelectorAll<HTMLInputElement>('input[data-field]').forEach((input) => {
+          const row = input.closest('[data-idx]') as HTMLElement;
+          const idx = parseInt(row.dataset.idx!);
+          const field = input.dataset.field!;
+          if (field === 'seasonal') {
+            items[idx].seasonal = input.checked;
+          } else {
+            (items[idx] as Record<string, unknown>)[field] = input.value;
+          }
+        });
+
+        const res = await fetch('/api/produce', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(items),
+        });
+
+        btn.disabled = false;
+        btn.textContent = 'Save Changes';
+        status.style.display = 'block';
+        if (res.ok) {
+          status.textContent = '✓ Saved';
+          status.style.color = '#196a5e';
+          showToast('Produce list saved');
+        } else {
+          status.textContent = 'Save failed';
+          status.style.color = '#c00';
+          showToast('Save failed', 'error');
+        }
+        setTimeout(() => { status.style.display = 'none'; }, 3000);
+      });
+    }
+
+    renderList();
+  }
+
+  if (document.getElementById('tab-produce')) initProduceTab();
+
+  // ── Content tab ────────────────────────────────────────
+  async function initContentTab() {
+    const panel = document.getElementById('tab-content');
+    if (!panel) return;
+
+    const res = await fetch('/api/content');
+    const content: Record<string, string> = res.ok ? await res.json() : {};
+
+    const fields: Array<{ key: string; label: string; multiline?: boolean }> = [
+      { key: 'heroBadge',              label: 'Hero badge text' },
+      { key: 'heroLine1',              label: 'Hero headline — line 1' },
+      { key: 'heroLine2',              label: 'Hero headline — line 2' },
+      { key: 'heroSubtitle',           label: 'Hero subtitle', multiline: true },
+      { key: 'catalogueHeadline',      label: 'Catalogue section headline' },
+      { key: 'photoStripHeadline',     label: 'Photo strip headline' },
+      { key: 'organicPromiseHeadline', label: 'Organic promise headline', multiline: true },
+    ];
+
+    panel.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:1.5rem;max-width:640px;">
+        <p class="muted">Edit text on the produce page. Changes go live instantly after saving.</p>
+        ${fields.map((f) => `
+          <div>
+            <label for="cf-${f.key}">${f.label}</label>
+            ${f.multiline
+              ? `<textarea id="cf-${f.key}" data-key="${f.key}" rows="3" style="resize:vertical;">${content[f.key] ?? ''}</textarea>`
+              : `<input type="text" id="cf-${f.key}" data-key="${f.key}" value="${(content[f.key] ?? '').replace(/"/g, '&quot;')}" />`
+            }
+          </div>
+        `).join('')}
+        <div style="display:flex;align-items:center;gap:1rem;padding-top:1rem;border-top:1px solid rgba(0,0,0,0.08);">
+          <button id="save-content-btn" class="brand-btn" style="padding:0.75rem 2rem;">Save Changes</button>
+          <p id="content-save-status" class="muted" style="display:none;"></p>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('save-content-btn')?.addEventListener('click', async () => {
+      const btn = document.getElementById('save-content-btn') as HTMLButtonElement;
+      const status = document.getElementById('content-save-status')!;
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+
+      const updated: Record<string, string> = {};
+      panel.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('[data-key]').forEach((el) => {
+        updated[el.dataset.key!] = el.value;
+      });
+
+      const res = await fetch('/api/content', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated),
+      });
+
+      btn.disabled = false;
+      btn.textContent = 'Save Changes';
+      status.style.display = 'block';
+      if (res.ok) {
+        status.textContent = '✓ Saved';
+        status.style.color = '#196a5e';
+        showToast('Content saved successfully');
+      } else {
+        status.textContent = 'Save failed';
+        status.style.color = '#c00';
+        showToast('Save failed', 'error');
+      }
+      setTimeout(() => { status.style.display = 'none'; }, 3000);
+    });
+  }
+
+  if (document.getElementById('tab-content')) initContentTab();
+</script>
+
+</body>
+</html>
