@@ -1,0 +1,44 @@
+{
+  "seo": {
+    "metaTitle": "Terms of Service | HariLeaf Agritech",
+    "metaDescription": "Read the terms governing your use of HariLeaf Agritech's platform, software, and services."
+  },
+  "hero": {
+    "badge": "Legal",
+    "title": "Terms of Service",
+    "subtitle": "The rules that govern your use of the HariLeaf platform.",
+    "effectiveDate": "Effective 1 January 2026"
+  },
+  "sections": [
+    {
+      "id": "acceptance",
+      "title": "Acceptance of Terms",
+      "body": "By accessing or using any HariLeaf Agritech product, platform, or service, you agree to be bound by these Terms of Service and our Privacy Policy. If you are using HariLeaf on behalf of an organisation, you represent that you have authority to bind that organisation to these terms. If you do not agree, you may not use our services."
+    },
+    {
+      "id": "use-of-service",
+      "title": "Use of Service",
+      "body": "HariLeaf grants you a limited, non-exclusive, non-transferable licence to access and use our platform for your internal agricultural operations. You must not resell, sublicence, or commercialise any portion of the platform without written consent. You are responsible for maintaining the security of your account credentials and for all activity that occurs under your account. Prohibited uses include reverse engineering, automated scraping, or any use that violates applicable law."
+    },
+    {
+      "id": "intellectual-property",
+      "title": "Intellectual Property",
+      "body": "All software, algorithms, AI models, visual design, and content on the HariLeaf platform are the exclusive property of HariLeaf Agritech or its licensors and are protected by intellectual property law. Your operational data remains yours — we do not claim ownership over field data, sensor readings, or crop records you upload to the platform. We may use anonymised, aggregated derivatives of operational data to improve our models, as described in our Privacy Policy."
+    },
+    {
+      "id": "limitation-of-liability",
+      "title": "Limitation of Liability",
+      "body": "HariLeaf's platform is provided on an 'as-is' basis. To the maximum extent permitted by law, HariLeaf Agritech shall not be liable for any indirect, incidental, consequential, or punitive damages arising from your use of the platform, including crop losses, yield shortfalls, or decisions made in reliance on platform outputs. Our total aggregate liability shall not exceed the fees paid by you in the 12 months preceding the claim. Some jurisdictions do not permit limitation of implied warranties — in those cases, the above may not apply to you."
+    },
+    {
+      "id": "termination",
+      "title": "Termination",
+      "body": "Either party may terminate access to the platform at any time. HariLeaf reserves the right to suspend or terminate accounts that violate these terms, without notice, at our discretion. Upon termination, your right to access the platform ceases immediately. We will provide a 30-day window to export your operational data before it is deleted, unless termination is due to a legal obligation requiring immediate action."
+    },
+    {
+      "id": "governing-law",
+      "title": "Governing Law",
+      "body": "These terms are governed by the laws of the Republic of India. Any disputes arising under these terms shall be subject to the exclusive jurisdiction of the courts located in Mumbai, Maharashtra. If any provision of these terms is held unenforceable, the remaining provisions continue in full force. These terms constitute the entire agreement between you and HariLeaf Agritech regarding use of the platform."
+    }
+  ]
+}
