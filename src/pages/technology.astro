@@ -6,7 +6,7 @@ import CountUp from '../components/animations/CountUp.astro';
 import SEO from '../components/seo/SEO.astro';
 import JsonLd from '../components/seo/JsonLd.astro';
 
-const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://harileaf.ag');
+const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://harileaf.org');
 const pageTitle = 'Technology | HariLeaf Agritech — IoT Sensors, Drone Monitoring & Smart Irrigation';
 const pageDesc  = 'HariLeaf\'s precision agriculture stack: subterranean IoT soil sensors, hyperspectral aerial monitoring, and AI-driven drip irrigation — delivering 40% water savings and measurable yield uplift for commercial farms.';
 ---
@@ -18,8 +18,8 @@ const pageDesc  = 'HariLeaf\'s precision agriculture stack: subterranean IoT soi
       type="BreadcrumbList"
       data={{
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Home',       item: 'https://harileaf.ag/' },
-          { '@type': 'ListItem', position: 2, name: 'Technology', item: 'https://harileaf.ag/technology' },
+          { '@type': 'ListItem', position: 1, name: 'Home',       item: 'https://harileaf.org/' },
+          { '@type': 'ListItem', position: 2, name: 'Technology', item: 'https://harileaf.org/technology' },
         ],
       }}
     />

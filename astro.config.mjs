@@ -18,7 +18,7 @@ export default defineConfig({
       enabled: true,
     },
   }),
-  site: 'https://harileaf.ag',
+  site: 'https://harileaf.org',
   integrations: [
     react(),
     tailwind({

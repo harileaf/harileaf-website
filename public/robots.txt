@@ -4,4 +4,4 @@ Disallow: /admin/
 Disallow: /keystatic/
 Disallow: /api/
 
-Sitemap: https://harileaf.ag/sitemap-index.xml
+Sitemap: https://harileaf.org/sitemap-index.xml

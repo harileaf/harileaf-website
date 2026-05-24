@@ -1,0 +1,107 @@
+<h2>How should the produce catalogue be organized?</h2>
+<p class="subtitle">Your 18 items naturally fall into 3 groups: Fruits (9), Vegetables (6), Flowers (3)</p>
+
+<div class="options">
+
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Categorized sections</h3>
+      <p>Three clearly labeled groups — <strong>Fruits</strong>, <strong>Vegetables</strong>, <strong>Flowers</strong> — each with a header and its own card row. Visual separation, easy to scan.</p>
+      <div class="mockup" style="margin-top:0.75rem">
+        <div class="mockup-header">Mockup — Categorized</div>
+        <div class="mockup-body" style="padding:1rem;font-size:0.8rem">
+          <div style="margin-bottom:1rem">
+            <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:#546437;font-weight:700;margin-bottom:0.5rem">🍋 Fruits</div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+              <div style="background:#ecefe8;border-radius:6px;padding:8px;text-align:center;font-size:0.72rem;font-weight:600">Mango<br><span style="font-size:0.6rem;color:#6c5c4c;font-weight:400">5 varieties</span></div>
+              <div style="background:#ecefe8;border-radius:6px;padding:8px;text-align:center;font-size:0.72rem;font-weight:600">Chicoo</div>
+              <div style="background:#ecefe8;border-radius:6px;padding:8px;text-align:center;font-size:0.72rem;font-weight:600">Papaya</div>
+              <div style="background:#ecefe8;border-radius:6px;padding:8px;text-align:center;font-size:0.72rem;font-weight:600">Lemon</div>
+            </div>
+          </div>
+          <div style="margin-bottom:1rem">
+            <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:#546437;font-weight:700;margin-bottom:0.5rem">🌿 Vegetables</div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+              <div style="background:#ecefe8;border-radius:6px;padding:8px;text-align:center;font-size:0.72rem;font-weight:600">Okra</div>
+              <div style="background:#ecefe8;border-radius:6px;padding:8px;text-align:center;font-size:0.72rem;font-weight:600">Methi</div>
+              <div style="background:#ecefe8;border-radius:6px;padding:8px;text-align:center;font-size:0.72rem;font-weight:600">Cilantro</div>
+              <div style="background:#ecefe8;border-radius:6px;padding:8px;text-align:center;font-size:0.72rem;font-weight:600">Chavli</div>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:#546437;font-weight:700;margin-bottom:0.5rem">🌸 Flowers</div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+              <div style="background:#ecefe8;border-radius:6px;padding:8px;text-align:center;font-size:0.72rem;font-weight:600">Marigold</div>
+              <div style="background:#ecefe8;border-radius:6px;padding:8px;text-align:center;font-size:0.72rem;font-weight:600">Roses</div>
+              <div style="background:#ecefe8;border-radius:6px;padding:8px;text-align:center;font-size:0.72rem;font-weight:600">Lillies</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Flat grid with filter tabs</h3>
+      <p>All 18 items in one uniform grid. Filter tabs at the top (All / Fruits / Vegetables / Flowers) let visitors narrow down without scrolling past headers.</p>
+      <div class="mockup" style="margin-top:0.75rem">
+        <div class="mockup-header">Mockup — Flat grid + tabs</div>
+        <div class="mockup-body" style="padding:1rem;font-size:0.8rem">
+          <div style="display:flex;gap:8px;margin-bottom:1rem">
+            <div style="background:#196a5e;color:white;border-radius:999px;padding:4px 12px;font-size:0.7rem;font-weight:700">All</div>
+            <div style="background:#ecefe8;border-radius:999px;padding:4px 12px;font-size:0.7rem;font-weight:600">Fruits</div>
+            <div style="background:#ecefe8;border-radius:999px;padding:4px 12px;font-size:0.7rem;font-weight:600">Vegetables</div>
+            <div style="background:#ecefe8;border-radius:999px;padding:4px 12px;font-size:0.7rem;font-weight:600">Flowers</div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">
+            <div style="background:#ecefe8;border-radius:6px;padding:8px;text-align:center;font-size:0.7rem;font-weight:600">Mango</div>
+            <div style="background:#ecefe8;border-radius:6px;padding:8px;text-align:center;font-size:0.7rem;font-weight:600">Chicoo</div>
+            <div style="background:#ecefe8;border-radius:6px;padding:8px;text-align:center;font-size:0.7rem;font-weight:600">Papaya</div>
+            <div style="background:#ecefe8;border-radius:6px;padding:8px;text-align:center;font-size:0.7rem;font-weight:600">Watermelon</div>
+            <div style="background:#ecefe8;border-radius:6px;padding:8px;text-align:center;font-size:0.7rem;font-weight:600">Jamun</div>
+            <div style="background:#ecefe8;border-radius:6px;padding:8px;text-align:center;font-size:0.7rem;font-weight:600">Dragon Fruit</div>
+            <div style="background:#ecefe8;border-radius:6px;padding:8px;text-align:center;font-size:0.7rem;font-weight:600">Okra</div>
+            <div style="background:#ecefe8;border-radius:6px;padding:8px;text-align:center;font-size:0.7rem;font-weight:600">Methi</div>
+            <div style="background:#ecefe8;border-radius:6px;padding:8px;text-align:center;font-size:0.7rem;font-weight:600">Marigold</div>
+            <div style="background:#ecefe8;border-radius:6px;padding:8px;text-align:center;font-size:0.7rem;font-weight:600">Roses</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Categorized + highlight Mangoes</h3>
+      <p>Same as A but Mangoes get a special featured card (since you have 5 distinct varieties). The 5 sub-varieties (Alphonso, Kesar, Payri, Langda, Rajapuri, Badami) appear as pills inside the mango card.</p>
+      <div class="mockup" style="margin-top:0.75rem">
+        <div class="mockup-header">Mockup — Featured mango card</div>
+        <div class="mockup-body" style="padding:1rem;font-size:0.8rem">
+          <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:#546437;font-weight:700;margin-bottom:0.5rem">🍋 Fruits</div>
+          <div style="background:linear-gradient(135deg,#7fc8ba,#9fb17d);border-radius:8px;padding:12px;margin-bottom:8px;color:white">
+            <div style="font-size:0.75rem;font-weight:700;margin-bottom:6px">🥭 Mangoes — 6 Varieties</div>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span style="background:rgba(255,255,255,0.25);border-radius:999px;padding:2px 8px;font-size:0.62rem">Alphonso</span>
+              <span style="background:rgba(255,255,255,0.25);border-radius:999px;padding:2px 8px;font-size:0.62rem">Kesar Gir</span>
+              <span style="background:rgba(255,255,255,0.25);border-radius:999px;padding:2px 8px;font-size:0.62rem">Payri</span>
+              <span style="background:rgba(255,255,255,0.25);border-radius:999px;padding:2px 8px;font-size:0.62rem">Langda</span>
+              <span style="background:rgba(255,255,255,0.25);border-radius:999px;padding:2px 8px;font-size:0.62rem">Rajapuri</span>
+              <span style="background:rgba(255,255,255,0.25);border-radius:999px;padding:2px 8px;font-size:0.62rem">Badami</span>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+            <div style="background:#ecefe8;border-radius:6px;padding:8px;text-align:center;font-size:0.72rem;font-weight:600">Chicoo</div>
+            <div style="background:#ecefe8;border-radius:6px;padding:8px;text-align:center;font-size:0.72rem;font-weight:600">Papaya</div>
+            <div style="background:#ecefe8;border-radius:6px;padding:8px;text-align:center;font-size:0.72rem;font-weight:600">Watermelon</div>
+            <div style="background:#ecefe8;border-radius:6px;padding:8px;text-align:center;font-size:0.72rem;font-weight:600">Lemon</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>

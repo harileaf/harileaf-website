@@ -17,7 +17,7 @@ const partnerships = page.partnerships;
 const cta          = page.cta;
 const seo     = page.seo;
 
-const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://harileaf.ag');
+const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://harileaf.org');
 const pageTitle    = seo?.metaTitle    ?? 'About Us | HariLeaf Agritech — Cultivating a Sustainable Legacy';
 const pageDesc     = seo?.metaDescription ?? 'HariLeaf Agritech was born from a singular vision: to bridge the gap between ancient agricultural wisdom and the precision of modern technology.';
 ---
@@ -35,8 +35,8 @@ const pageDesc     = seo?.metaDescription ?? 'HariLeaf Agritech was born from a 
       type="BreadcrumbList"
       data={{
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://harileaf.ag/' },
-          { '@type': 'ListItem', position: 2, name: 'About', item: 'https://harileaf.ag/about' },
+          { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://harileaf.org/' },
+          { '@type': 'ListItem', position: 2, name: 'About', item: 'https://harileaf.org/about' },
         ],
       }}
     />
@@ -197,8 +197,8 @@ const pageDesc     = seo?.metaDescription ?? 'HariLeaf Agritech was born from a 
           <div class="flex items-center gap-3 bg-surface-container-lowest border border-outline-variant/15 rounded-full px-5 py-3 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-default">
             <!-- Logo or coloured initial -->
             {partner.logo ? (
-              <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden bg-white p-1">
-                <img src={partner.logo} alt={partner.name} class="w-full h-full object-contain" loading="lazy" />
+              <div class="h-7 flex items-center flex-shrink-0">
+                <img src={partner.logo} alt={partner.name} class="h-full w-auto max-w-[72px] object-contain" loading="lazy" />
               </div>
             ) : (
               <span

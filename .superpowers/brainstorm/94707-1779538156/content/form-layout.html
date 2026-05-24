@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bulk Request Form Options</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Manrope', sans-serif; background: #0e0f0d; color: #f0f0ee; padding: 2rem; }
+
+  .page-title { text-align:center; font-size:1.05rem; font-weight:700; color:#9fb17d; letter-spacing:.12em; text-transform:uppercase; margin-bottom:.4rem; }
+  .page-sub { text-align:center; font-size:.85rem; color:rgba(240,240,238,.45); margin-bottom:2rem; line-height:1.6; }
+
+  .option-wrap {
+    background: rgba(255,255,255,.03);
+    border: 1px solid rgba(255,255,255,.07);
+    border-radius: 18px;
+    padding: 1.75rem;
+    margin-bottom: 1.5rem;
+    cursor: pointer;
+    transition: border-color .3s, transform .25s, background .3s;
+    position: relative;
+  }
+  .option-wrap:hover { border-color: rgba(127,200,186,.35); transform: translateY(-2px); background: rgba(127,200,186,.03); }
+  .option-wrap.selected { border-color: #7fc8ba; background: rgba(127,200,186,.05); }
+  .option-wrap.selected::after { content:'✓ Selected'; position:absolute; top:1rem; right:1rem; background:#7fc8ba; color:#00201b; font-size:.65rem; font-weight:800; padding:3px 10px; border-radius:999px; }
+
+  .opt-label { font-size:.6rem; font-weight:700; text-transform:uppercase; letter-spacing:.15em; color:#9fb17d; margin-bottom:.3rem; }
+  .opt-title { font-size:1.2rem; font-weight:800; color:#f0f0ee; letter-spacing:-.02em; margin-bottom:.3rem; }
+  .opt-desc { font-size:.82rem; color:rgba(240,240,238,.5); margin-bottom:1.25rem; line-height:1.6; max-width:560px; }
+
+  /* Form mockup shared styles */
+  .form-mock {
+    background: rgba(247,250,244,.06);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 14px;
+    padding: 1.5rem;
+  }
+  .form-row { display: grid; gap: 10px; margin-bottom: 10px; }
+  .form-row-2 { grid-template-columns: 1fr 1fr; }
+  .form-row-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+  .field-label {
+    font-size: .58rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .1em; color: rgba(240,240,238,.5); margin-bottom: 4px;
+  }
+  .field-input {
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 8px; padding: 8px 12px;
+    font-size: .75rem; color: rgba(240,240,238,.7);
+    width: 100%;
+  }
+  .field-input.focus { border-color: rgba(127,200,186,.5); background: rgba(127,200,186,.06); }
+  .field-textarea { min-height: 60px; resize: none; }
+  .field-select { appearance: none; }
+
+  /* Produce checkboxes */
+  .produce-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+  }
+  .produce-chip {
+    background: rgba(255,255,255,.05);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 8px; padding: 6px 8px;
+    font-size: .65rem; font-weight: 600; color: rgba(240,240,238,.65);
+    text-align: center; cursor: pointer;
+    transition: all .2s;
+  }
+  .produce-chip.checked {
+    background: rgba(127,200,186,.15);
+    border-color: rgba(127,200,186,.4);
+    color: #7fc8ba;
+  }
+  .produce-chip.checked-olive {
+    background: rgba(159,177,125,.15);
+    border-color: rgba(159,177,125,.4);
+    color: #9fb17d;
+  }
+
+  .submit-btn {
+    background: linear-gradient(135deg, #7fc8ba, #9fb17d);
+    color: #00201b; font-size: .78rem; font-weight: 800;
+    padding: 10px 24px; border-radius: 999px;
+    display: inline-block; margin-top: 12px;
+    box-shadow: 0 4px 16px rgba(127,200,186,.25);
+  }
+
+  .tag { display:inline-block; font-size:.62rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; padding:3px 9px; border-radius:999px; border:1px solid rgba(127,200,186,.3); color:#7fc8ba; background:rgba(127,200,186,.08); margin-right:4px; margin-bottom:4px; }
+
+  .section-divider { height:1px; background: rgba(255,255,255,.06); margin: 12px 0; }
+  .form-section-label { font-size:.6rem; font-weight:700; text-transform:uppercase; letter-spacing:.12em; color:rgba(240,240,238,.35); margin-bottom:8px; }
+</style>
+</head>
+<body>
+
+<div class="page-title">Bulk Request Form</div>
+<div class="page-sub">How much info do you need from someone requesting produce?<br>More fields = more context, but also more friction.</div>
+
+<!-- ═══ OPTION A: Lean & Fast ═══ -->
+<div class="option-wrap" onclick="pick(this)">
+  <div class="opt-label">Option A</div>
+  <div class="opt-title">Lean — 5 fields, 30 seconds</div>
+  <div class="opt-desc">Just the essentials. Name, contact, which items, quantity and a message. Low friction — anyone can fill it in under a minute. You follow up to get details. Best if you prefer a personal conversation to close orders.</div>
+  <div style="margin-bottom:.75rem"><span class="tag">Name</span><span class="tag">Email or WhatsApp</span><span class="tag">Items wanted</span><span class="tag">Approx qty</span><span class="tag">Message</span></div>
+
+  <div class="form-mock">
+    <div class="form-row form-row-2">
+      <div><div class="field-label">Full Name</div><div class="field-input">Ravi Mehta</div></div>
+      <div><div class="field-label">Email or WhatsApp</div><div class="field-input focus">ravi@example.com</div></div>
+    </div>
+    <div class="form-row">
+      <div>
+        <div class="field-label">Which produce? (select all that apply)</div>
+        <div class="produce-grid" style="margin-top:6px">
+          <div class="produce-chip checked">🥭 Mangoes</div>
+          <div class="produce-chip">🍋 Lemon</div>
+          <div class="produce-chip checked">🌿 Methi</div>
+          <div class="produce-chip">🌹 Roses</div>
+          <div class="produce-chip">🍈 Chicoo</div>
+          <div class="produce-chip checked-olive">🫛 Okra</div>
+          <div class="produce-chip">🍉 Watermelon</div>
+          <div class="produce-chip">🌻 Marigold</div>
+        </div>
+      </div>
+    </div>
+    <div class="form-row form-row-2" style="margin-top:10px">
+      <div><div class="field-label">Approximate Quantity</div><div class="field-input field-select">50 kg / week</div></div>
+      <div><div class="field-label">Message (optional)</div><div class="field-input">Need for restaurant use</div></div>
+    </div>
+    <div class="submit-btn">Send Request →</div>
+  </div>
+</div>
+
+<!-- ═══ OPTION B: Detailed ═══ -->
+<div class="option-wrap" onclick="pick(this)">
+  <div class="opt-label">Option B</div>
+  <div class="opt-title">Detailed — 8 fields, 2 minutes</div>
+  <div class="opt-desc">Adds location, timing, and purpose of order so you can prioritise and respond more precisely. Good if you get many requests and need to filter serious buyers from casual enquiries.</div>
+  <div style="margin-bottom:.75rem"><span class="tag">Name</span><span class="tag">Email</span><span class="tag">WhatsApp</span><span class="tag">Items + qty</span><span class="tag">Location</span><span class="tag">When needed</span><span class="tag">Purpose</span><span class="tag">Message</span></div>
+
+  <div class="form-mock">
+    <div class="form-section-label">Contact</div>
+    <div class="form-row form-row-3">
+      <div><div class="field-label">Full Name</div><div class="field-input">Sunita Patel</div></div>
+      <div><div class="field-label">Email</div><div class="field-input focus">sunita@farm.co</div></div>
+      <div><div class="field-label">WhatsApp Number</div><div class="field-input">+91 98765 43210</div></div>
+    </div>
+
+    <div class="section-divider"></div>
+    <div class="form-section-label">Order Details</div>
+    <div class="form-row">
+      <div>
+        <div class="field-label">Which produce? (select all)</div>
+        <div class="produce-grid" style="margin-top:6px">
+          <div class="produce-chip checked">🥭 Mangoes</div>
+          <div class="produce-chip checked">🌱 Cilantro</div>
+          <div class="produce-chip">🍋 Lemon</div>
+          <div class="produce-chip checked-olive">🫘 Chavli</div>
+          <div class="produce-chip">🍈 Papaya</div>
+          <div class="produce-chip">🌸 Lillies</div>
+          <div class="produce-chip">🐉 Dragon Fruit</div>
+          <div class="produce-chip">🌻 Marigold</div>
+        </div>
+      </div>
+    </div>
+    <div class="form-row form-row-3" style="margin-top:10px">
+      <div><div class="field-label">Quantity Needed</div><div class="field-input">100 kg</div></div>
+      <div><div class="field-label">When Do You Need It</div><div class="field-input field-select">Within 2 weeks</div></div>
+      <div><div class="field-label">Purpose</div><div class="field-input field-select">Restaurant / Hotel</div></div>
+    </div>
+    <div class="form-row" style="margin-top:10px">
+      <div><div class="field-label">Your Location / City</div><div class="field-input">Surat, Gujarat</div></div>
+    </div>
+    <div class="form-row" style="margin-top:6px">
+      <div><div class="field-label">Additional Notes</div><div class="field-input field-textarea">Prefer Alphonso variety specifically — need certificates if possible</div></div>
+    </div>
+    <div class="submit-btn">Submit Bulk Request →</div>
+  </div>
+</div>
+
+<!-- ═══ OPTION C: Express Interest ═══ -->
+<div class="option-wrap" onclick="pick(this)">
+  <div class="opt-label">Option C</div>
+  <div class="opt-title">Express Interest — 3 fields, 15 seconds</div>
+  <div class="opt-desc">Ultra-minimal. Just a name, contact, and a pre-filled message saying "I'm interested in bulk orders." You call them. Lowest possible friction — highest conversion rate. Works best if you're hands-on and prefer phone conversations anyway.</div>
+  <div style="margin-bottom:.75rem"><span class="tag">Name</span><span class="tag">WhatsApp / Email</span><span class="tag">Items of interest</span></div>
+
+  <div class="form-mock" style="max-width:440px">
+    <div class="form-row">
+      <div><div class="field-label">Your Name</div><div class="field-input">Arjun Shah</div></div>
+    </div>
+    <div class="form-row">
+      <div><div class="field-label">WhatsApp or Email</div><div class="field-input focus">+91 99999 00000</div></div>
+    </div>
+    <div class="form-row">
+      <div>
+        <div class="field-label">I'm interested in…</div>
+        <div class="produce-grid" style="margin-top:6px">
+          <div class="produce-chip checked">🥭 Mangoes</div>
+          <div class="produce-chip">🌹 Roses</div>
+          <div class="produce-chip checked-olive">🌿 Herbs</div>
+          <div class="produce-chip">🍉 Watermelon</div>
+        </div>
+      </div>
+    </div>
+    <div class="submit-btn">I'm Interested →</div>
+  </div>
+</div>
+
+<script>
+  function pick(el) {
+    document.querySelectorAll('.option-wrap').forEach(x => x.classList.remove('selected'));
+    el.classList.add('selected');
+  }
+</script>
+</body>
+</html>

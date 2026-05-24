@@ -6,7 +6,7 @@ import CountUp from '../components/animations/CountUp.astro';
 import SEO from '../components/seo/SEO.astro';
 import JsonLd from '../components/seo/JsonLd.astro';
 
-const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://harileaf.ag');
+const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://harileaf.org');
 const pageTitle = 'Solutions & Farm Projects | HariLeaf Agritech — Precision Agriculture in Action';
 const pageDesc  = 'Explore HariLeaf\'s deployed farm projects and precision agriculture solutions — AI crop monitoring, smart irrigation, and IoT soil intelligence across commercial farms in India.';
 ---
@@ -18,8 +18,8 @@ const pageDesc  = 'Explore HariLeaf\'s deployed farm projects and precision agri
       type="BreadcrumbList"
       data={{
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Home',              item: 'https://harileaf.ag/' },
-          { '@type': 'ListItem', position: 2, name: 'Solutions & Farms', item: 'https://harileaf.ag/solutions' },
+          { '@type': 'ListItem', position: 1, name: 'Home',              item: 'https://harileaf.org/' },
+          { '@type': 'ListItem', position: 2, name: 'Solutions & Farms', item: 'https://harileaf.org/solutions' },
         ],
       }}
     />

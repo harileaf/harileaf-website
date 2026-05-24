@@ -53,7 +53,7 @@ const {
 const SITE_NAME    = siteJson.title       ?? 'HariLeaf Agritech';
 const SITE_DESC    = siteJson.description ?? 'Sustainable intelligence for the modern grower.';
 const DEFAULT_OG   = siteJson.defaultOgImage ?? '/images/brand/og-default.png';
-const SITE_BASE    = (Astro.site ?? new URL('https://harileaf.ag')).origin;
+const SITE_BASE    = (Astro.site ?? new URL('https://harileaf.org')).origin;
 
 // ── Title — append suffix if brand name not already present ──────────────────
 const rawTitle = title ?? SITE_NAME;

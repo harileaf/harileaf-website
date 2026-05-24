@@ -20,7 +20,7 @@ const cta          = page.ctaSection;
 const seo          = page.seo;
 
 const siteName     = site.title ?? 'HariLeaf Agritech';
-const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://harileaf.ag');
+const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://harileaf.org');
 const pageTitle    = seo?.metaTitle    ?? 'HariLeaf Agritech | Open-field farming reimagined';
 const pageDesc     = seo?.metaDescription ?? (site.description ?? 'Sustainable intelligence for the modern grower.');
 ---

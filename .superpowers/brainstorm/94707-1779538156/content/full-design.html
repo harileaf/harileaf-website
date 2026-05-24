@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Full Design — Produce Section</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Manrope', sans-serif; background: #111; color: #f0f0ee; padding: 2rem; }
+
+  .page-title { text-align:center; font-size:1.05rem; font-weight:700; color:#9fb17d; letter-spacing:.12em; text-transform:uppercase; margin-bottom:.3rem; }
+  .page-sub { text-align:center; font-size:.82rem; color:rgba(240,240,238,.4); margin-bottom:2rem; }
+
+  /* ── DEVICE FRAME ── */
+  .device {
+    max-width: 900px; margin: 0 auto;
+    background: #f7faf4;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,.12);
+    box-shadow: 0 32px 80px rgba(0,0,0,.6);
+  }
+
+  /* ─── NAV ─── */
+  .mock-nav {
+    background: rgba(247,250,244,.92);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(0,0,0,.06);
+    padding: .75rem 2rem;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 50;
+  }
+  .nav-logo { font-size: .95rem; font-weight: 800; color: #196a5e; letter-spacing: -.02em; }
+  .nav-links { display: flex; gap: 1.5rem; align-items: center; }
+  .nav-link { font-size: .72rem; font-weight: 600; color: #3f4946; }
+  .nav-link.active { color: #196a5e; font-weight: 700; }
+  .nav-cta { background: #196a5e; color: #fff; font-size: .7rem; font-weight: 700; padding: 6px 14px; border-radius: 999px; }
+
+  /* ─── HOMEPAGE TEASER ─── */
+  .teaser-section {
+    background: #f1f5ee;
+    padding: 3rem 2.5rem;
+  }
+  .teaser-inner { max-width: 800px; margin: 0 auto; }
+  .section-label { font-size: .6rem; font-weight: 700; text-transform: uppercase; letter-spacing: .15em; color: #546437; margin-bottom: .5rem; }
+  .teaser-head { font-size: 1.6rem; font-weight: 800; color: #191d19; letter-spacing: -.025em; line-height: 1.15; margin-bottom: .5rem; }
+  .teaser-sub { font-size: .82rem; color: #3f4946; margin-bottom: 1.5rem; line-height: 1.6; }
+
+  .teaser-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 1.5rem; }
+  .teaser-chip {
+    background: #fff; border: 1px solid rgba(0,0,0,.08);
+    border-radius: 999px; padding: 6px 14px;
+    font-size: .72rem; font-weight: 600; color: #191d19;
+    display: flex; align-items: center; gap: 5px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.05);
+    transition: all .2s;
+  }
+  .teaser-chip:hover { border-color: rgba(25,106,94,.3); color: #196a5e; transform: translateY(-1px); }
+  .teaser-organic-badge {
+    background: rgba(84,100,55,.1); border: 1px solid rgba(84,100,55,.2);
+    color: #546437; font-size: .58rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .08em; padding: 2px 8px; border-radius: 999px;
+  }
+  .teaser-cta {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: linear-gradient(135deg,#7fc8ba,#9fb17d);
+    color: #00201b; font-size: .78rem; font-weight: 800;
+    padding: 10px 22px; border-radius: 999px;
+    box-shadow: 0 4px 16px rgba(127,200,186,.35);
+    transition: transform .2s, box-shadow .2s;
+  }
+  .teaser-cta:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(127,200,186,.4); }
+
+  /* ─── PRODUCE PAGE HERO ─── */
+  .produce-hero {
+    background: linear-gradient(135deg, #0e1a0e 0%, #1a2a1a 100%);
+    padding: 3rem 2.5rem 2.5rem;
+    position: relative; overflow: hidden;
+  }
+  .produce-hero::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 90% 50%, rgba(255,160,30,.15) 0%, transparent 55%),
+                radial-gradient(ellipse at 10% 80%, rgba(127,200,186,.12) 0%, transparent 50%);
+    pointer-events: none;
+  }
+  .produce-hero-emoji {
+    position: absolute; right: 2rem; top: 50%; transform: translateY(-50%);
+    font-size: 7rem; opacity: .18; pointer-events: none;
+  }
+  .produce-hero-content { position: relative; z-index: 2; max-width: 600px; }
+  .hero-eyebrow { font-size: .6rem; font-weight: 700; text-transform: uppercase; letter-spacing: .15em; color: #9fb17d; margin-bottom: .6rem; }
+  .hero-h1 { font-size: 2.2rem; font-weight: 800; color: #fff; letter-spacing: -.03em; line-height: 1.1; margin-bottom: .6rem; }
+  .hero-h1 span { background: linear-gradient(to right,#7fc8ba,#9fb17d); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .hero-sub { font-size: .85rem; color: rgba(255,255,255,.55); line-height: 1.65; margin-bottom: 1.2rem; max-width: 480px; }
+  .hero-badges { display: flex; gap: 8px; flex-wrap: wrap; }
+  .hero-badge {
+    background: rgba(255,255,255,.08); backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,.12); color: rgba(255,255,255,.75);
+    font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
+    padding: 4px 12px; border-radius: 999px;
+  }
+
+  /* ─── BENTO SECTION (dark) ─── */
+  .bento-section {
+    background: #0c110c;
+    padding: 2.5rem;
+  }
+  .bento-section-label { font-size: .58rem; font-weight: 700; text-transform: uppercase; letter-spacing: .15em; color: rgba(159,177,125,.7); margin-bottom: .4rem; }
+  .bento-section-head { font-size: 1.3rem; font-weight: 800; color: #f0f0ee; letter-spacing: -.02em; margin-bottom: 1.5rem; }
+
+  .bento-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 8px;
+  }
+
+  /* Mango hero */
+  .b-mango {
+    grid-column: span 7;
+    background: linear-gradient(145deg, #1e1208 0%, #0e1a0e 100%);
+    border-radius: 16px; padding: 1.5rem;
+    position: relative; overflow: hidden; min-height: 200px;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    border: 1px solid rgba(255,160,30,.12);
+  }
+  .b-mango::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 90% 20%, rgba(255,160,30,.22) 0%, transparent 55%),
+                radial-gradient(ellipse at 20% 90%, rgba(127,200,186,.1) 0%, transparent 50%);
+  }
+  .b-mango-emoji { position: absolute; right: 1.5rem; top: 1rem; font-size: 5rem; opacity: .5; }
+  .b-mango-content { position: relative; z-index: 2; }
+  .b-mango-tag { font-size: .55rem; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: rgba(255,180,80,.8); margin-bottom: .4rem; }
+  .b-mango-name { font-size: 1.15rem; font-weight: 800; color: #fff; letter-spacing: -.02em; margin-bottom: .5rem; }
+  .b-pills { display: flex; flex-wrap: wrap; gap: 5px; }
+  .b-pill {
+    background: rgba(255,255,255,.1); backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,.15); color: rgba(255,255,255,.85);
+    font-size: .58rem; font-weight: 600; padding: 3px 9px; border-radius: 999px;
+    transition: all .2s; cursor: default;
+  }
+  .b-pill:hover { background: rgba(255,180,80,.2); border-color: rgba(255,180,80,.3); }
+
+  /* Standard small cards */
+  .b-sm {
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.07);
+    border-radius: 12px; padding: 1rem;
+    display: flex; flex-direction: column; justify-content: space-between;
+    position: relative; overflow: hidden;
+    transition: all .25s cubic-bezier(.16,1,.3,1);
+    cursor: default;
+  }
+  .b-sm:hover {
+    background: rgba(127,200,186,.08);
+    border-color: rgba(127,200,186,.22);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,.25), 0 0 0 1px rgba(127,200,186,.1);
+  }
+  .b-sm-emoji { font-size: 1.7rem; margin-bottom: .4rem; }
+  .b-sm-name { font-size: .75rem; font-weight: 700; color: #f0f0ee; }
+  .b-sm-cat { font-size: .58rem; color: rgba(240,240,238,.38); margin-top: 2px; }
+  .b-dot {
+    width: 6px; height: 6px; background: #9fb17d; border-radius: 50%;
+    position: absolute; top: 10px; right: 10px;
+    box-shadow: 0 0 6px rgba(159,177,125,.6);
+  }
+  /* Pulsing dot animation */
+  @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.4)} }
+  .b-dot { animation: pulse-dot 2.5s ease-in-out infinite; }
+
+  /* Wide veg card */
+  .b-wide {
+    background: linear-gradient(135deg, rgba(46,58,46,.5), rgba(25,26,25,.6));
+    border: 1px solid rgba(159,177,125,.15);
+    border-radius: 12px; padding: 1rem;
+    display: flex; flex-direction: column; gap: 5px;
+  }
+  .b-wide-label { font-size: .55rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: rgba(159,177,125,.7); }
+  .b-wide-names { font-size: .72rem; font-weight: 600; color: rgba(240,240,238,.65); line-height: 1.6; }
+
+  /* CTA inline */
+  .b-cta {
+    grid-column: span 12;
+    background: linear-gradient(135deg, rgba(25,106,94,.25), rgba(84,100,55,.15));
+    border: 1px solid rgba(127,200,186,.18);
+    border-radius: 12px; padding: 1rem 1.25rem;
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  }
+  .b-cta-label { font-size: .58rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: #9fb17d; margin-bottom: 3px; }
+  .b-cta-text { font-size: .85rem; font-weight: 700; color: #f0f0ee; }
+  .b-cta-btn {
+    background: linear-gradient(135deg,#7fc8ba,#9fb17d);
+    color: #00201b; font-size: .7rem; font-weight: 800;
+    padding: 8px 18px; border-radius: 999px; white-space: nowrap;
+    box-shadow: 0 4px 14px rgba(127,200,186,.3);
+    transition: transform .2s, box-shadow .2s; cursor: pointer;
+  }
+  .b-cta-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(127,200,186,.4); }
+
+  .b-span3 { grid-column: span 3; }
+  .b-span4 { grid-column: span 4; }
+  .b-span5 { grid-column: span 5; }
+  .b-span7 { grid-column: span 7; }
+
+  /* ─── FORM SECTION ─── */
+  .form-section {
+    background: #f7faf4;
+    padding: 3rem 2.5rem;
+  }
+  .form-inner { max-width: 540px; }
+  .form-eyebrow { font-size: .58rem; font-weight: 700; text-transform: uppercase; letter-spacing: .15em; color: #546437; margin-bottom: .4rem; }
+  .form-heading { font-size: 1.4rem; font-weight: 800; color: #191d19; letter-spacing: -.02em; margin-bottom: .4rem; }
+  .form-subtext { font-size: .78rem; color: #6f7976; margin-bottom: 1.5rem; line-height: 1.6; }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  .field-label { font-size: .58rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: #6f7976; margin-bottom: 4px; }
+  .field-input {
+    width: 100%; background: #fff; border: 1px solid rgba(0,0,0,.1);
+    border-radius: 8px; padding: 9px 12px;
+    font-size: .78rem; color: #191d19;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .field-input.focus { border-color: rgba(25,106,94,.5); box-shadow: 0 0 0 3px rgba(25,106,94,.08); }
+
+  .items-label { font-size: .58rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: #6f7976; margin-bottom: 8px; }
+  .items-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .item-chip {
+    background: #fff; border: 1px solid rgba(0,0,0,.1);
+    border-radius: 999px; padding: 5px 12px;
+    font-size: .68rem; font-weight: 600; color: #3f4946;
+    cursor: pointer; transition: all .2s;
+  }
+  .item-chip:hover { border-color: rgba(25,106,94,.3); color: #196a5e; }
+  .item-chip.checked { background: rgba(25,106,94,.08); border-color: rgba(25,106,94,.3); color: #196a5e; }
+
+  .form-submit {
+    background: linear-gradient(135deg,#7fc8ba,#9fb17d);
+    color: #00201b; font-size: .8rem; font-weight: 800;
+    padding: 11px 28px; border-radius: 999px;
+    box-shadow: 0 4px 16px rgba(127,200,186,.35);
+    cursor: pointer; transition: transform .2s, box-shadow .2s;
+    display: inline-block; margin-top: 4px;
+  }
+  .form-submit:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(127,200,186,.4); }
+  .form-note { font-size: .65rem; color: #6f7976; margin-top: 8px; }
+
+  /* ─── ORGANIC BANNER ─── */
+  .organic-banner {
+    background: #2e3a2e;
+    padding: 1.75rem 2.5rem;
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    position: relative; overflow: hidden;
+  }
+  .organic-banner::after {
+    content: '🌱';
+    position: absolute; right: 2rem; top: 50%; transform: translateY(-50%);
+    font-size: 5rem; opacity: .08; pointer-events: none;
+  }
+  .ob-label { font-size: .58rem; font-weight: 700; text-transform: uppercase; letter-spacing: .15em; color: rgba(159,177,125,.7); margin-bottom: .3rem; }
+  .ob-text { font-size: .95rem; font-weight: 700; color: #f0f0ee; letter-spacing: -.01em; }
+  .ob-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .ob-badge {
+    background: rgba(159,177,125,.12); border: 1px solid rgba(159,177,125,.2);
+    color: rgba(159,177,125,.9); font-size: .58rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .07em; padding: 3px 10px; border-radius: 999px;
+  }
+
+  /* ─── SECTION DIVIDERS ─── */
+  .section-note {
+    background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.07);
+    border-radius: 10px; padding: .6rem 1rem; margin: 1.5rem auto;
+    max-width: 900px; text-align: center;
+    font-size: .68rem; color: rgba(240,240,238,.35);
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<div class="page-title">Complete Design Preview</div>
+<div class="page-sub">Homepage teaser + full /produce page — scroll down to see everything</div>
+
+<!-- ══════════════════════════════════
+     PART 1: HOMEPAGE TEASER
+     ══════════════════════════════════ -->
+<div class="section-note">↑ Existing homepage sections above · <strong style="color:rgba(240,240,238,.6)">New homepage teaser section below</strong></div>
+
+<div class="device" style="margin-bottom:1.5rem">
+  <div class="mock-nav">
+    <div class="nav-logo">HariLeaf</div>
+    <div class="nav-links">
+      <span class="nav-link">Technology</span>
+      <span class="nav-link">Solutions</span>
+      <span class="nav-link">Produce</span>
+      <span class="nav-link">About</span>
+      <span class="nav-cta">Get Started</span>
+    </div>
+  </div>
+
+  <div class="teaser-section">
+    <div class="teaser-inner">
+      <div class="section-label">From Our Farm</div>
+      <div class="teaser-head">Grown with care.<br>Available in bulk.</div>
+      <div class="teaser-sub">18 organically grown produce items — fruits, vegetables, herbs and flowers — direct from our fields to your table.</div>
+      <div class="teaser-chips">
+        <div class="teaser-chip">🥭 Alphonso Mangoes <span class="teaser-organic-badge">6 varieties</span></div>
+        <div class="teaser-chip">🍉 Watermelon</div>
+        <div class="teaser-chip">🐉 Dragon Fruit</div>
+        <div class="teaser-chip">🌿 Methi · Cilantro</div>
+        <div class="teaser-chip">🌹 Roses · Marigold</div>
+        <div class="teaser-chip" style="color:#196a5e;border-color:rgba(25,106,94,.2);background:rgba(25,106,94,.05)">+13 more →</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+        <a class="teaser-cta" href="#">See all produce & request in bulk →</a>
+        <span style="font-size:.7rem;color:#6f7976">100% organic · Farm direct</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     PART 2: /produce PAGE
+     ══════════════════════════════════ -->
+<div class="section-note">↓ <strong style="color:rgba(240,240,238,.6)">/produce page</strong> — standalone page linked from nav + teaser</div>
+
+<div class="device">
+  <div class="mock-nav">
+    <div class="nav-logo">HariLeaf</div>
+    <div class="nav-links">
+      <span class="nav-link">Technology</span>
+      <span class="nav-link">Solutions</span>
+      <span class="nav-link active">Produce</span>
+      <span class="nav-link">About</span>
+      <span class="nav-cta">Get Started</span>
+    </div>
+  </div>
+
+  <!-- HERO -->
+  <div class="produce-hero">
+    <div class="produce-hero-emoji">🥭</div>
+    <div class="produce-hero-content">
+      <div class="hero-eyebrow">HariLeaf Farm · Organic Produce</div>
+      <div class="hero-h1">From the earth,<br><span>directly to you.</span></div>
+      <div class="hero-sub">18 varieties of fruits, vegetables, herbs and flowers — all organically grown on our farm, available for bulk orders.</div>
+      <div class="hero-badges">
+        <span class="hero-badge">🌱 100% Organic</span>
+        <span class="hero-badge">🚜 Farm Direct</span>
+        <span class="hero-badge">📦 Bulk Available</span>
+        <span class="hero-badge">No Chemicals</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- BENTO CATALOGUE (dark) -->
+  <div class="bento-section">
+    <div class="bento-section-label">Our Produce</div>
+    <div class="bento-section-head">Everything we grow</div>
+
+    <div class="bento-grid">
+
+      <!-- Mango hero -->
+      <div class="b-mango b-span7">
+        <div class="b-mango-emoji">🥭</div>
+        <div class="b-mango-content">
+          <div class="b-mango-tag">⭐ Featured · 6 Varieties</div>
+          <div class="b-mango-name">Heritage Mangoes</div>
+          <div class="b-pills">
+            <span class="b-pill">Alphonso</span>
+            <span class="b-pill">Kesar Gir</span>
+            <span class="b-pill">Payri</span>
+            <span class="b-pill">Langda</span>
+            <span class="b-pill">Rajapuri</span>
+            <span class="b-pill">Badami</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Watermelon - tall -->
+      <div class="b-sm b-span5" style="min-height:160px;background:radial-gradient(ellipse at 80% 15%,rgba(220,50,50,.1),transparent 55%),rgba(255,255,255,.04)">
+        <div class="b-dot"></div>
+        <div class="b-sm-emoji" style="font-size:2.5rem">🍉</div>
+        <div>
+          <div class="b-sm-name">Watermelon</div>
+          <div class="b-sm-cat">Fruit · Seasonal</div>
+        </div>
+      </div>
+
+      <div class="b-sm b-span3"><div class="b-dot"></div><div class="b-sm-emoji">🐉</div><div><div class="b-sm-name">Dragon Fruit</div><div class="b-sm-cat">Fruit · Exotic</div></div></div>
+      <div class="b-sm b-span3"><div class="b-dot"></div><div class="b-sm-emoji">🍈</div><div><div class="b-sm-name">Chicoo</div><div class="b-sm-cat">Fruit</div></div></div>
+      <div class="b-sm b-span3"><div class="b-dot"></div><div class="b-sm-emoji">🍈</div><div><div class="b-sm-name">Papaya</div><div class="b-sm-cat">Fruit</div></div></div>
+      <div class="b-sm b-span3"><div class="b-dot"></div><div class="b-sm-emoji">🍋</div><div><div class="b-sm-name">Lemon</div><div class="b-sm-cat">Fruit</div></div></div>
+      <div class="b-sm b-span3"><div class="b-dot"></div><div class="b-sm-emoji">🫐</div><div><div class="b-sm-name">Black Jamun</div><div class="b-sm-cat">Fruit · Seasonal</div></div></div>
+      <div class="b-sm b-span3"><div class="b-dot"></div><div class="b-sm-emoji">🍈</div><div><div class="b-sm-name">Muskmelon</div><div class="b-sm-cat">Fruit · Seasonal</div></div></div>
+      <div class="b-sm b-span3"><div class="b-dot"></div><div class="b-sm-emoji">🍈</div><div><div class="b-sm-name">Laxman Fruit</div><div class="b-sm-cat">Fruit · Rare</div></div></div>
+
+      <!-- Veg wide card -->
+      <div class="b-wide b-span7">
+        <div class="b-wide-label">🌿 Vegetables & Herbs</div>
+        <div class="b-wide-names">Okra · Methi · Cilantro · Red Amaranth · Cow Pea (Chavli) · Elephant Foot (Suran)</div>
+      </div>
+
+      <!-- Flowers -->
+      <div class="b-sm b-span3" style="background:radial-gradient(ellipse at 80% 15%,rgba(255,140,180,.1),transparent 55%),rgba(255,255,255,.04)"><div class="b-dot" style="background:#ccb7a4"></div><div class="b-sm-emoji">🌹</div><div><div class="b-sm-name">Roses</div><div class="b-sm-cat">Flower · Fragrant</div></div></div>
+      <div class="b-sm b-span2" style="grid-column:span 2;background:radial-gradient(ellipse at 80% 15%,rgba(255,200,50,.1),transparent 55%),rgba(255,255,255,.04)"><div class="b-dot" style="background:#ccb7a4"></div><div class="b-sm-emoji">🌻</div><div><div class="b-sm-name">Marigold</div><div class="b-sm-cat">Flower</div></div></div>
+
+      <!-- Lillies spanning rest -->
+      <div class="b-sm" style="grid-column:span 12;flex-direction:row;align-items:center;gap:1rem;min-height:auto;padding:.9rem 1.2rem;background:radial-gradient(ellipse at 90% 50%,rgba(200,160,220,.08),transparent 50%),rgba(255,255,255,.04)">
+        <div class="b-dot" style="background:#ccb7a4;position:static;margin:0"></div>
+        <div style="font-size:1.4rem">🪷</div>
+        <div><div class="b-sm-name">Lillies</div><div class="b-sm-cat">Flower · Elegant · Seasonal</div></div>
+        <div style="margin-left:auto;font-size:.62rem;color:rgba(240,240,238,.3)">Flower</div>
+      </div>
+
+      <div class="b-cta">
+        <div>
+          <div class="b-cta-label">All produce organically grown · No chemicals · No pesticides</div>
+          <div class="b-cta-text">Interested in placing a bulk order?</div>
+        </div>
+        <div class="b-cta-btn">Request Produce ↓</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- FORM SECTION (light) -->
+  <div class="form-section">
+    <div class="form-inner">
+      <div class="form-eyebrow">Bulk Orders</div>
+      <div class="form-heading">Express your interest</div>
+      <div class="form-subtext">Tell us what you're looking for and we'll get back to you on WhatsApp. All produce is organic, farm-direct, available in bulk.</div>
+
+      <div class="form-row">
+        <div>
+          <div class="field-label">Your Name</div>
+          <div class="field-input">Arjun Shah</div>
+        </div>
+        <div>
+          <div class="field-label">WhatsApp or Email</div>
+          <div class="field-input focus">+91 99999 00000</div>
+        </div>
+      </div>
+
+      <div class="items-label">I'm interested in…</div>
+      <div class="items-grid">
+        <div class="item-chip checked">🥭 Mangoes</div>
+        <div class="item-chip">🍉 Watermelon</div>
+        <div class="item-chip">🐉 Dragon Fruit</div>
+        <div class="item-chip checked">🌿 Methi</div>
+        <div class="item-chip">🌱 Cilantro</div>
+        <div class="item-chip">🫛 Okra</div>
+        <div class="item-chip checked">🌹 Roses</div>
+        <div class="item-chip">🌻 Marigold</div>
+        <div class="item-chip">🍋 Lemon</div>
+        <div class="item-chip">🍈 Chicoo</div>
+        <div class="item-chip">🍈 Papaya</div>
+        <div class="item-chip">🫐 Black Jamun</div>
+        <div class="item-chip">🍉 Muskmelon</div>
+        <div class="item-chip">🎋 Red Amaranth</div>
+        <div class="item-chip">🫘 Chavli</div>
+        <div class="item-chip">🥔 Suran</div>
+        <div class="item-chip">🪷 Lillies</div>
+        <div class="item-chip">🍈 Laxman Fruit</div>
+      </div>
+
+      <div class="form-submit">I'm Interested →</div>
+      <div class="form-note">We'll reach out on WhatsApp within 24 hours.</div>
+    </div>
+  </div>
+
+  <!-- ORGANIC BANNER -->
+  <div class="organic-banner">
+    <div>
+      <div class="ob-label">Our promise</div>
+      <div class="ob-text">Everything we grow is 100% organic. No chemicals, ever.</div>
+      <div class="ob-badges">
+        <span class="ob-badge">No Pesticides</span>
+        <span class="ob-badge">No Synthetic Fertilisers</span>
+        <span class="ob-badge">Traditional Methods</span>
+        <span class="ob-badge">Farm Direct</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

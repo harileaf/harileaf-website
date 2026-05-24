@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Produce Section — 2026 Design Directions</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Manrope', system-ui, sans-serif;
+    background: #0e0f0d;
+    color: #f0f0ee;
+    padding: 2rem;
+    min-height: 100vh;
+  }
+
+  .page-title {
+    text-align: center;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #9fb17d;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+  .page-sub {
+    text-align: center;
+    font-size: 0.9rem;
+    color: rgba(240,240,238,0.5);
+    margin-bottom: 2.5rem;
+  }
+
+  .direction {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 20px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    cursor: pointer;
+    transition: border-color 0.3s, background 0.3s, transform 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+  .direction:hover { border-color: rgba(127,200,186,0.4); background: rgba(127,200,186,0.03); transform: translateY(-2px); }
+  .direction.selected { border-color: #7fc8ba; background: rgba(127,200,186,0.06); }
+  .direction.selected::after {
+    content: '✓ Selected';
+    position: absolute;
+    top: 1rem; right: 1rem;
+    background: #7fc8ba;
+    color: #00201b;
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 4px 12px;
+    border-radius: 999px;
+    letter-spacing: 0.05em;
+  }
+
+  .dir-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #9fb17d;
+    font-weight: 700;
+    margin-bottom: 0.4rem;
+  }
+  .dir-title {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #f0f0ee;
+    margin-bottom: 0.4rem;
+    letter-spacing: -0.02em;
+  }
+  .dir-desc {
+    font-size: 0.85rem;
+    color: rgba(240,240,238,0.55);
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+    max-width: 580px;
+  }
+
+  .tags {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+  }
+  .tag {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(127,200,186,0.3);
+    color: #7fc8ba;
+    background: rgba(127,200,186,0.08);
+  }
+
+  /* ─── DIRECTION A: Organic Bento ─── */
+
+  .bento-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    grid-template-rows: auto;
+    gap: 10px;
+    font-size: 0.78rem;
+  }
+
+  .bento-hero {
+    grid-column: span 7;
+    background: linear-gradient(145deg, #1a2a1a 0%, #0e1a0e 100%);
+    border-radius: 16px;
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+    min-height: 180px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+  .bento-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(127,200,186,0.18) 0%, rgba(159,177,125,0.12) 100%);
+  }
+  .bento-hero-grain {
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    opacity: 0.4;
+    pointer-events: none;
+  }
+  .bento-hero-img {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 80% 30%, rgba(255,200,50,0.22) 0%, transparent 60%),
+                radial-gradient(ellipse at 20% 80%, rgba(127,200,186,0.15) 0%, transparent 50%);
+    font-size: 5rem;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 1.5rem;
+    padding-top: 1rem;
+    opacity: 0.8;
+  }
+  .bento-hero-content { position: relative; z-index: 2; }
+  .bento-variety-pills { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 8px; }
+  .bento-pill {
+    background: rgba(255,255,255,0.12);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.9);
+    font-size: 0.6rem;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 999px;
+  }
+
+  .bento-sm {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 12px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.25s;
+  }
+  .bento-sm:hover { background: rgba(127,200,186,0.08); border-color: rgba(127,200,186,0.2); }
+
+  .bento-sm-emoji { font-size: 1.8rem; margin-bottom: 6px; }
+  .bento-sm-name { font-size: 0.8rem; font-weight: 700; color: #f0f0ee; }
+  .bento-sm-cat { font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(240,240,238,0.4); margin-top: 2px; }
+  .organic-dot {
+    width: 6px; height: 6px; background: #9fb17d; border-radius: 50%;
+    position: absolute; top: 10px; right: 10px;
+  }
+  .bento-wide {
+    grid-column: span 5;
+    background: linear-gradient(135deg, rgba(84,100,55,0.25), rgba(46,58,46,0.4));
+    border: 1px solid rgba(159,177,125,0.2);
+    border-radius: 16px;
+    padding: 1.2rem;
+    display: flex; flex-direction: column; justify-content: space-between;
+    min-height: 120px;
+  }
+  .bento-span3 { grid-column: span 3; }
+  .bento-span4 { grid-column: span 4; }
+  .bento-span5 { grid-column: span 5; }
+
+  .cta-inline {
+    grid-column: span 12;
+    background: linear-gradient(135deg, rgba(25,106,94,0.3), rgba(84,100,55,0.2));
+    border: 1px solid rgba(127,200,186,0.2);
+    border-radius: 16px;
+    padding: 1.2rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .mock-btn {
+    background: linear-gradient(135deg, #7fc8ba, #9fb17d);
+    color: #00201b;
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 8px 20px;
+    border-radius: 999px;
+    white-space: nowrap;
+    letter-spacing: 0.03em;
+  }
+
+  /* ─── DIRECTION B: Harvest Gallery ─── */
+
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .gallery-card {
+    border-radius: 16px;
+    overflow: hidden;
+    position: relative;
+    aspect-ratio: 3/4;
+    cursor: pointer;
+    background: #1a2a1a;
+  }
+  .gallery-card-wide {
+    grid-column: span 2;
+    aspect-ratio: 16/9;
+  }
+  .gallery-img {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 4.5rem;
+    opacity: 0.75;
+    transition: transform 0.5s cubic-bezier(0.16,1,0.3,1);
+  }
+  .gallery-card:hover .gallery-img { transform: scale(1.07); }
+  .gallery-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.1) 50%, transparent 100%);
+  }
+  .gallery-info {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    padding: 1rem;
+    transform: translateY(4px);
+    transition: transform 0.3s;
+  }
+  .gallery-card:hover .gallery-info { transform: translateY(0); }
+  .gallery-name { font-size: 0.9rem; font-weight: 800; color: #fff; letter-spacing: -0.01em; }
+  .gallery-sub { font-size: 0.65rem; color: rgba(255,255,255,0.6); margin-top: 2px; }
+  .gallery-badge {
+    position: absolute;
+    top: 10px; right: 10px;
+    background: rgba(159,177,125,0.9);
+    backdrop-filter: blur(8px);
+    color: #131f00;
+    font-size: 0.6rem;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .gallery-bg-mango { background: radial-gradient(ellipse at center, #3d2a0a 0%, #1a1208 100%); }
+  .gallery-bg-green { background: radial-gradient(ellipse at center, #0e2a12 0%, #091408 100%); }
+  .gallery-bg-purple { background: radial-gradient(ellipse at center, #1e0a2a 0%, #0e0812 100%); }
+  .gallery-bg-red { background: radial-gradient(ellipse at center, #2a0e0a 0%, #140808 100%); }
+  .gallery-bg-pink { background: radial-gradient(ellipse at center, #2a0a1e 0%, #140810 100%); }
+
+  /* ─── DIRECTION C: Spatial Living Cards ─── */
+
+  .spatial-section {
+    background: #0a0f0a;
+    border-radius: 16px;
+    padding: 1.5rem;
+    overflow: hidden;
+  }
+
+  .spatial-category {
+    margin-bottom: 1.5rem;
+  }
+  .spatial-cat-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .spatial-cat-icon {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, rgba(127,200,186,0.2), rgba(159,177,125,0.15));
+    border: 1px solid rgba(127,200,186,0.2);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem;
+  }
+  .spatial-cat-name {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: rgba(240,240,238,0.5);
+  }
+  .spatial-cat-count {
+    font-size: 0.65rem;
+    color: #7fc8ba;
+    font-weight: 600;
+    margin-left: auto;
+    background: rgba(127,200,186,0.1);
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+
+  .spatial-cards-row {
+    display: flex;
+    gap: 8px;
+    overflow: hidden;
+  }
+
+  .spatial-card {
+    flex: 1;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 14px;
+    padding: 1rem;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
+    min-width: 0;
+  }
+  .spatial-card:hover {
+    background: rgba(127,200,186,0.08);
+    border-color: rgba(127,200,186,0.25);
+    transform: translateY(-3px) scale(1.01);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.3), 0 0 0 1px rgba(127,200,186,0.15);
+  }
+  .spatial-card-glow {
+    position: absolute;
+    top: -20px; right: -20px;
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  .spatial-card:hover .spatial-card-glow { opacity: 1; }
+  .glow-teal { background: radial-gradient(circle, rgba(127,200,186,0.25) 0%, transparent 70%); }
+  .glow-olive { background: radial-gradient(circle, rgba(159,177,125,0.25) 0%, transparent 70%); }
+  .glow-warm { background: radial-gradient(circle, rgba(255,180,50,0.2) 0%, transparent 70%); }
+
+  .spatial-emoji { font-size: 1.6rem; margin-bottom: 0.5rem; display: block; }
+  .spatial-name { font-size: 0.8rem; font-weight: 700; color: #f0f0ee; margin-bottom: 2px; }
+  .spatial-hint { font-size: 0.62rem; color: rgba(240,240,238,0.35); }
+
+  .spatial-mango-hero {
+    background: linear-gradient(135deg, rgba(30,15,0,0.9), rgba(20,30,10,0.9));
+    border: 1px solid rgba(255,170,50,0.2);
+    border-radius: 14px;
+    padding: 1.2rem;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+  .spatial-mango-hero::before {
+    content: '';
+    position: absolute;
+    top: -30px; right: -30px;
+    width: 120px; height: 120px;
+    background: radial-gradient(circle, rgba(255,160,20,0.2) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .spatial-varieties { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 8px; }
+  .spatial-variety {
+    font-size: 0.6rem;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(255,170,50,0.12);
+    border: 1px solid rgba(255,170,50,0.2);
+    color: rgba(255,200,120,0.9);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .spatial-variety:hover { background: rgba(255,170,50,0.25); transform: translateY(-1px); }
+
+  .spatial-form-tease {
+    background: linear-gradient(135deg, rgba(25,106,94,0.25), rgba(84,100,55,0.15));
+    border: 1px solid rgba(127,200,186,0.2);
+    border-radius: 14px;
+    padding: 1.2rem;
+    margin-top: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .spatial-form-tease::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent, rgba(127,200,186,0.05));
+    pointer-events: none;
+  }
+  .spatial-btn {
+    background: linear-gradient(135deg, #7fc8ba, #9fb17d);
+    color: #00201b;
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 9px 18px;
+    border-radius: 999px;
+    white-space: nowrap;
+    box-shadow: 0 4px 16px rgba(127,200,186,0.3);
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+  }
+  .spatial-btn:hover { transform: translateY(-1px) scale(1.02); box-shadow: 0 8px 24px rgba(127,200,186,0.4); }
+
+  /* Selection */
+  .direction.selected .dir-title::after {
+    content: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="page-title">2026 Design Directions</div>
+<div class="page-sub">Three distinct design systems for the Produce section — click a direction to select it</div>
+
+<!-- ═══════════════════════════════════════
+     DIRECTION A — ORGANIC BENTO
+     ═══════════════════════════════════════ -->
+<div class="direction" onclick="this.classList.toggle('selected')">
+  <div class="dir-label">Direction A</div>
+  <div class="dir-title">Organic Bento Grid</div>
+  <div class="dir-desc">Irregular asymmetric grid (inspired by Apple/Linear bento). Cards breathe with grain texture, subtle blur layers, and staggered reveal on scroll. Mangoes anchor a wide hero cell; other items fill the grid organically.</div>
+  <div class="tags">
+    <span class="tag">Bento grid</span>
+    <span class="tag">Grain texture</span>
+    <span class="tag">Glassmorphism</span>
+    <span class="tag">Stagger reveal</span>
+    <span class="tag">Dark premium feel</span>
+  </div>
+
+  <div class="bento-grid">
+
+    <!-- Mango hero cell -->
+    <div class="bento-hero bento-span7">
+      <div class="bento-hero-grain"></div>
+      <div class="bento-hero-img">🥭</div>
+      <div class="bento-hero-content">
+        <div style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.12em;color:#9fb17d;font-weight:700;margin-bottom:4px">Featured · 6 Varieties</div>
+        <div style="font-size:1.1rem;font-weight:800;letter-spacing:-0.02em;color:#fff">Alphonso Mangoes</div>
+        <div class="bento-variety-pills">
+          <span class="bento-pill">Alphonso</span>
+          <span class="bento-pill">Kesar Gir</span>
+          <span class="bento-pill">Payri</span>
+          <span class="bento-pill">Langda</span>
+          <span class="bento-pill">Rajapuri</span>
+          <span class="bento-pill">Badami</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Small cells -->
+    <div class="bento-sm bento-span5" style="background:radial-gradient(ellipse at 80% 20%, rgba(255,80,80,0.1), transparent 60%), rgba(255,255,255,0.04);">
+      <div class="organic-dot"></div>
+      <div class="bento-sm-emoji">🍉</div>
+      <div>
+        <div class="bento-sm-name">Watermelon</div>
+        <div class="bento-sm-cat">Fruit · Seasonal</div>
+      </div>
+    </div>
+
+    <div class="bento-sm bento-span3">
+      <div class="organic-dot"></div>
+      <div class="bento-sm-emoji">🐉</div>
+      <div>
+        <div class="bento-sm-name">Dragon Fruit</div>
+        <div class="bento-sm-cat">Fruit</div>
+      </div>
+    </div>
+    <div class="bento-sm bento-span3">
+      <div class="organic-dot"></div>
+      <div class="bento-sm-emoji">🍋</div>
+      <div>
+        <div class="bento-sm-name">Lemon</div>
+        <div class="bento-sm-cat">Fruit</div>
+      </div>
+    </div>
+    <div class="bento-sm bento-span3">
+      <div class="organic-dot"></div>
+      <div class="bento-sm-emoji">🌿</div>
+      <div>
+        <div class="bento-sm-name">Methi</div>
+        <div class="bento-sm-cat">Herb</div>
+      </div>
+    </div>
+    <div class="bento-sm bento-span3">
+      <div class="organic-dot"></div>
+      <div class="bento-sm-emoji">🌸</div>
+      <div>
+        <div class="bento-sm-name">Roses</div>
+        <div class="bento-sm-cat">Flower</div>
+      </div>
+    </div>
+
+    <div class="bento-wide bento-span5">
+      <div style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.1em;color:#9fb17d;font-weight:700">Vegetables</div>
+      <div style="font-size:0.85rem;font-weight:700;color:#f0f0ee;margin-top:4px">Okra · Cilantro · Chavli · Suran · Red Amaranth</div>
+      <div style="font-size:0.65rem;color:rgba(240,240,238,0.4);margin-top:4px">+ 1 more</div>
+    </div>
+    <div class="bento-sm bento-span4">
+      <div class="organic-dot"></div>
+      <div class="bento-sm-emoji">🌻</div>
+      <div>
+        <div class="bento-sm-name">Marigold</div>
+        <div class="bento-sm-cat">Flower · Seasonal</div>
+      </div>
+    </div>
+    <div class="bento-sm bento-span3">
+      <div class="organic-dot"></div>
+      <div class="bento-sm-emoji">🪷</div>
+      <div>
+        <div class="bento-sm-name">Lillies</div>
+        <div class="bento-sm-cat">Flower</div>
+      </div>
+    </div>
+
+    <div class="cta-inline">
+      <div>
+        <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;color:#9fb17d;font-weight:700;margin-bottom:4px">100% Organically Grown</div>
+        <div style="font-size:0.95rem;font-weight:700;color:#f0f0ee">Interested in bulk orders?</div>
+      </div>
+      <div class="mock-btn">Request Produce →</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     DIRECTION B — HARVEST GALLERY
+     ═══════════════════════════════════════ -->
+<div class="direction" onclick="this.classList.toggle('selected')">
+  <div class="dir-label">Direction B</div>
+  <div class="dir-title">Harvest Gallery</div>
+  <div class="dir-desc">Full-bleed editorial photography cards. Each item gets a natural photo background with a soft vignette + glassmorphism info reveal on hover. Feels like a farm magazine spread. Scroll-triggered stagger, magnetic hover on the CTA button.</div>
+  <div class="tags">
+    <span class="tag">Editorial photography</span>
+    <span class="tag">Hover reveal</span>
+    <span class="tag">Vignette overlay</span>
+    <span class="tag">Magnetic CTA</span>
+    <span class="tag">Magazine feel</span>
+  </div>
+
+  <div class="gallery-grid">
+
+    <div class="gallery-card gallery-card-wide gallery-bg-mango">
+      <div class="gallery-img">🥭</div>
+      <div class="gallery-overlay"></div>
+      <div class="gallery-badge">6 Varieties</div>
+      <div class="gallery-info">
+        <div class="gallery-name">Alphonso & Heritage Mangoes</div>
+        <div class="gallery-sub">Alphonso · Kesar Gir · Payri · Langda · Rajapuri · Badami</div>
+      </div>
+    </div>
+
+    <div class="gallery-card gallery-bg-purple">
+      <div class="gallery-img">🫐</div>
+      <div class="gallery-overlay"></div>
+      <div class="gallery-badge">Organic</div>
+      <div class="gallery-info">
+        <div class="gallery-name">Black Jamun</div>
+        <div class="gallery-sub">Fruit · Seasonal</div>
+      </div>
+    </div>
+
+    <div class="gallery-card gallery-bg-green">
+      <div class="gallery-img">🐉</div>
+      <div class="gallery-overlay"></div>
+      <div class="gallery-badge">Organic</div>
+      <div class="gallery-info">
+        <div class="gallery-name">Dragon Fruit</div>
+        <div class="gallery-sub">Fruit · Exotic</div>
+      </div>
+    </div>
+
+    <div class="gallery-card gallery-bg-red">
+      <div class="gallery-img">🎋</div>
+      <div class="gallery-overlay"></div>
+      <div class="gallery-badge">Organic</div>
+      <div class="gallery-info">
+        <div class="gallery-name">Red Amaranth</div>
+        <div class="gallery-sub">Vegetable · Leafy</div>
+      </div>
+    </div>
+
+    <div class="gallery-card gallery-bg-pink">
+      <div class="gallery-img">🌹</div>
+      <div class="gallery-overlay"></div>
+      <div class="gallery-badge">Flowers</div>
+      <div class="gallery-info">
+        <div class="gallery-name">Roses</div>
+        <div class="gallery-sub">+ Marigold · Lillies</div>
+      </div>
+    </div>
+
+    <div class="gallery-card gallery-bg-green">
+      <div class="gallery-img">🌿</div>
+      <div class="gallery-overlay"></div>
+      <div class="gallery-badge">Fresh</div>
+      <div class="gallery-info">
+        <div class="gallery-name">Herbs & Greens</div>
+        <div class="gallery-sub">Methi · Cilantro · Chavli</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="margin-top:10px;background:linear-gradient(135deg,rgba(25,106,94,0.3),rgba(84,100,55,0.2));border:1px solid rgba(127,200,186,0.2);border-radius:14px;padding:1.2rem 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem">
+    <div>
+      <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:#9fb17d;font-weight:700;margin-bottom:4px">All produce is certified organic</div>
+      <div style="font-size:0.9rem;font-weight:700;color:#f0f0ee">Bulk orders welcome — direct from farm</div>
+    </div>
+    <div class="mock-btn">Request Bulk Order →</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     DIRECTION C — SPATIAL LIVING CARDS
+     ═══════════════════════════════════════ -->
+<div class="direction" onclick="this.classList.toggle('selected')">
+  <div class="dir-label">Direction C</div>
+  <div class="dir-title">Spatial Living Cards</div>
+  <div class="dir-desc">Apple Vision Pro–era spatial depth. Cards have a 3D tilt on hover, ambient glow underneath, and variety pills that float off the surface. The organic dot pulses. Request button has a magnetic pull effect. Scrolling triggers smooth stagger reveals per category.</div>
+  <div class="tags">
+    <span class="tag">3D tilt hover</span>
+    <span class="tag">Ambient glow</span>
+    <span class="tag">Magnetic button</span>
+    <span class="tag">Pulsing indicator</span>
+    <span class="tag">Spatial depth</span>
+  </div>
+
+  <div class="spatial-section">
+
+    <!-- Mango hero -->
+    <div class="spatial-mango-hero">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem">
+        <div>
+          <div style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.12em;color:rgba(255,180,80,0.8);font-weight:700;margin-bottom:6px">⭐ Featured · 6 Varieties</div>
+          <div style="font-size:1.1rem;font-weight:800;letter-spacing:-0.02em;color:#fff;margin-bottom:4px">Heritage Mangoes</div>
+          <div style="font-size:0.75rem;color:rgba(255,255,255,0.5)">Organically grown · Seasonal harvest</div>
+        </div>
+        <div style="font-size:3rem;line-height:1">🥭</div>
+      </div>
+      <div class="spatial-varieties">
+        <span class="spatial-variety">Alphonso</span>
+        <span class="spatial-variety">Kesar Gir</span>
+        <span class="spatial-variety">Payri</span>
+        <span class="spatial-variety">Langda</span>
+        <span class="spatial-variety">Rajapuri</span>
+        <span class="spatial-variety">Badami</span>
+      </div>
+    </div>
+
+    <!-- Fruits category -->
+    <div class="spatial-category">
+      <div class="spatial-cat-header">
+        <div class="spatial-cat-icon">🍋</div>
+        <div class="spatial-cat-name">Fruits</div>
+        <div class="spatial-cat-count">8 items</div>
+      </div>
+      <div class="spatial-cards-row">
+        <div class="spatial-card">
+          <div class="spatial-card-glow glow-warm"></div>
+          <span class="spatial-emoji">🍈</span>
+          <div class="spatial-name">Chicoo</div>
+          <div class="spatial-hint">Fruit · Organic</div>
+        </div>
+        <div class="spatial-card">
+          <div class="spatial-card-glow glow-olive"></div>
+          <span class="spatial-emoji">🍈</span>
+          <div class="spatial-name">Papaya</div>
+          <div class="spatial-hint">Fruit · Organic</div>
+        </div>
+        <div class="spatial-card">
+          <div class="spatial-card-glow glow-teal"></div>
+          <span class="spatial-emoji">🍉</span>
+          <div class="spatial-name">Watermelon</div>
+          <div class="spatial-hint">Fruit · Seasonal</div>
+        </div>
+        <div class="spatial-card">
+          <div class="spatial-card-glow glow-warm"></div>
+          <span class="spatial-emoji">🫐</span>
+          <div class="spatial-name">Black Jamun</div>
+          <div class="spatial-hint">Fruit · Seasonal</div>
+        </div>
+        <div class="spatial-card">
+          <div class="spatial-card-glow glow-olive"></div>
+          <span class="spatial-emoji">🐉</span>
+          <div class="spatial-name">Dragon Fruit</div>
+          <div class="spatial-hint">Fruit · Exotic</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vegetables category -->
+    <div class="spatial-category">
+      <div class="spatial-cat-header">
+        <div class="spatial-cat-icon">🌿</div>
+        <div class="spatial-cat-name">Vegetables & Herbs</div>
+        <div class="spatial-cat-count">6 items</div>
+      </div>
+      <div class="spatial-cards-row">
+        <div class="spatial-card">
+          <div class="spatial-card-glow glow-olive"></div>
+          <span class="spatial-emoji">🫛</span>
+          <div class="spatial-name">Okra</div>
+          <div class="spatial-hint">Vegetable</div>
+        </div>
+        <div class="spatial-card">
+          <div class="spatial-card-glow glow-teal"></div>
+          <span class="spatial-emoji">🌿</span>
+          <div class="spatial-name">Methi</div>
+          <div class="spatial-hint">Herb · Fresh</div>
+        </div>
+        <div class="spatial-card">
+          <div class="spatial-card-glow glow-olive"></div>
+          <span class="spatial-emoji">🌱</span>
+          <div class="spatial-name">Cilantro</div>
+          <div class="spatial-hint">Herb · Fresh</div>
+        </div>
+        <div class="spatial-card">
+          <div class="spatial-card-glow glow-warm"></div>
+          <span class="spatial-emoji">🎋</span>
+          <div class="spatial-name">Red Amaranth</div>
+          <div class="spatial-hint">Leafy Green</div>
+        </div>
+        <div class="spatial-card">
+          <div class="spatial-card-glow glow-teal"></div>
+          <span class="spatial-emoji">🫘</span>
+          <div class="spatial-name">Chavli</div>
+          <div class="spatial-hint">Legume · Organic</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Flowers category -->
+    <div class="spatial-category" style="margin-bottom:0">
+      <div class="spatial-cat-header">
+        <div class="spatial-cat-icon">🌸</div>
+        <div class="spatial-cat-name">Flowers</div>
+        <div class="spatial-cat-count">3 items</div>
+      </div>
+      <div class="spatial-cards-row">
+        <div class="spatial-card">
+          <div class="spatial-card-glow glow-warm"></div>
+          <span class="spatial-emoji">🌻</span>
+          <div class="spatial-name">Marigold</div>
+          <div class="spatial-hint">Flower · Seasonal</div>
+        </div>
+        <div class="spatial-card">
+          <div class="spatial-card-glow glow-warm"></div>
+          <span class="spatial-emoji">🌹</span>
+          <div class="spatial-name">Roses</div>
+          <div class="spatial-hint">Flower · Fragrant</div>
+        </div>
+        <div class="spatial-card">
+          <div class="spatial-card-glow glow-teal"></div>
+          <span class="spatial-emoji">🪷</span>
+          <div class="spatial-name">Lillies</div>
+          <div class="spatial-hint">Flower · Elegant</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spatial-form-tease">
+      <div>
+        <div style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.1em;color:#7fc8ba;font-weight:700;margin-bottom:4px">Farm to table · Certified organic</div>
+        <div style="font-size:0.9rem;font-weight:700;color:#f0f0ee">Request a bulk order directly from the farm</div>
+      </div>
+      <div class="spatial-btn">Request Produce →</div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // Allow only one direction selected at a time
+  document.querySelectorAll('.direction').forEach(d => {
+    d.addEventListener('click', () => {
+      document.querySelectorAll('.direction').forEach(x => x !== d && x.classList.remove('selected'));
+    });
+  });
+</script>
+
+</body>
+</html>

@@ -53,7 +53,7 @@ export async function getStaticPaths() {
 const { farm } = Astro.props as { farm: Farm; slug: string };
 
 // ── Page meta ─────────────────────────────────────────────────────────────────
-const siteBase = Astro.site ?? 'https://harileaf.ag';
+const siteBase = Astro.site ?? 'https://harileaf.org';
 const canonicalURL = new URL(Astro.url.pathname, siteBase);
 const pageTitle  = farm.seo?.metaTitle  ?? `${farm.name} | HariLeaf Agritech`;
 const pageDesc   = farm.seo?.metaDescription ?? `${farm.name} — ${farm.location}. ${farm.challenge.slice(0, 140)}`;

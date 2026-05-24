@@ -8,7 +8,7 @@ import pageJson from '../content/privacy-page.json';
 
 const { hero, sections, seo } = pageJson;
 
-const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://harileaf.ag');
+const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://harileaf.org');
 const pageTitle    = seo?.metaTitle    ?? 'Privacy Policy | HariLeaf Agritech';
 const pageDesc     = seo?.metaDescription ?? '';
 ---
@@ -20,8 +20,8 @@ const pageDesc     = seo?.metaDescription ?? '';
       type="BreadcrumbList"
       data={{
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Home',           item: 'https://harileaf.ag/' },
-          { '@type': 'ListItem', position: 2, name: 'Privacy Policy', item: 'https://harileaf.ag/privacy' },
+          { '@type': 'ListItem', position: 1, name: 'Home',           item: 'https://harileaf.org/' },
+          { '@type': 'ListItem', position: 2, name: 'Privacy Policy', item: 'https://harileaf.org/privacy' },
         ],
       }}
     />

@@ -12,7 +12,7 @@ const info     = page.contactInfo;
 const banner   = page.sustainabilityBanner;
 const seo      = page.seo;
 
-const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://harileaf.ag');
+const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://harileaf.org');
 const pageTitle    = seo?.metaTitle    ?? 'Contact Us | HariLeaf Agritech — Connect with the Future of Farming';
 const pageDesc     = seo?.metaDescription ?? 'Get in touch with HariLeaf Agritech. Reach out for technology solutions, farm partnerships, or sustainability inquiries.';
 
@@ -27,8 +27,8 @@ const success = Astro.url.searchParams.get('success') === 'true';
       type="BreadcrumbList"
       data={{
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Home',       item: 'https://harileaf.ag/' },
-          { '@type': 'ListItem', position: 2, name: 'Contact Us', item: 'https://harileaf.ag/contact' },
+          { '@type': 'ListItem', position: 1, name: 'Home',       item: 'https://harileaf.org/' },
+          { '@type': 'ListItem', position: 2, name: 'Contact Us', item: 'https://harileaf.org/contact' },
         ],
       }}
     />
@@ -40,8 +40,8 @@ const success = Astro.url.searchParams.get('success') === 'true';
         description: pageDesc,
         contactPoint: {
           '@type': 'ContactPoint',
-          email: 'hello@harileaf.agri',
-          telephone: '+65-8299-4400',
+          email: 'contact@harileaf.org',
+          telephone: '+91-9820966177',
           contactType: 'customer support',
           availableLanguage: 'English',
         },

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Animation Style Direction</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Manrope', sans-serif; background: #0e0f0d; color: #f0f0ee; padding: 2rem; }
+
+  h2 { font-size: 1.3rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: .4rem; }
+  .subtitle { font-size: .85rem; color: rgba(240,240,238,.45); margin-bottom: 2rem; line-height: 1.6; }
+
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; }
+
+  .card {
+    background: rgba(255,255,255,.03);
+    border: 1.5px solid rgba(255,255,255,.07);
+    border-radius: 18px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color .3s, transform .25s;
+    position: relative;
+  }
+  .card:hover { border-color: rgba(127,200,186,.4); transform: translateY(-3px); }
+  .card.selected { border-color: #7fc8ba; }
+  .card.selected::after {
+    content: '✓ Selected';
+    position: absolute; top: .9rem; right: .9rem;
+    background: #7fc8ba; color: #00201b;
+    font-size: .6rem; font-weight: 800;
+    padding: 3px 10px; border-radius: 999px;
+  }
+
+  .preview {
+    height: 220px;
+    position: relative;
+    overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* ── OPTION A: Subtle & Premium ── */
+  .preview-a { background: linear-gradient(135deg, #0e1a0e 0%, #1a2a1a 100%); }
+  .a-stat {
+    text-align: center;
+  }
+  .a-num {
+    font-size: 3.5rem; font-weight: 800; letter-spacing: -0.04em;
+    background: linear-gradient(135deg, #7fc8ba, #9fb17d);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    animation: count-up 2.5s cubic-bezier(0.16,1,0.3,1) infinite alternate;
+  }
+  @keyframes count-up {
+    from { opacity: .4; transform: translateY(6px) scale(0.97); }
+    to   { opacity: 1;  transform: translateY(0)   scale(1); }
+  }
+  .a-label { font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: rgba(240,240,238,.4); margin-top: .3rem; }
+  .a-bar-wrap { width: 140px; height: 3px; background: rgba(255,255,255,.08); border-radius: 999px; margin: .75rem auto 0; }
+  .a-bar { height: 100%; width: 0; background: linear-gradient(90deg,#7fc8ba,#9fb17d); border-radius: 999px; animation: bar-fill 2.5s cubic-bezier(0.16,1,0.3,1) infinite alternate; }
+  @keyframes bar-fill { from { width:0 } to { width: 78% } }
+
+  /* ── OPTION B: Scroll Choreography ── */
+  .preview-b { background: #f7faf4; flex-direction: column; gap: .5rem; padding: 1.25rem; justify-content: flex-start; padding-top: 1.5rem; }
+  .b-card {
+    width: 100%; background: #fff;
+    border: 1px solid rgba(25,106,94,.1);
+    border-radius: 10px; padding: .7rem 1rem;
+    display: flex; align-items: center; gap: .75rem;
+    box-shadow: 0 2px 8px rgba(25,29,25,.05);
+    opacity: 0; transform: translateX(-14px);
+  }
+  .b-card:nth-child(1) { animation: slide-in 600ms 0ms    cubic-bezier(0.16,1,0.3,1) forwards; }
+  .b-card:nth-child(2) { animation: slide-in 600ms 120ms  cubic-bezier(0.16,1,0.3,1) forwards; }
+  .b-card:nth-child(3) { animation: slide-in 600ms 240ms  cubic-bezier(0.16,1,0.3,1) forwards; }
+  .b-card:nth-child(4) { animation: slide-in 600ms 360ms  cubic-bezier(0.16,1,0.3,1) forwards; }
+  @keyframes slide-in { to { opacity:1; transform:translateX(0) } }
+  .b-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .b-line { flex:1; height: 7px; background: rgba(25,106,94,.1); border-radius: 4px; }
+  .b-line-sm { width: 55%; height: 7px; background: rgba(25,106,94,.06); border-radius: 4px; margin-top: 4px; }
+
+  /* ── OPTION C: Magnetic / Spatial ── */
+  .preview-c { background: radial-gradient(ellipse at 60% 40%, rgba(25,106,94,.2) 0%, #0a0f0a 70%); }
+  .c-orb-container { position: relative; width: 140px; height: 140px; }
+  .c-orb {
+    position: absolute; border-radius: 50%;
+    animation: orbit 4s linear infinite;
+  }
+  .c-orb1 { width: 140px; height: 140px; border: 1.5px solid rgba(127,200,186,.15); top:0; left:0; animation: spin1 8s linear infinite; }
+  .c-orb2 { width: 100px; height: 100px; border: 1.5px solid rgba(159,177,125,.2); top:20px; left:20px; animation: spin2 5s linear infinite reverse; }
+  .c-orb3 { width: 60px; height: 60px; background: radial-gradient(ellipse, rgba(127,200,186,.35), rgba(127,200,186,.08)); top:40px; left:40px; animation: pulse-c 2.5s ease-in-out infinite; }
+  .c-dot { position:absolute; width:6px; height:6px; background:#7fc8ba; border-radius:50%; top:2px; left:50%; transform:translateX(-50%); box-shadow:0 0 8px rgba(127,200,186,.8); animation: spin1 8s linear infinite; }
+  @keyframes spin1  { to { transform: rotate(360deg) } }
+  @keyframes spin2  { to { transform: rotate(-360deg) } }
+  @keyframes pulse-c { 0%,100%{transform:scale(1);opacity:.7} 50%{transform:scale(1.15);opacity:1} }
+
+  .card-body { padding: 1.1rem 1.25rem 1.25rem; }
+  .opt-letter { font-size: .58rem; font-weight: 700; text-transform: uppercase; letter-spacing: .14em; color: #7fc8ba; margin-bottom: .2rem; }
+  .opt-title { font-size: 1rem; font-weight: 800; letter-spacing: -.02em; margin-bottom: .3rem; }
+  .opt-desc { font-size: .75rem; color: rgba(240,240,238,.5); line-height: 1.6; }
+  .tags { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .65rem; }
+  .tag { font-size: .58rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: 3px 8px; border-radius: 999px; border: 1px solid rgba(127,200,186,.22); color: rgba(127,200,186,.7); background: rgba(127,200,186,.05); }
+
+  .rec-badge {
+    display:inline-block; font-size:.6rem; font-weight:800; text-transform:uppercase;
+    letter-spacing:.1em; padding:3px 9px; border-radius:999px;
+    background:#7fc8ba; color:#003028; margin-left:.4rem; vertical-align:middle;
+  }
+</style>
+</head>
+<body>
+
+<h2>What animation style fits HariLeaf's investor story?</h2>
+<p class="subtitle">Each direction gives a different first impression. The live previews show what the actual motion feels like.</p>
+
+<div class="cards">
+
+  <!-- Option A -->
+  <div class="card" onclick="pick(this,'a')">
+    <div class="preview preview-a">
+      <div class="a-stat">
+        <div class="a-num" id="num">94<span style="font-size:1.8rem">%</span></div>
+        <div class="a-label">Water saved vs conventional</div>
+        <div class="a-bar-wrap"><div class="a-bar"></div></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="opt-letter">Option A <span class="rec-badge">Recommended</span></div>
+      <div class="opt-title">Subtle & Premium</div>
+      <div class="opt-desc">Data numbers count up. Stat bars fill. Cards float in on scroll. CTAs have magnetic hover. The motion is quiet — it makes the content feel alive, not distracting. This is how Stripe, Linear, and Vercel do it.</div>
+      <div class="tags">
+        <span class="tag">CountUp stats</span>
+        <span class="tag">Magnetic CTAs</span>
+        <span class="tag">Smooth reveals</span>
+        <span class="tag">Tilt on hover</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option B -->
+  <div class="card" onclick="pick(this,'b')">
+    <div class="preview preview-b">
+      <div class="b-card"><div class="b-dot" style="background:#7fc8ba"></div><div><div class="b-line"></div><div class="b-line-sm"></div></div></div>
+      <div class="b-card"><div class="b-dot" style="background:#9fb17d"></div><div><div class="b-line" style="width:85%"></div><div class="b-line-sm" style="width:40%"></div></div></div>
+      <div class="b-card"><div class="b-dot" style="background:#7fc8ba"></div><div><div class="b-line" style="width:70%"></div><div class="b-line-sm"></div></div></div>
+      <div class="b-card"><div class="b-dot" style="background:#9fb17d"></div><div><div class="b-line" style="width:90%"></div><div class="b-line-sm" style="width:50%"></div></div></div>
+    </div>
+    <div class="card-body">
+      <div class="opt-letter">Option B</div>
+      <div class="opt-title">Scroll Choreography</div>
+      <div class="opt-desc">Each section reveals in a deliberate sequence as the user scrolls. Content cascades in from the side. Text lines animate word by word. Very cinematic, like a storytelling deck. Heavier but impressive.</div>
+      <div class="tags">
+        <span class="tag">Staggered reveals</span>
+        <span class="tag">Section transitions</span>
+        <span class="tag">Word-by-word text</span>
+        <span class="tag">Parallax depth</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option C -->
+  <div class="card" onclick="pick(this,'c')">
+    <div class="preview preview-c">
+      <div class="c-orb-container">
+        <div class="c-orb c-orb1"></div>
+        <div class="c-orb c-orb2"></div>
+        <div class="c-orb c-orb3"></div>
+        <div class="c-dot"></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="opt-letter">Option C</div>
+      <div class="opt-title">Spatial & Immersive</div>
+      <div class="opt-desc">Orbiting elements, particle fields, 3D-like tilt on hero. The tech feels futuristic and agentic. Very 2026 — used by AI and deep-tech companies. Risk: can feel over-engineered if done without restraint.</div>
+      <div class="tags">
+        <span class="tag">3D tilt / depth</span>
+        <span class="tag">Particle fields</span>
+        <span class="tag">Orbital UI</span>
+        <span class="tag">Glowing accents</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function pick(el, choice) {
+    document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    if (window.recordChoice) recordChoice(choice, el.querySelector('.opt-title').textContent);
+  }
+</script>
+</body>
+</html>

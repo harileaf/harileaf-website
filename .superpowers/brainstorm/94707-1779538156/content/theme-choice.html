@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Theme Direction</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Manrope', sans-serif; background: #111; color: #f0f0ee; padding: 2rem; }
+
+  .page-title { text-align:center; font-size:1.1rem; font-weight:700; color:#9fb17d; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:.4rem; }
+  .page-sub { text-align:center; font-size:.85rem; color:rgba(240,240,238,.45); margin-bottom:2rem; }
+
+  .split { display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; }
+
+  .panel {
+    border-radius:18px; overflow:hidden; cursor:pointer;
+    border:2px solid transparent;
+    transition:border-color .3s, transform .25s;
+    position:relative;
+  }
+  .panel:hover { transform:translateY(-3px); }
+  .panel.selected { border-color:#7fc8ba; }
+  .panel.selected .sel-badge { opacity:1; }
+
+  .sel-badge {
+    position:absolute; top:12px; right:12px;
+    background:#7fc8ba; color:#00201b;
+    font-size:.65rem; font-weight:800; padding:3px 10px;
+    border-radius:999px; letter-spacing:.05em;
+    opacity:0; transition:opacity .2s;
+    z-index:10;
+  }
+
+  .panel-label {
+    padding:.75rem 1rem;
+    font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.12em;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+
+  /* ── LIGHT PANEL ── */
+  .light-panel { background:#f7faf4; }
+  .light-panel .panel-label { background:#eef2ea; color:#546437; border-bottom:1px solid rgba(0,0,0,.06); }
+
+  .light-bento { padding:1rem; display:grid; grid-template-columns:repeat(6,1fr); gap:7px; }
+
+  .lc-hero {
+    grid-column:span 4;
+    background:linear-gradient(145deg,#d6f1ec,#e9f2d5);
+    border-radius:12px; padding:1rem; min-height:130px;
+    position:relative; overflow:hidden;
+    display:flex; flex-direction:column; justify-content:flex-end;
+  }
+  .lc-hero::before {
+    content:'🥭'; position:absolute; top:8px; right:12px;
+    font-size:3.5rem; opacity:.35;
+  }
+  .lc-hero-label { font-size:.55rem; text-transform:uppercase; letter-spacing:.1em; color:#196a5e; font-weight:700; margin-bottom:3px; }
+  .lc-hero-name { font-size:.95rem; font-weight:800; color:#191d19; letter-spacing:-.02em; }
+  .lc-pills { display:flex; gap:4px; flex-wrap:wrap; margin-top:6px; }
+  .lc-pill { background:rgba(25,106,94,.12); color:#196a5e; font-size:.55rem; font-weight:700; padding:2px 7px; border-radius:999px; border:1px solid rgba(25,106,94,.2); }
+
+  .lc-sm {
+    background:#fff; border:1px solid rgba(0,0,0,.07); border-radius:10px;
+    padding:.75rem; display:flex; flex-direction:column; justify-content:space-between;
+  }
+  .lc-sm-emoji { font-size:1.4rem; }
+  .lc-sm-name { font-size:.72rem; font-weight:700; color:#191d19; margin-top:4px; }
+  .lc-sm-cat { font-size:.58rem; color:#6f7976; }
+  .lc-dot { width:5px; height:5px; background:#9fb17d; border-radius:50%; margin-left:auto; }
+
+  .lc-wide {
+    grid-column:span 4;
+    background:linear-gradient(135deg,#e9f2d5,#f1f5ee);
+    border:1px solid rgba(84,100,55,.15);
+    border-radius:10px; padding:.75rem;
+    display:flex; flex-direction:column; gap:4px;
+  }
+  .lc-wide-label { font-size:.55rem; text-transform:uppercase; letter-spacing:.1em; color:#546437; font-weight:700; }
+  .lc-wide-names { font-size:.72rem; font-weight:600; color:#3f4946; }
+
+  .lc-cta {
+    grid-column:span 6;
+    background:linear-gradient(135deg,#7fc8ba,#9fb17d);
+    border-radius:10px; padding:.9rem 1rem;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .lc-cta-text { font-size:.78rem; font-weight:700; color:#fff; }
+  .lc-cta-btn { background:#fff; color:#196a5e; font-size:.65rem; font-weight:800; padding:6px 14px; border-radius:999px; }
+
+  /* ── DARK PANEL ── */
+  .dark-panel { background:#0e0f0d; }
+  .dark-panel .panel-label { background:#161a16; color:#9fb17d; border-bottom:1px solid rgba(255,255,255,.05); }
+
+  .dark-bento { padding:1rem; display:grid; grid-template-columns:repeat(6,1fr); gap:7px; }
+
+  .dc-hero {
+    grid-column:span 4;
+    background:linear-gradient(145deg,#1a2a1a,#0e1a0e);
+    border-radius:12px; padding:1rem; min-height:130px;
+    position:relative; overflow:hidden;
+    display:flex; flex-direction:column; justify-content:flex-end;
+  }
+  .dc-hero::before {
+    content:''; position:absolute; inset:0;
+    background:radial-gradient(ellipse at 85% 20%, rgba(255,160,20,.2), transparent 55%);
+  }
+  .dc-hero::after { content:'🥭'; position:absolute; top:8px; right:14px; font-size:3.5rem; opacity:.55; }
+  .dc-hero-label { font-size:.55rem; text-transform:uppercase; letter-spacing:.1em; color:#9fb17d; font-weight:700; margin-bottom:3px; position:relative; z-index:2; }
+  .dc-hero-name { font-size:.95rem; font-weight:800; color:#fff; letter-spacing:-.02em; position:relative; z-index:2; }
+  .dc-pills { display:flex; gap:4px; flex-wrap:wrap; margin-top:6px; position:relative; z-index:2; }
+  .dc-pill { background:rgba(255,255,255,.1); backdrop-filter:blur(6px); color:rgba(255,255,255,.85); font-size:.55rem; font-weight:600; padding:2px 7px; border-radius:999px; border:1px solid rgba(255,255,255,.15); }
+
+  .dc-sm {
+    background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07);
+    border-radius:10px; padding:.75rem;
+    display:flex; flex-direction:column; justify-content:space-between;
+  }
+  .dc-sm-emoji { font-size:1.4rem; }
+  .dc-sm-name { font-size:.72rem; font-weight:700; color:#f0f0ee; margin-top:4px; }
+  .dc-sm-cat { font-size:.58rem; color:rgba(240,240,238,.4); }
+  .dc-dot { width:5px; height:5px; background:#9fb17d; border-radius:50%; margin-left:auto; }
+
+  .dc-wide {
+    grid-column:span 4;
+    background:linear-gradient(135deg,rgba(84,100,55,.25),rgba(46,58,46,.4));
+    border:1px solid rgba(159,177,125,.18);
+    border-radius:10px; padding:.75rem;
+    display:flex; flex-direction:column; gap:4px;
+  }
+  .dc-wide-label { font-size:.55rem; text-transform:uppercase; letter-spacing:.1em; color:#9fb17d; font-weight:700; }
+  .dc-wide-names { font-size:.72rem; font-weight:600; color:rgba(240,240,238,.65); }
+
+  .dc-cta {
+    grid-column:span 6;
+    background:linear-gradient(135deg,rgba(25,106,94,.3),rgba(84,100,55,.2));
+    border:1px solid rgba(127,200,186,.2);
+    border-radius:10px; padding:.9rem 1rem;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .dc-cta-text { font-size:.78rem; font-weight:700; color:#f0f0ee; }
+  .dc-cta-btn { background:linear-gradient(135deg,#7fc8ba,#9fb17d); color:#00201b; font-size:.65rem; font-weight:800; padding:6px 14px; border-radius:999px; }
+
+  /* ── OPTION C: MIXED ── */
+  .mixed-note {
+    margin-top:1.25rem;
+    background:rgba(127,200,186,.08);
+    border:1px solid rgba(127,200,186,.2);
+    border-radius:14px;
+    padding:1rem 1.25rem;
+    cursor:pointer;
+    transition:border-color .3s, transform .25s;
+    position:relative;
+  }
+  .mixed-note:hover { border-color:#7fc8ba; transform:translateY(-2px); }
+  .mixed-note.selected { border-color:#7fc8ba; background:rgba(127,200,186,.12); }
+  .mixed-note.selected .sel-badge { opacity:1; }
+  .mixed-note .sel-badge { top:50%; transform:translateY(-50%); right:1rem; }
+  .mixed-title { font-size:.85rem; font-weight:700; color:#f0f0ee; margin-bottom:.3rem; }
+  .mixed-desc { font-size:.78rem; color:rgba(240,240,238,.5); line-height:1.6; }
+</style>
+</head>
+<body>
+
+<div class="page-title">Light or Dark?</div>
+<div class="page-sub">The bento grid works in both — pick the mood that fits your farm's identity</div>
+
+<div class="split">
+
+  <!-- LIGHT -->
+  <div class="panel light-panel" onclick="select(this,'light')">
+    <div class="sel-badge">✓ Selected</div>
+    <div class="panel-label">
+      <span>Option A — Light (matches rest of site)</span>
+      <span style="font-size:.7rem;opacity:.6">site default</span>
+    </div>
+    <div class="light-bento">
+      <div class="lc-hero">
+        <div class="lc-hero-label">Featured · 6 Varieties</div>
+        <div class="lc-hero-name">Heritage Mangoes</div>
+        <div class="lc-pills">
+          <span class="lc-pill">Alphonso</span>
+          <span class="lc-pill">Kesar Gir</span>
+          <span class="lc-pill">Payri</span>
+          <span class="lc-pill">Langda</span>
+        </div>
+      </div>
+      <div class="lc-sm" style="grid-column:span 2;grid-row:span 2;background:radial-gradient(ellipse at 70% 20%,rgba(255,100,100,.07),transparent 60%),#fff;">
+        <div class="lc-sm-emoji">🍉</div>
+        <div><div class="lc-sm-name">Watermelon</div><div class="lc-sm-cat">Fruit · Seasonal</div></div>
+        <div class="lc-dot"></div>
+      </div>
+      <div class="lc-sm"><div class="lc-sm-emoji">🐉</div><div><div class="lc-sm-name">Dragon Fruit</div><div class="lc-sm-cat">Fruit</div></div><div class="lc-dot"></div></div>
+      <div class="lc-sm"><div class="lc-sm-emoji">🌿</div><div><div class="lc-sm-name">Methi</div><div class="lc-sm-cat">Herb</div></div><div class="lc-dot"></div></div>
+      <div class="lc-sm"><div class="lc-sm-emoji">🌸</div><div><div class="lc-sm-name">Roses</div><div class="lc-sm-cat">Flower</div></div><div class="lc-dot"></div></div>
+      <div class="lc-sm"><div class="lc-sm-emoji">🍋</div><div><div class="lc-sm-name">Lemon</div><div class="lc-sm-cat">Fruit</div></div><div class="lc-dot"></div></div>
+      <div class="lc-wide">
+        <div class="lc-wide-label">Vegetables & Herbs</div>
+        <div class="lc-wide-names">Okra · Cilantro · Chavli · Suran · Red Amaranth</div>
+      </div>
+      <div class="lc-sm" style="grid-column:span 2"><div class="lc-sm-emoji">🌻</div><div><div class="lc-sm-name">Marigold + Lillies</div><div class="lc-sm-cat">Flowers</div></div><div class="lc-dot"></div></div>
+      <div class="lc-cta">
+        <div class="lc-cta-text">Interested in bulk orders?</div>
+        <div class="lc-cta-btn">Request Produce →</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DARK -->
+  <div class="panel dark-panel" onclick="select(this,'dark')">
+    <div class="sel-badge">✓ Selected</div>
+    <div class="panel-label">
+      <span>Option B — Dark (premium, immersive)</span>
+      <span style="font-size:.7rem;opacity:.6">produce-only dark mode</span>
+    </div>
+    <div class="dark-bento">
+      <div class="dc-hero">
+        <div class="dc-hero-label">Featured · 6 Varieties</div>
+        <div class="dc-hero-name">Heritage Mangoes</div>
+        <div class="dc-pills">
+          <span class="dc-pill">Alphonso</span>
+          <span class="dc-pill">Kesar Gir</span>
+          <span class="dc-pill">Payri</span>
+          <span class="dc-pill">Langda</span>
+        </div>
+      </div>
+      <div class="dc-sm" style="grid-column:span 2;grid-row:span 2;background:radial-gradient(ellipse at 70% 20%,rgba(255,100,100,.1),transparent 60%),rgba(255,255,255,.04);">
+        <div class="dc-sm-emoji">🍉</div>
+        <div><div class="dc-sm-name">Watermelon</div><div class="dc-sm-cat">Fruit · Seasonal</div></div>
+        <div class="dc-dot"></div>
+      </div>
+      <div class="dc-sm"><div class="dc-sm-emoji">🐉</div><div><div class="dc-sm-name">Dragon Fruit</div><div class="dc-sm-cat">Fruit</div></div><div class="dc-dot"></div></div>
+      <div class="dc-sm"><div class="dc-sm-emoji">🌿</div><div><div class="dc-sm-name">Methi</div><div class="dc-sm-cat">Herb</div></div><div class="dc-dot"></div></div>
+      <div class="dc-sm"><div class="dc-sm-emoji">🌸</div><div><div class="dc-sm-name">Roses</div><div class="dc-sm-cat">Flower</div></div><div class="dc-dot"></div></div>
+      <div class="dc-sm"><div class="dc-sm-emoji">🍋</div><div><div class="dc-sm-name">Lemon</div><div class="dc-sm-cat">Fruit</div></div><div class="dc-dot"></div></div>
+      <div class="dc-wide">
+        <div class="dc-wide-label">Vegetables & Herbs</div>
+        <div class="dc-wide-names">Okra · Cilantro · Chavli · Suran · Red Amaranth</div>
+      </div>
+      <div class="dc-sm" style="grid-column:span 2"><div class="dc-sm-emoji">🌻</div><div><div class="dc-sm-name">Marigold + Lillies</div><div class="dc-sm-cat">Flowers</div></div><div class="dc-dot"></div></div>
+      <div class="dc-cta">
+        <div class="dc-cta-text">Interested in bulk orders?</div>
+        <div class="dc-cta-btn">Request Produce →</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Option C -->
+<div class="mixed-note" onclick="select(this,'mixed')">
+  <div class="sel-badge">✓ Selected</div>
+  <div class="mixed-title">Option C — Light site, dark bento section only</div>
+  <div class="mixed-desc">The page uses the standard light theme (hero, form, etc.) but the bento catalogue section itself gets a deep forest dark background — creates a dramatic contrast moment mid-page, like a window into the earth. Best of both: brand consistency + premium produce feel.</div>
+</div>
+
+<script>
+  function select(el, val) {
+    document.querySelectorAll('.panel, .mixed-note').forEach(x => x.classList.remove('selected'));
+    el.classList.add('selected');
+    if (window.__select) window.__select(val);
+  }
+</script>
+</body>
+</html>

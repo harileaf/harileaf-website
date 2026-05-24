@@ -8,7 +8,7 @@ import siteJson from '../content/site-settings.json';
 
 const logoSrc  = siteJson.logo  ?? '/images/brand/logo-color.png';
 const siteName = siteJson.title ?? 'HariLeaf Agritech';
-const SITE_BASE = (Astro.site ?? new URL('https://harileaf.ag')).origin;
+const SITE_BASE = (Astro.site ?? new URL('https://harileaf.org')).origin;
 
 const orgSchema = {
   name: siteName,
@@ -23,7 +23,7 @@ const orgSchema = {
   },
   contactPoint: {
     '@type': 'ContactPoint',
-    email: siteJson.email ?? 'hello@harileaf.agri',
+    email: siteJson.email ?? 'contact@harileaf.org',
     contactType: 'customer support',
   },
   sameAs: (siteJson.socialLinks ?? []).map((s: { url: string }) => s.url),

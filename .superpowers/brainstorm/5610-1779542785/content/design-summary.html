@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Design Summary</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Manrope', sans-serif; background: #0e0f0d; color: #f0f0ee; padding: 2rem; max-width: 900px; margin: 0 auto; }
+
+  h2 { font-size: 1.3rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: .3rem; }
+  .subtitle { font-size: .82rem; color: rgba(240,240,238,.45); margin-bottom: 2rem; line-height: 1.6; }
+
+  .section { margin-bottom: 2rem; }
+  .section-label { font-size: .58rem; font-weight: 800; text-transform: uppercase; letter-spacing: .14em; color: #7fc8ba; margin-bottom: .75rem; padding-bottom: .4rem; border-bottom: 1px solid rgba(127,200,186,.12); }
+
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin-bottom: .6rem; }
+  .row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .75rem; margin-bottom: .6rem; }
+
+  .item {
+    background: rgba(255,255,255,.03);
+    border: 1px solid rgba(255,255,255,.07);
+    border-radius: 12px;
+    padding: .85rem 1rem;
+  }
+  .item-name { font-size: .82rem; font-weight: 700; margin-bottom: .2rem; }
+  .item-desc { font-size: .68rem; color: rgba(240,240,238,.45); line-height: 1.55; }
+  .item-impl { font-size: .62rem; font-weight: 600; color: rgba(127,200,186,.65); margin-top: .4rem; }
+
+  .tag { display:inline-block; font-size:.5rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; padding:2px 7px; border-radius:999px; margin-right:.2rem; margin-top:.35rem; }
+  .tag-css { border:1px solid rgba(159,177,125,.25); color:rgba(159,177,125,.7); background:rgba(159,177,125,.05); }
+  .tag-js  { border:1px solid rgba(127,200,186,.25); color:rgba(127,200,186,.7); background:rgba(127,200,186,.05); }
+  .tag-comp { border:1px solid rgba(200,160,100,.25); color:rgba(200,160,100,.7); background:rgba(200,160,100,.05); }
+
+  .arch-box {
+    background: rgba(25,106,94,.08);
+    border: 1px solid rgba(25,106,94,.18);
+    border-radius: 12px;
+    padding: 1rem 1.1rem;
+    margin-bottom: .6rem;
+  }
+  .arch-title { font-size: .78rem; font-weight: 800; margin-bottom: .3rem; }
+  .arch-desc { font-size: .68rem; color: rgba(240,240,238,.5); line-height: 1.6; }
+  .arch-files { margin-top: .6rem; display: flex; flex-wrap: wrap; gap: .3rem; }
+  .file-tag { font-size: .55rem; font-weight: 700; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); padding: 2px 8px; border-radius: 6px; color: rgba(240,240,238,.55); font-family: monospace; }
+
+  .branch-note {
+    background: rgba(255,170,50,.06);
+    border: 1px solid rgba(255,170,50,.2);
+    border-radius: 10px;
+    padding: .8rem 1rem;
+    font-size: .7rem;
+    color: rgba(255,200,100,.75);
+    line-height: 1.55;
+    margin-bottom: 2rem;
+  }
+  .branch-note strong { color: rgba(255,200,100,.95); }
+</style>
+</head>
+<body>
+
+<h2>2026 Motion & Interaction Upgrade — Design Summary</h2>
+<p class="subtitle">All 9 interactions, sitewide. Layout unchanged. Built on a new git branch.</p>
+
+<div class="branch-note">
+  <strong>Branch:</strong> Work happens on <code>feat/2026-interactions</code> — merged to main when done. No production risk during development.
+</div>
+
+<!-- Architecture -->
+<div class="section">
+  <div class="section-label">Architecture — how it's built</div>
+
+  <div class="arch-box">
+    <div class="arch-title">One new script file: <code>src/scripts/interactions.ts</code></div>
+    <div class="arch-desc">
+      All 4 JS-based effects (magnetic, tilt, cursor glow, scroll progress) live in one file. Each interaction uses a <strong>data attribute to opt-in</strong> — e.g. <code>data-magnetic</code>, <code>data-tilt</code>. The script runs once on DOMContentLoaded and attaches listeners. No framework, no build step — pure DOM events, ~120 lines total.
+    </div>
+    <div class="arch-files">
+      <span class="file-tag">src/scripts/interactions.ts</span>
+      <span class="file-tag">NEW</span>
+    </div>
+  </div>
+
+  <div class="arch-box">
+    <div class="arch-title">CSS-only interactions go into <code>global.css</code></div>
+    <div class="arch-desc">
+      Nav underline reveal, gradient text shimmer, button press ring, mobile menu slide transition, scroll progress bar styles — all pure CSS. Zero JS overhead. Added to the existing animation token system alongside <code>pulse-dot</code>, <code>.organic-dot</code>, etc.
+    </div>
+    <div class="arch-files">
+      <span class="file-tag">src/styles/global.css</span>
+      <span class="file-tag">MODIFY</span>
+    </div>
+  </div>
+
+  <div class="arch-box">
+    <div class="arch-title">CountUp already exists — just needs wiring up</div>
+    <div class="arch-desc">
+      <code>CountUp.astro</code> is already built. It just isn't used on the homepage yet. Replace bare number strings with <code>&lt;CountUp value={94} suffix="%" /&gt;</code> on every stat on the homepage, technology, and solutions pages.
+    </div>
+    <div class="arch-files">
+      <span class="file-tag">src/components/animations/CountUp.astro</span>
+      <span class="file-tag">EXISTING — wire up</span>
+    </div>
+  </div>
+</div>
+
+<!-- The 9 interactions -->
+<div class="section">
+  <div class="section-label">The 9 interactions</div>
+
+  <div class="row-3">
+    <div class="item">
+      <div class="item-name">1 · CountUp stats</div>
+      <div class="item-desc">Numbers roll from 0 on scroll-enter. Homepage stats, technology metrics, solutions page numbers.</div>
+      <div class="item-impl">Swap bare numbers for &lt;CountUp&gt; on 3+ pages</div>
+      <span class="tag tag-comp">Existing component</span>
+    </div>
+    <div class="item">
+      <div class="item-name">2 · Magnetic CTAs</div>
+      <div class="item-desc">Brand-gradient buttons attract toward cursor up to 8px, spring back on leave with cubic-bezier(0.34, 1.56, 0.64, 1).</div>
+      <div class="item-impl">data-magnetic on all .brand-gradient buttons</div>
+      <span class="tag tag-js">JS mousemove</span>
+    </div>
+    <div class="item">
+      <div class="item-name">3 · 3D card tilt</div>
+      <div class="item-desc">Cards rotate up to 6deg X/Y on hover. Ambient shadow shifts with tilt direction. Returns to flat on mouseleave.</div>
+      <div class="item-impl">data-tilt on bento cards, feature cards, farm cards</div>
+      <span class="tag tag-js">JS perspective</span>
+    </div>
+  </div>
+
+  <div class="row-3">
+    <div class="item">
+      <div class="item-name">4 · Hero cursor glow</div>
+      <div class="item-desc">A 300px radial teal glow follows the cursor on the hero section only. Smooth 80ms lag via lerp. Invisible on touch devices.</div>
+      <div class="item-impl">Absolute div in hero, JS moves via --cx/--cy CSS vars</div>
+      <span class="tag tag-js">JS + CSS var</span>
+    </div>
+    <div class="item">
+      <div class="item-name">5 · Scroll progress bar</div>
+      <div class="item-desc">1px fixed bar at page top. Fills teal→olive as user scrolls. Resets on page load. All pages.</div>
+      <div class="item-impl">Fixed element in SiteLayout + scroll listener</div>
+      <span class="tag tag-js">Lightweight JS</span>
+    </div>
+    <div class="item">
+      <div class="item-name">6 · Nav underlines</div>
+      <div class="item-desc">::after pseudo-element on nav links. Width 0→100% on hover via CSS transition. Gradient teal→olive. Retracts on leave.</div>
+      <div class="item-impl">CSS only — .nav-link class update in Header.astro</div>
+      <span class="tag tag-css">CSS only</span>
+    </div>
+  </div>
+
+  <div class="row-3">
+    <div class="item">
+      <div class="item-name">7 · Gradient shimmer</div>
+      <div class="item-desc">Hero gradient text plays a single shimmer sweep on page load (2s, then stops). CSS background-position animation on .text-brand-gradient.</div>
+      <div class="item-impl">@keyframes shimmer added to global.css — one-shot via animation-fill-mode: forwards</div>
+      <span class="tag tag-css">CSS only</span>
+    </div>
+    <div class="item">
+      <div class="item-name">8 · Mobile menu transition</div>
+      <div class="item-desc">Menu panel slides in from right (translateX) with backdrop blur. Links stagger in with 40ms delays. Reverse on close.</div>
+      <div class="item-impl">CSS transition replaces instant show/hide in Header.astro</div>
+      <span class="tag tag-css">CSS + minor JS</span>
+    </div>
+    <div class="item">
+      <div class="item-name">9 · Button press feedback</div>
+      <div class="item-desc">All buttons: scale(0.95) + a teal ring flash on :active. 80ms spring-back. Replaces bare active:scale-[0.98] everywhere.</div>
+      <div class="item-impl">:active ruleset in global.css for .btn, .brand-gradient, pill buttons</div>
+      <span class="tag tag-css">CSS only</span>
+    </div>
+  </div>
+</div>
+
+<!-- Files changed -->
+<div class="section">
+  <div class="section-label">Files changed</div>
+  <div class="row">
+    <div class="item">
+      <div class="item-name">New / Modified</div>
+      <div class="item-desc" style="margin-top:.3rem;line-height:2">
+        <code style="font-size:.62rem;color:rgba(127,200,186,.8);">src/scripts/interactions.ts</code> — NEW<br>
+        <code style="font-size:.62rem;color:rgba(127,200,186,.8);">src/styles/global.css</code> — add 5 CSS interactions<br>
+        <code style="font-size:.62rem;color:rgba(127,200,186,.8);">src/layouts/SiteLayout.astro</code> — scroll progress bar + load script<br>
+        <code style="font-size:.62rem;color:rgba(127,200,186,.8);">src/components/layout/Header.astro</code> — nav underline + mobile menu<br>
+        <code style="font-size:.62rem;color:rgba(127,200,186,.8);">src/pages/index.astro</code> — CountUp, magnetic attrs, cursor glow, tilt<br>
+        <code style="font-size:.62rem;color:rgba(127,200,186,.8);">src/pages/technology.astro</code> — CountUp on metrics<br>
+        <code style="font-size:.62rem;color:rgba(127,200,186,.8);">src/pages/solutions.astro</code> — CountUp on numbers, tilt on farm cards
+      </div>
+    </div>
+    <div class="item">
+      <div class="item-name">Explicitly NOT changed</div>
+      <div class="item-desc" style="margin-top:.3rem;line-height:2">
+        All page layouts, section structure, content, colors, typography — unchanged.<br><br>
+        The produce page already has pulse-dot animation and bento hover — those stay as-is, just gaining tilt and magnetic CTA from the shared system.<br><br>
+        No new npm packages. No Framer Motion, GSAP, or AOS.
+      </div>
+    </div>
+  </div>
+</div>
+
+<p style="font-size:.72rem;color:rgba(240,240,238,.3);margin-top:1rem;text-align:center;">Does this look right? Reply in the terminal to approve or request changes.</p>
+
+</body>
+</html>
