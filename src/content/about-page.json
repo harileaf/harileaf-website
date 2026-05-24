@@ -72,6 +72,49 @@
       }
     ]
   },
+  "partnerships": {
+    "label": "Our Tie-ups",
+    "title": "Trusted by India's Leading Retailers",
+    "description": "HariLeaf produce reaches millions of homes through partnerships with India's most trusted grocery and fresh produce platforms.",
+    "partners": [
+      {
+        "name": "BigBasket",
+        "category": "Online Grocery",
+        "color": "#6DB33F",
+        "logo": "/images/partners/bigbasket-final.svg"
+      },
+      {
+        "name": "Reliance Fresh",
+        "category": "Retail Chain",
+        "color": "#0066CC",
+        "logo": "/images/partners/reliance-retail.png"
+      },
+      {
+        "name": "Nature's Basket",
+        "category": "Premium Grocer",
+        "color": "#2E7D32",
+        "logo": "/images/partners/naturesbasket-final.png"
+      },
+      {
+        "name": "Spencer's",
+        "category": "Supermarket",
+        "color": "#C62828",
+        "logo": "/images/partners/spencers.jpg"
+      },
+      {
+        "name": "Zepto",
+        "category": "Quick Commerce",
+        "color": "#6A1B9A",
+        "logo": "/images/partners/zepto-final.svg"
+      },
+      {
+        "name": "Blinkit",
+        "category": "Quick Commerce",
+        "color": "#E8A000",
+        "logo": "/images/partners/blinkit.svg"
+      }
+    ]
+  },
   "cta": {
     "headline": "Ready to Join the Revolution?",
     "body": "Whether you're a commercial grower or a sustainability partner, let's cultivate the future together.",

@@ -8,7 +8,7 @@ import JsonLd from '../components/seo/JsonLd.astro';
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://harileaf.ag');
 const pageTitle = 'Technology | HariLeaf Agritech — The New Frontier of Outdoor AgTech';
-const pageDesc  = 'The Digital Greenhouse ecosystem bridges the gap between laboratory precision and the untamed reality of open-field farming through integrated autonomous infrastructure.';
+const pageDesc  = 'The Digital Greenhouse ecosystem bridges the gap between laboratory precision and the untamed reality of open-field farming through integrated sensing, aerial intelligence, and precision water management.';
 ---
 
 <SiteLayout title={pageTitle} description={pageDesc}>
@@ -44,7 +44,7 @@ const pageDesc  = 'The Digital Greenhouse ecosystem bridges the gap between labo
         </FadeIn>
         <FadeIn delay={100}>
           <p class="text-lg lg:text-xl text-on-surface-variant max-w-xl leading-relaxed">
-            The Digital Greenhouse ecosystem bridges the gap between laboratory precision and the untamed reality of open-field farming through integrated autonomous infrastructure.
+            The Digital Greenhouse ecosystem bridges the gap between laboratory precision and the untamed reality of open-field farming through integrated sensing, aerial intelligence, and precision water management.
           </p>
         </FadeIn>
         <FadeIn delay={200}>
@@ -138,7 +138,7 @@ const pageDesc  = 'The Digital Greenhouse ecosystem bridges the gap between labo
             </div>
             <h3 class="text-xl font-bold mb-3">03. Execute</h3>
             <p class="text-sm text-on-surface-variant leading-relaxed">
-              Autonomous fleets deploy targeted micro-interventions, ensuring every drop of water and milligram of nutrient is perfectly placed.
+              Precision irrigation systems deploy targeted water and nutrient interventions, ensuring every litre reaches exactly where the crop needs it.
             </p>
           </div>
         </FadeIn>
@@ -234,32 +234,45 @@ const pageDesc  = 'The Digital Greenhouse ecosystem bridges the gap between labo
       </div>
     </FadeIn>
 
-    <!-- Sub-section C: The Autonomous Fleet -->
+    <!-- Sub-section C: Precision Water Management -->
     <FadeIn>
       <div class="flex flex-col lg:flex-row items-center gap-16">
         <!-- Left: text -->
         <div class="lg:w-1/2">
           <div class="inline-flex items-center gap-2 bg-primary-container text-on-primary-container px-4 py-1 rounded-full text-xs font-bold mb-6">
-            <span class="material-symbols-outlined text-sm" aria-hidden="true">smart_toy</span>
-            ACTUATION STRATUM
+            <span class="material-symbols-outlined text-sm" aria-hidden="true">water_drop</span>
+            IRRIGATION STRATUM
           </div>
-          <h2 class="text-4xl font-bold mb-6">The Autonomous Fleet</h2>
+          <h2 class="text-4xl font-bold mb-6">Precision Water Management</h2>
           <p class="text-on-surface-variant text-lg leading-relaxed mb-8">
-            Muscle meets intelligence. Our electric autonomous units navigate complex terrains to perform mechanical weeding, precision spraying, and harvest assistance without human oversight.
+            Soil moisture readings from the Underground Mesh combine with local weather forecasts to drive irrigation only where and when the crop needs it — eliminating overwatering and runoff.
           </p>
+          <ul class="space-y-4 mb-8">
+            <li class="flex items-center gap-3">
+              <span class="material-symbols-outlined text-primary" style="font-variation-settings:'FILL' 1" aria-hidden="true">check_circle</span>
+              <span class="font-medium">Zone-level Moisture-Triggered Irrigation</span>
+            </li>
+            <li class="flex items-center gap-3">
+              <span class="material-symbols-outlined text-primary" style="font-variation-settings:'FILL' 1" aria-hidden="true">check_circle</span>
+              <span class="font-medium">40% Reduction in Water Usage</span>
+            </li>
+            <li class="flex items-center gap-3">
+              <span class="material-symbols-outlined text-primary" style="font-variation-settings:'FILL' 1" aria-hidden="true">check_circle</span>
+              <span class="font-medium">Integrated Rainfall Forecasting</span>
+            </li>
+          </ul>
           <blockquote class="p-6 bg-surface-container-highest rounded-xl border-l-4 border-primary">
             <p class="italic text-on-surface-variant">
-              "By removing the tractor from the equation, we eliminate soil compaction and carbon emissions in one single technological leap."
+              "Water is the most constrained resource in farming. We treat every litre like it counts."
             </p>
-            <p class="mt-4 font-bold text-sm">— Dr. Aris Varma, CTO</p>
           </blockquote>
         </div>
         <!-- Right: image -->
         <div class="lg:w-1/2">
           <div class="bg-surface-container rounded-3xl overflow-hidden aspect-[4/3]">
             <img
-              src="/images/technology/autonomous-fleet.png"
-              alt="A swarm of small electric autonomous farm vehicles moving through a vegetable field under clear blue skies"
+              src="/images/technology/precision-irrigation.webp"
+              alt="Close-up of drip irrigation emitter spraying water between rows of leafy green crops in rich soil"
               class="w-full h-full object-cover"
               loading="lazy"
             />
@@ -349,9 +362,9 @@ const pageDesc  = 'The Digital Greenhouse ecosystem bridges the gap between labo
   <section class="py-32 px-6 text-center">
     <FadeIn>
       <div class="max-w-4xl mx-auto space-y-10">
-        <h2 class="text-4xl lg:text-6xl font-bold tracking-tight">Ready to upgrade your soil?</h2>
+        <h2 class="text-4xl lg:text-6xl font-bold tracking-tight">Your farm called. It wants smarter water.</h2>
         <p class="text-xl text-on-surface-variant">
-          Join the waitlist for the 2025 deployment cycle. Limited slots available for commercial enterprise farms.
+          Turns out soil has opinions. Let's find out what yours is trying to say — drop us a line and we'll take it from there.
         </p>
         <div class="flex justify-center">
           <a
@@ -359,7 +372,7 @@ const pageDesc  = 'The Digital Greenhouse ecosystem bridges the gap between labo
             href="/contact"
             class="brand-gradient text-white px-10 py-5 rounded-full font-black text-lg shadow-xl hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
-            Secure Your Fleet
+            Talk to Us
           </a>
         </div>
       </div>

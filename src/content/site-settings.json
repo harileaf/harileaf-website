@@ -11,7 +11,7 @@
   "socialLinks": [
     { "platform": "linkedin",  "url": "https://linkedin.com/" },
     { "platform": "twitter",   "url": "https://twitter.com" },
-    { "platform": "instagram", "url": "https://instagram.com/" }
+    { "platform": "instagram", "url": "https://instagram.com/harileafagritech" }
   ],
   "defaultOgImage": "/images/brand/og-default.png"
 }

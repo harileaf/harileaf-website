@@ -9,8 +9,8 @@
   },
   "form": {
     "heading": "Send a Message",
-    "web3formsKey": "YOUR_WEB3FORMS_KEY",
-    "turnstileSiteKey": "1x00000000000000000000AA",
+    "web3formsKey": "dd268b51-d34b-4803-acbf-caed7a5e8493",
+    "turnstileSiteKey": "0x4AAAAAADU8m6kmOQW360PX",
     "subjects": [
       "General Inquiry",
       "Partnership Opportunities",
@@ -27,7 +27,10 @@
     },
     "email": {
       "title": "Email",
-      "addresses": ["contact@harileaf.org", "harileafagritech@gmail.com"]
+      "addresses": [
+        "contact@harileaf.org",
+        "harileafagritech@gmail.com"
+      ]
     },
     "whatsapp": {
       "title": "WhatsApp",
@@ -43,7 +46,7 @@
     "buttonUrl": "/sustainability-report"
   },
   "seo": {
-    "metaTitle": "Contact Us | HariLeaf Agritech — Connect with the Future of Farming",
+    "metaTitle": "Contact Us | HariLeaf Agritech \u2014 Connect with the Future of Farming",
     "metaDescription": "Get in touch with HariLeaf Agritech. Join the digital greenhouse revolution. Reach out for technology solutions, farm partnerships, or sustainability inquiries.",
     "noIndex": false
   }
