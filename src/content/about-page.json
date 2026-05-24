@@ -81,7 +81,7 @@
         "name": "BigBasket",
         "category": "Online Grocery",
         "color": "#6DB33F",
-        "logo": "/images/partners/bigbasket-final.svg"
+        "logo": "/images/partners/bigbasket-new.png"
       },
       {
         "name": "Reliance Fresh",
@@ -122,8 +122,8 @@
     "secondaryButton": { "label": "View Solutions", "url": "/solutions" }
   },
   "seo": {
-    "metaTitle": "About Us | HariLeaf Agritech \u2014 Cultivating a Sustainable Legacy",
-    "metaDescription": "HariLeaf Agritech was born from a singular vision: to bridge the gap between ancient agricultural wisdom and the precision of modern technology.",
+    "metaTitle": "About HariLeaf Agritech \u2014 Precision Agriculture Startup, Mumbai India",
+    "metaDescription": "HariLeaf Agritech is a Mumbai-based precision agriculture company building IoT and AI systems for commercial farms. 10+ farms deployed. Backed by a mission to make Indian agriculture data-driven.",
     "noIndex": false
   }
 }

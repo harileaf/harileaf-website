@@ -31,24 +31,48 @@ const SITE_BASE = (Astro.site ?? new URL('https://harileaf.ag')).origin;
 // ── Organization schema — available on every marketing page ──────────────────
 const orgSchema = {
   name: siteJson.title ?? 'HariLeaf Agritech',
+  alternateName: 'HariLeaf',
   url: SITE_BASE,
   logo: {
     '@type': 'ImageObject',
     url: `${SITE_BASE}${siteJson.logo ?? '/images/brand/logo-color.png'}`,
+    width: 280,
+    height: 80,
   },
+  description: 'HariLeaf Agritech is an Indian precision agriculture company deploying IoT soil sensors, aerial crop monitoring, and AI-driven irrigation systems to increase farm yield and reduce water usage for commercial growers.',
+  slogan: 'Open-field farming reimagined.',
+  foundingDate: '2023',
+  areaServed: ['IN', 'SG', 'AE'],
+  knowsAbout: [
+    'Precision Agriculture',
+    'IoT Soil Sensors',
+    'Aerial Crop Monitoring',
+    'Drip Irrigation',
+    'AI Yield Forecasting',
+    'Sustainable Farming',
+    'AgriTech',
+  ],
   address: {
     '@type': 'PostalAddress',
-    streetAddress: 'Level 24, Green Spire Plaza',
-    addressLocality: 'Singapore',
-    postalCode: '018982',
-    addressCountry: 'SG',
+    addressLocality: 'Borivali',
+    addressRegion: 'Mumbai',
+    addressCountry: 'IN',
   },
-  contactPoint: {
-    '@type': 'ContactPoint',
-    email: siteJson.email ?? 'hello@harileaf.agri',
-    contactType: 'customer support',
-    availableLanguage: 'English',
-  },
+  contactPoint: [
+    {
+      '@type': 'ContactPoint',
+      email: siteJson.email ?? 'contact@harileaf.org',
+      telephone: siteJson.phone ?? '+91-9820966177',
+      contactType: 'customer support',
+      availableLanguage: 'English',
+    },
+    {
+      '@type': 'ContactPoint',
+      contactType: 'investor relations',
+      email: siteJson.email ?? 'contact@harileaf.org',
+      availableLanguage: 'English',
+    },
+  ],
   sameAs: (siteJson.socialLinks ?? []).map((s: { url: string }) => s.url).filter(Boolean),
 };
 ---
