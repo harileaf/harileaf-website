@@ -39,20 +39,20 @@ const { headline = 'Growing in the open.' } = Astro.props;
   }
 
   .photo-card {
-    width: clamp(170px, 18vw, 230px);
+    width: clamp(130px, 13vw, 175px);
     aspect-ratio: 3 / 4;
     border-radius: 16px;
     overflow: hidden;
     flex-shrink: 0;
     position: relative;
     cursor: pointer;
-    /* rotation cycles through 5 values set inline */
+    transform: rotate(var(--tilt, 0deg));
     transition: transform 320ms cubic-bezier(0.16, 1, 0.3, 1),
                 box-shadow 320ms ease;
   }
 
   .photo-card:hover {
-    transform: rotate(0deg) scale(1.04) !important;
+    transform: rotate(0deg) scale(1.04);
     box-shadow: 0 24px 48px rgba(0,0,0,0.55);
     z-index: 1;
   }
@@ -135,7 +135,7 @@ const { headline = 'Growing in the open.' } = Astro.props;
         (p, i) => {
           const tilt = TILTS[i % TILTS.length];
           return `
-          <div class="photo-card" style="transform: rotate(${tilt}deg);" aria-label="${p.label}">
+          <div class="photo-card" style="--tilt: ${tilt}deg;" aria-label="${p.label}">
             <img src="${p.url}" alt="${p.label}" loading="lazy" decoding="async" />
             <div class="photo-label">${p.label}</div>
           </div>`;
