@@ -23,7 +23,7 @@ const { headline = 'Growing in the open.' } = Astro.props;
 
   .photo-track {
     display: flex;
-    gap: 14px;
+    gap: 20px;
     width: max-content;
     animation: marquee-scroll 44s linear infinite;
     will-change: transform;
@@ -43,7 +43,7 @@ const { headline = 'Growing in the open.' } = Astro.props;
 <style is:global>
   /* Global: targets .photo-card elements injected via innerHTML (no Astro CID) */
   #photo-strip-section .photo-card {
-    width: clamp(130px, 13vw, 175px);
+    width: clamp(220px, 24vw, 340px);
     aspect-ratio: 3 / 4;
     border-radius: 16px;
     overflow: hidden;
