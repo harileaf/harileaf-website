@@ -11,11 +11,21 @@ const { headline = 'Growing in the open.' } = Astro.props;
     to   { transform: translateX(-50%); }
   }
 
+  @keyframes strip-reveal {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  #photo-strip-section {
+    animation: strip-reveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
   .photo-track {
     display: flex;
-    gap: 16px;
+    gap: 14px;
     width: max-content;
-    animation: marquee-scroll 30s linear infinite;
+    animation: marquee-scroll 44s linear infinite;
+    will-change: transform;
   }
 
   .photo-track:hover,
@@ -25,38 +35,67 @@ const { headline = 'Growing in the open.' } = Astro.props;
 
   @media (prefers-reduced-motion: reduce) {
     .photo-track { animation: none; }
+    #photo-strip-section { animation: none; }
   }
 
   .photo-card {
-    width: 280px;
-    height: 380px;
-    border-radius: 12px;
+    width: clamp(170px, 18vw, 230px);
+    aspect-ratio: 3 / 4;
+    border-radius: 16px;
     overflow: hidden;
     flex-shrink: 0;
     position: relative;
-    transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+    cursor: pointer;
+    /* rotation cycles through 5 values set inline */
+    transition: transform 320ms cubic-bezier(0.16, 1, 0.3, 1),
+                box-shadow 320ms ease;
   }
 
   .photo-card:hover {
-    transform: rotate(1.5deg) scale(1.02);
+    transform: rotate(0deg) scale(1.04) !important;
+    box-shadow: 0 24px 48px rgba(0,0,0,0.55);
+    z-index: 1;
   }
 
   .photo-card img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    transition: transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
+    display: block;
+  }
+
+  .photo-card:hover img {
+    transform: scale(1.07);
   }
 
   .photo-label {
     position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    padding: 32px 16px 16px;
-    background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+    padding: 6px 12px;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
     color: white;
-    font-size: 0.875rem;
+    font-size: 0.75rem;
     font-weight: 700;
+    letter-spacing: 0.03em;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 250ms ease, transform 250ms ease;
+  }
+
+  .photo-card:hover .photo-label {
+    opacity: 1;
+    transform: translateY(0);
   }
 </style>
 
@@ -70,7 +109,7 @@ const { headline = 'Growing in the open.' } = Astro.props;
     <h2 id="photo-strip-headline" class="text-3xl font-extrabold tracking-tight mb-10" style="color:#f0f0ee;">{headline}</h2>
   </div>
 
-  <div style="overflow:hidden; padding-bottom:48px;">
+  <div style="overflow:hidden; padding-bottom:52px;">
     <div class="photo-track" id="photo-track" aria-live="polite">
       <!-- Cards injected by client script -->
     </div>
@@ -78,6 +117,8 @@ const { headline = 'Growing in the open.' } = Astro.props;
 </section>
 
 <script>
+  const TILTS = [-2.5, -1.2, 0.4, 1.8, -0.6];
+
   async function initPhotoStrip() {
     const res = await fetch('/api/photos');
     if (!res.ok) return;
@@ -91,11 +132,14 @@ const { headline = 'Growing in the open.' } = Astro.props;
     const doubled = [...photos, ...photos];
     track.innerHTML = doubled
       .map(
-        (p) => `
-        <div class="photo-card">
-          <img src="${p.url}" alt="${p.label}" loading="lazy" />
-          <div class="photo-label">${p.label}</div>
-        </div>`
+        (p, i) => {
+          const tilt = TILTS[i % TILTS.length];
+          return `
+          <div class="photo-card" style="transform: rotate(${tilt}deg);" aria-label="${p.label}">
+            <img src="${p.url}" alt="${p.label}" loading="lazy" decoding="async" />
+            <div class="photo-label">${p.label}</div>
+          </div>`;
+        }
       )
       .join('');
 
