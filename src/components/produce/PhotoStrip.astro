@@ -6,6 +6,7 @@ const { headline = 'Growing in the open.' } = Astro.props;
 ---
 
 <style>
+  /* Scoped: applies to static elements that Astro stamps with its CID */
   @keyframes marquee-scroll {
     from { transform: translateX(0); }
     to   { transform: translateX(-50%); }
@@ -37,8 +38,11 @@ const { headline = 'Growing in the open.' } = Astro.props;
     .photo-track { animation: none; }
     #photo-strip-section { animation: none; }
   }
+</style>
 
-  .photo-card {
+<style is:global>
+  /* Global: targets .photo-card elements injected via innerHTML (no Astro CID) */
+  #photo-strip-section .photo-card {
     width: clamp(130px, 13vw, 175px);
     aspect-ratio: 3 / 4;
     border-radius: 16px;
@@ -51,13 +55,13 @@ const { headline = 'Growing in the open.' } = Astro.props;
                 box-shadow 320ms ease;
   }
 
-  .photo-card:hover {
+  #photo-strip-section .photo-card:hover {
     transform: rotate(0deg) scale(1.04);
     box-shadow: 0 24px 48px rgba(0,0,0,0.55);
     z-index: 1;
   }
 
-  .photo-card img {
+  #photo-strip-section .photo-card img {
     width: 100%;
     height: 100%;
     object-fit: cover;
@@ -65,11 +69,11 @@ const { headline = 'Growing in the open.' } = Astro.props;
     display: block;
   }
 
-  .photo-card:hover img {
+  #photo-strip-section .photo-card:hover img {
     transform: scale(1.07);
   }
 
-  .photo-label {
+  #photo-strip-section .photo-label {
     position: absolute;
     bottom: 12px;
     left: 12px;
@@ -93,7 +97,7 @@ const { headline = 'Growing in the open.' } = Astro.props;
     transition: opacity 250ms ease, transform 250ms ease;
   }
 
-  .photo-card:hover .photo-label {
+  #photo-strip-section .photo-card:hover .photo-label {
     opacity: 1;
     transform: translateY(0);
   }
