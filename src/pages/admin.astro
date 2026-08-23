@@ -144,6 +144,14 @@ const authenticated = await validateSession(env.HARILEAF_CMS, Astro.cookies);
           <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp" style="display:none;" />
           <div style="display:flex;flex-wrap:wrap;gap:0.75rem;justify-content:center;max-width:480px;margin:0 auto;">
             <input type="text" id="photo-label" placeholder="Crop name (e.g. Alphonso Mango)" style="flex:1;min-width:200px;" />
+            <select id="photo-category" style="min-width:200px;padding:0.5rem;border-radius:8px;border:1px solid #ccc;">
+              <option value="">Farm (uncategorised)</option>
+              <option value="rice:karjat">Rice — Karjat 3</option>
+              <option value="rice:wada">Rice — Wada Kolam</option>
+              <option value="rice:red">Rice — Red Rice</option>
+              <option value="spice:turmeric">Spice — Turmeric</option>
+              <option value="spice:chili">Spice — Red Chili</option>
+            </select>
             <button id="browse-btn" class="brand-btn" style="padding:0.625rem 1.25rem;white-space:nowrap;">Choose File</button>
           </div>
           <p id="selected-file" class="muted" style="margin-top:0.75rem;font-size:0.75rem;"></p>
@@ -168,7 +176,7 @@ const authenticated = await validateSession(env.HARILEAF_CMS, Astro.cookies);
     async function loadPhotos() {
       const grid = document.getElementById('photo-grid')!;
       const res = await fetch('/api/photos');
-      const photos: Array<{ key: string; label: string; url: string }> = res.ok ? await res.json() : [];
+      const photos: Array<{ key: string; label: string; url: string; category?: string }> = res.ok ? await res.json() : [];
 
       if (!photos.length) {
         grid.innerHTML = '<p class="muted">No photos yet. Upload your first farm photo above.</p>';
@@ -181,6 +189,7 @@ const authenticated = await validateSession(env.HARILEAF_CMS, Astro.cookies);
           <div style="position:absolute;inset:0;background:rgba(0,0,0,0);transition:background 0.2s;" class="photo-overlay">
             <div style="position:absolute;bottom:0;left:0;right:0;padding:1.5rem 0.75rem 0.75rem;background:linear-gradient(to top,rgba(0,0,0,0.7),transparent);transform:translateY(100%);transition:transform 0.2s;" class="photo-actions">
               <p style="color:#fff;font-size:0.75rem;font-weight:700;margin-bottom:0.5rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.label}</p>
+              <p style="color:rgba(255,255,255,0.7);font-size:0.65rem;margin-bottom:0.5rem;">${p.category ? p.category : 'Farm'}</p>
               <button data-key="${p.key}" class="delete-photo-btn" style="background:rgba(255,255,255,0.15);border:none;color:#fff;font-size:0.75rem;font-weight:700;padding:0.25rem 0.75rem;border-radius:999px;cursor:pointer;">Delete</button>
             </div>
           </div>
@@ -258,6 +267,7 @@ const authenticated = await validateSession(env.HARILEAF_CMS, Astro.cookies);
 
     document.getElementById('upload-btn')?.addEventListener('click', async () => {
       const label = (document.getElementById('photo-label') as HTMLInputElement).value.trim();
+      const category = (document.getElementById('photo-category') as HTMLSelectElement).value;
       const errEl = document.getElementById('upload-error')!;
       if (!selectedFile || !label) {
         errEl.textContent = 'Please select a file and enter a crop name.';
@@ -268,6 +278,7 @@ const authenticated = await validateSession(env.HARILEAF_CMS, Astro.cookies);
       const form = new FormData();
       form.append('file', selectedFile);
       form.append('label', label);
+      form.append('category', category);
 
       const progressWrap = document.getElementById('upload-progress')!;
       const progressBar = document.getElementById('upload-bar')!;
@@ -283,6 +294,7 @@ const authenticated = await validateSession(env.HARILEAF_CMS, Astro.cookies);
         if (xhr.status === 201) {
           selectedFile = null;
           (document.getElementById('photo-label') as HTMLInputElement).value = '';
+          (document.getElementById('photo-category') as HTMLSelectElement).value = '';
           document.getElementById('selected-file')!.textContent = '';
           (document.getElementById('upload-btn') as HTMLElement).style.display = 'none';
           (document.getElementById('file-input') as HTMLInputElement).value = '';
