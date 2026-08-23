@@ -70,8 +70,10 @@ const galleryFilters = [
       </FadeIn>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <FadeIn>
-          <div class="vcard rounded-2xl overflow-hidden border h-full" style="border-color:rgba(255,255,255,.08);background:rgba(255,255,255,.04);" role="button" tabindex="0" onclick="openHariGallery('rice:karjat')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openHariGallery('rice:karjat')}">
-            <div class="r-photoslot" aria-hidden="true" style="height:150px;border:none;border-bottom:1.5px dashed rgba(139,212,198,.35);">📷 Photo — added via admin</div>
+          <div class="vcard rounded-2xl overflow-hidden border h-full" style="border-color:rgba(255,255,255,.08);background:rgba(255,255,255,.04);" data-gallery-cat="rice:karjat">
+            <div style="height:150px;overflow:hidden;border-bottom:1px solid rgba(255,255,255,.06);">
+              <img data-card-photo src="/images/placeholders/rice-karjat.jpg" alt="HariLeaf Karjat 3" loading="lazy" style="width:100%;height:100%;object-fit:cover;" />
+            </div>
             <div class="p-6">
               <h3 class="text-xl font-extrabold text-white">Karjat 3</h3>
               <p class="text-xs font-bold uppercase tracking-wide mb-3.5" style="color:#9fb17d;">Everyday · Bold Grain</p>
@@ -79,13 +81,15 @@ const galleryFilters = [
               <div class="flex flex-wrap gap-1.5 mb-4">
                 {['Bold grain','Everyday','Wholesome'].map((c) => (<span class="text-[11px] font-bold px-2.5 py-1 rounded-full" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.82);">{c}</span>))}
               </div>
-              <span class="text-xs font-extrabold" style="color:#8bd4c6;">View photos →</span>
+              <span class="viewlink text-xs font-extrabold" style="color:#8bd4c6;display:none;">View photos →</span>
             </div>
           </div>
         </FadeIn>
         <FadeIn delay={80}>
-          <div class="vcard rounded-2xl overflow-hidden border h-full" style="border-color:rgba(255,255,255,.08);background:rgba(255,255,255,.04);" role="button" tabindex="0" onclick="openHariGallery('rice:wada')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openHariGallery('rice:wada')}">
-            <div class="r-photoslot" aria-hidden="true" style="height:150px;border:none;border-bottom:1.5px dashed rgba(139,212,198,.35);">📷 Photo — added via admin</div>
+          <div class="vcard rounded-2xl overflow-hidden border h-full" style="border-color:rgba(255,255,255,.08);background:rgba(255,255,255,.04);" data-gallery-cat="rice:wada">
+            <div style="height:150px;overflow:hidden;border-bottom:1px solid rgba(255,255,255,.06);">
+              <img data-card-photo src="/images/placeholders/rice-wada.jpg" alt="HariLeaf Wada Kolam" loading="lazy" style="width:100%;height:100%;object-fit:cover;" />
+            </div>
             <div class="p-6">
               <h3 class="text-xl font-extrabold text-white">Wada Kolam</h3>
               <p class="text-xs font-bold uppercase tracking-wide mb-3.5" style="color:#9fb17d;">Aromatic · GI-Tagged</p>
@@ -93,14 +97,16 @@ const galleryFilters = [
               <div class="flex flex-wrap gap-1.5 mb-4">
                 {['GI-tagged','Aromatic','Fine grain'].map((c) => (<span class="text-[11px] font-bold px-2.5 py-1 rounded-full" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.82);">{c}</span>))}
               </div>
-              <span class="text-xs font-extrabold" style="color:#8bd4c6;">View photos →</span>
+              <span class="viewlink text-xs font-extrabold" style="color:#8bd4c6;display:none;">View photos →</span>
             </div>
           </div>
         </FadeIn>
         <FadeIn delay={160}>
-          <div class="vcard rounded-2xl overflow-hidden border h-full relative" style="border-color:rgba(180,60,60,.25);background:radial-gradient(ellipse at 80% 10%, rgba(150,40,40,.22), transparent 60%), rgba(255,255,255,.04);" role="button" tabindex="0" onclick="openHariGallery('rice:red')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openHariGallery('rice:red')}">
+          <div class="vcard rounded-2xl overflow-hidden border h-full relative" style="border-color:rgba(180,60,60,.25);background:radial-gradient(ellipse at 80% 10%, rgba(150,40,40,.22), transparent 60%), rgba(255,255,255,.04);" data-gallery-cat="rice:red">
             <span class="absolute top-3.5 left-3.5 z-10 text-[10px] font-extrabold text-white px-2.5 py-1 rounded-full tracking-wide" style="background:rgba(180,50,50,.85);">★ NUTRITION HERO</span>
-            <div class="r-photoslot" aria-hidden="true" style="height:150px;border:none;border-bottom:1.5px dashed rgba(139,212,198,.35);">📷 Photo — added via admin</div>
+            <div style="height:150px;overflow:hidden;border-bottom:1px solid rgba(255,255,255,.06);">
+              <img data-card-photo src="/images/placeholders/rice-red.jpg" alt="HariLeaf Red Rice" loading="lazy" style="width:100%;height:100%;object-fit:cover;" />
+            </div>
             <div class="p-6">
               <h3 class="text-xl font-extrabold text-white">Red Rice</h3>
               <p class="text-xs font-bold uppercase tracking-wide mb-3.5" style="color:#9fb17d;">Unpolished · Antioxidant-Rich</p>
@@ -108,12 +114,12 @@ const galleryFilters = [
               <div class="flex flex-wrap gap-1.5 mb-4">
                 {['Whole grain','Higher fiber','Lower GI'].map((c) => (<span class="text-[11px] font-bold px-2.5 py-1 rounded-full" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.82);">{c}</span>))}
               </div>
-              <span class="text-xs font-extrabold" style="color:#8bd4c6;">View photos →</span>
+              <span class="viewlink text-xs font-extrabold" style="color:#8bd4c6;display:none;">View photos →</span>
             </div>
           </div>
         </FadeIn>
       </div>
-      <p class="text-center mt-5 text-sm" style="color:rgba(240,240,238,.45);">Every photo lives in one place — <button class="font-bold" style="color:#8bd4c6;" onclick="openHariGallery('all')">open the full rice gallery →</button></p>
+      <p class="text-center mt-5 text-sm" style="color:rgba(240,240,238,.45);">Every photo lives in one place — <button class="font-bold" style="color:#8bd4c6;display:none;" data-gallery-all="rice">open the full rice gallery →</button></p>
     </div>
   </section>
 

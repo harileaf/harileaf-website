@@ -75,12 +75,7 @@ const filtersJson = JSON.stringify(filters);
             <img src="${esc(p.url)}" alt="${esc(p.label)}" loading="lazy" style="width:100%;height:100%;object-fit:cover;" />
           </div>`).join('');
       } else {
-        gridEl.innerHTML = Array.from({ length: 6 }).map(() => `
-          <div class="rounded-xl flex items-center justify-center text-xs font-bold"
-               style="height:200px;border:1.5px dashed rgba(139,212,198,.35);color:rgba(139,212,198,.7);
-                      background:repeating-linear-gradient(45deg,rgba(255,255,255,.02),rgba(255,255,255,.02) 10px,rgba(255,255,255,.04) 10px,rgba(255,255,255,.04) 20px);">
-            📷 Photos coming soon
-          </div>`).join('');
+        gridEl.innerHTML = `<p style="grid-column:1/-1;color:rgba(240,240,238,.45);font-size:14px;padding:20px 0;">No photos in this view yet.</p>`;
       }
     }
 
@@ -116,6 +111,36 @@ const filtersJson = JSON.stringify(filters);
     }
 
     (window as any).openHariGallery = open;
+
+    function enableCardClick(card: HTMLElement, cat: string) {
+      card.setAttribute('role', 'button');
+      card.setAttribute('tabindex', '0');
+      card.style.cursor = 'pointer';
+      const vl = card.querySelector<HTMLElement>('.viewlink');
+      if (vl) vl.style.display = '';
+      card.addEventListener('click', () => open(cat));
+      card.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(cat); }
+      });
+    }
+
+    async function hydrateCards() {
+      await ensurePhotos(); // fills `photos` (already filtered to this page's prefix)
+      document.querySelectorAll<HTMLElement>('[data-gallery-cat]').forEach((card) => {
+        const cat = card.getAttribute('data-gallery-cat')!;
+        const matches = photos.filter((p) => p.category === cat);
+        const img = card.querySelector<HTMLImageElement>('img[data-card-photo]');
+        if (matches.length >= 1 && img) img.src = matches[0].url;
+        if (matches.length >= 2) enableCardClick(card, cat);
+      });
+      const allLink = document.querySelector<HTMLElement>('[data-gallery-all]');
+      if (allLink && photos.length >= 2) {
+        allLink.style.display = '';
+        allLink.addEventListener('click', () => open('all'));
+      }
+    }
+    hydrateCards();
+
     document.getElementById('hg-close')!.addEventListener('click', close);
     root.addEventListener('click', (e) => { if (e.target === root) close(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
