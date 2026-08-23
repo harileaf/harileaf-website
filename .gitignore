@@ -48,3 +48,6 @@ pnpm-debug.log*
 # TypeScript
 *.tsbuildinfo
 .worktrees/
+
+# brainstorm visual companion
+.superpowers/
