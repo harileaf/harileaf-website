@@ -15,12 +15,13 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   const form = await request.formData();
   const file = form.get('file');
   const label = (form.get('label') as string | null) ?? '';
+  const category = ((form.get('category') as string | null) ?? '').trim() || undefined;
   if (!(file instanceof File) || !label.trim()) {
     return new Response(JSON.stringify({ error: 'file and label are required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
   if (file.size > 8 * 1024 * 1024) {
     return new Response(JSON.stringify({ error: 'File exceeds 8 MB limit' }), { status: 413, headers: { 'Content-Type': 'application/json' } });
   }
-  const photo = await addPhoto(env.HARILEAF_CMS, env.HARILEAF_MEDIA, file, label.trim());
+  const photo = await addPhoto(env.HARILEAF_CMS, env.HARILEAF_MEDIA, file, label.trim(), category);
   return new Response(JSON.stringify(photo), { status: 201, headers: { 'Content-Type': 'application/json' } });
 };

@@ -2,6 +2,7 @@ export interface Photo {
   key: string;
   label: string;
   url: string;
+  category?: string;
 }
 
 export interface ProduceItem {
