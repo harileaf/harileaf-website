@@ -202,7 +202,7 @@ const isItemActive = (item: { url: string; children?: { url: string }[] }) =>
                 ? 'bg-[#196A5E]/10 text-[#196A5E]'
                 : 'text-on-surface hover:bg-surface-container-low hover:text-[#196A5E]',
             ]}
-            aria-current={isActive(item.url) ? 'page' : undefined}
+            aria-current={isActive(item.url) && !(item.children && item.children.length > 0) ? 'page' : undefined}
           >
             {item.label}
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="opacity-40" aria-hidden="true">
