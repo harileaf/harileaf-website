@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { validateSession } from '../../../lib/auth';
-import { listPhotos, addPhoto } from '../../../lib/cms';
+import { listPhotos, addPhoto, deletePhoto } from '../../../lib/cms';
 
 export const GET: APIRoute = async ({ cookies }) => {
   const photos = await listPhotos(env.HARILEAF_CMS);
@@ -24,4 +24,19 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   }
   const photo = await addPhoto(env.HARILEAF_CMS, env.HARILEAF_MEDIA, file, label.trim(), category);
   return new Response(JSON.stringify(photo), { status: 201, headers: { 'Content-Type': 'application/json' } });
+};
+
+// Delete takes the R2 key as a query parameter (not a path segment) for the same
+// reason as the image route: the key contains a slash and Cloudflare's edge URL
+// normalization decodes %2F, breaking single-segment dynamic route matching.
+export const DELETE: APIRoute = async ({ request, cookies }) => {
+  if (!(await validateSession(env.HARILEAF_CMS, cookies))) {
+    return new Response(JSON.stringify({ error: 'Unauthorised' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+  }
+  const key = new URL(request.url).searchParams.get('key') ?? '';
+  if (!key.startsWith('photos/')) {
+    return new Response(JSON.stringify({ error: 'Invalid key' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+  await deletePhoto(env.HARILEAF_CMS, env.HARILEAF_MEDIA, key);
+  return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
 };

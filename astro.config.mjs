@@ -1,5 +1,5 @@
 // @ts-check
-import { defineConfig } from 'astro/config';
+import { defineConfig, sessionDrivers } from 'astro/config';
 import cloudflare from '@astrojs/cloudflare';
 import keystatic from '@keystatic/astro';
 import tailwind from '@astrojs/tailwind';
@@ -13,6 +13,12 @@ export default defineConfig({
   // Data reading in prerendered pages uses direct JSON imports (not createReader)
   // to avoid unenv's lack of fs.readFile during the prerender simulation.
   output: 'server',
+  // The app implements its own auth (see src/lib/auth.ts) and never uses Astro's
+  // native session API. Explicitly setting a driver stops the Cloudflare adapter
+  // from auto-provisioning a `SESSION` KV binding we don't need.
+  session: {
+    driver: sessionDrivers.memory(),
+  },
   adapter: cloudflare({
     platformProxy: {
       enabled: true,

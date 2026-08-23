@@ -216,7 +216,7 @@ const authenticated = await validateSession(env.HARILEAF_CMS, Astro.cookies);
           const key = btn.dataset.key!;
           const card = grid.querySelector(`[data-key="${key}"]`) as HTMLElement | null;
           card?.remove();
-          const res = await fetch(`/api/photos/${encodeURIComponent(key)}`, { method: 'DELETE' });
+          const res = await fetch(`/api/photos?key=${encodeURIComponent(key)}`, { method: 'DELETE' });
           if (!res.ok) {
             loadPhotos();
             showToast('Delete failed', 'error');

@@ -4,7 +4,6 @@ interface Env {
   HARILEAF_CMS: KVNamespace;
   HARILEAF_MEDIA: R2Bucket;
   ADMIN_PASSPHRASE: string;
-  SESSION: KVNamespace;
 }
 
 declare module 'cloudflare:workers' {

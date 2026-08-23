@@ -92,18 +92,52 @@ const isActive = (url: string) =>
     <!-- Desktop nav links -->
     <div class="hidden md:flex items-center gap-8">
       {items.map((item) => (
-        <a
-          href={item.url}
-          class:list={[
-            'font-manrope font-medium tracking-tight transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:rounded-sm',
-            isActive(item.url)
-              ? 'text-[#196A5E] border-b-2 border-[#196A5E] pb-1'
-              : 'text-[#3F4946] hover:text-[#196A5E] nav-link-animated',
-          ]}
-          aria-current={isActive(item.url) ? 'page' : undefined}
-        >
-          {item.label}
-        </a>
+        item.children && item.children.length > 0 ? (
+          <div class="relative group">
+            <a
+              href={item.url}
+              class:list={[
+                'font-manrope font-medium tracking-tight transition-colors duration-200 inline-flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:rounded-sm',
+                isActive(item.url)
+                  ? 'text-[#196A5E] border-b-2 border-[#196A5E] pb-1'
+                  : 'text-[#3F4946] hover:text-[#196A5E]',
+              ]}
+              aria-current={isActive(item.url) ? 'page' : undefined}
+            >
+              {item.label}
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true" class="mt-0.5 opacity-70"><path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+            <div class="absolute left-0 top-full pt-3 opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 transition-all duration-200">
+              <div class="min-w-[190px] rounded-2xl bg-[#F7FAF4]/95 backdrop-blur-md shadow-lg border border-outline-variant/20 p-2">
+                {item.children.map((child) => (
+                  <a
+                    href={child.url}
+                    class:list={[
+                      'block rounded-xl px-4 py-2.5 text-sm font-medium transition-colors',
+                      isActive(child.url) ? 'bg-[#196A5E]/10 text-[#196A5E]' : 'text-[#3F4946] hover:bg-surface-container-low hover:text-[#196A5E]',
+                    ]}
+                    aria-current={isActive(child.url) ? 'page' : undefined}
+                  >
+                    {child.label}
+                  </a>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <a
+            href={item.url}
+            class:list={[
+              'font-manrope font-medium tracking-tight transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:rounded-sm',
+              isActive(item.url)
+                ? 'text-[#196A5E] border-b-2 border-[#196A5E] pb-1'
+                : 'text-[#3F4946] hover:text-[#196A5E] nav-link-animated',
+            ]}
+            aria-current={isActive(item.url) ? 'page' : undefined}
+          >
+            {item.label}
+          </a>
+        )
       ))}
     </div>
 
@@ -172,6 +206,24 @@ const isActive = (url: string) =>
               <path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </a>
+          {item.children && item.children.length > 0 && (
+            <ul class="ml-4 mt-1 mb-1 space-y-1 border-l border-outline-variant/30 pl-3" role="list">
+              {item.children.map((child) => (
+                <li>
+                  <a
+                    href={child.url}
+                    class:list={[
+                      'block rounded-lg px-4 py-3 text-base font-medium transition-colors',
+                      isActive(child.url) ? 'text-[#196A5E]' : 'text-on-surface-variant hover:text-[#196A5E]',
+                    ]}
+                    aria-current={isActive(child.url) ? 'page' : undefined}
+                  >
+                    {child.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
         </li>
       ))}
     </ul>

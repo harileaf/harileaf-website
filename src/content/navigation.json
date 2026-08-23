@@ -2,7 +2,15 @@
   "items": [
     { "label": "Technology",        "url": "/technology", "children": [] },
     { "label": "Solutions & Farms", "url": "/solutions",  "children": [] },
-    { "label": "Produce",           "url": "/produce",    "children": [] },
+    {
+      "label": "Produce",
+      "url": "/produce",
+      "children": [
+        { "label": "Fresh Produce", "url": "/produce" },
+        { "label": "Rice",          "url": "/rice" },
+        { "label": "Spices",        "url": "/spices" }
+      ]
+    },
     { "label": "About",             "url": "/about",      "children": [] },
     { "label": "Contact",           "url": "/contact",    "children": [] }
   ],

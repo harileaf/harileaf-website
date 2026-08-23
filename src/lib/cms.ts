@@ -8,7 +8,7 @@ export async function listPhotos(kv: KVNamespace): Promise<Photo[]> {
     key,
     label,
     category,
-    url: `/api/photos/${encodeURIComponent(key)}/image`,
+    url: `/api/photos/image?key=${encodeURIComponent(key)}`,
   }));
 }
 
@@ -23,7 +23,7 @@ export async function addPhoto(kv: KVNamespace, r2: R2Bucket, file: File, label:
     { key, label, category },
   ];
   await kv.put('photos:index', JSON.stringify(updated));
-  return { key, label, category, url: `/api/photos/${encodeURIComponent(key)}/image` };
+  return { key, label, category, url: `/api/photos/image?key=${encodeURIComponent(key)}` };
 }
 
 export async function deletePhoto(kv: KVNamespace, r2: R2Bucket, key: string): Promise<void> {
