@@ -1,0 +1,232 @@
+---
+export const prerender = true;
+import SiteLayout from '../layouts/SiteLayout.astro';
+import SEO from '../components/seo/SEO.astro';
+import FadeIn from '../components/animations/FadeIn.astro';
+import WaitlistForm from '../components/produce/WaitlistForm.astro';
+import PhotoGallery from '../components/produce/PhotoGallery.astro';
+
+const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://harileaf.org');
+const pageTitle = 'Organic Rice | HariLeaf Farm — Karjat 3, Wada Kolam & Red Rice';
+const pageDesc  = 'HariLeaf now grows three heritage rice varieties — Karjat 3, Wada Kolam and antioxidant-rich Red Rice — organically grown and minimally milled to keep fiber, minerals and nutrition in the grain.';
+
+const galleryFilters = [
+  { key: 'all', label: 'All' },
+  { key: 'rice:karjat', label: 'Karjat 3' },
+  { key: 'rice:wada', label: 'Wada Kolam' },
+  { key: 'rice:red', label: 'Red Rice' },
+];
+---
+
+<SiteLayout title={pageTitle} description={pageDesc}>
+  <slot name="head" slot="head">
+    <SEO title={pageTitle} description={pageDesc} canonicalUrl={canonicalURL} />
+  </slot>
+
+  <style>
+    .r-photoslot { border:1.5px dashed rgba(139,212,198,.35); background:repeating-linear-gradient(45deg,rgba(255,255,255,.02),rgba(255,255,255,.02) 10px,rgba(255,255,255,.04) 10px,rgba(255,255,255,.04) 20px); display:flex; align-items:center; justify-content:center; color:rgba(139,212,198,.7); font-size:12px; font-weight:700; text-align:center; }
+    .vcard { transition:transform .2s, box-shadow .2s, border-color .2s; cursor:pointer; }
+    .vcard:hover { transform:translateY(-4px); box-shadow:0 14px 34px rgba(0,0,0,.4); border-color:rgba(139,212,198,.3); }
+    .r-grad { background:linear-gradient(90deg,#8bd4c6,#9fb17d); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+    .bar > span { display:block; height:100%; border-radius:4px; }
+    .b-teal > span { background:linear-gradient(90deg,#196a5e,#8bd4c6); }
+    .b-red > span { background:linear-gradient(90deg,#8a2a2a,#d05656); }
+    .mbar > span { display:block; height:100%; border-radius:5px; }
+    .c-carb > span { background:linear-gradient(90deg,#7a6a3a,#bbcd97); }
+    .c-fiber > span { background:linear-gradient(90deg,#196a5e,#8bd4c6); }
+    .c-prot > span { background:linear-gradient(90deg,#546437,#9fb17d); }
+    .c-fat > span { background:linear-gradient(90deg,#8a5a2a,#d8a15a); }
+  </style>
+
+  <!-- HERO -->
+  <section class="relative overflow-hidden" style="background:linear-gradient(135deg,#0e1a0e 0%,#1a2a1a 100%);padding:8rem 0 4.5rem;">
+    <div class="absolute inset-0 pointer-events-none" aria-hidden="true">
+      <div style="position:absolute;top:0;right:0;width:45%;height:100%;background:radial-gradient(ellipse at 90% 30%, rgba(140,40,40,.2) 0%, transparent 55%);"></div>
+      <div style="position:absolute;bottom:0;left:0;width:45%;height:100%;background:radial-gradient(ellipse at 10% 80%, rgba(127,200,186,.12) 0%, transparent 50%);"></div>
+    </div>
+    <div class="absolute right-10 top-1/2 -translate-y-1/2 text-[9rem] opacity-[0.12] select-none pointer-events-none" aria-hidden="true">🌾</div>
+    <div class="relative z-10 max-w-7xl mx-auto px-6">
+      <FadeIn><span class="text-xs uppercase tracking-widest font-extrabold" style="color:rgba(159,177,125,.9);">HariLeaf Farm · Now Growing Rice</span></FadeIn>
+      <FadeIn delay={100}><h1 class="text-5xl md:text-6xl font-extrabold tracking-tighter leading-[1.05] mt-4 text-white">Rice with the goodness<br /><span class="r-grad">left in.</span></h1></FadeIn>
+      <FadeIn delay={200}><p class="mt-5 text-lg max-w-xl leading-relaxed" style="color:rgba(255,255,255,.55);">Three heritage varieties, grown organically and milled gently — so the fiber, minerals and living nutrition stay in the grain, instead of being polished away.</p></FadeIn>
+      <FadeIn delay={300}>
+        <div class="mt-7 flex flex-wrap gap-3">
+          {['🌱 100% Organic','🌾 3 Varieties','🙌 Hand-Harvested','✨ Minimally Milled'].map((b) => (
+            <span class="text-xs font-extrabold uppercase tracking-wider px-4 py-2 rounded-full" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.75);">{b}</span>
+          ))}
+          <span class="text-xs font-extrabold uppercase tracking-wider px-4 py-2 rounded-full" style="background:rgba(255,180,80,.14);border:1px solid rgba(255,180,80,.3);color:rgba(255,200,120,.95);">🛒 Online Ordering — Coming Soon</span>
+        </div>
+      </FadeIn>
+    </div>
+  </section>
+
+  <!-- VARIETIES -->
+  <section style="background:#0c110c;" class="py-16 px-6">
+    <div class="max-w-7xl mx-auto">
+      <FadeIn>
+        <p class="text-xs uppercase tracking-widest font-extrabold mb-2" style="color:rgba(159,177,125,.7);">What we grow</p>
+        <h2 class="text-3xl font-extrabold tracking-tight mb-2 text-white">Three varieties, three characters</h2>
+        <p class="mb-8" style="color:rgba(240,240,238,.55);">Tap any variety to see it in our fields and on the plate.</p>
+      </FadeIn>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <FadeIn>
+          <div class="vcard rounded-2xl overflow-hidden border h-full" style="border-color:rgba(255,255,255,.08);background:rgba(255,255,255,.04);" onclick="openHariGallery('rice:karjat')">
+            <div class="r-photoslot" style="height:150px;border:none;border-bottom:1.5px dashed rgba(139,212,198,.35);">📷 Photo — added via admin</div>
+            <div class="p-6">
+              <h3 class="text-xl font-extrabold text-white">Karjat 3</h3>
+              <p class="text-xs font-bold uppercase tracking-wide mb-3.5" style="color:#9fb17d;">Everyday · Bold Grain</p>
+              <p class="text-sm mb-3.5" style="color:rgba(240,240,238,.6);">A dependable, hearty short-grain rice bred at a respected rice research station. Versatile and satisfying — built for everyday cooking.</p>
+              <div class="flex flex-wrap gap-1.5 mb-4">
+                {['Bold grain','Everyday','Wholesome'].map((c) => (<span class="text-[11px] font-bold px-2.5 py-1 rounded-full" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.82);">{c}</span>))}
+              </div>
+              <span class="text-xs font-extrabold" style="color:#8bd4c6;">View photos →</span>
+            </div>
+          </div>
+        </FadeIn>
+        <FadeIn delay={80}>
+          <div class="vcard rounded-2xl overflow-hidden border h-full" style="border-color:rgba(255,255,255,.08);background:rgba(255,255,255,.04);" onclick="openHariGallery('rice:wada')">
+            <div class="r-photoslot" style="height:150px;border:none;border-bottom:1.5px dashed rgba(139,212,198,.35);">📷 Photo — added via admin</div>
+            <div class="p-6">
+              <h3 class="text-xl font-extrabold text-white">Wada Kolam</h3>
+              <p class="text-xs font-bold uppercase tracking-wide mb-3.5" style="color:#9fb17d;">Aromatic · GI-Tagged</p>
+              <p class="text-sm mb-3.5" style="color:rgba(240,240,238,.6);">The fine, fragrant "Basmati of Maharashtra." Slender grains that cook light, fluffy and separate. GI-tagged in 2021 for its protected heritage.</p>
+              <div class="flex flex-wrap gap-1.5 mb-4">
+                {['GI-tagged','Aromatic','Fine grain'].map((c) => (<span class="text-[11px] font-bold px-2.5 py-1 rounded-full" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.82);">{c}</span>))}
+              </div>
+              <span class="text-xs font-extrabold" style="color:#8bd4c6;">View photos →</span>
+            </div>
+          </div>
+        </FadeIn>
+        <FadeIn delay={160}>
+          <div class="vcard rounded-2xl overflow-hidden border h-full relative" style="border-color:rgba(180,60,60,.25);background:radial-gradient(ellipse at 80% 10%, rgba(150,40,40,.22), transparent 60%), rgba(255,255,255,.04);" onclick="openHariGallery('rice:red')">
+            <span class="absolute top-3.5 left-3.5 z-10 text-[10px] font-extrabold text-white px-2.5 py-1 rounded-full tracking-wide" style="background:rgba(180,50,50,.85);">★ NUTRITION HERO</span>
+            <div class="r-photoslot" style="height:150px;border:none;border-bottom:1.5px dashed rgba(139,212,198,.35);">📷 Photo — added via admin</div>
+            <div class="p-6">
+              <h3 class="text-xl font-extrabold text-white">Red Rice</h3>
+              <p class="text-xs font-bold uppercase tracking-wide mb-3.5" style="color:#9fb17d;">Unpolished · Antioxidant-Rich</p>
+              <p class="text-sm mb-3.5" style="color:rgba(240,240,238,.6);">Kept unpolished so the bran stays on — that's where the fiber, minerals and natural red pigments live. Nutty, wholesome, deeply satisfying.</p>
+              <div class="flex flex-wrap gap-1.5 mb-4">
+                {['Whole grain','Higher fiber','Lower GI'].map((c) => (<span class="text-[11px] font-bold px-2.5 py-1 rounded-full" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.82);">{c}</span>))}
+              </div>
+              <span class="text-xs font-extrabold" style="color:#8bd4c6;">View photos →</span>
+            </div>
+          </div>
+        </FadeIn>
+      </div>
+      <p class="text-center mt-5 text-sm" style="color:rgba(240,240,238,.45);">Every photo lives in one place — <button class="font-bold" style="color:#8bd4c6;" onclick="openHariGallery('all')">open the full rice gallery →</button></p>
+    </div>
+  </section>
+
+  <!-- WHY UNPOLISHED -->
+  <section style="background:#0c110c;" class="pb-16 px-6">
+    <div class="max-w-7xl mx-auto">
+      <FadeIn>
+        <p class="text-xs uppercase tracking-widest font-extrabold mb-2" style="color:rgba(159,177,125,.7);">The most important thing to understand</p>
+        <h2 class="text-3xl font-extrabold tracking-tight mb-2 text-white">Why <em class="not-italic" style="color:#d05656;">unpolished</em> rice is better for you</h2>
+        <p class="mb-8 max-w-2xl" style="color:rgba(240,240,238,.55);">Every grain has three parts. Polishing — done to make rice white and shelf-stable — grinds two of them away, and with them, most of the nutrition.</p>
+      </FadeIn>
+      <div class="rounded-3xl p-8 md:p-12" style="background:linear-gradient(135deg,#141a12 0%,#0e150e 100%);">
+        <div class="grid md:grid-cols-2 gap-10 items-center">
+          <div class="flex flex-col gap-2.5">
+            <div class="rounded-xl p-4 border" style="background:rgba(150,60,40,.18);border-color:rgba(180,90,60,.35);"><span class="float-right text-[10px] font-extrabold" style="color:#8bd4c6;">WE KEEP IT</span><div class="font-extrabold text-white">Bran</div><div class="text-[13px]" style="color:rgba(240,240,238,.55);">Fiber, magnesium, and the antioxidant pigments that colour red rice.</div></div>
+            <div class="rounded-xl p-4 border" style="background:rgba(159,177,125,.16);border-color:rgba(159,177,125,.35);"><span class="float-right text-[10px] font-extrabold" style="color:#8bd4c6;">WE KEEP IT</span><div class="font-extrabold text-white">Germ</div><div class="text-[13px]" style="color:rgba(240,240,238,.55);">The living heart of the seed — healthy fats, B vitamins, vitamin E, minerals.</div></div>
+            <div class="rounded-xl p-4 border" style="background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.1);"><div class="font-extrabold text-white">Endosperm</div><div class="text-[13px]" style="color:rgba(240,240,238,.55);">The starchy centre. This is all that's left in white rice.</div></div>
+          </div>
+          <div>
+            <div class="flex gap-3.5">
+              <div class="flex-1 rounded-2xl p-5 border" style="background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.1);"><h4 class="font-bold text-white mb-2">⚪ Polished (white)</h4><ul class="text-[13px] space-y-1" style="color:rgba(240,240,238,.6);"><li>✗ Bran removed</li><li>✗ Germ removed</li><li>✗ Most fiber gone</li><li>✗ Minerals stripped</li><li>• Spikes blood sugar faster</li></ul></div>
+              <div class="flex-1 rounded-2xl p-5 border" style="background:radial-gradient(ellipse at 50% 0%,rgba(150,40,40,.2),transparent 70%),rgba(255,255,255,.04);border-color:rgba(180,60,60,.3);"><h4 class="font-bold text-white mb-2">🔴 Unpolished (ours)</h4><ul class="text-[13px] space-y-1" style="color:rgba(240,240,238,.6);"><li>✓ Bran intact</li><li>✓ Germ intact</li><li>✓ Fiber &amp; minerals kept</li><li>✓ Antioxidant pigments kept</li><li>• Gentler on blood sugar</li></ul></div>
+            </div>
+            <p class="text-xs italic mt-5" style="color:rgba(240,240,238,.4);">Polishing trades nutrition for shelf-life and colour. We choose the grain over the shelf.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MACRO + MICRO + COMPARISON -->
+  <section style="background:#0c110c;" class="pb-16 px-6">
+    <div class="max-w-7xl mx-auto">
+      <FadeIn>
+        <p class="text-xs uppercase tracking-widest font-extrabold mb-2" style="color:rgba(159,177,125,.7);">What's actually inside</p>
+        <h2 class="text-3xl font-extrabold tracking-tight mb-2 text-white">The full nutrition picture</h2>
+        <p class="mb-8 max-w-2xl" style="color:rgba(240,240,238,.55);">Because we keep the whole grain, our red rice delivers balanced macros and the micronutrients that polishing strips away.</p>
+      </FadeIn>
+      <div class="grid md:grid-cols-2 gap-4 mb-4">
+        <div class="rounded-2xl p-8 border" style="background:linear-gradient(135deg,#161a16 0%,#0e150e 100%);border-color:rgba(255,255,255,.08);">
+          <h3 class="text-lg font-bold text-white">Macronutrients</h3>
+          <p class="text-xs uppercase tracking-wider mb-5" style="color:rgba(240,240,238,.4);">Per 100g uncooked · approximate</p>
+          {[['Complex carbohydrates','~73 g','c-carb',92],['Dietary fiber','~5 g','c-fiber',55],['Protein','~7 g','c-prot',45],['Healthy fats (from germ)','~2.5 g','c-fat',25]].map(([n,v,c,w]) => (
+            <div class="mb-4">
+              <div class="flex justify-between text-sm mb-1.5 text-white"><span>{n}</span><b>{v}</b></div>
+              <div class={`mbar ${c} h-2.5 rounded-md`} style="background:rgba(255,255,255,.07);overflow:hidden;"><span style={`width:${w}%`}></span></div>
+            </div>
+          ))}
+          <p class="text-xs italic mt-3.5" style="color:rgba(240,240,238,.4);">Slow-release complex carbs, more fiber and protein than polished white rice, and the good fats that live in the germ.</p>
+        </div>
+        <div class="rounded-2xl p-8 border" style="background:linear-gradient(135deg,#161a16 0%,#0e150e 100%);border-color:rgba(255,255,255,.08);">
+          <h3 class="text-lg font-bold text-white">Micronutrients &amp; bioactives</h3>
+          <p class="text-xs uppercase tracking-wider mb-5" style="color:rgba(240,240,238,.4);">What the bran &amp; germ deliver</p>
+          <div class="flex flex-wrap gap-2">
+            {[['Magnesium','muscle & nerve'],['Iron','oxygen transport'],['Zinc','immunity'],['B-complex','energy metabolism'],['Vitamin E','antioxidant'],['Manganese','bone & metabolism'],['Proanthocyanidins','the red pigment'],['Anthocyanins','plant antioxidant']].map(([k,d]) => (
+              <div class="rounded-xl px-3.5 py-2.5" style="background:rgba(255,255,255,.05);border:1px solid rgba(159,177,125,.25);"><b class="block text-[13px]" style="color:#cfe0b5;">{k}</b><span class="text-[11px]" style="color:rgba(240,240,238,.5);">{d}</span></div>
+            ))}
+          </div>
+          <p class="text-xs italic mt-4" style="color:rgba(240,240,238,.4);">These concentrate in the bran and germ — the exact layers white rice throws away.</p>
+        </div>
+      </div>
+      <div class="rounded-3xl p-8 md:p-11" style="background:linear-gradient(135deg,#1a0e0e 0%,#0e1a0e 100%);">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+          {[
+            {t:'⚪ White Rice',cls:'b-teal',bd:'rgba(255,255,255,.08)',bg:'rgba(255,255,255,.03)',m:[['Fiber',12],['Antioxidant pigments',4],['Minerals',18],['Gentle on blood sugar',15]]},
+            {t:'🟤 Brown Rice',cls:'b-teal',bd:'rgba(255,255,255,.08)',bg:'rgba(255,255,255,.03)',m:[['Fiber',60],['Antioxidant pigments',35],['Minerals',75],['Gentle on blood sugar',60]]},
+            {t:'🔴 Red Rice',cls:'b-red',bd:'rgba(180,60,60,.4)',bg:'radial-gradient(ellipse at 50% 0%, rgba(150,40,40,.18), transparent 70%), rgba(255,255,255,.04)',m:[['Fiber',85],['Antioxidant pigments',100],['Minerals',80],['Gentle on blood sugar',70]]},
+          ].map((col) => (
+            <div class="rounded-2xl p-5 border" style={`border-color:${col.bd};background:${col.bg};`}>
+              <h4 class="font-bold text-white mb-3">{col.t}</h4>
+              {col.m.map(([lbl,w]) => (
+                <div class="mb-3">
+                  <div class="text-[11px] uppercase tracking-wide" style="color:rgba(240,240,238,.45);">{lbl}</div>
+                  <div class={`bar ${col.cls} h-[7px] rounded mt-1.5`} style="background:rgba(255,255,255,.08);overflow:hidden;"><span style={`width:${w}%`}></span></div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+        <p class="text-xs italic mt-5" style="color:rgba(240,240,238,.4);">Relative comparison for illustration. Values vary by harvest — we're lab-testing our own grain to publish verified figures. Red rice keeps the bran &amp; germ white rice loses, plus antioxidant pigments, and generally has a lower glycemic index than white rice.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMMUNITY -->
+  <section style="background:#0c110c;" class="pb-16 px-6">
+    <div class="max-w-7xl mx-auto">
+      <div class="relative overflow-hidden rounded-3xl p-10 md:p-14 text-center" style="background:linear-gradient(135deg,#1b2a1b 0%,#12200f 100%);">
+        <div class="absolute right-8 -bottom-5 text-[11rem] opacity-[0.08] select-none pointer-events-none" aria-hidden="true">🌿</div>
+        <div class="relative z-10">
+          <p class="text-xs uppercase tracking-widest font-extrabold mb-2" style="color:rgba(159,177,125,.7);">The bigger idea</p>
+          <h2 class="text-3xl font-extrabold tracking-tight mb-3.5 max-w-2xl mx-auto text-white">Good food is grown, not manufactured.</h2>
+          <p class="max-w-xl mx-auto mb-7" style="color:rgba(240,240,238,.6);">HariLeaf isn't just selling rice — we're building a community of people who believe food should be organic, whole, and as close to the earth as possible. The less it's processed, the more it gives back to you.</p>
+          <div class="grid md:grid-cols-3 gap-4 max-w-3xl mx-auto mb-8">
+            {[['🌱','Grown organically','No synthetic chemicals or pesticides — ever. Just soil, sun and care.'],['🌾','Minimally processed','We mill gently and keep the grain whole, so nutrition stays where it belongs.'],['🤝','Grown for a community','Farmer-direct, transparent, built on trust — not middlemen and markups.']].map(([e,t,d]) => (
+              <div class="rounded-2xl p-6" style="background:rgba(255,255,255,.05);border:1px solid rgba(159,177,125,.2);"><div class="text-3xl mb-2">{e}</div><div class="font-extrabold text-white mb-1">{t}</div><div class="text-[13px]" style="color:rgba(240,240,238,.55);">{d}</div></div>
+            ))}
+          </div>
+          <a href="#rice-waitlist" class="inline-block rounded-full px-9 py-4 font-extrabold text-[15px]" style="background:linear-gradient(90deg,#196a5e,#7fc8ba);color:#00201b;">Join the HariLeaf community →</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- WAITLIST -->
+  <div id="rice-waitlist" style="background:#0c110c;">
+    <WaitlistForm
+      subject="Rice Waitlist — HariLeaf Farm"
+      heading="Be first to get our rice at home"
+      subtext="We're building online ordering so you can get farm-fresh, unpolished rice delivered to your door. Leave your number and we'll message you the moment it's live."
+      accent="teal"
+    />
+  </div>
+
+  <PhotoGallery groupTitle="HariLeaf Rice" categoryPrefix="rice" filters={galleryFilters} accent="teal" />
+</SiteLayout>
