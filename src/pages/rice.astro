@@ -70,8 +70,8 @@ const galleryFilters = [
       </FadeIn>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <FadeIn>
-          <div class="vcard rounded-2xl overflow-hidden border h-full" style="border-color:rgba(255,255,255,.08);background:rgba(255,255,255,.04);" onclick="openHariGallery('rice:karjat')">
-            <div class="r-photoslot" style="height:150px;border:none;border-bottom:1.5px dashed rgba(139,212,198,.35);">📷 Photo — added via admin</div>
+          <div class="vcard rounded-2xl overflow-hidden border h-full" style="border-color:rgba(255,255,255,.08);background:rgba(255,255,255,.04);" role="button" tabindex="0" onclick="openHariGallery('rice:karjat')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openHariGallery('rice:karjat')}">
+            <div class="r-photoslot" aria-hidden="true" style="height:150px;border:none;border-bottom:1.5px dashed rgba(139,212,198,.35);">📷 Photo — added via admin</div>
             <div class="p-6">
               <h3 class="text-xl font-extrabold text-white">Karjat 3</h3>
               <p class="text-xs font-bold uppercase tracking-wide mb-3.5" style="color:#9fb17d;">Everyday · Bold Grain</p>
@@ -84,8 +84,8 @@ const galleryFilters = [
           </div>
         </FadeIn>
         <FadeIn delay={80}>
-          <div class="vcard rounded-2xl overflow-hidden border h-full" style="border-color:rgba(255,255,255,.08);background:rgba(255,255,255,.04);" onclick="openHariGallery('rice:wada')">
-            <div class="r-photoslot" style="height:150px;border:none;border-bottom:1.5px dashed rgba(139,212,198,.35);">📷 Photo — added via admin</div>
+          <div class="vcard rounded-2xl overflow-hidden border h-full" style="border-color:rgba(255,255,255,.08);background:rgba(255,255,255,.04);" role="button" tabindex="0" onclick="openHariGallery('rice:wada')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openHariGallery('rice:wada')}">
+            <div class="r-photoslot" aria-hidden="true" style="height:150px;border:none;border-bottom:1.5px dashed rgba(139,212,198,.35);">📷 Photo — added via admin</div>
             <div class="p-6">
               <h3 class="text-xl font-extrabold text-white">Wada Kolam</h3>
               <p class="text-xs font-bold uppercase tracking-wide mb-3.5" style="color:#9fb17d;">Aromatic · GI-Tagged</p>
@@ -98,9 +98,9 @@ const galleryFilters = [
           </div>
         </FadeIn>
         <FadeIn delay={160}>
-          <div class="vcard rounded-2xl overflow-hidden border h-full relative" style="border-color:rgba(180,60,60,.25);background:radial-gradient(ellipse at 80% 10%, rgba(150,40,40,.22), transparent 60%), rgba(255,255,255,.04);" onclick="openHariGallery('rice:red')">
+          <div class="vcard rounded-2xl overflow-hidden border h-full relative" style="border-color:rgba(180,60,60,.25);background:radial-gradient(ellipse at 80% 10%, rgba(150,40,40,.22), transparent 60%), rgba(255,255,255,.04);" role="button" tabindex="0" onclick="openHariGallery('rice:red')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openHariGallery('rice:red')}">
             <span class="absolute top-3.5 left-3.5 z-10 text-[10px] font-extrabold text-white px-2.5 py-1 rounded-full tracking-wide" style="background:rgba(180,50,50,.85);">★ NUTRITION HERO</span>
-            <div class="r-photoslot" style="height:150px;border:none;border-bottom:1.5px dashed rgba(139,212,198,.35);">📷 Photo — added via admin</div>
+            <div class="r-photoslot" aria-hidden="true" style="height:150px;border:none;border-bottom:1.5px dashed rgba(139,212,198,.35);">📷 Photo — added via admin</div>
             <div class="p-6">
               <h3 class="text-xl font-extrabold text-white">Red Rice</h3>
               <p class="text-xs font-bold uppercase tracking-wide mb-3.5" style="color:#9fb17d;">Unpolished · Antioxidant-Rich</p>
@@ -134,8 +134,8 @@ const galleryFilters = [
           </div>
           <div>
             <div class="flex gap-3.5">
-              <div class="flex-1 rounded-2xl p-5 border" style="background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.1);"><h4 class="font-bold text-white mb-2">⚪ Polished (white)</h4><ul class="text-[13px] space-y-1" style="color:rgba(240,240,238,.6);"><li>✗ Bran removed</li><li>✗ Germ removed</li><li>✗ Most fiber gone</li><li>✗ Minerals stripped</li><li>• Spikes blood sugar faster</li></ul></div>
-              <div class="flex-1 rounded-2xl p-5 border" style="background:radial-gradient(ellipse at 50% 0%,rgba(150,40,40,.2),transparent 70%),rgba(255,255,255,.04);border-color:rgba(180,60,60,.3);"><h4 class="font-bold text-white mb-2">🔴 Unpolished (ours)</h4><ul class="text-[13px] space-y-1" style="color:rgba(240,240,238,.6);"><li>✓ Bran intact</li><li>✓ Germ intact</li><li>✓ Fiber &amp; minerals kept</li><li>✓ Antioxidant pigments kept</li><li>• Gentler on blood sugar</li></ul></div>
+              <div class="flex-1 rounded-2xl p-5 border" style="background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.1);"><h3 class="font-bold text-white mb-2">⚪ Polished (white)</h3><ul class="text-[13px] space-y-1" style="color:rgba(240,240,238,.6);"><li>✗ Bran removed</li><li>✗ Germ removed</li><li>✗ Most fiber gone</li><li>✗ Minerals stripped</li><li>• Spikes blood sugar faster</li></ul></div>
+              <div class="flex-1 rounded-2xl p-5 border" style="background:radial-gradient(ellipse at 50% 0%,rgba(150,40,40,.2),transparent 70%),rgba(255,255,255,.04);border-color:rgba(180,60,60,.3);"><h3 class="font-bold text-white mb-2">🔴 Unpolished (ours)</h3><ul class="text-[13px] space-y-1" style="color:rgba(240,240,238,.6);"><li>✓ Bran intact</li><li>✓ Germ intact</li><li>✓ Fiber &amp; minerals kept</li><li>✓ Antioxidant pigments kept</li><li>• Gentler on blood sugar</li></ul></div>
             </div>
             <p class="text-xs italic mt-5" style="color:rgba(240,240,238,.4);">Polishing trades nutrition for shelf-life and colour. We choose the grain over the shelf.</p>
           </div>
