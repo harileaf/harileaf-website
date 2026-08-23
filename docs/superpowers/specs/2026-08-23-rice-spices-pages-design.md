@@ -144,8 +144,9 @@ Carbs ~73g · Fiber ~5g · Protein ~7g · Fat ~2.5g. Rendered with "approximate"
 **File:** `src/pages/produce.astro` (edit — existing hero, bento catalogue, photo strip, interest form, organic-promise banner all unchanged).
 
 1. **New "Our Ranges" section** (inserted after the bento catalogue, before/near the existing inline CTA) — two large clickable cards:
-   - 🌾 **HariLeaf Rice** → `/rice` (teal identity, "NEW" tag)
-   - 🌶️ **Stone-Ground Spices** → `/spices` (gold identity, "NEW" tag)
+   - 🌾 **HariLeaf Rice** → `/rice` (teal identity)
+   - 🌶️ **Stone-Ground Spices** → `/spices` (gold identity)
+   - No "NEW" badge (removed per feedback).
 2. **Online-ordering hint on existing CTA strip** — add "🛒 Online ordering — coming soon" badge and a secondary "Notify me when ordering opens" button alongside the existing "Request Produce ↓" button. Existing bulk-order flow preserved.
 
 ---
