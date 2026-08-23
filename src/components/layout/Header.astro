@@ -61,6 +61,8 @@ const siteName = siteJson.title ?? 'HariLeaf';
 const currentPath = Astro.url.pathname;
 const isActive = (url: string) =>
   url === '/' ? currentPath === '/' : currentPath === url || currentPath.startsWith(url + '/');
+const isItemActive = (item: { url: string; children?: { url: string }[] }) =>
+  isActive(item.url) || (item.children?.some((c) => isActive(c.url)) ?? false);
 ---
 
 <header
@@ -98,16 +100,17 @@ const isActive = (url: string) =>
               href={item.url}
               class:list={[
                 'font-manrope font-medium tracking-tight transition-colors duration-200 inline-flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:rounded-sm',
-                isActive(item.url)
+                isItemActive(item)
                   ? 'text-[#196A5E] border-b-2 border-[#196A5E] pb-1'
                   : 'text-[#3F4946] hover:text-[#196A5E]',
               ]}
-              aria-current={isActive(item.url) ? 'page' : undefined}
+              aria-haspopup="true"
+              aria-current={isActive(item.url) && !(item.children && item.children.length > 0) ? 'page' : undefined}
             >
               {item.label}
               <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true" class="mt-0.5 opacity-70"><path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </a>
-            <div class="absolute left-0 top-full pt-3 opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 transition-all duration-200">
+            <div class="absolute left-0 top-full pt-3 opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 transition-all duration-200 z-10">
               <div class="min-w-[190px] rounded-2xl bg-[#F7FAF4]/95 backdrop-blur-md shadow-lg border border-outline-variant/20 p-2">
                 {item.children.map((child) => (
                   <a
@@ -195,7 +198,7 @@ const isActive = (url: string) =>
             class:list={[
               'flex items-center justify-between rounded-xl px-4 py-4 text-lg font-semibold tracking-tight transition-colors',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
-              isActive(item.url)
+              isItemActive(item)
                 ? 'bg-[#196A5E]/10 text-[#196A5E]'
                 : 'text-on-surface hover:bg-surface-container-low hover:text-[#196A5E]',
             ]}
