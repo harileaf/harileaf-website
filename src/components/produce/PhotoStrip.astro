@@ -55,10 +55,16 @@ const { headline = 'Growing in the open.' } = Astro.props;
                 box-shadow 320ms ease;
   }
 
-  #photo-strip-section .photo-card:hover {
+  #photo-strip-section .photo-card:hover,
+  #photo-strip-section .photo-card:focus-visible {
     transform: rotate(0deg) scale(1.04);
     box-shadow: 0 24px 48px rgba(0,0,0,0.55);
     z-index: 1;
+    outline: none;
+  }
+
+  #photo-strip-section .photo-card:focus-visible {
+    box-shadow: 0 24px 48px rgba(0,0,0,0.55), 0 0 0 3px rgba(139,212,198,0.7);
   }
 
   #photo-strip-section .photo-card img {
@@ -97,9 +103,164 @@ const { headline = 'Growing in the open.' } = Astro.props;
     transition: opacity 250ms ease, transform 250ms ease;
   }
 
-  #photo-strip-section .photo-card:hover .photo-label {
+  #photo-strip-section .photo-card:hover .photo-label,
+  #photo-strip-section .photo-card:focus-visible .photo-label {
     opacity: 1;
     transform: translateY(0);
+  }
+
+  /* ── Filmstrip lightbox ─────────────────────────────── */
+  #pls-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: none;
+    flex-direction: column;
+    background: rgba(6, 10, 6, 0.94);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    padding: 20px clamp(12px, 4vw, 48px) 16px;
+  }
+  #pls-lightbox.is-open { display: flex; }
+
+  #pls-lightbox .pls-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+  #pls-lightbox .pls-caption {
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #pls-lightbox .pls-eyebrow {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: rgba(159, 177, 125, 0.85);
+    margin-bottom: 2px;
+  }
+  #pls-lightbox .pls-close {
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 150ms ease;
+  }
+  #pls-lightbox .pls-close:hover { background: rgba(255, 255, 255, 0.2); }
+
+  #pls-lightbox .pls-stage {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(8px, 2vw, 24px);
+    margin: 14px 0 10px;
+  }
+  #pls-lightbox .pls-nav {
+    flex-shrink: 0;
+    width: clamp(40px, 6vw, 56px);
+    height: clamp(40px, 6vw, 56px);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: #fff;
+    font-size: 1.6rem;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 150ms ease, transform 150ms ease;
+  }
+  #pls-lightbox .pls-nav:hover { background: rgba(255, 255, 255, 0.18); transform: scale(1.06); }
+  #pls-lightbox .pls-nav:disabled { opacity: 0.3; cursor: default; }
+
+  #pls-lightbox .pls-imgwrap {
+    flex: 1;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+  }
+  #pls-lightbox .pls-imgwrap img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 12px;
+    box-shadow: 0 30px 70px rgba(0, 0, 0, 0.6);
+    animation: pls-img-in 260ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @keyframes pls-img-in {
+    from { opacity: 0; transform: scale(0.98); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  #pls-lightbox .pls-counter {
+    text-align: center;
+    color: rgba(240, 240, 238, 0.55);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+    margin-bottom: 10px;
+  }
+
+  #pls-lightbox .pls-film {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding: 4px 2px 6px;
+    flex-shrink: 0;
+    scrollbar-width: thin;
+    scroll-behavior: smooth;
+    justify-content: safe center;
+  }
+  #pls-lightbox .pls-thumb {
+    flex-shrink: 0;
+    width: 74px;
+    height: 74px;
+    border-radius: 10px;
+    overflow: hidden;
+    padding: 0;
+    cursor: pointer;
+    background: none;
+    border: 2px solid transparent;
+    opacity: 0.55;
+    transition: opacity 150ms ease, border-color 150ms ease, transform 150ms ease;
+  }
+  #pls-lightbox .pls-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  #pls-lightbox .pls-thumb:hover { opacity: 0.85; }
+  #pls-lightbox .pls-thumb[aria-current="true"] {
+    opacity: 1;
+    border-color: #8bd4c6;
+    transform: translateY(-2px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #pls-lightbox .pls-imgwrap img { animation: none; }
+    #pls-lightbox .pls-film { scroll-behavior: auto; }
   }
 </style>
 
@@ -120,35 +281,172 @@ const { headline = 'Growing in the open.' } = Astro.props;
   </div>
 </section>
 
+<!-- Filmstrip lightbox: opens when a farm photo is clicked -->
+<div
+  id="pls-lightbox"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Farm photo viewer"
+  aria-hidden="true"
+>
+  <div class="pls-topbar">
+    <div>
+      <span class="pls-eyebrow">From Our Farm</span>
+      <div class="pls-caption" id="pls-caption"></div>
+    </div>
+    <button type="button" class="pls-close" id="pls-close" aria-label="Close photo viewer">✕</button>
+  </div>
+
+  <div class="pls-stage">
+    <button type="button" class="pls-nav" id="pls-prev" aria-label="Previous photo">‹</button>
+    <div class="pls-imgwrap">
+      <img id="pls-img" src="" alt="" />
+    </div>
+    <button type="button" class="pls-nav" id="pls-next" aria-label="Next photo">›</button>
+  </div>
+
+  <div class="pls-counter" id="pls-counter" aria-live="polite"></div>
+  <div class="pls-film" id="pls-film" aria-label="All farm photos"></div>
+</div>
+
 <script>
+  interface Photo { key: string; label: string; url: string; category?: string; }
+
   const TILTS = [-2.5, -1.2, 0.4, 1.8, -0.6];
+
+  function esc(s: string) {
+    return s
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
 
   async function initPhotoStrip() {
     const res = await fetch('/api/photos');
     if (!res.ok) return;
-    const photos: Array<{ key: string; label: string; url: string }> = await res.json();
+    const photos: Photo[] = await res.json();
     if (!photos.length) return;
 
     const track = document.getElementById('photo-track');
     const section = document.getElementById('photo-strip-section');
     if (!track || !section) return;
 
+    // Marquee duplicates the list so the scroll loops seamlessly; data-idx maps a
+    // duplicated card back to its real position in the source array.
     const doubled = [...photos, ...photos];
     track.innerHTML = doubled
-      .map(
-        (p, i) => {
-          const tilt = TILTS[i % TILTS.length];
-          return `
-          <div class="photo-card" style="--tilt: ${tilt}deg;" aria-label="${p.label}">
-            <img src="${p.url}" alt="${p.label}" loading="lazy" decoding="async" />
-            <div class="photo-label">${p.label}</div>
+      .map((p, i) => {
+        const realIdx = i % photos.length;
+        const tilt = TILTS[i % TILTS.length];
+        return `
+          <div class="photo-card" style="--tilt: ${tilt}deg;" data-idx="${realIdx}"
+               role="button" tabindex="0" aria-label="Enlarge photo: ${esc(p.label)}">
+            <img src="${esc(p.url)}" alt="${esc(p.label)}" loading="lazy" decoding="async" />
+            <div class="photo-label">${esc(p.label)}</div>
           </div>`;
-        }
-      )
+      })
       .join('');
 
     section.style.display = 'block';
 
+    // ── Lightbox wiring ──────────────────────────────────
+    const lb = document.getElementById('pls-lightbox')!;
+    const lbImg = document.getElementById('pls-img') as HTMLImageElement;
+    const lbCaption = document.getElementById('pls-caption')!;
+    const lbCounter = document.getElementById('pls-counter')!;
+    const lbFilm = document.getElementById('pls-film')!;
+    const btnPrev = document.getElementById('pls-prev') as HTMLButtonElement;
+    const btnNext = document.getElementById('pls-next') as HTMLButtonElement;
+    const btnClose = document.getElementById('pls-close') as HTMLButtonElement;
+
+    let index = 0;
+    let opener: HTMLElement | null = null;
+    let filmBuilt = false;
+
+    function buildFilm() {
+      lbFilm.innerHTML = photos
+        .map((p, i) => `
+          <button type="button" class="pls-thumb" data-i="${i}" aria-label="View ${esc(p.label)}">
+            <img src="${esc(p.url)}" alt="" loading="lazy" decoding="async" />
+          </button>`)
+        .join('');
+      lbFilm.querySelectorAll<HTMLButtonElement>('.pls-thumb').forEach((btn) => {
+        btn.addEventListener('click', () => show(parseInt(btn.dataset.i!, 10)));
+      });
+      filmBuilt = true;
+    }
+
+    function show(i: number) {
+      index = (i + photos.length) % photos.length;
+      const p = photos[index];
+      lbImg.src = p.url;
+      lbImg.alt = p.label;
+      lbCaption.textContent = p.label;
+      lbCounter.textContent = `${index + 1} / ${photos.length}`;
+      lbFilm.querySelectorAll<HTMLButtonElement>('.pls-thumb').forEach((btn, i2) => {
+        const active = i2 === index;
+        btn.setAttribute('aria-current', active ? 'true' : 'false');
+        if (active) btn.scrollIntoView({ block: 'nearest', inline: 'center' });
+      });
+      const single = photos.length < 2;
+      btnPrev.disabled = single;
+      btnNext.disabled = single;
+    }
+
+    function open(i: number) {
+      opener = document.activeElement as HTMLElement | null;
+      if (!filmBuilt) buildFilm();
+      show(i);
+      lb.classList.add('is-open');
+      lb.removeAttribute('aria-hidden');
+      document.body.style.overflow = 'hidden';
+      btnClose.focus();
+    }
+
+    function close() {
+      lb.classList.remove('is-open');
+      lb.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+      lbImg.src = '';
+      opener?.focus();
+    }
+
+    // Open from any marquee card (event-delegated; cards are injected via innerHTML)
+    track.addEventListener('click', (e) => {
+      const card = (e.target as HTMLElement).closest<HTMLElement>('.photo-card');
+      if (card?.dataset.idx) open(parseInt(card.dataset.idx, 10));
+    });
+    track.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const card = (e.target as HTMLElement).closest<HTMLElement>('.photo-card');
+      if (card?.dataset.idx) {
+        e.preventDefault();
+        open(parseInt(card.dataset.idx, 10));
+      }
+    });
+
+    btnPrev.addEventListener('click', () => show(index - 1));
+    btnNext.addEventListener('click', () => show(index + 1));
+    btnClose.addEventListener('click', close);
+    lb.addEventListener('click', (e) => { if (e.target === lb) close(); });
+
+    document.addEventListener('keydown', (e) => {
+      if (!lb.classList.contains('is-open')) return;
+      if (e.key === 'Escape') close();
+      else if (e.key === 'ArrowLeft') show(index - 1);
+      else if (e.key === 'ArrowRight') show(index + 1);
+    });
+
+    // Swipe navigation on touch devices
+    let touchX = 0;
+    lb.addEventListener('touchstart', (e) => { touchX = e.changedTouches[0].clientX; }, { passive: true });
+    lb.addEventListener('touchend', (e) => {
+      const dx = e.changedTouches[0].clientX - touchX;
+      if (Math.abs(dx) > 45) show(index + (dx < 0 ? 1 : -1));
+    }, { passive: true });
+
+    // ── Editable headline ────────────────────────────────
     const contentRes = await fetch('/api/content');
     if (contentRes.ok) {
       const content = await contentRes.json();
