@@ -1,0 +1,62 @@
+---
+import contactJson from '../../content/contact-page.json';
+
+interface Props {
+  subject: string;
+  heading: string;
+  subtext: string;
+  accent?: 'teal' | 'gold';
+  whatsappLabel?: string;
+}
+
+const {
+  subject,
+  heading,
+  subtext,
+  accent = 'teal',
+  whatsappLabel = 'Talk to us on WhatsApp →',
+} = Astro.props;
+
+const web3formsKey = contactJson.form.web3formsKey;
+const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://harileaf.org');
+const redirect = `${String(canonicalURL)}?waitlist=success`;
+
+const shell = accent === 'gold'
+  ? 'background:linear-gradient(135deg,rgba(224,165,58,.16),rgba(192,57,43,.12));border:1px solid rgba(224,165,58,.28);'
+  : 'background:linear-gradient(135deg,rgba(25,106,94,.28),rgba(84,100,55,.16));border:1px solid rgba(127,200,186,.2);';
+const btn = accent === 'gold'
+  ? 'background:linear-gradient(90deg,#e0a53a,#d05656);color:#1a0a08;'
+  : 'background:linear-gradient(90deg,#196a5e,#7fc8ba);color:#00201b;';
+const linkColor = accent === 'gold' ? '#e8b84a' : '#8bd4c6';
+---
+
+<section class="max-w-7xl mx-auto px-6 py-16">
+  <div class="rounded-3xl p-11 text-center" style={shell}>
+    <span
+      class="inline-block text-[11px] font-extrabold uppercase tracking-widest mb-4 px-3.5 py-1.5 rounded-full"
+      style="color:#ffc878;background:rgba(255,180,80,.14);border:1px solid rgba(255,180,80,.3);"
+    >🛒 Online ordering — coming soon</span>
+    <h2 class="text-3xl font-extrabold tracking-tight mb-2.5 text-white">{heading}</h2>
+    <p class="mx-auto mb-6 max-w-lg" style="color:rgba(240,240,238,.6);">{subtext}</p>
+
+    <form method="POST" action="https://api.web3forms.com/submit" class="flex flex-col sm:flex-row gap-2.5 max-w-md mx-auto">
+      <input type="hidden" name="access_key" value={web3formsKey} />
+      <input type="hidden" name="subject" value={subject} />
+      <input type="hidden" name="redirect" value={redirect} />
+      <input type="checkbox" name="botcheck" class="hidden" style="display:none" />
+      <input
+        name="contact"
+        type="text"
+        required
+        placeholder="WhatsApp number or email"
+        class="flex-1 rounded-full px-5 py-3.5 text-white text-[15px]"
+        style="background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.16);"
+      />
+      <button type="submit" class="rounded-full px-7 py-3.5 font-extrabold text-[15px] whitespace-nowrap" style={btn}>Notify me →</button>
+    </form>
+
+    <p class="text-[13px] mt-4" style="color:rgba(240,240,238,.45);">
+      Looking for a bulk order right now? <a href="/produce#bulk-request" style={`color:${linkColor};`}>{whatsappLabel}</a>
+    </p>
+  </div>
+</section>
