@@ -19,6 +19,9 @@ const filtersJson = JSON.stringify(filters);
   class="fixed inset-0 z-[100] hidden items-start justify-center overflow-auto"
   style="background:rgba(6,10,6,.93);backdrop-filter:blur(6px);padding:60px 24px;"
   aria-hidden="true"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="hg-title"
 >
   <div class="w-full max-w-5xl">
     <div class="flex items-end justify-between mb-2">
@@ -47,6 +50,7 @@ const filtersJson = JSON.stringify(filters);
     let photos: Photo[] = [];
     let loaded = false;
     let current = 'all';
+    let opener: HTMLElement | null = null;
 
     async function ensurePhotos() {
       if (loaded) return;
@@ -58,13 +62,17 @@ const filtersJson = JSON.stringify(filters);
       loaded = true;
     }
 
+    function esc(s: string) {
+      return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
     function render() {
       const list = current === 'all' ? photos : photos.filter((p) => p.category === current);
       titleEl.textContent = (filters.find((f) => f.key === current)?.label) ?? 'Gallery';
       if (list.length) {
         gridEl.innerHTML = list.map((p) => `
           <div class="rounded-xl overflow-hidden" style="height:200px;">
-            <img src="${p.url}" alt="${p.label}" loading="lazy" style="width:100%;height:100%;object-fit:cover;" />
+            <img src="${esc(p.url)}" alt="${esc(p.label)}" loading="lazy" style="width:100%;height:100%;object-fit:cover;" />
           </div>`).join('');
       } else {
         gridEl.innerHTML = Array.from({ length: 6 }).map(() => `
@@ -88,20 +96,23 @@ const filtersJson = JSON.stringify(filters);
     }
 
     async function open(filter: string) {
+      opener = document.activeElement as HTMLElement | null;
       current = filters.some((f) => f.key === filter) ? filter : 'all';
       await ensurePhotos();
       paintFilters();
       render();
       root!.classList.remove('hidden');
       root!.classList.add('flex');
-      root!.setAttribute('aria-hidden', 'false');
+      root!.removeAttribute('aria-hidden');
       document.body.style.overflow = 'hidden';
+      document.getElementById('hg-close')!.focus();
     }
     function close() {
       root!.classList.add('hidden');
       root!.classList.remove('flex');
       root!.setAttribute('aria-hidden', 'true');
       document.body.style.overflow = '';
+      opener?.focus();
     }
 
     (window as any).openHariGallery = open;
