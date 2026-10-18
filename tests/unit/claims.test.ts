@@ -76,7 +76,13 @@ describe('findBannedPhrases', () => {
   it('flags health and disease claims', () => {
     expect(findBannedPhrases('Good for diabetics', none)).toContain('health claim: diabet');
     expect(findBannedPhrases('Lowers cholesterol', none)).toContain('health claim: cholesterol');
-    expect(findBannedPhrases('An immunity booster', none)).toContain('health claim: immunity boost');
+    expect(findBannedPhrases('An immunity booster', none)).toContain('health claim: immunity');
+    expect(findBannedPhrases('Boosts immunity', none)).toContain('health claim: immunity');
+    expect(findBannedPhrases('Anti-inflammatory', none)).toContain('health claim: inflammation');
+    expect(findBannedPhrases('Low GI, gentle on blood sugar', none)).toContain('health claim: blood sugar');
+    expect(findBannedPhrases('Antioxidant-rich', none)).toContain('health claim: antioxidant');
+    expect(findBannedPhrases('Good for heart health', none)).toContain('health claim: heart health');
+    expect(findBannedPhrases('A natural detox', none)).toContain('health claim: detox');
     expect(findBannedPhrases('Cures colds', none)).toContain('health claim: cure');
     expect(findBannedPhrases('A cure for colds', none)).toContain('health claim: cure');
   });
@@ -97,6 +103,17 @@ describe('findBannedPhrases', () => {
   it('allows a conditional term backed by an evidenced claim of the same code', () => {
     const claims: ProcessClaim[] = [{ code: 'fresh', text: 'Ground within 7 days of packing', evidence_note: 'Grinding log per batch' }];
     expect(findBannedPhrases('Freshly ground turmeric', { organicScheme: 'none', claims })).toEqual([]);
+  });
+
+  it('does not flag ordinary words like net weight', () => {
+    expect(findBannedPhrases('Net weight 5 kg; packed weight 5.1 kg', none)).toEqual([]);
+    expect(findBannedPhrases('Helps weight loss', none)).toContain('health claim: weight/metabolism');
+  });
+
+  it('bans absolute free-from claims', () => {
+    expect(findBannedPhrases('Pesticide-free turmeric', none)).toContain('pesticide-free');
+    expect(findBannedPhrases('No pesticides, no chemicals', none)).toEqual(expect.arrayContaining(['pesticide-free', 'no chemicals']));
+    expect(findBannedPhrases('A superfood', none)).toContain('superfood');
   });
 
   it('accepts specific, factual process claims', () => {

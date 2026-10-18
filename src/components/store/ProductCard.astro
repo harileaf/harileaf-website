@@ -48,7 +48,7 @@ const off = card.fromPrice && card.fromMrp && card.fromMrp > card.fromPrice ? Ma
         {card.variantCount > 1 && <span class:list={[dark ? 'text-white/60' : 'text-on-surface-variant']}>From </span>}
         <span class="text-lg font-extrabold">{formatINR(card.fromPrice)}</span>
         {off > 0 && (
-          <span class:list={['ml-1.5 line-through', dark ? 'text-white/40' : 'text-on-surface-variant']}>
+          <span class:list={['ml-1.5 line-through', dark ? 'text-white/60' : 'text-on-surface-variant']}>
             <span class="sr-only">MRP </span>{formatINR(card.fromMrp!)}
           </span>
         )}

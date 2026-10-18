@@ -12,10 +12,11 @@ import { absolute } from '../lib/store/urls';
 let cards: ProductCard[] = [];
 try {
   cards = await listProducts(env.STORE_DB, { today: new Date() });
+  Astro.response.headers.set('Cache-Control', PAGE_CACHE_CONTROL);
 } catch (err) {
+  Astro.response.headers.set('Cache-Control', 'no-store');
   console.error(JSON.stringify({ msg: 'shop listing failed', error: String(err) }));
 }
-Astro.response.headers.set('Cache-Control', PAGE_CACHE_CONTROL);
 
 const categories = [
   { slug: 'rice', label: 'Rice' },

@@ -4,13 +4,15 @@ import { env } from 'cloudflare:workers';
 import ProductGrid from '../components/store/ProductGrid.astro';
 import { listProducts, type ProductCard } from '../lib/store/catalog';
 import { PAGE_CACHE_CONTROL } from '../lib/store/edge-cache';
+import { absolute, categoryPath } from '../lib/store/urls';
 import SiteLayout from '../layouts/SiteLayout.astro';
 import SEO from '../components/seo/SEO.astro';
 import FadeIn from '../components/animations/FadeIn.astro';
 import WaitlistForm from '../components/produce/WaitlistForm.astro';
 import PhotoGallery from '../components/produce/PhotoGallery.astro';
 
-const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://harileaf.org');
+// Stable canonical: the edge cache serves /rice and /rice/ from one entry.
+const canonicalURL = absolute(categoryPath('rice'));
 const pageTitle = 'Heritage Rice Online — Karjat 3, Wada Kolam & Red Rice | HariLeaf';
 const pageDesc  = 'Buy HariLeaf heritage rice — Karjat 3, Wada Kolam and Red Rice — grown on our farm and milled just enough to remove the husk, so the bran and germ stay on the grain.';
 
@@ -24,10 +26,12 @@ const galleryFilters = [
 let cards: ProductCard[] = [];
 try {
   cards = await listProducts(env.STORE_DB, { categorySlug: 'rice', today: new Date() });
+  Astro.response.headers.set('Cache-Control', PAGE_CACHE_CONTROL);
 } catch (err) {
+  // Don't let a transient D1 error be cached as a "coming soon" page.
+  Astro.response.headers.set('Cache-Control', 'no-store');
   console.error(JSON.stringify({ msg: 'rice grid failed', error: String(err) }));
 }
-Astro.response.headers.set('Cache-Control', PAGE_CACHE_CONTROL);
 const selling = cards.length > 0;
 
 ---
@@ -61,7 +65,7 @@ const selling = cards.length > 0;
     <div class="absolute right-10 top-1/2 -translate-y-1/2 text-[9rem] opacity-[0.12] select-none pointer-events-none" aria-hidden="true">🌾</div>
     <div class="relative z-10 max-w-7xl mx-auto px-6">
       <FadeIn><span class="text-xs uppercase tracking-widest font-extrabold" style="color:rgba(159,177,125,.9);">HariLeaf Farm · Now Growing Rice</span></FadeIn>
-      <FadeIn delay={100}><h1 class="text-5xl md:text-6xl font-extrabold tracking-tighter leading-[1.05] mt-4 text-white">Rice with the goodness<br /><span class="r-grad">left in.</span></h1></FadeIn>
+      <FadeIn delay={100}><h1 class="text-5xl md:text-6xl font-extrabold tracking-tighter leading-[1.05] mt-4 text-white">Rice with the bran<br /><span class="r-grad">left on.</span></h1></FadeIn>
       <FadeIn delay={200}><p class="mt-5 text-lg max-w-xl leading-relaxed" style="color:rgba(255,255,255,.55);">Three heritage varieties, grown on our farm and milled just enough to remove the husk — so the bran and germ stay on the grain instead of being polished away.</p></FadeIn>
       <FadeIn delay={300}>
         <div class="mt-7 flex flex-wrap gap-3">
@@ -168,10 +172,10 @@ const selling = cards.length > 0;
           </div>
           <div>
             <div class="flex gap-3.5">
-              <div class="flex-1 rounded-2xl p-5 border" style="background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.1);"><h3 class="font-bold text-white mb-2">⚪ Polished (white)</h3><ul class="text-[13px] space-y-1" style="color:rgba(240,240,238,.6);"><li>✗ Bran removed</li><li>✗ Germ removed</li><li>✗ Most fiber gone</li><li>✗ Minerals stripped</li></ul></div>
-              <div class="flex-1 rounded-2xl p-5 border" style="background:radial-gradient(ellipse at 50% 0%,rgba(150,40,40,.2),transparent 70%),rgba(255,255,255,.04);border-color:rgba(180,60,60,.3);"><h3 class="font-bold text-white mb-2">🔴 Unpolished (ours)</h3><ul class="text-[13px] space-y-1" style="color:rgba(240,240,238,.6);"><li>✓ Bran intact</li><li>✓ Germ intact</li><li>✓ Fiber &amp; minerals kept</li><li>✓ Red pigments kept</li></ul></div>
+              <div class="flex-1 rounded-2xl p-5 border" style="background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.1);"><h3 class="font-bold text-white mb-2">⚪ Polished (white)</h3><ul class="text-[13px] space-y-1" style="color:rgba(240,240,238,.6);"><li>✗ Bran removed</li><li>✗ Germ removed</li><li>• White and shelf-stable</li></ul></div>
+              <div class="flex-1 rounded-2xl p-5 border" style="background:radial-gradient(ellipse at 50% 0%,rgba(150,40,40,.2),transparent 70%),rgba(255,255,255,.04);border-color:rgba(180,60,60,.3);"><h3 class="font-bold text-white mb-2">🔴 Unpolished (ours)</h3><ul class="text-[13px] space-y-1" style="color:rgba(240,240,238,.6);"><li>✓ Bran intact</li><li>✓ Germ intact</li><li>• Needs a short soak</li><li>✓ Red pigments kept</li></ul></div>
             </div>
-            <p class="text-xs italic mt-5" style="color:rgba(240,240,238,.4);">Polishing trades nutrition for shelf-life and colour. We choose the grain over the shelf.</p>
+            <p class="text-xs italic mt-5" style="color:rgba(240,240,238,.4);">Polishing trades the bran and germ for shelf life and a white colour. We keep the whole grain.</p>
           </div>
         </div>
       </div>
@@ -257,7 +261,7 @@ const selling = cards.length > 0;
     <WaitlistForm
       subject="Rice Waitlist — HariLeaf Farm"
       heading="Be first to get our rice at home"
-      subtext="We're building online ordering so you can get farm-fresh, unpolished rice delivered to your door. Leave your number and we'll message you the moment it's live."
+      subtext="We're building online ordering so you can get our unpolished rice delivered to your door. Leave your number and we'll message you the moment it's live."
       accent="teal"
     />
   </div>}

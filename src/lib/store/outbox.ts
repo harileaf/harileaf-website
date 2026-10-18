@@ -36,14 +36,14 @@ export function backoffMs(attempts: number): number {
 
 export function enqueueStmt(
   db: D1Database,
-  e: { orderId?: number | null; kind: string; payload: unknown; at: string },
+  e: { orderId?: number | null; kind: string; payload: unknown; at: string; notBefore?: string },
 ): D1PreparedStatement {
   return db
     .prepare(
       `INSERT INTO outbox (order_id, kind, payload, state, attempts, next_attempt_at, created_at, updated_at)
        VALUES (?, ?, ?, 'pending', 0, ?, ?, ?)`,
     )
-    .bind(e.orderId ?? null, e.kind, JSON.stringify(e.payload ?? {}), e.at, e.at, e.at);
+    .bind(e.orderId ?? null, e.kind, JSON.stringify(e.payload ?? {}), e.notBefore ?? e.at, e.at, e.at);
 }
 
 const CLAIMABLE = `((state = 'pending' AND next_attempt_at <= ?1) OR (state = 'running' AND lease_until < ?1 AND attempts < ${MAX_ATTEMPTS}))`;

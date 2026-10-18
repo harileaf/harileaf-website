@@ -53,16 +53,26 @@ const ALWAYS_BANNED: Array<{ re: RegExp; label: string }> = [
   { re: /chemical[\s-]*free/i, label: 'chemical-free' },
   { re: /100\s*%\s*organic/i, label: '100% organic' },
   { re: /naturally[\s-]*grown/i, label: 'naturally grown' },
+  // Absolute "free-from" claims need certified testing of every batch.
+  { re: /pesticide[\s-]*free|no\s+pesticides?/i, label: 'pesticide-free' },
+  { re: /no\s+(?:synthetic\s+)?chemicals?|chemicals?\s+free/i, label: 'no chemicals' },
+  { re: /\bsuper[\s-]*food/i, label: 'superfood' },
 ];
 
 const HEALTH: Array<{ re: RegExp; label: string }> = [
   { re: /diabet/i, label: 'diabet' },
+  { re: /blood[\s-]*sugar|glyc(?:a)?emic|\blow[\s-]*gi\b/i, label: 'blood sugar' },
+  { re: /\bimmun(?:e|ity)\b/i, label: 'immunity' },
+  { re: /inflammat/i, label: 'inflammation' },
+  { re: /\bheart[\s-]*(?:health|healthy)\b|cardio/i, label: 'heart health' },
+  { re: /\bdetox/i, label: 'detox' },
+  { re: /antioxidant/i, label: 'antioxidant' },
+  { re: /\bdigest(?:ion|ive)\b|\bgut[\s-]*health/i, label: 'digestion' },
+  { re: /\bmetabolism\b|weight[\s-]*(?:loss|management|control)|lose\s+weight/i, label: 'weight/metabolism' },
   // "cure(s)" as a promise; "cured"/"curing" are legitimate processing words (sun-cured, turmeric curing).
   { re: /\bcures?\b/i, label: 'cure' },
   { re: /cancer/i, label: 'cancer' },
   { re: /cholesterol/i, label: 'cholesterol' },
-  { re: /immunity[\s-]*boost/i, label: 'immunity boost' },
-  { re: /weight[\s-]*loss/i, label: 'weight loss' },
 ];
 
 /** FSSAI Advertising & Claims Regulations 2018, Reg 4: conditional terms. */

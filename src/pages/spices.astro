@@ -4,13 +4,15 @@ import { env } from 'cloudflare:workers';
 import ProductGrid from '../components/store/ProductGrid.astro';
 import { listProducts, type ProductCard } from '../lib/store/catalog';
 import { PAGE_CACHE_CONTROL } from '../lib/store/edge-cache';
+import { absolute, categoryPath } from '../lib/store/urls';
 import SiteLayout from '../layouts/SiteLayout.astro';
 import SEO from '../components/seo/SEO.astro';
 import FadeIn from '../components/animations/FadeIn.astro';
 import WaitlistForm from '../components/produce/WaitlistForm.astro';
 import PhotoGallery from '../components/produce/PhotoGallery.astro';
 
-const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://harileaf.org');
+// Stable canonical: the edge cache serves /spices and /spices/ from one entry.
+const canonicalURL = absolute(categoryPath('spices'));
 const pageTitle = 'Stone-Ground Turmeric & Red Chili Powder | HariLeaf';
 const pageDesc  = 'Buy HariLeaf turmeric and red chili powder — sun-dried and slowly stone-ground at low temperature so more of the aroma and colour stays in the powder.';
 
@@ -23,10 +25,12 @@ const galleryFilters = [
 let cards: ProductCard[] = [];
 try {
   cards = await listProducts(env.STORE_DB, { categorySlug: 'spices', today: new Date() });
+  Astro.response.headers.set('Cache-Control', PAGE_CACHE_CONTROL);
 } catch (err) {
+  // Don't let a transient D1 error be cached as a "coming soon" page.
+  Astro.response.headers.set('Cache-Control', 'no-store');
   console.error(JSON.stringify({ msg: 'spices grid failed', error: String(err) }));
 }
-Astro.response.headers.set('Cache-Control', PAGE_CACHE_CONTROL);
 const selling = cards.length > 0;
 
 ---
@@ -55,7 +59,7 @@ const selling = cards.length > 0;
     <div class="absolute right-10 top-1/2 -translate-y-1/2 text-[9rem] opacity-[0.14] select-none pointer-events-none" aria-hidden="true">🌶️</div>
     <div class="relative z-10 max-w-7xl mx-auto px-6">
       <FadeIn><span class="text-xs uppercase tracking-widest font-extrabold" style="color:rgba(224,165,58,.9);">HariLeaf Farm · Stone-Ground Spices</span></FadeIn>
-      <FadeIn delay={100}><h1 class="text-5xl md:text-6xl font-extrabold tracking-tighter leading-[1.05] mt-4 text-white">You can <span class="s-grad">smell</span><br />the difference.</h1></FadeIn>
+      <FadeIn delay={100}><h1 class="text-5xl md:text-6xl font-extrabold tracking-tighter leading-[1.05] mt-4 text-white">Ground <span class="s-grad">slowly.</span><br />Dated on every pack.</h1></FadeIn>
       <FadeIn delay={200}><p class="mt-5 text-lg max-w-xl leading-relaxed" style="color:rgba(255,255,255,.55);">Turmeric and red chili, sun-dried and ground slowly on stone — so more of the aromatic oils and colour stay in the powder instead of being driven off by the heat of high-speed mills.</p></FadeIn>
       <FadeIn delay={300}>
         <div class="mt-7 flex flex-wrap gap-3">
@@ -136,7 +140,7 @@ const selling = cards.length > 0;
       <FadeIn>
         <p class="text-xs uppercase tracking-widest font-extrabold mb-2" style="color:rgba(224,165,58,.75);">The thing nobody tells you</p>
         <h2 class="text-3xl font-extrabold tracking-tight mb-2 text-white">Why grinding <em class="not-italic" style="color:#d05656;">temperature</em> changes everything</h2>
-        <p class="mb-8 max-w-2xl" style="color:rgba(240,240,238,.55);">A spice's soul — its aroma and colour — lives in delicate volatile oils. High-speed mills spin so fast that friction heats the powder, and heat drives those oils off. Slow stone grinding runs much cooler.</p>
+        <p class="mb-8 max-w-2xl" style="color:rgba(240,240,238,.55);">A spice's soul — its aroma and colour — lives in delicate volatile oils. Volatile oils are sensitive to heat. High-speed mills spin so fast that friction warms the powder; slow stone grinding runs much cooler.</p>
       </FadeIn>
       <div class="rounded-3xl p-8 md:p-12" style="background:linear-gradient(135deg,#15100a 0%,#0e0a08 100%);">
         <div class="grid md:grid-cols-2 gap-4.5" style="gap:1.125rem;">
@@ -145,19 +149,19 @@ const selling = cards.length > 0;
             <h3 class="text-xl font-bold text-white mb-4">Hot &amp; fast</h3>
             <div class="gauge g-hot h-3 rounded-lg mb-1.5" style="background:rgba(255,255,255,.08);overflow:hidden;"><span></span></div>
             <div class="text-2xl font-extrabold mb-4" style="color:#e07a6a;">High heat</div>
-            <ul class="text-sm space-y-1.5" style="color:rgba(240,240,238,.65);"><li>✗ Friction heat drives off aromatic oils</li><li>✗ Vivid colour dulls and browns</li><li>✗ Aroma flattens — smells faint</li><li>✓ Cheap, fast, long shelf-life</li></ul>
+            <ul class="text-sm space-y-1.5" style="color:rgba(240,240,238,.65);"><li>• Very fast, high friction</li><li>• The powder heats up as it is ground</li><li>• Large batches</li><li>• Cheap and quick</li></ul>
           </div>
           <div class="rounded-2xl p-7 border" style="background:radial-gradient(ellipse at 50% 0%, rgba(25,106,94,.16), transparent 70%), rgba(255,255,255,.03);border-color:rgba(139,212,198,.3);">
             <div class="text-xs font-extrabold uppercase tracking-widest mb-1.5" style="color:#8bd4c6;">🪨 Our slow stone grinding</div>
             <h3 class="text-xl font-bold text-white mb-4">Cool &amp; slow</h3>
             <div class="gauge g-cold h-3 rounded-lg mb-1.5" style="background:rgba(255,255,255,.08);overflow:hidden;"><span></span></div>
             <div class="text-2xl font-extrabold mb-4" style="color:#8bd4c6;">Low heat</div>
-            <ul class="text-sm space-y-1.5" style="color:rgba(240,240,238,.65);"><li>✓ Aromatic oils stay in the powder</li><li>✓ Colour stays deep and vivid</li><li>✓ Aroma is strong — you smell it instantly</li><li>• Slower &amp; costlier — worth it</li></ul>
+            <ul class="text-sm space-y-1.5" style="color:rgba(240,240,238,.65);"><li>• Slow, low friction</li><li>• The powder stays cooler while it is ground</li><li>• Small lots, batch-dated</li><li>• Slower and costlier</li></ul>
           </div>
         </div>
         <div class="text-center mt-7 p-6 rounded-2xl" style="background:rgba(192,57,43,.1);border:1px solid rgba(192,57,43,.25);">
-          <b class="text-2xl font-extrabold block" style="color:#e8b84a;">Cooler grinding, more aroma kept</b>
-          <span class="text-sm" style="color:rgba(240,240,238,.6);">Research on low-temperature grinding of spices has found better retention of volatile oils than conventional high-speed grinding. We'll publish lab results for our own batches on each product page.</span>
+          <b class="text-2xl font-extrabold block" style="color:#e8b84a;">Why we grind slowly</b>
+          <span class="text-sm" style="color:rgba(240,240,238,.6);">Aroma and colour come from compounds that are sensitive to heat, so we keep grinding slow and cool. As lab results for our batches arrive, we'll publish them on each product page.</span>
         </div>
       </div>
     </div>
@@ -222,9 +226,9 @@ const selling = cards.length > 0;
       <div class="rounded-3xl p-9 md:p-12" style="background:linear-gradient(135deg,#1a140b 0%,#120c0a 100%);">
         <p class="text-xs uppercase tracking-widest font-extrabold mb-2" style="color:rgba(224,165,58,.75);">Yes, it costs more</p>
         <h2 class="text-3xl font-extrabold tracking-tight mb-2 text-white">And here's exactly why it's worth it</h2>
-        <p class="max-w-2xl" style="color:rgba(240,240,238,.55);">Sun drying and stone grinding are slower, yield less and take more hands. You can smell the difference.</p>
+        <p class="max-w-2xl" style="color:rgba(240,240,238,.55);">Sun drying and stone grinding are slower, yield less and take more hands.</p>
         <div class="grid md:grid-cols-3 gap-4 mt-7">
-          {[['🐢','Slow by design','Stone grinding takes far longer than a hammer mill — but stays cool, so nothing burns off.'],['☀️','Sun-dried whole','Whole rhizomes and chilies dried in the sun, never rushed with industrial heat.'],['🤏','Small batches','Ground in small lots and dated on the pack, not left for months on a shelf.']].map(([e,t,d]) => (
+          {[['🐢','Slow by design','Stone grinding takes far longer than a hammer mill, and runs much cooler.'],['☀️','Sun-dried whole','Whole rhizomes and chilies dried in the sun, never rushed with industrial heat.'],['🤏','Small batches','Ground in small lots and dated on the pack, not left for months on a shelf.']].map(([e,t,d]) => (
             <div class="rounded-2xl p-6" style="background:rgba(255,255,255,.04);border:1px solid rgba(224,165,58,.18);"><div class="text-3xl mb-2.5">{e}</div><div class="font-extrabold text-white mb-1.5">{t}</div><div class="text-[13px]" style="color:rgba(240,240,238,.58);">{d}</div></div>
           ))}
         </div>

@@ -44,6 +44,13 @@ describe('listProducts', () => {
     expect(spices.map((c) => c.slug)).toContain('turmeric');
   });
 
+  it('treats pre-orders as notify in v1', async () => {
+    const m = await insertProduct({ slug: 'kesar', category_id: 3, perishable: 1, cod_allowed: 0, season_start_md: '04-01', season_end_md: '06-30', off_season_mode: 'preorder', preorder_dispatch_date: '2027-04-05' });
+    await insertVariant(m);
+    const [card] = (await listProducts(db, { categorySlug: 'produce', today: TODAY })).filter((c) => c.slug === 'kesar');
+    expect(card.availability).toBe('notify');
+  });
+
   it('marks out-of-season products as notify', async () => {
     const m = await insertProduct({ slug: 'alphonso', category_id: 3, perishable: 1, cod_allowed: 0, season_start_md: '04-01', season_end_md: '06-30' });
     await insertVariant(m);

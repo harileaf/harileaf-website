@@ -15,7 +15,6 @@
 ## File structure
 
 ```
-migrations/0002_catalog_indexes.sql        # indexes for catalog reads, outbox purge dedupe
 src/lib/store/catalog.ts                    # types, row mappers, read queries
 src/lib/store/catalog-admin.ts              # validation (claims, publish checklist) + writes + purge enqueue
 src/lib/store/seo.ts                        # titles/meta, ProductGroup/Breadcrumb/FAQ JSON-LD

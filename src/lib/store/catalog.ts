@@ -258,7 +258,9 @@ export function mapVariant(v: VariantRow, p: Product, today: Date): Variant | nu
     mrp: v.mrp_paise,
     unitPricePerKg: unitPricePerKg(v.price_paise, v.unit_qty_g),
     stockQty: v.stock_qty,
-    availability: a,
+    // v1 doesn't sell pre-orders yet (v2: separate prepaid cart), so they
+    // behave as "notify" everywhere — buy box, JSON-LD and feed agree.
+    availability: a === 'preorder' ? 'notify' : a,
   };
 }
 

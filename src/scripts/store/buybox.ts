@@ -5,7 +5,7 @@
  * gallery thumbnails. Server-rendered HTML stays fully readable without it.
  */
 import { formatINR } from '../../lib/store/money';
-import { addToCart } from './cart';
+import { addToCart, readCart } from './cart';
 
 const LABEL: Record<string, string> = {
   buy: 'Add to cart',
@@ -77,9 +77,7 @@ export function initBuyBox(): void {
 
   const clampQty = (n: number) => Math.min(20, Math.max(1, Number.isFinite(n) ? Math.trunc(n) : 1));
   const setQty = (n: number) => {
-    const q = clampQty(n);
-    qty.value = String(q);
-    qty.setAttribute('aria-valuenow', String(q));
+    qty.value = String(clampQty(n));
   };
   box.querySelector('[data-qty-dec]')?.addEventListener('click', () => setQty(Number(qty.value) - 1));
   box.querySelector('[data-qty-inc]')?.addEventListener('click', () => setQty(Number(qty.value) + 1));
@@ -87,9 +85,15 @@ export function initBuyBox(): void {
 
   function add() {
     if (current.dataset.availability !== 'buy') return;
-    const n = clampQty(Number(qty.value));
-    addToCart(Number(current.dataset.id), n);
-    status.replaceChildren(`Added ${n} × ${current.dataset.label} to your cart. `);
+    const id = Number(current.dataset.id);
+    const before = readCart().find((l) => l.variantId === id)?.qty ?? 0;
+    const after = addToCart(id, clampQty(Number(qty.value))).find((l) => l.variantId === id)?.qty ?? 0;
+    const added = after - before;
+    status.replaceChildren(
+      added > 0
+        ? `Added ${added} × ${current.dataset.label} to your cart${after >= 20 ? ' (20 is the most per pack)' : ''}. `
+        : `You already have the most we can sell of this pack (20) in your cart. `,
+    );
     const link = document.createElement('a');
     link.href = '/cart';
     link.className = 'underline';

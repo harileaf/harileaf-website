@@ -5,7 +5,7 @@ import { DEFAULT_CONTENT } from '../../src/lib/cms';
 it('flags the old produce-page wording and passes the new defaults', () => {
   expect(contentClaimProblems({ heroBadge: 'HariLeaf Farm · Organic Produce', organicPromiseHeadline: 'Everything we grow is 100% organic. No chemicals, ever.' })).toEqual({
     heroBadge: 'organic',
-    organicPromiseHeadline: '100% organic',
+    organicPromiseHeadline: '100% organic, no chemicals',
   });
   expect(contentClaimProblems(DEFAULT_CONTENT as unknown as Record<string, unknown>)).toEqual({});
 });

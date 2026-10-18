@@ -15,7 +15,22 @@ import { RAW_PRODUCE_TERMS, findBannedPhrases, organicCopy, validateProcessClaim
 import { classifyD1Error, nowIso } from './db';
 import { productPurgePaths, purgeUrls } from './edge-cache';
 import { enqueueStmt } from './outbox';
+import { getSettings, type SettingKey } from './settings';
 import { isCategorySlug } from './urls';
+
+/** Seller details every product listing displays (Legal Metrology Rule 6 / FSSAI). */
+const LISTING_SETTINGS: Array<[SettingKey, string]> = [
+  ['legal_name', 'legal name'],
+  ['address', 'packer address'],
+  ['fssai_license', 'FSSAI licence'],
+  ['customer_care_phone', 'customer care phone'],
+  ['customer_care_email', 'customer care email'],
+];
+
+export async function listingSettingsMissing(db: D1Database): Promise<string[]> {
+  const s = await getSettings(db);
+  return LISTING_SETTINGS.filter(([k]) => !s[k].trim()).map(([, label]) => label);
+}
 
 export interface ProductInput {
   categorySlug: string;
@@ -94,12 +109,16 @@ function visibleTexts(p: ProductInput, variants: VariantInput[]): Array<[string,
   for (const [k, v] of Object.entries(p.harvestInfo)) out.push([`harvestInfo.${k}`, `${k} ${v}`]);
   for (const [k, v] of Object.entries(p.attributes)) out.push([`attributes.${k}`, `${k} ${v}`]);
   p.faq.forEach((f, i) => out.push([`faq.${i}`, `${f.q} ${f.a}`]));
+  p.nutrition.rows.forEach((r, i) => out.push([`nutrition.${i}`, `${r.name} ${r.amount}`]));
+  if (p.nutrition.source) out.push(['nutrition.source', p.nutrition.source]);
   variants.forEach((v, i) => out.push([`variants.${i}.label`, v.label]));
   return out;
 }
 
 export interface PublishContext {
   imageCount: number;
+  /** Store settings printed on every listing that are still empty. */
+  listingSettingsMissing?: string[];
   /** Whether the product already has `published_at` (slug is then frozen). */
   published: boolean;
   currentSlug: string | null;
@@ -175,8 +194,10 @@ export function validateProduct(p: ProductInput, variants: VariantInput[], ctx: 
 }
 
 /** What a product needs before it can go live (Legal Metrology Rule 6 / FSSAI listing info). */
-export function publishChecklist(p: ProductInput, variants: VariantInput[], ctx: { imageCount: number }): Array<[string, string]> {
+export function publishChecklist(p: ProductInput, variants: VariantInput[], ctx: { imageCount: number; listingSettingsMissing?: string[] }): Array<[string, string]> {
   const out: Array<[string, string]> = [];
+  if (ctx.listingSettingsMissing?.length)
+    out.push(['settings', `Fill in Store settings first — the listing must show: ${ctx.listingSettingsMissing.join(', ')}`]);
   if (!variants.some((v) => v.active)) out.push(['variants', 'Add at least one active pack size']);
   if (ctx.imageCount < 1) out.push(['images', 'Add at least one photo']);
   if (!p.hsnCode) out.push(['hsnCode', 'HSN code is needed for invoices']);
@@ -189,7 +210,7 @@ export function publishChecklist(p: ProductInput, variants: VariantInput[], ctx:
 
 // ── writes ─────────────────────────────────────────────────────────────────
 
-export type SaveResult = { ok: true; id: number; purgeIds: number[] } | { ok: false; errors: FieldErrors };
+export type SaveResult = { ok: true; id: number } | { ok: false; errors: FieldErrors };
 
 function productColumns(p: ProductInput) {
   return {
@@ -257,8 +278,34 @@ async function existing(db: D1Database, id: number) {
 const imageCount = async (db: D1Database, id: number) =>
   (await db.prepare('SELECT count(*) AS n FROM product_images WHERE product_id = ?').bind(id).first<{ n: number }>())?.n ?? 0;
 
-function purgeStmt(db: D1Database, paths: string[], at: string) {
-  return enqueueStmt(db, { kind: 'cache.purge', payload: { urls: purgeUrls(paths) }, at });
+/**
+ * Purge rows for a catalog change: the given paths plus every live product
+ * page (any of them may show this product as "related"), now and again 30 s
+ * later — the second purge clears pages that were mid-render during the write.
+ */
+function purgeStmts(db: D1Database, paths: string[], at: string, allProductPaths: string[] = []): D1PreparedStatement[] {
+  const urls = purgeUrls([...paths, ...allProductPaths]);
+  const later = new Date(Date.parse(at) + 30_000).toISOString();
+  return [
+    enqueueStmt(db, { kind: 'cache.purge', payload: { urls }, at }),
+    enqueueStmt(db, { kind: 'cache.purge', payload: { urls }, at, notBefore: later }),
+  ];
+}
+
+const purgeStmt = (db: D1Database, paths: string[], at: string) => purgeStmts(db, paths, at)[0];
+
+/** Paths of every active product page (for broad purges after catalog or settings changes). */
+export async function allStorePaths(db: D1Database): Promise<string[]> {
+  const { results } = await db
+    .prepare(`SELECT c.slug AS c, p.slug AS s FROM products p JOIN categories c ON c.id = p.category_id WHERE p.status = 'active'`)
+    .all<{ c: string; s: string }>();
+  return results.map((r) => `/${r.c}/${r.s}`);
+}
+
+/** Statements that purge the whole storefront (used after store settings change). */
+export async function purgeStorefrontStmts(db: D1Database, at: string): Promise<D1PreparedStatement[]> {
+  const products = await allStorePaths(db);
+  return purgeStmts(db, ['/shop', '/rice', '/spices', '/produce', '/sitemap-store.xml', '/feeds/google.xml'], at, products);
 }
 
 /**
@@ -275,8 +322,16 @@ export async function saveProduct(
 ): Promise<SaveResult> {
   const prev = id === null ? null : await existing(db, id);
   if (id !== null && !prev) return { ok: false, errors: { _: 'Product not found' } };
+
+  // Every variant id sent must belong to this product.
+  if (variants.some((v) => v.id !== undefined)) {
+    const owned = id === null ? [] : (await db.prepare('SELECT id FROM variants WHERE product_id = ?').bind(id).all<{ id: number }>()).results.map((r) => r.id);
+    if (variants.some((v) => v.id !== undefined && !owned.includes(v.id))) return { ok: false, errors: { variants: 'A pack size no longer exists — reload the page' } };
+  }
+
   const errors = validateProduct(p, variants, {
     imageCount: id === null ? 0 : await imageCount(db, id),
+    listingSettingsMissing: p.status === 'active' ? await listingSettingsMissing(db) : [],
     published: Boolean(prev?.published_at),
     currentSlug: prev?.slug ?? null,
     currentCategorySlug: prev?.category_slug ?? null,
@@ -285,64 +340,64 @@ export async function saveProduct(
 
   const at = nowIso(now);
   const cols = productColumns(p);
+  const keys = Object.keys(cols);
   const stmts: D1PreparedStatement[] = [];
-  let productId = id;
+  // New products are referenced by their (category, slug), which is unique, so
+  // the product and its variants are created in the same batch.
+  const pidSql = id === null ? '(SELECT id FROM products WHERE category_id = ? AND slug = ?)' : '?';
+  const pidBinds = id === null ? [cols.category_id, cols.slug] : [id];
 
-  try {
-    if (id === null) {
-      const keys = Object.keys(cols);
-      const res = await db
+  if (id === null) {
+    stmts.push(
+      db
+        .prepare(`INSERT INTO products (${keys.join(', ')}, created_at, updated_at, published_at) VALUES (${keys.map(() => '?').join(', ')}, ?, ?, ?)`)
+        .bind(...Object.values(cols), at, at, p.status === 'active' ? at : null),
+    );
+  } else {
+    stmts.push(
+      db
         .prepare(
-          `INSERT INTO products (${keys.join(', ')}, created_at, updated_at, published_at)
-           VALUES (${keys.map(() => '?').join(', ')}, ?, ?, ?)`,
+          `UPDATE products SET ${keys.map((k) => `${k} = ?`).join(', ')}, updated_at = ?,
+             published_at = COALESCE(published_at, CASE WHEN ? = 'active' THEN ? END)
+           WHERE id = ?`,
         )
-        .bind(...Object.values(cols), at, at, p.status === 'active' ? at : null)
-        .run();
-      productId = res.meta.last_row_id;
-    } else {
-      const keys = Object.keys(cols);
-      stmts.push(
-        db
-          .prepare(
-            `UPDATE products SET ${keys.map((k) => `${k} = ?`).join(', ')}, updated_at = ?,
-               published_at = COALESCE(published_at, CASE WHEN ? = 'active' THEN ? END)
-             WHERE id = ?`,
-          )
-          .bind(...Object.values(cols), at, p.status, at, id),
-      );
-    }
-
-    const pid = productId as number;
+        .bind(...Object.values(cols), at, p.status, at, id),
+    );
     const keep = variants.filter((v) => v.id !== undefined).map((v) => v.id as number);
     stmts.push(
       db
         .prepare(`UPDATE variants SET active = 0 WHERE product_id = ? ${keep.length ? `AND id NOT IN (${keep.map(() => '?').join(',')})` : ''}`)
-        .bind(pid, ...keep),
+        .bind(id, ...keep),
     );
-    for (const v of variants) {
-      const vc = variantColumns(v);
-      const keys = Object.keys(vc);
-      if (v.id === undefined) {
-        stmts.push(
-          db
-            .prepare(`INSERT INTO variants (product_id, ${keys.join(', ')}, stock_qty) VALUES (?, ${keys.map(() => '?').join(', ')}, ?)`)
-            .bind(pid, ...Object.values(vc), v.stockAdjust),
-        );
-      } else {
-        stmts.push(
-          db
-            .prepare(`UPDATE variants SET ${keys.map((k) => `${k} = ?`).join(', ')}, stock_qty = stock_qty + ? WHERE id = ? AND product_id = ?`)
-            .bind(...Object.values(vc), v.stockAdjust, v.id, pid),
-        );
-      }
-    }
+  }
 
-    const paths = productPurgePaths(p.categorySlug, p.slug);
-    if (prev && (prev.slug !== p.slug || prev.category_slug !== p.categorySlug)) paths.push(...productPurgePaths(prev.category_slug, prev.slug));
-    stmts.push(purgeStmt(db, paths, at));
-    await db.batch(stmts);
+  for (const v of variants) {
+    const vc = variantColumns(v);
+    const vk = Object.keys(vc);
+    if (v.id === undefined) {
+      stmts.push(
+        db
+          .prepare(`INSERT INTO variants (product_id, ${vk.join(', ')}, stock_qty) VALUES (${pidSql}, ${vk.map(() => '?').join(', ')}, ?)`)
+          .bind(...pidBinds, ...Object.values(vc), v.stockAdjust),
+      );
+    } else {
+      stmts.push(
+        db
+          .prepare(`UPDATE variants SET ${vk.map((k) => `${k} = ?`).join(', ')}, stock_qty = stock_qty + ? WHERE id = ? AND product_id = ?`)
+          .bind(...Object.values(vc), v.stockAdjust, v.id, id),
+      );
+    }
+  }
+
+  const paths = productPurgePaths(p.categorySlug, p.slug);
+  if (prev && (prev.slug !== p.slug || prev.category_slug !== p.categorySlug)) paths.push(...productPurgePaths(prev.category_slug, prev.slug));
+  stmts.push(...purgeStmts(db, paths, at, await allStorePaths(db)));
+  stmts.push(db.prepare(`SELECT ${id === null ? 'id FROM products WHERE category_id = ? AND slug = ?' : '? AS id'}`).bind(...pidBinds));
+
+  try {
+    const res = await db.batch<{ id: number }>(stmts);
+    return { ok: true, id: res[res.length - 1].results[0].id };
   } catch (err) {
-    if (id === null && productId !== null) await db.prepare('DELETE FROM products WHERE id = ?').bind(productId).run().catch(() => {});
     const kind = classifyD1Error(err);
     const msg = err instanceof Error ? err.message : String(err);
     if (kind === 'unique' && /variants\.sku/.test(msg)) return { ok: false, errors: { variants: 'A SKU is already used by another product' } };
@@ -350,10 +405,27 @@ export async function saveProduct(
     if (kind === 'stock') return { ok: false, errors: { variants: 'A stock adjustment would take stock below zero' } };
     throw err;
   }
-  return { ok: true, id: productId as number, purgeIds: [] };
 }
 
 // ── images, batches, lab reports, certificates ─────────────────────────────
+
+/** Claims-policy check for extra shopper-visible text attached to a product. */
+async function textProblems(db: D1Database, productId: number, text: string): Promise<string | null> {
+  const row = await db
+    .prepare('SELECT organic_scheme, organic_conversion_since, organic_cert_number, process_claims, perishable FROM products WHERE id = ?')
+    .bind(productId)
+    .first<{ organic_scheme: OrganicScheme; organic_conversion_since: number | null; organic_cert_number: string | null; process_claims: string; perishable: number }>();
+  if (!row) return null;
+  let claims: ProcessClaim[] = [];
+  try {
+    claims = JSON.parse(row.process_claims);
+  } catch {
+    claims = [];
+  }
+  const mayUseOrganic = organicCopy({ organicScheme: row.organic_scheme, conversionSince: row.organic_conversion_since, certNumber: row.organic_cert_number }).mayUseOrganic;
+  const banned = findBannedPhrases(text, { organicScheme: row.organic_scheme, claims, mayUseOrganic, allowedTerms: row.perishable ? RAW_PRODUCE_TERMS : [] });
+  return banned.length ? banned.join(', ') : null;
+}
 
 const IMAGE_TYPES: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/avif': 'avif' };
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -373,16 +445,23 @@ export async function addImage(db: D1Database, r2: R2Bucket, productId: number, 
   if (!ext) return { ok: false as const, error: 'Use a JPEG, PNG, WebP or AVIF image' };
   if (file.size > MAX_IMAGE_BYTES) return { ok: false as const, error: 'Images must be 5 MB or smaller' };
   if (!alt.trim()) return { ok: false as const, error: 'Describe the photo (alt text) for accessibility and search' };
+  const altProblems = await textProblems(db, productId, alt);
+  if (altProblems) return { ok: false as const, error: `Alt text: remove or substantiate ${altProblems}` };
   const key = `products/${productId}/${now.getTime()}-${rand()}.${ext}`;
   await r2.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type } });
   const at = nowIso(now);
-  await db.batch([
-    db
-      .prepare('INSERT INTO product_images (product_id, r2_key, alt, sort) VALUES (?, ?, ?, (SELECT COALESCE(MAX(sort), -1) + 1 FROM product_images WHERE product_id = ?))')
-      .bind(productId, key, alt.trim(), productId),
-    db.prepare('UPDATE products SET updated_at = ? WHERE id = ?').bind(at, productId),
-    purgeStmt(db, paths, at),
-  ]);
+  try {
+    await db.batch([
+      db
+        .prepare('INSERT INTO product_images (product_id, r2_key, alt, sort) VALUES (?, ?, ?, (SELECT COALESCE(MAX(sort), -1) + 1 FROM product_images WHERE product_id = ?))')
+        .bind(productId, key, alt.trim(), productId),
+      db.prepare('UPDATE products SET updated_at = ? WHERE id = ?').bind(at, productId),
+      purgeStmt(db, paths, at),
+    ]);
+  } catch (err) {
+    await r2.delete(key).catch(() => {}); // don't leave an orphaned upload
+    throw err;
+  }
   return { ok: true as const, key };
 }
 
@@ -390,6 +469,8 @@ export async function updateImage(db: D1Database, productId: number, imageId: nu
   const paths = await productPaths(db, productId);
   if (!paths) return { ok: false as const, error: 'Product not found' };
   if (patch.alt !== undefined && !patch.alt.trim()) return { ok: false as const, error: 'Alt text is required' };
+  const altProblems = patch.alt ? await textProblems(db, productId, patch.alt) : null;
+  if (altProblems) return { ok: false as const, error: `Alt text: remove or substantiate ${altProblems}` };
   const at = nowIso(now);
   await db.batch([
     db
@@ -460,8 +541,10 @@ export async function activateBatch(db: D1Database, productId: number, batchId: 
   const paths = await productPaths(db, productId);
   if (!paths) return { ok: false as const, error: 'Product not found' };
   const at = nowIso(now);
+  const exists = await db.prepare('SELECT 1 AS ok FROM batches WHERE id = ? AND product_id = ?').bind(batchId, productId).first();
+  if (!exists) return { ok: false as const, error: 'Batch not found' };
   const res = await db.batch([
-    db.prepare('UPDATE batches SET active = 0 WHERE product_id = ?').bind(productId),
+    db.prepare('UPDATE batches SET active = 0 WHERE product_id = ? AND EXISTS (SELECT 1 FROM batches WHERE id = ? AND product_id = ?)').bind(productId, batchId, productId),
     db.prepare('UPDATE batches SET active = 1 WHERE id = ? AND product_id = ?').bind(batchId, productId),
     db.prepare('UPDATE products SET updated_at = ? WHERE id = ?').bind(at, productId),
     purgeStmt(db, paths, at),
@@ -485,23 +568,30 @@ export async function addLabReport(db: D1Database, r2: R2Bucket, productId: numb
   if (!paths) return { ok: false as const, error: 'Product not found' };
   if (!l.batchCode.trim() || !l.labName.trim() || !DATE.test(l.testedOn)) return { ok: false as const, error: 'Batch code, lab name and test date are required' };
   if (pdf && (pdf.type !== 'application/pdf' || pdf.size > MAX_PDF_BYTES)) return { ok: false as const, error: 'Upload the report as a PDF of 10 MB or less' };
+  const labProblems = await textProblems(db, productId, [l.testScope, ...Object.entries(l.summary).flat()].join(' '));
+  if (labProblems) return { ok: false as const, error: `Report text: remove or substantiate ${labProblems} (state measured results only)` };
   let key: string | null = null;
   if (pdf) {
     key = `lab-reports/${productId}/${now.getTime()}-${rand()}.pdf`;
     await r2.put(key, await pdf.arrayBuffer(), { httpMetadata: { contentType: 'application/pdf', contentDisposition: 'inline' } });
   }
   const at = nowIso(now);
-  const res = await db.batch([
-    db
-      .prepare(
-        `INSERT INTO lab_reports (product_id, batch_code, tested_on, lab_name, lab_accreditation, test_scope, summary, pdf_r2_key, visible)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .bind(productId, l.batchCode.trim(), l.testedOn, l.labName.trim(), trimOrNull(l.labAccreditation), l.testScope.trim(), JSON.stringify(l.summary), key, l.visible ? 1 : 0),
-    db.prepare('UPDATE products SET updated_at = ? WHERE id = ?').bind(at, productId),
-    purgeStmt(db, paths, at),
-  ]);
-  return { ok: true as const, id: res[0].meta.last_row_id };
+  try {
+    const res = await db.batch([
+      db
+        .prepare(
+          `INSERT INTO lab_reports (product_id, batch_code, tested_on, lab_name, lab_accreditation, test_scope, summary, pdf_r2_key, visible)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(productId, l.batchCode.trim(), l.testedOn, l.labName.trim(), trimOrNull(l.labAccreditation), l.testScope.trim(), JSON.stringify(l.summary), key, l.visible ? 1 : 0),
+      db.prepare('UPDATE products SET updated_at = ? WHERE id = ?').bind(at, productId),
+      purgeStmt(db, paths, at),
+    ]);
+    return { ok: true as const, id: res[0].meta.last_row_id };
+  } catch (err) {
+    if (key) await r2.delete(key).catch(() => {});
+    throw err;
+  }
 }
 
 export async function setLabReportVisible(db: D1Database, productId: number, reportId: number, visible: boolean, now = new Date()) {
@@ -523,13 +613,20 @@ export async function setCertificate(db: D1Database, r2: R2Bucket, productId: nu
   if (!paths) return { ok: false as const, error: 'Product not found' };
   const ext = CERT_TYPES[file.type];
   if (!ext || file.size > MAX_PDF_BYTES) return { ok: false as const, error: 'Upload a PDF, JPEG or PNG of 10 MB or less' };
+  const old = await db.prepare('SELECT organic_cert_r2_key AS k FROM products WHERE id = ?').bind(productId).first<{ k: string | null }>();
   const key = `certificates/${productId}/${now.getTime()}-${rand()}.${ext}`;
   await r2.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type } });
   const at = nowIso(now);
-  await db.batch([
-    db.prepare('UPDATE products SET organic_cert_r2_key = ?, updated_at = ? WHERE id = ?').bind(key, at, productId),
-    purgeStmt(db, paths, at),
-  ]);
+  try {
+    await db.batch([
+      db.prepare('UPDATE products SET organic_cert_r2_key = ?, updated_at = ? WHERE id = ?').bind(key, at, productId),
+      purgeStmt(db, paths, at),
+    ]);
+  } catch (err) {
+    await r2.delete(key).catch(() => {});
+    throw err;
+  }
+  if (old?.k) await r2.delete(old.k).catch(() => {});
   return { ok: true as const, key };
 }
 

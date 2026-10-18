@@ -4,7 +4,15 @@ import {
   activateBatch, addBatch, addImage, addLabReport, deleteImage, getProductForAdmin, listProductsForAdmin, publishChecklist, saveProduct,
   setLabReportVisible, shelfLifeWarning, type ProductInput, type VariantInput,
 } from '../../src/lib/store/catalog-admin';
+import { SETTING_DEFAULTS, putSettings } from '../../src/lib/store/settings';
+import { beforeAll } from 'vitest';
 import { db, scalar } from '../helpers/fixtures';
+
+const LISTING_SETTINGS = {
+  ...SETTING_DEFAULTS, legal_name: 'HariLeaf Agritech Pvt Ltd', address: 'Borivali, Mumbai 400092', fssai_license: '11524999000123',
+  customer_care_phone: '9820966177', customer_care_email: 'care@harileaf.org',
+};
+beforeAll(async () => putSettings(db, LISTING_SETTINGS));
 
 const r2 = env.HARILEAF_MEDIA;
 const NOW = new Date('2026-10-18T06:00:00Z');
@@ -45,7 +53,7 @@ describe('saveProduct', () => {
     expect(a?.product.slug).toBe('karjat-3');
     expect(a?.variants.map((x) => [x.sku, x.stock_qty])).toEqual([['KJ3-1KG', 10], ['KJ3-5KG', 10]]);
     expect(a?.publishedAt).toBeNull();
-    expect(await scalar("SELECT count(*) FROM outbox WHERE kind = 'cache.purge'")).toBe(before + 1);
+    expect(await scalar("SELECT count(*) FROM outbox WHERE kind = 'cache.purge'")).toBe(before + 2); // now + 30 s later
     const payload = JSON.parse(await scalar<string>("SELECT payload FROM outbox WHERE kind = 'cache.purge' ORDER BY id DESC LIMIT 1"));
     expect(payload.urls).toContain('https://harileaf.org/rice/karjat-3');
   });
@@ -65,6 +73,35 @@ describe('saveProduct', () => {
     if (!without.ok) expect(without.errors.organicCertNumber).toBeDefined();
     const withCert = await saveProduct(db, null, input({ name: 'Organic Rice', organicScheme: 'npop', organicCertNumber: 'NPOP/2026/1' }), [v()], NOW);
     expect(withCert.ok).toBe(true);
+  });
+
+  it('blocks publishing until the seller details shown on listings are filled in', async () => {
+    await putSettings(db, { ...LISTING_SETTINGS, fssai_license: '', address: '' });
+    const created = await saveProduct(db, null, input(), [v()], NOW);
+    if (!created.ok) throw new Error('setup');
+    await addImage(db, r2, created.id, png(), 'Rice grains', NOW);
+    const a = await getProductForAdmin(db, created.id);
+    const res = await saveProduct(db, created.id, input({ slug: a!.product.slug, status: 'active' }), [v({ id: a!.variants[0].id, sku: a!.variants[0].sku, stockAdjust: 0 })], NOW);
+    await putSettings(db, LISTING_SETTINGS);
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.errors.settings).toMatch(/packer address, FSSAI licence/);
+  });
+
+  it('rejects pack ids that belong to another product', async () => {
+    const a = await saveProduct(db, null, input(), [v()], NOW);
+    const b = await saveProduct(db, null, input(), [v()], NOW);
+    if (!a.ok || !b.ok) throw new Error('setup');
+    const foreign = (await getProductForAdmin(db, b.id))!.variants[0];
+    const res = await saveProduct(db, a.id, input({ slug: (await getProductForAdmin(db, a.id))!.product.slug }), [v({ id: foreign.id, sku: foreign.sku, stockAdjust: 0 })], NOW);
+    expect(res).toEqual({ ok: false, errors: { variants: 'A pack size no longer exists — reload the page' } });
+  });
+
+  it('queues an immediate and a delayed purge that include other live product pages', async () => {
+    const res = await saveProduct(db, null, input({ slug: 'purge-check' }), [v()], NOW);
+    expect(res.ok).toBe(true);
+    const { results } = await db.prepare("SELECT payload, next_attempt_at FROM outbox WHERE kind = 'cache.purge' ORDER BY id DESC LIMIT 2").all<{ payload: string; next_attempt_at: string }>();
+    expect(results.map((r) => r.next_attempt_at).sort()).toEqual([NOW.toISOString(), new Date(NOW.getTime() + 30_000).toISOString()]);
+    expect(JSON.parse(results[0].payload).urls).toContain('https://harileaf.org/rice/purge-check');
   });
 
   it('enforces the publish checklist and perishable rules', async () => {
@@ -115,6 +152,7 @@ describe('images, batches and lab reports', () => {
     expect(await r2.head(img.key)).not.toBeNull();
     expect(await addImage(db, r2, created.id, new File(['x'], 'a.gif', { type: 'image/gif' }), 'x', NOW)).toMatchObject({ ok: false });
     expect(await addImage(db, r2, created.id, png(), '  ', NOW)).toMatchObject({ ok: false });
+    expect(await addImage(db, r2, created.id, png(), 'Organic rice that boosts immunity', NOW)).toMatchObject({ ok: false, error: expect.stringMatching(/organic.*immunity/) });
 
     const admin = await getProductForAdmin(db, created.id);
     await saveProduct(db, created.id, input({ slug: admin!.product.slug, status: 'active' }), [v({ id: admin!.variants[0].id, sku: admin!.variants[0].sku, stockAdjust: 0 })], NOW);
@@ -137,6 +175,9 @@ describe('images, batches and lab reports', () => {
     expect(await scalar('SELECT batch_code FROM batches WHERE product_id = ? AND active = 1', created.id)).toBe('B2');
     const b1 = await scalar<number>("SELECT id FROM batches WHERE product_id = ? AND batch_code = 'B1'", created.id);
     expect(await activateBatch(db, created.id, b1, NOW)).toEqual({ ok: true });
+    expect(await scalar('SELECT batch_code FROM batches WHERE product_id = ? AND active = 1', created.id)).toBe('B1');
+    // A wrong batch id must not deactivate the current batch.
+    expect(await activateBatch(db, created.id, 999_999, NOW)).toEqual({ ok: false, error: 'Batch not found' });
     expect(await scalar('SELECT batch_code FROM batches WHERE product_id = ? AND active = 1', created.id)).toBe('B1');
     expect(await setLabReportVisible(db, created.id, lab.id, false, NOW)).toEqual({ ok: true });
     expect(await addBatch(db, created.id, { batchCode: 'B3', packedOn: '2026-10-01', groundOrMilledOn: '2026-10-05', labReportId: null, makeActive: false }, NOW)).toMatchObject({ ok: false });
