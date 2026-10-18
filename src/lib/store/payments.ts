@@ -278,8 +278,8 @@ export async function requeueStuckCaptures(db: D1Database, now: Date): Promise<n
   const res = await db
     .prepare(
       `INSERT INTO outbox (order_id, kind, payload, state, attempts, next_attempt_at, created_at, updated_at)
-       SELECT o.id, 'razorpay.capture', '{}', 'pending', 0, ?1, ?1, ?1 FROM orders o
-       WHERE o.payment_method = 'razorpay' AND o.payment_status = 'authorized' AND o.created_at >= ?2
+       SELECT o.id, 'razorpay.capture', json_object('paymentId', o.razorpay_payment_id), 'pending', 0, ?1, ?1, ?1 FROM orders o
+       WHERE o.payment_method = 'razorpay' AND o.payment_status = 'authorized' AND o.razorpay_payment_id IS NOT NULL AND o.created_at >= ?2
          AND EXISTS (SELECT 1 FROM outbox x WHERE x.order_id = o.id AND x.kind = 'razorpay.capture')
          AND NOT EXISTS (SELECT 1 FROM outbox x WHERE x.order_id = o.id AND x.kind = 'razorpay.capture' AND (x.state IN ('pending', 'running') OR x.updated_at > ?3))
        LIMIT 20`,

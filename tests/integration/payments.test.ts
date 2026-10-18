@@ -163,6 +163,12 @@ describe('reconciliation and capture', () => {
     expect(await requeueStuckCaptures(db, plusMin(100))).toBe(0); // died under an hour ago
     expect(await requeueStuckCaptures(db, plusMin(140))).toBe(1);
     expect(await requeueStuckCaptures(db, plusMin(141))).toBe(0);
+    // The re-queued row must be runnable by the capture handler.
+    const row = await db.prepare("SELECT id, payload FROM outbox WHERE order_id = ? AND kind = 'razorpay.capture' AND state = 'pending'").bind(o.orderId).first<{ id: number; payload: string }>();
+    expect(JSON.parse(row!.payload)).toEqual({ paymentId: o.payment.id });
+    const { cfg } = rzp((url) => (url.endsWith('/capture') ? { ...o.payment, status: 'captured' } : { ...o.payment, status: 'authorized' }));
+    await makeCaptureHandler(cfg.fetch)(JSON.parse(row!.payload), { env: { ...env, RAZORPAY_KEY_ID: 'k', RAZORPAY_KEY_SECRET: 's' } as Env, row: { id: row!.id, order_id: o.orderId, kind: 'razorpay.capture', payload: {}, attempts: 1 } });
+    expect(await scalar('SELECT payment_status FROM orders WHERE id = ?', o.orderId)).toBe('paid');
   });
 
   it('finds payments whose callbacks were missed', async () => {
