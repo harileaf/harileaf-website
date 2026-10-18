@@ -5,6 +5,7 @@ import {
 } from './fulfilment';
 import { orderDocs } from './invoice-docs';
 import type { OrderItemRow, OrderRow } from './orders';
+import { confirmCod } from './cod';
 import { retryRefundStmts } from './refunds';
 import { safeHttpsUrl } from './urls';
 
@@ -61,8 +62,9 @@ export async function orderDetail(db: D1Database, id: number) {
 }
 
 /** Which buttons the detail page shows for an order (the server re-checks every action). */
-export function availableActions(o: Pick<OrderRow, 'status' | 'payment_method' | 'payment_status' | 'total_paise'>): string[] {
+export function availableActions(o: Pick<OrderRow, 'status' | 'payment_method' | 'payment_status' | 'total_paise'>, opts: { awaitingCodConfirmation?: boolean } = {}): string[] {
   const a: string[] = [];
+  if (opts.awaitingCodConfirmation) return ['confirm_cod', 'cancel'];
   const prepaidReady = o.payment_method === 'cod' || o.payment_status === 'paid';
   if (o.status === 'placed' && prepaidReady) a.push('pack');
   if (o.status === 'packed') a.push('ship');
@@ -88,6 +90,8 @@ export async function runAdminAction(
   switch (body.action) {
     case 'pack':
       return markPacked(db, orderId, base);
+    case 'confirm_cod':
+      return confirmCod(db, orderId, { now: ctx.now, actor: 'admin', actorEmail: ctx.actorEmail });
     case 'ship': {
       const tracking = str(body, 'trackingUrl', 500);
       if (tracking && !safeHttpsUrl(tracking)) return { ok: false, error: 'Tracking link must start with https://' };
@@ -156,9 +160,11 @@ export async function dashboardMetrics(db: D1Database, now: Date) {
          (SELECT count(*) FROM orders o WHERE payment_method = 'cod' AND status = 'delivered' AND total_paise > 0 AND updated_at < ?3
             AND NOT EXISTS (SELECT 1 FROM cod_remittances r WHERE r.order_id = o.id)) AS cod_unremitted,
          (SELECT count(*) FROM order_events WHERE type = 'extra_payment' AND at >= ?2) AS extra_payments,
-         (SELECT count(DISTINCT order_id) FROM order_events WHERE type IN ('courier_unapplied', 'courier_lost') AND at >= ?2) AS courier_problems`,
+         (SELECT count(DISTINCT order_id) FROM order_events WHERE type IN ('courier_unapplied', 'courier_lost') AND at >= ?2) AS courier_problems,
+         (SELECT count(*) FROM orders WHERE payment_method = 'cod' AND status = 'placed' AND cod_confirmed_at IS NULL AND total_paise > 0) AS cod_unconfirmed,
+         (SELECT count(*) FROM orders WHERE payment_method = 'cod' AND status = 'placed' AND cod_confirmed_at IS NULL AND total_paise > 0 AND created_at < ?4) AS cod_unconfirmed_old`,
     )
-    .bind(since(1), since(7), since(14))
+    .bind(since(1), since(7), since(14), since(2))
     .first<Record<string, number>>();
   return row ?? {};
 }

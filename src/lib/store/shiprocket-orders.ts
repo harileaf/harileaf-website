@@ -7,6 +7,7 @@
 import { istParts } from './fy';
 import type { OutboxHandler } from './outbox';
 import type { OrderItemRow, OrderRow } from './orders';
+import { needsCodConfirmation } from './cod';
 import { getSettings } from './settings';
 import { ShiprocketError, shiprocketConfig, srCall, type ShiprocketConfig } from './shiprocket';
 
@@ -94,13 +95,14 @@ async function findExisting(cfg: ShiprocketConfig, orderNo: string): Promise<{ i
 export function makeShiprocketHandlers(fetchImpl?: typeof fetch): Record<string, OutboxHandler> {
   return {
     'shiprocket.create': async (_payload, { env, row }) => {
-      const cfg = shiprocketConfig(env, fetchImpl);
-      if (!cfg) throw new Error('Shiprocket is not configured (SHIPROCKET_EMAIL / SHIPROCKET_PASSWORD)');
       const db = env.STORE_DB;
       const o = await db.prepare('SELECT * FROM orders WHERE id = ?').bind(row.order_id).first<OrderRow>();
       if (!o) throw new Error(`order ${row.order_id} not found`);
       if (o.shiprocket_order_id || o.status === 'cancelled') return;
       const settings = await getSettings(db);
+      if (needsCodConfirmation(o, settings)) return; // confirmCod queues a new push
+      const cfg = shiprocketConfig(env, fetchImpl);
+      if (!cfg) throw new Error('Shiprocket is not configured (SHIPROCKET_EMAIL / SHIPROCKET_PASSWORD)');
       if (!settings.shiprocket_pickup_location) throw new Error('Set the Shiprocket pickup location name in Store settings');
       const save = async (id: number, shipmentId: number | null) => {
         await db.batch([

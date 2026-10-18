@@ -9,7 +9,7 @@ export const SETTING_KEYS = [
   'customer_care_phone', 'customer_care_email',
   'grievance_officer_name', 'grievance_officer_email', 'grievance_officer_phone',
   'min_order_paise', 'cod_max_order_paise', 'notify_email', 'low_stock_email',
-  'pickup_pincode', 'shiprocket_pickup_location',
+  'pickup_pincode', 'shiprocket_pickup_location', 'cod_confirmation',
 ] as const;
 export type SettingKey = (typeof SETTING_KEYS)[number];
 export type StoreSettings = Record<SettingKey, string>;
@@ -32,6 +32,8 @@ export const SETTING_DEFAULTS: StoreSettings = {
   low_stock_email: '',
   pickup_pincode: '',
   shiprocket_pickup_location: '',
+  /** 'on': COD orders ship only after the customer or an admin confirms them. */
+  cod_confirmation: 'on',
 };
 
 /** Required before Razorpay KYC / launch (E-Commerce Rules, Legal Metrology, FSSAI). */
@@ -115,6 +117,7 @@ export function validateSettings(input: Record<string, unknown>, current: StoreS
   }
 
   if (value.pickup_pincode && !/^[1-9]\d{5}$/.test(value.pickup_pincode)) fail('pickup_pincode', 'Enter the 6-digit pincode you ship from');
+  if (!['on', 'off'].includes(value.cod_confirmation)) fail('cod_confirmation', 'Choose on or off');
   if (!/^\d+$/.test(value.min_order_paise)) fail('min_order_paise', 'Enter an amount in rupees');
   if (!/^\d+$/.test(value.cod_max_order_paise) || Number(value.cod_max_order_paise) <= 0)
     fail('cod_max_order_paise', 'Enter a positive amount');

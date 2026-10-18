@@ -6,6 +6,8 @@ import SEO from '../../components/seo/SEO.astro';
 import { formatINR } from '../../lib/store/money';
 import { getOrderByNo } from '../../lib/store/orders';
 import { safeHttpsUrl } from '../../lib/store/urls';
+import { needsCodConfirmation } from '../../lib/store/cod';
+import { getSettings } from '../../lib/store/settings';
 import { checkViewToken } from '../../lib/store/tokens';
 
 Astro.response.headers.set('Cache-Control', 'no-store');
@@ -32,6 +34,8 @@ const STATUS: Record<string, { title: string; body: string }> = {
 };
 const s = STATUS[o.status] ?? { title: o.status, body: '' };
 const canCancel = o.status === 'placed';
+const awaitingConfirm = needsCodConfirmation(o, await getSettings(env.STORE_DB));
+const heading = awaitingConfirm ? { title: 'Almost done — please confirm', body: 'Thank you! Confirm your cash-on-delivery order below and we’ll pack it within 2 business days.' } : s;
 const hasInvoice = Boolean(o.invoice_id);
 const trackingUrl = safeHttpsUrl(o.tracking_url);
 const refundLine =
@@ -51,14 +55,21 @@ const paymentLine =
   <slot name="head" slot="head"><SEO title={`Order ${o.order_no} | HariLeaf`} description="Your HariLeaf order" noIndex /></slot>
   <div class="max-w-4xl mx-auto px-6 pt-32 pb-24">
     <p class="text-sm text-on-surface-variant">Order {o.order_no} · placed {fmt(o.created_at)}</p>
-    <h1 class="text-4xl font-extrabold tracking-tight mt-1">{s.title}</h1>
-    <p class="mt-2 text-on-surface-variant max-w-2xl">{s.body}</p>
+    <h1 class="text-4xl font-extrabold tracking-tight mt-1">{heading.title}</h1>
+    <p class="mt-2 text-on-surface-variant max-w-2xl">{heading.body}</p>
 
     {canPay && (
       <div class="mt-6 rounded-2xl p-5 flex flex-wrap items-center gap-4" style="background:#eef8f5;border:1px solid #8bd4c6">
         <p class="flex-1 min-w-[14rem] text-sm">Your items are held until <strong>{fmt(holdExpiresAt!)}</strong>.</p>
         <button id="pay-now" type="button" data-order={o.order_no} data-token={token} class="rounded-full px-7 py-3 font-extrabold text-white" style="background:linear-gradient(135deg,#196a5e,#2d7a4f)">Pay {formatINR(o.total_paise)} now</button>
         <p id="pay-status" class="w-full text-sm font-bold" role="status" aria-live="polite"></p>
+      </div>
+    )}
+    {awaitingConfirm && (
+      <div id="confirm" class="mt-6 rounded-2xl p-5 flex flex-wrap items-center gap-4" style="background:#fff4e0;border:1px solid #e8c37a">
+        <p class="flex-1 min-w-[14rem] text-sm"><strong>Please confirm your order</strong> — cash on delivery orders ship once you confirm. You'll pay {formatINR(o.total_paise)} on delivery.</p>
+        <button id="confirm-cod" type="button" data-order={o.order_no} data-token={token} class="rounded-full px-7 py-3 font-extrabold text-white" style="background:linear-gradient(135deg,#196a5e,#2d7a4f)">Confirm my order</button>
+        <p id="confirm-status" class="w-full text-sm font-bold" role="status" aria-live="polite"></p>
       </div>
     )}
     {trackingUrl && <p class="mt-6"><a href={trackingUrl} class="font-extrabold text-primary underline" rel="noopener noreferrer" target="_blank">Track your parcel{o.courier ? ` (${o.courier})` : ''} →</a></p>}
@@ -117,6 +128,21 @@ const paymentLine =
   if (new URLSearchParams(location.search).has('t')) history.replaceState(null, '', location.pathname);
   // A plain reload would drop the token (and 404): reload the tokened URL instead.
   const reloadOrder = () => location.replace(tokenedUrl);
+
+  const confirmBtn = document.getElementById('confirm-cod') as HTMLButtonElement | null;
+  confirmBtn?.addEventListener('click', async () => {
+    const out = document.getElementById('confirm-status');
+    confirmBtn.disabled = true;
+    try {
+      const res = await fetch('/api/store/order/confirm-cod', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderNo: confirmBtn.dataset.order, token: confirmBtn.dataset.token }) });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (res.ok) return reloadOrder();
+      if (out) out.textContent = data.error ?? 'Couldn’t confirm right now — please try again.';
+    } catch {
+      if (out) out.textContent = 'Network error — please try again.';
+    }
+    confirmBtn.disabled = false;
+  });
 
   const cancelBtn = document.getElementById('cancel-order') as HTMLButtonElement | null;
   cancelBtn?.addEventListener('click', async () => {

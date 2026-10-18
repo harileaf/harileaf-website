@@ -162,6 +162,8 @@ export interface OrderRow {
   razorpay_order_id: string | null; razorpay_payment_id: string | null; paid_at: string | null;
   shiprocket_order_id: string | null; shiprocket_shipment_id: string | null; awb: string | null; courier: string | null; tracking_url: string | null;
   invoice_id: number | null; cancel_reason: string | null; cancelled_by: string | null; created_at: string; updated_at: string;
+  /** Migration 0004: when a COD order was confirmed (customer or admin). */
+  cod_confirmed_at?: string | null;
 }
 
 export interface OrderItemRow {

@@ -66,6 +66,7 @@ const sections = [
     {(m.refunds_failed ?? 0) > 0 && <p class="warn" role="status"><strong>{m.refunds_failed} refund(s) failed at Razorpay.</strong> Retry them from the order page.</p>}
     {(m.ndr_open ?? 0) > 0 && <p class="warn" role="status"><strong>{m.ndr_open} shipment(s) had a failed delivery attempt</strong> this week. Call the customer, then act in Shiprocket → NDR.</p>}
     {(m.courier_problems ?? 0) > 0 && <p class="warn" role="status"><strong>{m.courier_problems} order(s) have courier updates that need you</strong> (lost parcel, or a scan that didn't match the order — e.g. a pickup of a cancelled order). See the order timeline.</p>}
+    {(m.cod_unconfirmed_old ?? 0) > 0 && <p class="warn" role="status"><a href="/admin/orders?status=placed" style="color:inherit;"><strong>{m.cod_unconfirmed_old} COD order(s) unconfirmed for over 2 days.</strong> Call the customer, then confirm or cancel (their stock is held).</a></p>}
     {(m.extra_payments ?? 0) > 0 && <p class="warn" role="status"><strong>{m.extra_payments} extra payment authorisation(s)</strong> this week were not captured and will auto-release. Let the customer know if they ask.</p>}
     {(m.cod_unremitted ?? 0) > 0 && <p class="warn" role="status"><a href="/admin/remittance" style="color:inherit;"><strong>{m.cod_unremitted} COD order(s)</strong> delivered over 2 weeks ago have no remittance recorded.</a></p>}
     {missing.length > 0 && (

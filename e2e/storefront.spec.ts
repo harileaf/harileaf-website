@@ -27,6 +27,9 @@ test('a shopper buys rice with cash on delivery and can cancel before packing', 
   await page.click('#place-order');
 
   await expect(page).toHaveURL(/\/order\/HL-\d{4}-\d{4}$/, { timeout: 15_000 }); // token stripped from the address bar
+  // COD orders ship once the customer confirms (setting on by default).
+  await expect(page.getByRole('heading', { level: 1, name: /please confirm/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Confirm my order' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Order confirmed' })).toBeVisible();
   await expect(page.getByText('Cash on delivery')).toBeVisible();
 

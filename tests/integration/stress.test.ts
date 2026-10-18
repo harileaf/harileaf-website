@@ -16,7 +16,7 @@ import { prng } from '../helpers/prng';
 
 const T0 = new Date('2026-10-18T06:00:00Z');
 const at = (min: number) => new Date(T0.getTime() + min * 60_000);
-const settings = { ...SETTING_DEFAULTS, min_order_paise: '100', legal_name: 'HariLeaf Agritech Pvt Ltd', address: 'Mumbai', gstin: '27AAPFU0939F1ZV', state_code: '27' };
+const settings = { ...SETTING_DEFAULTS, cod_confirmation: 'off', min_order_paise: '100', legal_name: 'HariLeaf Agritech Pvt Ltd', address: 'Mumbai', gstin: '27AAPFU0939F1ZV', state_code: '27' };
 beforeAll(async () => putSettings(db, settings));
 
 const co = (method: 'cod' | 'razorpay') => {

@@ -9,6 +9,8 @@ import { drainOutbox } from './outbox';
 import { expireReservations, reconcilePending, requeueStuckCaptures } from './payments';
 import { razorpayConfig } from './razorpay';
 import { reconcileRefunds } from './refunds';
+import { remindUnconfirmedCod } from './cod';
+import { getSettings } from './settings';
 
 export async function runScheduled(env: Env, now: Date): Promise<void> {
   const report: Record<string, unknown> = { at: now.toISOString() };
@@ -24,6 +26,7 @@ export async function runScheduled(env: Env, now: Date): Promise<void> {
   await step('expired', () => expireReservations(env.STORE_DB, now));
   if (rzp) await step('refunds_settled', () => reconcileRefunds(env.STORE_DB, rzp, now));
   await step('captures_requeued', () => requeueStuckCaptures(env.STORE_DB, now));
+  await step('cod_reminders', async () => remindUnconfirmedCod(env.STORE_DB, await getSettings(env.STORE_DB), now));
   await step('outbox', () => drainOutbox(env.STORE_DB, OUTBOX_HANDLERS, { env, now, limit: 50 }));
   console.log(JSON.stringify({ msg: 'scheduled', ...report }));
 }

@@ -17,7 +17,7 @@ import { hmacHex } from '../../src/lib/store/tokens';
 import { db, insertProduct, insertVariant, scalar } from '../helpers/fixtures';
 
 const NOW = new Date('2026-10-18T06:30:00Z');
-const settings = { ...SETTING_DEFAULTS, min_order_paise: '100', legal_name: 'HariLeaf Agritech Pvt Ltd', address: 'Borivali, Mumbai 400092', gstin: '27AAPFU0939F1ZV', state_code: '27', shiprocket_pickup_location: 'Borivali' };
+const settings = { ...SETTING_DEFAULTS, cod_confirmation: 'off', min_order_paise: '100', legal_name: 'HariLeaf Agritech Pvt Ltd', address: 'Borivali, Mumbai 400092', gstin: '27AAPFU0939F1ZV', state_code: '27', shiprocket_pickup_location: 'Borivali' };
 beforeAll(async () => {
   await putSettings(db, settings);
   await env.HARILEAF_CMS.put('shiprocket:token', 'tok');

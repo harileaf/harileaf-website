@@ -1,4 +1,5 @@
 /** Shipping / cancellation / refund emails (outbox `email.shipped|delivered|cancelled|refunded`). */
+import { needsCodConfirmation } from './cod';
 import { sendEmail, type Email } from './email';
 import { orderViewUrl } from './email-handlers';
 import { formatINR } from './money';
@@ -49,6 +50,11 @@ export function refundedEmail(o: OrderRow, viewUrl: string, s: StoreSettings): E
   return { to: o.email, subject: `Refund for order ${o.order_no} — HariLeaf`, html: wrap('Your refund is on its way', body, s), text: `We've refunded ${formatINR(o.total_paise)} for order ${o.order_no} ${how}.\n${viewUrl}`, idempotencyKey: `email.refunded/${o.order_no}`, replyTo: s.customer_care_email || undefined };
 }
 
+export function codReminderEmail(o: OrderRow, viewUrl: string, s: StoreSettings): Email {
+  const body = `<p>Hi ${first(o)}, your cash-on-delivery order <strong>${esc(o.order_no)}</strong> (${formatINR(o.total_paise)}) is waiting for your confirmation before we ship it.</p>${button(`${viewUrl}#confirm`, 'Confirm my order')}<p style="color:#666;font-size:12px">Didn't place this order, or changed your mind? You can cancel it from the same page.</p>`;
+  return { to: o.email, subject: `Reminder: confirm your order ${o.order_no} — HariLeaf`, html: wrap('Please confirm your order', body, s), text: `Your COD order ${o.order_no} is waiting for your confirmation: ${viewUrl}#confirm`, idempotencyKey: `email.cod_reminder/${o.order_no}`, replyTo: s.customer_care_email || undefined };
+}
+
 export function makeFulfilmentEmailHandlers(fetchImpl?: typeof fetch): Record<string, OutboxHandler> {
   const handler = (build: (o: OrderRow, url: string, s: StoreSettings) => Email): OutboxHandler => async (_p, { env, row }) => {
     const o = await env.STORE_DB.prepare('SELECT * FROM orders WHERE id = ?').bind(row.order_id).first<OrderRow>();
@@ -60,5 +66,11 @@ export function makeFulfilmentEmailHandlers(fetchImpl?: typeof fetch): Record<st
     'email.delivered': handler(deliveredEmail),
     'email.cancelled': handler(cancelledEmail),
     'email.refunded': handler(refundedEmail),
+    'email.cod_reminder': async (_p, { env, row }) => {
+      const o = await env.STORE_DB.prepare('SELECT * FROM orders WHERE id = ?').bind(row.order_id).first<OrderRow>();
+      const s = await getSettings(env.STORE_DB);
+      if (!o || !needsCodConfirmation(o, s)) return; // confirmed or cancelled meanwhile
+      await sendEmail(env, codReminderEmail(o, await orderViewUrl(env, o), s), fetchImpl);
+    },
   };
 }

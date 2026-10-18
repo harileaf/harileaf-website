@@ -4,6 +4,7 @@
  * twice within Resend's 24 h window (409 = same send still in flight → retry). Without RESEND_API_KEY (local dev) emails
  * are logged and skipped.
  */
+import { needsCodConfirmation } from './cod';
 import { timedFetch } from './http';
 import { formatINR } from './money';
 import type { OrderItemRow, OrderRow } from './orders';
@@ -76,14 +77,19 @@ export function orderPlacedEmail(o: OrderRow, items: OrderItemRow[], viewUrl: st
       : o.payment_status === 'paid'
         ? `Paid online — ${formatINR(o.total_paise)}.`
         : `Payment of ${formatINR(o.total_paise)} received and being confirmed by your bank.`;
-  const html = `<p>Hi ${esc(o.customer_name.split(' ')[0])}, thank you for your order <strong>${esc(o.order_no)}</strong>. We'll pack it within 2 business days and email you a tracking link when it ships.</p>
+  const confirm = needsCodConfirmation(o, settings);
+  const confirmHtml = confirm
+    ? `<div style="background:#fff4e0;border:1px solid #e8c37a;border-radius:10px;padding:12px 14px;margin:12px 0"><p style="margin:0 0 8px"><strong>One quick step:</strong> please confirm your cash-on-delivery order so we can ship it.</p><a href="${esc(viewUrl)}#confirm" style="display:inline-block;background:#196a5e;color:#fff;text-decoration:none;padding:10px 18px;border-radius:999px;font-weight:bold">Confirm my order</a></div>`
+    : '';
+  const html = `<p>Hi ${esc(o.customer_name.split(' ')[0])}, thank you for your order <strong>${esc(o.order_no)}</strong>. We'll pack it within 2 business days ${confirm ? 'of your confirmation ' : ''}and email you a tracking link when it ships.</p>
+${confirmHtml}
 ${t.html}
 <p style="margin-top:12px"><strong>Total: ${formatINR(o.total_paise)}</strong> (inclusive of GST, free delivery)<br>${esc(pay)}</p>
 <p><strong>Delivering to:</strong> ${esc(address(o))}</p>
 <p><a href="${esc(viewUrl)}" style="display:inline-block;background:#196a5e;color:#fff;text-decoration:none;padding:10px 18px;border-radius:999px;font-weight:bold">View your order</a></p>
 <p style="color:#666;font-size:12px">This email acknowledges your ${o.payment_method === 'cod' ? 'order' : 'payment'}. Your GST invoice is issued when the order is dispatched. You can cancel free of charge until it's packed — see our <a href="${absolute('/refund-policy/')}">refund policy</a>.</p>`;
-  const text = `Thank you for your order ${o.order_no}.\n\n${t.text}\n\nTotal: ${formatINR(o.total_paise)} (incl. GST, free delivery)\n${pay}\nDelivering to: ${address(o)}\n\nView your order: ${viewUrl}\n\nYour GST invoice is issued when the order is dispatched.`;
-  return { to: o.email, subject: `Order ${o.order_no} confirmed — HariLeaf`, html: layout('Your order is confirmed', html, settings), text, idempotencyKey: `email.placed/${o.order_no}`, replyTo: settings.customer_care_email || undefined };
+  const text = `Thank you for your order ${o.order_no}.${confirm ? `\n\nPlease confirm your cash-on-delivery order so we can ship it: ${viewUrl}#confirm` : ''}\n\n${t.text}\n\nTotal: ${formatINR(o.total_paise)} (incl. GST, free delivery)\n${pay}\nDelivering to: ${address(o)}\n\nView your order: ${viewUrl}\n\nYour GST invoice is issued when the order is dispatched.`;
+  return { to: o.email, subject: confirm ? `Please confirm your order ${o.order_no} — HariLeaf` : `Order ${o.order_no} confirmed — HariLeaf`, html: layout(confirm ? 'Thank you — one quick step' : 'Your order is confirmed', html, settings), text, idempotencyKey: `email.placed/${o.order_no}`, replyTo: settings.customer_care_email || undefined };
 }
 
 export function ownerNewOrderEmail(o: OrderRow, items: OrderItemRow[], settings: StoreSettings): Email | null {

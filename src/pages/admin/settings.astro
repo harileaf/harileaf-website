@@ -17,7 +17,7 @@ if (authenticated) {
   }
 }
 
-type Field = { key: SettingKey; label: string; hint?: string; type?: 'text' | 'email' | 'tel' | 'rupees'; multiline?: boolean };
+type Field = { key: SettingKey; label: string; hint?: string; type?: 'text' | 'email' | 'tel' | 'rupees' | 'select'; multiline?: boolean; options?: Array<[string, string]> };
 const groups: Array<{ title: string; note?: string; fields: Field[] }> = [
   {
     title: 'Seller',
@@ -52,6 +52,7 @@ const groups: Array<{ title: string; note?: string; fields: Field[] }> = [
     fields: [
       { key: 'min_order_paise', label: 'Minimum order (₹)', type: 'rupees', hint: "Orders below this can't be placed; delivery is always free. Set it from courier rate cards." },
       { key: 'cod_max_order_paise', label: 'Maximum COD order (₹)', type: 'rupees' },
+      { key: 'cod_confirmation', label: 'Confirm COD orders before shipping', type: 'select', options: [['on', 'On — customer confirms by email/order page, or you confirm after a call'], ['off', 'Off — ship COD orders straight away']], hint: 'Cuts fake orders and returns-to-origin. Unconfirmed orders get one reminder after 24 hours and show on the dashboard.' },
     ],
   },
   {
@@ -85,7 +86,11 @@ const rupees = (paise: string) => (/^\d+$/.test(paise) ? String(Number(paise) / 
           {g.fields.map((f) => (
             <div>
               <label for={`s-${f.key}`}>{f.label}</label>
-              {f.multiline ? (
+              {f.type === 'select' ? (
+                <select id={`s-${f.key}`} name={f.key} aria-describedby={`e-${f.key}`} style="background:#fff;border:1px solid rgba(0,0,0,0.12);border-radius:8px;padding:0.75rem 1rem;width:100%;">
+                  {(f.options ?? []).map(([v, label]) => <option value={v} selected={settings![f.key] === v}>{label}</option>)}
+                </select>
+              ) : f.multiline ? (
                 <textarea id={`s-${f.key}`} name={f.key} rows="3" style="resize:vertical;" aria-describedby={`e-${f.key}`}>{settings![f.key]}</textarea>
               ) : (
                 <input
@@ -124,7 +129,7 @@ const rupees = (paise: string) => (/^\d+$/.test(paise) ? String(Number(paise) / 
     form.querySelectorAll<HTMLElement>('[data-error-for]').forEach((el) => (el.textContent = ''));
 
     const body: Record<string, string> = {};
-    form.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input[name], textarea[name]').forEach((el) => {
+    form.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('input[name], textarea[name], select[name]').forEach((el) => {
       if (el instanceof HTMLInputElement && el.dataset.rupees !== undefined) {
         const r = el.value.trim();
         body[el.name] = r === '' || Number.isNaN(Number(r)) ? r : String(Math.round(Number(r) * 100));

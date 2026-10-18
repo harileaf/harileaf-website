@@ -8,7 +8,7 @@ import { SETTING_DEFAULTS, putSettings } from '../../src/lib/store/settings';
 import { db, insertProduct, insertVariant, scalar } from '../helpers/fixtures';
 
 const NOW = new Date('2026-10-18T06:30:00Z');
-const settings = { ...SETTING_DEFAULTS, min_order_paise: '100', legal_name: 'HariLeaf Agritech Pvt Ltd', address: 'Borivali, Mumbai 400092', gstin: '27AAPFU0939F1ZV', state_code: '27' };
+const settings = { ...SETTING_DEFAULTS, cod_confirmation: 'off', min_order_paise: '100', legal_name: 'HariLeaf Agritech Pvt Ltd', address: 'Borivali, Mumbai 400092', gstin: '27AAPFU0939F1ZV', state_code: '27' };
 beforeAll(async () => putSettings(db, settings));
 const ctx = { now: NOW, actorEmail: 'admin@harileaf.org', tokenSecret: 'sek' };
 

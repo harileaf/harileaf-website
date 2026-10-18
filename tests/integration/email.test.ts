@@ -30,7 +30,12 @@ describe('order emails', () => {
     expect(email.html).toContain('Karjat 3 &lt;Rice&gt;');
     expect(email.html).toContain(`?t=${o.viewToken}`);
     expect(email.idempotencyKey).toBe(`email.placed/${o.orderNo}`);
-    expect(email.subject).toBe(`Order ${o.orderNo} confirmed — HariLeaf`);
+    // COD with confirmation on (default): asks the customer to confirm, via the order page (POST there, not a GET link action).
+    expect(email.subject).toBe(`Please confirm your order ${o.orderNo} — HariLeaf`);
+    expect(email.html).toContain(`?t=${o.viewToken}#confirm`);
+    const plain = orderPlacedEmail(view!.order, view!.items, `https://harileaf.org/order/${o.orderNo}?t=${o.viewToken}`, { ...SETTING_DEFAULTS, cod_confirmation: 'off' });
+    expect(plain.subject).toBe(`Order ${o.orderNo} confirmed — HariLeaf`);
+    expect(plain.html).not.toContain('#confirm');
   });
 
   it('sends to the customer and the owner through Resend with idempotency keys', async () => {
