@@ -9,7 +9,7 @@ export const SETTING_KEYS = [
   'customer_care_phone', 'customer_care_email',
   'grievance_officer_name', 'grievance_officer_email', 'grievance_officer_phone',
   'min_order_paise', 'cod_max_order_paise', 'notify_email', 'low_stock_email',
-  'pickup_pincode', 'shiprocket_pickup_location', 'cod_confirmation',
+  'pickup_pincode', 'shiprocket_pickup_location', 'cod_confirmation', 'cod_confirm_window_hours',
 ] as const;
 export type SettingKey = (typeof SETTING_KEYS)[number];
 export type StoreSettings = Record<SettingKey, string>;
@@ -34,6 +34,8 @@ export const SETTING_DEFAULTS: StoreSettings = {
   shiprocket_pickup_location: '',
   /** 'on': COD orders ship only after the customer or an admin confirms them. */
   cod_confirmation: 'on',
+  /** Unconfirmed COD orders are cancelled (stock released) after this many hours; '0' = never. */
+  cod_confirm_window_hours: '48',
 };
 
 /** Required before Razorpay KYC / launch (E-Commerce Rules, Legal Metrology, FSSAI). */
@@ -118,6 +120,8 @@ export function validateSettings(input: Record<string, unknown>, current: StoreS
 
   if (value.pickup_pincode && !/^[1-9]\d{5}$/.test(value.pickup_pincode)) fail('pickup_pincode', 'Enter the 6-digit pincode you ship from');
   if (!['on', 'off'].includes(value.cod_confirmation)) fail('cod_confirmation', 'Choose on or off');
+  if (!/^\d{1,3}$/.test(value.cod_confirm_window_hours) || (Number(value.cod_confirm_window_hours) > 0 && Number(value.cod_confirm_window_hours) < 25))
+    fail('cod_confirm_window_hours', 'Enter hours (at least 25, after the 24-hour reminder), or 0 to never cancel');
   if (!/^\d+$/.test(value.min_order_paise)) fail('min_order_paise', 'Enter an amount in rupees');
   if (!/^\d+$/.test(value.cod_max_order_paise) || Number(value.cod_max_order_paise) <= 0)
     fail('cod_max_order_paise', 'Enter a positive amount');

@@ -6,6 +6,7 @@ import { validateSession } from '../../../lib/auth';
 import { idParam } from '../../../lib/admin-api';
 import { availableActions, orderDetail } from '../../../lib/store/admin-orders';
 import { needsCodConfirmation } from '../../../lib/store/cod';
+import { isErasable } from '../../../lib/store/retention';
 import { formatINR } from '../../../lib/store/money';
 import { safeHttpsUrl } from '../../../lib/store/urls';
 
@@ -87,7 +88,9 @@ const needs: Record<string, string[]> = { ship: ['awb', 'courier', 'trackingUrl'
           <p class="muted" style="margin-top:0.5rem;">Marketing emails: {o.marketing_opt_in ? 'opted in' : 'no'}</p>
           <p style="margin-top:0.5rem;display:flex;gap:0.5rem;flex-wrap:wrap;">
             {o.marketing_opt_in ? <button type="button" class="brand-btn" data-quick="marketing_opt_out" style="padding:0.3rem 0.8rem;">Stop marketing emails</button> : null}
-            <button type="button" class="brand-btn" data-quick="erase_personal_data" data-confirm="Erase this customer's personal data from this order? Only possible for orders that never became a sale." style="padding:0.3rem 0.8rem;background:#8a1c1c;">Erase personal data (DPDP request)</button>
+            {isErasable(o, d.docs.length, d.refunds.length)
+              ? <button type="button" class="brand-btn" data-quick="erase_personal_data" data-confirm="Erase this customer's personal data from this order? This can't be undone." style="padding:0.3rem 0.8rem;background:#8a1c1c;">Erase personal data (DPDP request)</button>
+              : <span class="muted">Tax record — personal data kept as CGST s.36 requires (erasure not possible).</span>}
           </p>
         </section>
         <section class="box">

@@ -87,3 +87,11 @@ describe('missingForLaunch', () => {
     ]);
   });
 });
+
+it('validates the COD confirmation window (0 = never, otherwise after the 24 h reminder)', () => {
+  const cur = { ...SETTING_DEFAULTS };
+  expect(validateSettings({ cod_confirm_window_hours: '0' }, cur).ok).toBe(true);
+  expect(validateSettings({ cod_confirm_window_hours: '72' }, cur).ok).toBe(true);
+  expect(validateSettings({ cod_confirm_window_hours: '12' }, cur).ok).toBe(false);
+  expect(validateSettings({ cod_confirm_window_hours: 'x' }, cur).ok).toBe(false);
+});

@@ -5,13 +5,16 @@
  * cash-on-delivery order waiting for confirmation ships only after the customer
  * confirms it (button on the order page, linked from the order email — a POST,
  * so link scanners can't confirm) or an admin does after a call. Unconfirmed
- * orders get one reminder after 24 h (sent in daytime IST) and appear on the
- * dashboard; cancelling them stays a human decision.
+ * orders get one reminder after 24 h (sent in daytime IST); after the
+ * `cod_confirm_window_hours` setting (default 48 h) they are cancelled and their
+ * stock released, so fake orders can't hold stock. A shopper may have at most
+ * MAX_OPEN_UNCONFIRMED of them at once.
  */
 import { nowIso } from './db';
 import { claimStmt, runClaim } from './ops';
 import { enqueueStmt } from './outbox';
 import type { OrderRow } from './orders';
+import { cancelOrder } from './fulfilment';
 import { istParts } from './fy';
 
 export const COD_REMINDER_AFTER_H = 24;
@@ -64,4 +67,37 @@ export async function remindUnconfirmedCod(db: D1Database, now: Date): Promise<n
     .bind(at, before)
     .run();
   return res.meta.changes ?? 0;
+}
+
+/** Unconfirmed COD orders one email or phone may hold at once (fake-order stock hoarding). */
+export const MAX_OPEN_UNCONFIRMED = 2;
+
+export async function openUnconfirmedCod(db: D1Database, email: string, phone: string): Promise<number> {
+  const row = await db
+    .prepare(
+      `SELECT count(*) AS n FROM orders WHERE payment_method = 'cod' AND status = 'placed' AND cod_confirmed_at IS NULL AND total_paise > 0
+         AND shiprocket_order_id IS NULL AND (lower(email) = lower(?) OR phone = ?)`,
+    )
+    .bind(email, phone)
+    .first<{ n: number }>();
+  return row?.n ?? 0;
+}
+
+/** Cron: cancel COD orders still unconfirmed after the window, releasing their stock. */
+export async function cancelStaleUnconfirmedCod(db: D1Database, windowHours: number, now: Date, limit = 20): Promise<number> {
+  if (!(windowHours > 0)) return 0;
+  const before = new Date(now.getTime() - windowHours * 3600_000).toISOString();
+  const { results } = await db
+    .prepare(
+      `SELECT id FROM orders WHERE payment_method = 'cod' AND status = 'placed' AND cod_confirmed_at IS NULL AND total_paise > 0
+         AND shiprocket_order_id IS NULL AND created_at <= ? ORDER BY created_at LIMIT ?`,
+    )
+    .bind(before, limit)
+    .all<{ id: number }>();
+  let n = 0;
+  for (const o of results) {
+    const r = await cancelOrder(db, o.id, { now, actor: 'system', reason: `Not confirmed within ${windowHours} hours` });
+    if (r.ok) n += 1;
+  }
+  return n;
 }

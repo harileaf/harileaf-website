@@ -15,9 +15,11 @@ const call = async (route: Route, request: Request) => {
 const post = (path: string, body: unknown, headers: Record<string, string> = {}) =>
   new Request(`https://harileaf.org${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
 
-const form = (lines: unknown, paymentMethod: 'cod' | 'razorpay') => ({
+// A fresh shopper per checkout: unconfirmed COD orders are capped per email/phone.
+let shopper = 0;
+const form = (lines: unknown, paymentMethod: 'cod' | 'razorpay', who = ++shopper) => ({
   lines,
-  contact: { name: 'Asha Rao', email: 'asha@example.com', phone: '9820012345', marketingOptIn: false },
+  contact: { name: 'Asha Rao', email: `asha${who}@example.com`, phone: `98${String(20000000 + who).slice(-8)}`, marketingOptIn: false },
   ship: { line1: '12 Lake Road', city: 'Mumbai', stateCode: '27', pincode: '400092' },
   billSameAsShip: true,
   paymentMethod,
@@ -65,7 +67,7 @@ describe('checkout API', () => {
     const v = await insertVariant(await insertProduct(), { stock_qty: 1 });
     const key = crypto.randomUUID();
     const a = await call(checkout, post('/api/store/checkout', form([{ variantId: v, qty: 1 }], 'cod'), { 'Idempotency-Key': key }));
-    const b = await call(checkout, post('/api/store/checkout', form([{ variantId: v, qty: 1 }], 'cod'), { 'Idempotency-Key': key }));
+    const b = await call(checkout, post('/api/store/checkout', form([{ variantId: v, qty: 1 }], 'cod', shopper), { 'Idempotency-Key': key }));
     expect(a.status).toBe(201);
     expect(b.status).toBe(200);
     expect(b.body.orderNo).toBe(a.body.orderNo);
@@ -80,7 +82,7 @@ describe('checkout API', () => {
     expect(first.status).toBe(201);
     // Simulate the window before the Razorpay order id is stored.
     await db.prepare('UPDATE orders SET razorpay_order_id = NULL WHERE order_no = ?').bind(first.body.orderNo).run();
-    const dup = await call(checkout, post('/api/store/checkout', form([{ variantId: v, qty: 1 }], 'razorpay'), { 'Idempotency-Key': key }));
+    const dup = await call(checkout, post('/api/store/checkout', form([{ variantId: v, qty: 1 }], 'razorpay', shopper), { 'Idempotency-Key': key }));
     expect(dup).toMatchObject({ status: 409, body: { code: 'in_progress' } });
   });
 
@@ -88,8 +90,18 @@ describe('checkout API', () => {
     const v = await insertVariant(await insertProduct(), { stock_qty: 5 });
     const key = crypto.randomUUID();
     await call(checkout, post('/api/store/checkout', form([{ variantId: v, qty: 1 }], 'cod'), { 'Idempotency-Key': key }));
-    const other = await call(checkout, post('/api/store/checkout', { ...form([{ variantId: v, qty: 2 }], 'cod') }, { 'Idempotency-Key': key }));
+    const other = await call(checkout, post('/api/store/checkout', { ...form([{ variantId: v, qty: 2 }], 'cod', shopper) }, { 'Idempotency-Key': key }));
     expect(other).toMatchObject({ status: 409, body: { code: 'key_reused' } });
+  });
+
+  it('refuses a third unconfirmed COD order from the same shopper', async () => {
+    const v = await insertVariant(await insertProduct(), { stock_qty: 10 });
+    const me = ++shopper;
+    for (let i = 0; i < 2; i++) expect((await call(checkout, post('/api/store/checkout', form([{ variantId: v, qty: 1 }], 'cod', me), { 'Idempotency-Key': crypto.randomUUID() }))).status).toBe(201);
+    const third = await call(checkout, post('/api/store/checkout', form([{ variantId: v, qty: 1 }], 'cod', me), { 'Idempotency-Key': crypto.randomUUID() }));
+    expect(third.status).toBe(422);
+    expect(third.body.errors.paymentMethod).toMatch(/Confirm your earlier COD orders/);
+    expect((await call(checkout, post('/api/store/checkout', form([{ variantId: v, qty: 1 }], 'razorpay', me), { 'Idempotency-Key': crypto.randomUUID() }))).status).not.toBe(422); // paying online still works
   });
 
   it('asks the shopper to confirm a changed price', async () => {
@@ -123,7 +135,7 @@ describe('checkout API', () => {
     orderId = r.body.payment.order_id;
 
     // A retried submit returns the same order and Razorpay order.
-    const again = await call(checkout, post('/api/store/checkout', form([{ variantId: v, qty: 1 }], 'razorpay'), { 'Idempotency-Key': key }));
+    const again = await call(checkout, post('/api/store/checkout', form([{ variantId: v, qty: 1 }], 'razorpay', shopper), { 'Idempotency-Key': key }));
     expect(again.body).toMatchObject({ orderNo: r.body.orderNo, payment: { order_id: orderId } });
 
     const token = new URL(`https://x${r.body.viewUrl}`).searchParams.get('t')!;
@@ -155,7 +167,7 @@ describe('checkout API', () => {
     const key = crypto.randomUUID();
     const first = await call(checkout, post('/api/store/checkout', form([{ variantId: v, qty: 1 }], 'razorpay'), { 'Idempotency-Key': key }));
     await db.prepare("UPDATE orders SET status = 'payment_failed' WHERE order_no = ?").bind(first.body.orderNo).run();
-    const again = await call(checkout, post('/api/store/checkout', form([{ variantId: v, qty: 1 }], 'razorpay'), { 'Idempotency-Key': key }));
+    const again = await call(checkout, post('/api/store/checkout', form([{ variantId: v, qty: 1 }], 'razorpay', shopper), { 'Idempotency-Key': key }));
     expect(again).toMatchObject({ status: 409, body: { code: 'expired' } });
   });
 

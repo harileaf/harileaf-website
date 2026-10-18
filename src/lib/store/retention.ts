@@ -9,6 +9,11 @@ import { nowIso } from './db';
 
 export const ANONYMISE_AFTER_DAYS = 180;
 
+/** Same rule as ERASABLE below, for the admin page (which already has the order's documents and refunds). */
+export function isErasable(o: { status: string; payment_status: string; email: string }, docs: number, refunds: number): boolean {
+  return ['payment_failed', 'cancelled'].includes(o.status) && ['unpaid', 'authorized', 'failed'].includes(o.payment_status) && docs === 0 && refunds === 0 && !o.email.startsWith('removed-');
+}
+
 /** SQL predicate over `orders o`: no tax document and no money ever held. */
 const ERASABLE = `o.status IN ('payment_failed', 'cancelled')
   AND o.payment_status IN ('unpaid', 'authorized', 'failed')

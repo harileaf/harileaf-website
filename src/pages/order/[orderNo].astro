@@ -7,6 +7,7 @@ import { formatINR } from '../../lib/store/money';
 import { getOrderByNo } from '../../lib/store/orders';
 import { safeHttpsUrl } from '../../lib/store/urls';
 import { needsCodConfirmation } from '../../lib/store/cod';
+import { getSettings } from '../../lib/store/settings';
 import { checkViewToken } from '../../lib/store/tokens';
 
 Astro.response.headers.set('Cache-Control', 'no-store');
@@ -40,6 +41,7 @@ const STATUS: Record<string, { title: string; body: string }> = {
 const s = STATUS[o.status] ?? { title: o.status, body: '' };
 const canCancel = o.status === 'placed';
 const awaitingConfirm = needsCodConfirmation(o);
+const confirmHours = awaitingConfirm ? Number((await getSettings(env.STORE_DB)).cod_confirm_window_hours) : 0;
 const heading = awaitingConfirm ? { title: 'Almost done — please confirm', body: 'Thank you! Confirm your cash-on-delivery order below and we’ll pack it within 2 business days.' } : s;
 // Replacements carry a delivery challan, not an invoice (orders.invoice_id stays empty).
 const isReplacement = o.total_paise === 0;
@@ -76,7 +78,7 @@ const paymentLine =
     )}
     {awaitingConfirm && (
       <div id="confirm" class="mt-6 rounded-2xl p-5 flex flex-wrap items-center gap-4" style="background:#fff4e0;border:1px solid #e8c37a">
-        <p class="flex-1 min-w-[14rem] text-sm"><strong>Please confirm your order</strong> — cash on delivery orders ship once you confirm. You'll pay {formatINR(o.total_paise)} on delivery.</p>
+        <p class="flex-1 min-w-[14rem] text-sm"><strong>Please confirm your order</strong> — cash on delivery orders ship once you confirm. You'll pay {formatINR(o.total_paise)} on delivery.{confirmHours > 0 && ` Unconfirmed orders are cancelled after ${confirmHours} hours.`}</p>
         <button id="confirm-cod" type="button" data-order={o.order_no} data-token={token} class="rounded-full px-7 py-3 font-extrabold text-white" style="background:linear-gradient(135deg,#196a5e,#2d7a4f)">Confirm my order</button>
         <p id="confirm-status" class="w-full text-sm font-bold" role="status" aria-live="polite"></p>
       </div>
@@ -147,6 +149,8 @@ const paymentLine =
   confirmBtn?.addEventListener('click', async () => {
     const out = document.getElementById('confirm-status');
     confirmBtn.disabled = true;
+    const label = confirmBtn.textContent;
+    confirmBtn.textContent = 'Confirming…';
     try {
       const res = await fetch('/api/store/order/confirm-cod', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderNo: confirmBtn.dataset.order, token: confirmBtn.dataset.token }) });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
@@ -155,6 +159,7 @@ const paymentLine =
     } catch {
       if (out) out.textContent = 'Network error — please try again.';
     }
+    confirmBtn.textContent = label;
     confirmBtn.disabled = false;
   });
 

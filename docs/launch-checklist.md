@@ -23,7 +23,8 @@ Everything that must happen outside the code before the first real order. Work t
 ## 3. Store settings (owner, /admin/settings)
 
 - [ ] Legal name, address, GSTIN (state code must match), FSSAI licence, customer care phone + email, grievance officer (name, email, phone).
-- [ ] Minimum order (from courier rate cards), COD maximum, COD confirmation on/off.
+- [ ] Minimum order (from courier rate cards), COD maximum, COD confirmation on/off and its cancel window (default 48 h).
+- [ ] Optional Worker variable `ORDER_LINK_DAILY_CAP` ("find your order" emails per day, default 40) — raise it with your Resend plan.
 - [ ] Pickup pincode + Shiprocket pickup location name, new-order email.
 - [ ] The dashboard shows no "Needed before launch" warning.
 

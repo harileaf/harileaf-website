@@ -18,6 +18,8 @@ interface Env {
   STORE_DB: D1Database;
   /** Workers Rate Limiting binding (wrangler.toml [[ratelimits]]); absent in tests. */
   STORE_RATE_LIMITER?: { limit(opts: { key: string }): Promise<{ success: boolean }> };
+  /** Optional: store-wide daily cap on “find your order” link emails (default 40). */
+  ORDER_LINK_DAILY_CAP?: string;
   // Secrets / vars (.env.example lists every one)
   ADMIN_PASSPHRASE: string;
   CF_ACCESS_TEAM_DOMAIN?: string;

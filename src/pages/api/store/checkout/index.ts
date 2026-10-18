@@ -6,6 +6,7 @@ import { checkoutFingerprint, isIdempotencyKey, validateCheckoutInput } from '..
 import { stateCodeFor, stateName } from '../../../../lib/store/india-states';
 import { createOrder, findByIdempotencyKey, viewTokenFor } from '../../../../lib/store/orders';
 import { abortPendingOrder } from '../../../../lib/store/payments';
+import { MAX_OPEN_UNCONFIRMED, openUnconfirmedCod } from '../../../../lib/store/cod';
 import { publicQuote, quoteCart } from '../../../../lib/store/quote';
 import { createOrder as createRazorpayOrder, razorpayConfig } from '../../../../lib/store/razorpay';
 import { getSettings } from '../../../../lib/store/settings';
@@ -69,6 +70,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   const rzp = razorpayConfig(env);
   if (c.paymentMethod === 'razorpay' && !rzp) return json({ error: 'Online payment is not available right now. Please choose cash on delivery.' }, 503);
+  if (c.paymentMethod === 'cod' && settings.cod_confirmation !== 'off' && (await openUnconfirmedCod(env.STORE_DB, c.contact.email, c.contact.phone)) >= MAX_OPEN_UNCONFIRMED) {
+    return json({ error: 'You have cash-on-delivery orders waiting for confirmation. Please confirm them (see your email) or pay online.', errors: { paymentMethod: 'Confirm your earlier COD orders first, or pay online' } }, 422);
+  }
   if (c.paymentMethod === 'cod' && !quote.cod.eligible) return json({ error: quote.cod.reason ?? 'Cash on delivery is not available', errors: { paymentMethod: quote.cod.reason ?? '' } }, 422);
 
   // Courier check (fails open for non-perishables if Shiprocket is unreachable).

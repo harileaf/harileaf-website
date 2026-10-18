@@ -13,7 +13,7 @@ const SAME_ANSWER = { message: 'If that order number and email match an order, w
 
 /** At most 3 link emails per order per day, and a store-wide daily ceiling (the email provider's quota is shared with order emails). */
 export const PER_ORDER_PER_DAY = 3;
-export const STORE_PER_DAY = 40;
+export const STORE_PER_DAY = 40; // default; override with the ORDER_LINK_DAILY_CAP Worker variable
 
 /**
  * Emails a *new* link to an order and retires the old ones (bumps
@@ -52,7 +52,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const rev = (o?.view_token_rev ?? 0) + 1;
   const hash = await hashViewToken(env.ORDER_TOKEN_SECRET, await viewTokenFor(env.ORDER_TOKEN_SECRET, o?.idempotency_key ?? orderNo, rev));
   if (!o || !o.idempotency_key || o.recent > 0 || o.today >= PER_ORDER_PER_DAY) return json(SAME_ANSWER);
-  if (o.store_today >= STORE_PER_DAY) {
+  const storeCap = Number(env.ORDER_LINK_DAILY_CAP) > 0 ? Number(env.ORDER_LINK_DAILY_CAP) : STORE_PER_DAY;
+  if (o.store_today >= storeCap) {
     console.error(JSON.stringify({ msg: 'order-link emails hit the daily ceiling', order: o.id }));
     return json(SAME_ANSWER);
   }
@@ -61,7 +62,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     db
       .prepare(
         `INSERT INTO outbox (order_id, kind, payload, state, attempts, next_attempt_at, created_at, updated_at)
-         SELECT id, 'email.order_link', '{}', 'pending', 0, ?2, ?2, ?2 FROM orders WHERE id = ?1 AND view_token_rev = ?3 AND changes() > 0`,
+         SELECT id, 'email.order_link', '{}', 'pending', 0, ?2, ?2, ?2 FROM orders WHERE id = ?1 AND view_token_rev = ?3`, // only if our rev bump applied
       )
       .bind(o.id, at, rev),
     db.prepare("INSERT INTO order_events (order_id, at, type, actor, note) SELECT ?1, ?2, 'link_rotated', 'customer', 'New order link emailed; older links no longer work' WHERE EXISTS (SELECT 1 FROM orders WHERE id = ?1 AND view_token_rev = ?3)").bind(o.id, at, rev),

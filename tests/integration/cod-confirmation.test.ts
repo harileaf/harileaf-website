@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { POST as confirmRoute } from '../../src/pages/api/store/order/confirm-cod';
 import { availableActions, dashboardMetrics, runAdminAction } from '../../src/lib/store/admin-orders';
 import { validateCheckoutInput } from '../../src/lib/store/checkout-input';
-import { remindUnconfirmedCod } from '../../src/lib/store/cod';
+import { MAX_OPEN_UNCONFIRMED, cancelStaleUnconfirmedCod, openUnconfirmedCod, remindUnconfirmedCod } from '../../src/lib/store/cod';
 import { makeFulfilmentEmailHandlers } from '../../src/lib/store/email-fulfilment';
 import { cancelOrder, markPacked } from '../../src/lib/store/fulfilment';
 import { createOrder } from '../../src/lib/store/orders';
@@ -97,5 +97,27 @@ describe('COD confirmation', () => {
     await makeFulfilmentEmailHandlers(fake)['email.cod_reminder']({}, { env: testEnv, row: { id: 2, order_id: done.orderId, kind: 'email.cod_reminder', payload: {}, attempts: 1 } });
     expect(sent).toEqual([`Reminder: confirm your order ${o.orderNo} — HariLeaf`]);
     expect((await dashboardMetrics(db, hours(50))).cod_unconfirmed_old).toBeGreaterThan(0);
+  });
+});
+
+describe('unconfirmed COD orders cannot hoard stock (PR #5 review)', () => {
+  it('cancels them after the window and puts the stock back', async () => {
+    const o = await codOrder();
+    const variant = await scalar<number>('SELECT variant_id FROM order_items WHERE order_id = ?', o.orderId);
+    const before = await scalar<number>('SELECT stock_qty FROM variants WHERE id = ?', variant);
+    expect(await cancelStaleUnconfirmedCod(db, 48, hours(47))).toBe(0);
+    expect(await cancelStaleUnconfirmedCod(db, 0, hours(100))).toBe(0); // 0 = never
+    expect(await cancelStaleUnconfirmedCod(db, 48, hours(49), 100)).toBeGreaterThanOrEqual(1);
+    expect(await scalar("SELECT status || '/' || cancelled_by FROM orders WHERE id = ?", o.orderId)).toBe('cancelled/system');
+    expect(await scalar<number>('SELECT stock_qty FROM variants WHERE id = ?', variant)).toBe(before + 1);
+    expect(await scalar("SELECT count(*) FROM outbox WHERE order_id = ? AND kind = 'email.cancelled'", o.orderId)).toBe(1);
+  });
+
+  it('counts open unconfirmed COD orders per email or phone', async () => {
+    const a = await codOrder();
+    const email = await scalar<string>('SELECT email FROM orders WHERE id = ?', a.orderId);
+    const n = await openUnconfirmedCod(db, email.toUpperCase(), '0000000000');
+    expect(n).toBeGreaterThanOrEqual(1);
+    expect(MAX_OPEN_UNCONFIRMED).toBe(2);
   });
 });

@@ -5,6 +5,7 @@ import { env } from 'cloudflare:workers';
 import SEO from '../../components/seo/SEO.astro';
 
 Astro.response.headers.set('Cache-Control', 'no-store');
+Astro.response.headers.set('X-Robots-Tag', 'noindex');
 // Also shown (with a 404) when an order link is missing or wrong — same page whether or not the order exists.
 if (Astro.originPathname !== '/order/find' && Astro.originPathname !== '/order/find/') Astro.response.status = 404;
 const fromPath = /^\/order\/(HL-\d{4}-\d{4,6})/.exec(Astro.originPathname)?.[1] ?? '';
@@ -39,6 +40,10 @@ const turnstileKey = env.PUBLIC_TURNSTILE_SITE_KEY ?? '';
 <script>
   const form = document.getElementById('find-form') as HTMLFormElement;
   const out = document.getElementById('find-status')!;
+  const say = (text: string, kind: 'ok' | 'error') => {
+    out.textContent = text;
+    out.style.color = kind === 'ok' ? '#1d5f3a' : '#8a1c1c';
+  };
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(form);
@@ -47,10 +52,16 @@ const turnstileKey = env.PUBLIC_TURNSTILE_SITE_KEY ?? '';
     try {
       const res = await fetch('/api/store/order/resend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderNo: String(fd.get('orderNo') ?? ''), email: String(fd.get('email') ?? ''), turnstileToken: fd.get('cf-turnstile-response') ? String(fd.get('cf-turnstile-response')) : null }) });
       const data = (await res.json().catch(() => ({}))) as { message?: string; error?: string };
-      out.textContent = data.message ?? data.error ?? 'Something went wrong — please try again.';
+      if (res.ok && data.message) {
+        say(data.message, 'ok');
+        // Sent (or nothing to send): lock the form so repeated presses don't hit the limits.
+        form.querySelectorAll<HTMLInputElement | HTMLButtonElement>('input, button').forEach((el) => (el.disabled = true));
+        return;
+      }
+      say(data.error ?? 'Something went wrong — please try again.', 'error');
       (window as unknown as { turnstile?: { reset(): void } }).turnstile?.reset();
     } catch {
-      out.textContent = 'Network error — please try again.';
+      say('Network error — please try again.', 'error');
     }
     btn.disabled = false;
   });

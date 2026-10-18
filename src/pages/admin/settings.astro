@@ -52,7 +52,8 @@ const groups: Array<{ title: string; note?: string; fields: Field[] }> = [
     fields: [
       { key: 'min_order_paise', label: 'Minimum order (₹)', type: 'rupees', hint: "Orders below this can't be placed; delivery is always free. Set it from courier rate cards." },
       { key: 'cod_max_order_paise', label: 'Maximum COD order (₹)', type: 'rupees' },
-      { key: 'cod_confirmation', label: 'Confirm COD orders before shipping', type: 'select', options: [['on', 'On — customer confirms by email/order page, or you confirm after a call'], ['off', 'Off — ship COD orders straight away']], hint: 'Cuts fake orders and returns-to-origin. Unconfirmed orders get one reminder after 24 hours and show on the dashboard.' },
+      { key: 'cod_confirmation', label: 'Confirm COD orders before shipping', type: 'select', options: [['on', 'On — customer confirms by email/order page, or you confirm after a call'], ['off', 'Off — ship COD orders straight away']], hint: 'Cuts fake orders and returns-to-origin. Unconfirmed orders get one reminder after 24 hours.' },
+      { key: 'cod_confirm_window_hours', label: 'Cancel unconfirmed COD orders after (hours)', hint: 'Releases the stock they hold — so nobody can tie up stock with fake orders. 0 = never (you cancel them by hand).' },
     ],
   },
   {

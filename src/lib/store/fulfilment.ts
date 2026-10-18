@@ -184,7 +184,7 @@ export async function markReturned(db: D1Database, orderId: number, ctx: { now: 
 export async function cancelOrder(
   db: D1Database,
   orderId: number,
-  ctx: { now: Date; actor: 'customer' | 'admin'; reason: string; actorEmail?: string | null },
+  ctx: { now: Date; actor: 'customer' | 'admin' | 'system'; reason: string; actorEmail?: string | null },
 ): Promise<ActionResult> {
   // The batch below is built from what we read; the claim re-checks those exact
   // values, so a capture or pack landing in between makes us re-read and retry.
@@ -198,12 +198,12 @@ export async function cancelOrder(
 async function cancelOnce(
   db: D1Database,
   orderId: number,
-  ctx: { now: Date; actor: 'customer' | 'admin'; reason: string; actorEmail?: string | null },
+  ctx: { now: Date; actor: 'customer' | 'admin' | 'system'; reason: string; actorEmail?: string | null },
 ): Promise<ActionResult | 'changed'> {
   const data = await load(db, orderId);
   if (!data) return FAIL('Order not found');
   const { order, items } = data;
-  const allowed = ctx.actor === 'customer' ? ['placed'] : ['placed', 'packed'];
+  const allowed = ctx.actor === 'admin' ? ['placed', 'packed'] : ['placed'];
   if (!allowed.includes(order.status)) return FAIL(ctx.actor === 'customer' ? 'This order can no longer be cancelled online — it is already packed. Please contact customer care.' : `Order is ${order.status}`);
   const reason = ctx.reason.trim().slice(0, 300) || (ctx.actor === 'customer' ? 'Cancelled by customer' : 'Cancelled by HariLeaf');
   const at = nowIso(ctx.now);

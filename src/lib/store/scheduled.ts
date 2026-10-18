@@ -9,7 +9,8 @@ import { drainOutbox } from './outbox';
 import { expireReservations, reconcilePending, requeueStuckCaptures } from './payments';
 import { razorpayConfig } from './razorpay';
 import { reconcileRefunds } from './refunds';
-import { remindUnconfirmedCod } from './cod';
+import { cancelStaleUnconfirmedCod, remindUnconfirmedCod } from './cod';
+import { getSettings } from './settings';
 import { anonymiseStaleOrders } from './retention';
 
 export async function runScheduled(env: Env, now: Date): Promise<void> {
@@ -28,6 +29,7 @@ export async function runScheduled(env: Env, now: Date): Promise<void> {
     if (rzp) await step('refunds_settled', () => reconcileRefunds(env.STORE_DB, rzp, now));
     await step('captures_requeued', () => requeueStuckCaptures(env.STORE_DB, now));
     await step('cod_reminders', () => remindUnconfirmedCod(env.STORE_DB, now));
+    await step('cod_expired', async () => cancelStaleUnconfirmedCod(env.STORE_DB, Number((await getSettings(env.STORE_DB)).cod_confirm_window_hours), now));
     await step('anonymised', () => anonymiseStaleOrders(env.STORE_DB, now));
     await step('outbox', () => drainOutbox(env.STORE_DB, OUTBOX_HANDLERS, { env, now, limit: 50 }));
     console.log(JSON.stringify({ msg: 'scheduled', ...report }));

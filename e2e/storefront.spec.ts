@@ -38,8 +38,10 @@ test('a shopper buys rice with cash on delivery and can cancel before packing', 
   await expectFullLoad(page);
 
   await page.fill('#c-name', 'Asha Rao');
-  await page.fill('#c-email', 'asha@example.com');
-  await page.fill('#c-phone', '9820012345');
+  // A fresh shopper per run: unconfirmed COD orders are capped per email/phone.
+  const run = Date.now() % 100_000_000;
+  await page.fill('#c-email', `asha+${run}@example.com`);
+  await page.fill('#c-phone', `9${String(run).padStart(9, '0')}`);
   await page.fill('#s-line1', '12 Lake Road');
   await page.fill('#s-city', 'Mumbai');
   await page.selectOption('#s-state', '27');
@@ -47,7 +49,9 @@ test('a shopper buys rice with cash on delivery and can cancel before packing', 
   await page.locator('input[name="paymentMethod"][value="cod"]').check();
   await page.click('#place-order');
 
-  await expect(page).toHaveURL(/\/order\/HL-\d{4}-\d{4}$/, { timeout: 15_000 }); // token stripped from the address bar
+  await expect(page).toHaveURL(/\/order\/HL-\d{4}-\d{4}\?t=[0-9a-f]+$/, { timeout: 15_000 }); // the token stays, so refresh works
+  await page.reload();
+  await expect(page.getByRole('heading', { level: 1, name: /please confirm/ })).toBeVisible();
   // COD orders ship once the customer confirms (setting on by default).
   await expect(page.getByRole('heading', { level: 1, name: /please confirm/ })).toBeVisible();
   await page.getByRole('button', { name: 'Confirm my order' }).click();
@@ -115,4 +119,22 @@ test('mobile shows the sticky add-to-cart bar', async ({ page, isMobile }) => {
   await expect(bar).toBeVisible();
   await bar.locator('[data-add-sticky]').click();
   await expect(page.getByRole('link', { name: /^Cart/ }).first()).toContainText('1');
+});
+
+test('the buy box and cart badge keep working after client-side navigation (view transitions)', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'navigation is the same on mobile');
+  await page.goto('/shop/');
+  // shop → product → shop → another product, all as view-transition swaps
+  await page.getByRole('heading', { level: 2, name: 'Karjat 3 Unpolished Rice' }).click();
+  await expect(page).toHaveURL(/\/rice\/karjat-3/);
+  await page.getByRole('radio', { name: /^5 kg/ }).check();
+  await page.getByRole('button', { name: 'Add to cart' }).first().click();
+  await page.goBack();
+  await expect(page).toHaveURL(/\/shop\/?$/);
+  await page.getByRole('heading', { level: 2, name: 'Stone-Ground Turmeric Powder' }).click();
+  await expect(page).toHaveURL(/\/spices\/turmeric-powder/);
+  await expect(page.getByRole('link', { name: /^Cart/ }).first()).toContainText('1'); // badge survived the swap
+  await page.getByRole('button', { name: 'Add to cart' }).first().click();
+  await expect(page.locator('[data-add-status]').first()).toContainText('Added');
+  await expect(page.getByRole('link', { name: /^Cart/ }).first()).toContainText('2');
 });

@@ -51,7 +51,9 @@ export function refundedEmail(o: OrderRow, viewUrl: string, s: StoreSettings): E
 }
 
 export function codReminderEmail(o: OrderRow, viewUrl: string, s: StoreSettings): Email {
-  const body = `<p>Hi ${first(o)}, your cash-on-delivery order <strong>${esc(o.order_no)}</strong> (${formatINR(o.total_paise)}) is waiting for your confirmation before we ship it.</p>${button(`${viewUrl}#confirm`, 'Confirm my order')}<p style="color:#666;font-size:12px">Didn't place this order, or changed your mind? You can cancel it from the same page.</p>`;
+  const hours = Number(s.cod_confirm_window_hours);
+  const deadline = hours > 0 ? ` If it isn't confirmed within ${hours} hours of ordering, we'll cancel it and release the items.` : '';
+  const body = `<p>Hi ${first(o)}, your cash-on-delivery order <strong>${esc(o.order_no)}</strong> (${formatINR(o.total_paise)}) is waiting for your confirmation before we ship it.${deadline}</p>${button(`${viewUrl}#confirm`, 'Confirm my order')}<p style="color:#666;font-size:12px">Didn't place this order, or changed your mind? You can cancel it from the same page.</p>`;
   return { to: o.email, subject: `Reminder: confirm your order ${o.order_no} — HariLeaf`, html: wrap('Please confirm your order', body, s), text: `Your COD order ${o.order_no} is waiting for your confirmation: ${viewUrl}#confirm`, idempotencyKey: `email.cod_reminder/${o.order_no}`, replyTo: s.customer_care_email || undefined };
 }
 
