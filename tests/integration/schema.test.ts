@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { issueDocStmts } from '../../src/lib/store/docnumbers';
 import { AT, db, insertOrder, insertProduct, insertVariant, scalar } from '../helpers/fixtures';
 
 const reserve = (variantId: number, orderId: number, qty: number) => [
@@ -78,6 +79,24 @@ describe('stock_reservations', () => {
     expect(await scalar('SELECT stock_qty FROM variants WHERE id = ?', draft)).toBe(10);
   });
 
+  it('keeps released rows as history and allows a fresh hold for the same line', async () => {
+    const v = await insertVariant(await insertProduct());
+    const o = await insertOrder();
+    await db.batch(reserve(v, o, 1));
+    await expect(db.batch(reserve(v, o, 1))).rejects.toThrow(/UNIQUE/); // one live hold per line
+    await db.prepare("UPDATE stock_reservations SET state = 'released' WHERE order_id = ?").bind(o).run();
+    await db.batch(reserve(v, o, 1)); // late authorisation re-reserves
+    expect(await scalar('SELECT count(*) FROM stock_reservations WHERE order_id = ?', o)).toBe(2);
+  });
+
+  it('never changes or deletes a reservation line', async () => {
+    const v = await insertVariant(await insertProduct());
+    const o = await insertOrder();
+    await db.batch(reserve(v, o, 2));
+    await expect(db.prepare('UPDATE stock_reservations SET qty = 1 WHERE order_id = ?').bind(o).run()).rejects.toThrow(/immutable/);
+    await expect(db.prepare('DELETE FROM stock_reservations WHERE order_id = ?').bind(o).run()).rejects.toThrow(/permanent/);
+  });
+
   it('only moves forward from held', async () => {
     const v = await insertVariant(await insertProduct());
     const o = await insertOrder();
@@ -132,21 +151,18 @@ describe('orders and items', () => {
 });
 
 describe('invoices', () => {
-  async function issue(orderId: number, docType = 'tax_invoice', ref: number | null = null) {
-    const series = docType === 'credit_note' ? 'CN' : 'INV';
-    const prefix = series === 'CN' ? 'HLCN/2627/' : 'HL/2627/';
-    const width = series === 'CN' ? 5 : 6;
-    return db.batch([
-      db.prepare("UPDATE doc_counters SET last_no = last_no + 1 WHERE series = ? AND fy = '2627'").bind(series),
-      db
-        .prepare(
-          `INSERT INTO invoices (series, doc_type, fy, seq, doc_no, order_id, ref_invoice_id, issued_at, snapshot)
-           SELECT ?1, ?2, '2627', last_no, ?3 || printf('%0' || ?4 || 'd', last_no), ?5, ?6, ?7, '{}'
-           FROM doc_counters WHERE series = ?1 AND fy = '2627'`,
-        )
-        .bind(series, docType, prefix, width, orderId, ref, AT),
-    ]);
-  }
+  const issue = (orderId: number, docType: 'tax_invoice' | 'credit_note' = 'tax_invoice', ref: number | null = null) =>
+    db.batch(
+      issueDocStmts(db, {
+        series: docType === 'credit_note' ? 'CN' : 'INV',
+        fy: '2627',
+        docType,
+        orderId,
+        refInvoiceId: ref,
+        issuedAt: AT,
+        snapshot: {},
+      }),
+    );
 
   it('numbers invoices from the counter and is immutable', async () => {
     const o = await insertOrder();
@@ -194,7 +210,7 @@ describe('invoices', () => {
           .bind(o, AT),
       ]),
     ).rejects.toThrow(/CHECK/);
-    await expect(issue(o, 'credit_note', null)).rejects.toThrow(/CHECK/);
+    await expect(issue(o, 'credit_note', null)).rejects.toThrow(/CHECK|same order/);
   });
 });
 

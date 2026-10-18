@@ -61,6 +61,17 @@ describe('runClaim', () => {
   });
 });
 
+it('reports a reservation on an unpurchasable variant as inactive', async () => {
+  const o = await insertOrder();
+  const v = await insertVariant(await insertProduct(), { active: 0 });
+  const claim = claimStmt(db, o, 'reserve_inactive', "SELECT status = 'pending_payment' FROM orders WHERE id = ?", [o], AT);
+  const res = await runClaim(db, claim, [
+    db.prepare('UPDATE variants SET stock_qty = stock_qty - 1 WHERE id = ?').bind(v),
+    db.prepare("INSERT INTO stock_reservations (variant_id, order_id, qty, expires_at, state) VALUES (?, ?, 1, ?, 'held')").bind(v, o, AT),
+  ]);
+  expect(res).toMatchObject({ ok: false, reason: 'inactive' });
+});
+
 describe('classifyD1Error', () => {
   it.each([
     ['D1_ERROR: CHECK constraint failed: stock_qty >= 0: SQLITE_CONSTRAINT', 'stock'],

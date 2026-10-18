@@ -48,10 +48,15 @@ describe('drainOutbox', () => {
       },
     };
     expect(await drainOutbox(db, handlers, { env, now: T0, ids: [id] })).toEqual({ done: 0, failed: 1, dead: 0 });
-    expect(await row(id)).toMatchObject({ state: 'pending', attempts: 1, last_error: 'courier API down', next_attempt_at: plus(30_000).toISOString() });
+    const after = await row(id);
+    expect(after).toMatchObject({ state: 'pending', attempts: 1, last_error: 'courier API down' });
+    // 30 s backoff from the moment the row was attempted (a few ms after T0).
+    const nextMs = Date.parse(after!.next_attempt_at) - T0.getTime();
+    expect(nextMs).toBeGreaterThanOrEqual(30_000);
+    expect(nextMs).toBeLessThan(31_000);
     // Not due yet.
     expect(await drainOutbox(db, handlers, { env, now: plus(29_000), ids: [id] })).toEqual({ done: 0, failed: 0, dead: 0 });
-    expect(await drainOutbox(db, handlers, { env, now: plus(30_000), ids: [id] })).toEqual({ done: 1, failed: 0, dead: 0 });
+    expect(await drainOutbox(db, handlers, { env, now: plus(31_000), ids: [id] })).toEqual({ done: 1, failed: 0, dead: 0 });
     expect(calls).toBe(2);
   });
 
@@ -120,5 +125,38 @@ describe('drainOutbox', () => {
     expect(await drainOutbox(db, handlers, { env, now: T0, limit: 1 })).toEqual({ done: 1, failed: 0, dead: 0 });
     expect(order).toEqual([first]);
     expect(await scalar('SELECT state FROM outbox WHERE id = ?', second)).toBe('pending');
+  });
+
+  it("ignores a stale drain's result after its lease was taken over", async () => {
+    const id = await enqueue('test.contested');
+    let releaseA!: (e?: Error) => void;
+    let calls = 0;
+    const handlers: Record<string, OutboxHandler> = {
+      'test.contested': async () => {
+        calls += 1;
+        if (calls === 1) await new Promise<void>((resolve, reject) => (releaseA = (e) => (e ? reject(e) : resolve())));
+      },
+    };
+    const a = drainOutbox(db, handlers, { env, now: T0, ids: [id], leaseMs: 60_000 });
+    while (!releaseA) await new Promise((r) => setTimeout(r, 1));
+    // Drain B arrives after A's lease expired, reclaims and finishes.
+    expect(await drainOutbox(db, handlers, { env, now: plus(120_000), ids: [id] })).toEqual({ done: 1, failed: 0, dead: 0 });
+    // A finally fails — it must not reset B's completed row.
+    releaseA(new Error('slow failure'));
+    await a;
+    expect(await row(id)).toMatchObject({ state: 'done', attempts: 2 });
+    expect(calls).toBe(2);
+  });
+
+  it('sweeps a final attempt that never reported back to dead', async () => {
+    const id = await enqueue('test.ok');
+    await db
+      .prepare("UPDATE outbox SET state = 'running', attempts = ?, lease_until = ?, last_error = 'boom' WHERE id = ?")
+      .bind(MAX_ATTEMPTS, plus(1000).toISOString(), id)
+      .run();
+    const handlers: Record<string, OutboxHandler> = { 'test.ok': async () => { throw new Error('should not run'); } };
+    expect(await drainOutbox(db, handlers, { env, now: plus(500), ids: [id] })).toEqual({ done: 0, failed: 0, dead: 0 });
+    expect(await drainOutbox(db, handlers, { env, now: plus(2000), ids: [id] })).toEqual({ done: 0, failed: 0, dead: 1 });
+    expect(await row(id)).toMatchObject({ state: 'dead', last_error: 'boom — final attempt did not finish' });
   });
 });

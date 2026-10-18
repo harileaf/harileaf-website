@@ -4,8 +4,10 @@
  * - Certification wording comes only from `organicCopy()`, and only when the
  *   product has a scheme AND a certificate number.
  * - Every process claim must carry an evidence note.
- * - Some phrases are banned outright; "organic" and "traditional" are allowed
- *   only when the scheme or an evidenced claim backs them.
+ * - Some phrases are banned outright. "Organic" is allowed only when
+ *   organicCopy() says so (scheme + certificate). The FSSAI Reg 4 terms —
+ *   natural, fresh, pure, traditional, authentic, genuine, real, original —
+ *   are allowed only when a process claim with that code carries evidence.
  * - Disease / health claims are always flagged (FSSAI Advertising & Claims
  *   Regulations 2018).
  */
@@ -55,42 +57,58 @@ const ALWAYS_BANNED: Array<{ re: RegExp; label: string }> = [
 
 const HEALTH: Array<{ re: RegExp; label: string }> = [
   { re: /diabet/i, label: 'diabet' },
-  { re: /\bcur(?:e|es|ed|ing)\b/i, label: 'cure' },
+  // "cure(s)" as a promise; "cured"/"curing" are legitimate processing words (sun-cured, turmeric curing).
+  { re: /\bcures?\b/i, label: 'cure' },
   { re: /cancer/i, label: 'cancer' },
   { re: /cholesterol/i, label: 'cholesterol' },
   { re: /immunity[\s-]*boost/i, label: 'immunity boost' },
   { re: /weight[\s-]*loss/i, label: 'weight loss' },
 ];
 
+/** FSSAI Advertising & Claims Regulations 2018, Reg 4: conditional terms. */
+const CONDITIONAL_TERMS = ['natural', 'fresh', 'pure', 'traditional', 'authentic', 'genuine', 'real', 'original'] as const;
+const conditionalRe = (term: string) => new RegExp(`\\b${term}(?:ly)?\\b`, 'i');
+
 function hasEvidencedClaim(claims: ProcessClaim[], code: string): boolean {
   return claims.some((c) => c.code === code && c.text.trim() !== '' && c.evidence_note.trim() !== '');
 }
 
-/** Returns the banned phrases found in `text` (empty when the copy is acceptable). */
+/**
+ * Returns the banned phrases found in `text` (empty when the copy is acceptable).
+ * `mayUseOrganic` must come from organicCopy() (scheme AND certificate); it
+ * defaults to false so a missing value can't let "organic" through.
+ */
 export function findBannedPhrases(
   text: string,
   ctx: { organicScheme: OrganicScheme; claims: ProcessClaim[]; mayUseOrganic?: boolean },
 ): string[] {
   const found: string[] = [];
-  for (const { re, label } of ALWAYS_BANNED) if (re.test(text)) found.push(label);
+  // "naturally grown" is banned outright; don't double-report it as "natural".
+  const withoutBanned = ALWAYS_BANNED.reduce((t, { re, label }) => {
+    if (re.test(t)) found.push(label);
+    return t.replace(new RegExp(re.source, 'gi'), ' ');
+  }, text);
 
-  const mayUseOrganic = ctx.mayUseOrganic ?? (ctx.organicScheme === 'pgs_organic' || ctx.organicScheme === 'npop');
+  const mayUseOrganic = ctx.mayUseOrganic ?? false;
   if (!mayUseOrganic) {
     // PGS-Green may say "under conversion to organic"; anything else is "organic".
-    const rest = ctx.organicScheme === 'pgs_green' ? text.replace(/under\s+conversion\s+to\s+organic/gi, '') : text;
-    const withoutHundred = rest.replace(/100\s*%\s*organic/gi, '');
-    if (/\borganic(?:ally)?\b/i.test(withoutHundred)) found.push('organic');
+    const rest = ctx.organicScheme === 'pgs_green' ? withoutBanned.replace(/under\s+conversion\s+to\s+organic/gi, '') : withoutBanned;
+    if (/\borganic(?:ally)?\b/i.test(rest)) found.push('organic');
   }
 
-  // FSSAI: "traditional" needs a process used for 30+ years, so it must be an evidenced claim.
-  if (/\btraditional(?:ly)?\b/i.test(text) && !hasEvidencedClaim(ctx.claims, 'traditional')) found.push('traditional');
+  // e.g. "traditional" needs a process used for 30+ years; "fresh" has processing limits.
+  for (const term of CONDITIONAL_TERMS)
+    if (conditionalRe(term).test(withoutBanned) && !hasEvidencedClaim(ctx.claims, term)) found.push(term);
 
   for (const { re, label } of HEALTH) if (re.test(text)) found.push(`health claim: ${label}`);
   return found;
 }
 
-/** Admin-side validation of a product's process claims. */
-export function validateProcessClaims(claims: ProcessClaim[], organicScheme: OrganicScheme): string[] {
+/** Admin-side validation of a product's process claims. Pass organicCopy(product).mayUseOrganic. */
+export function validateProcessClaims(
+  claims: ProcessClaim[],
+  ctx: { organicScheme: OrganicScheme; mayUseOrganic: boolean },
+): string[] {
   const errors: string[] = [];
   const seen = new Set<string>();
   claims.forEach((c, idx) => {
@@ -100,7 +118,7 @@ export function validateProcessClaims(claims: ProcessClaim[], organicScheme: Org
     seen.add(c.code);
     if (!c.text.trim()) errors.push(`Claim ${n} ("${c.code}") needs text`);
     if (!c.evidence_note.trim()) errors.push(`Claim ${n} ("${c.code}") needs an evidence note`);
-    const banned = findBannedPhrases(c.text, { organicScheme, claims });
+    const banned = findBannedPhrases(c.text, { ...ctx, claims });
     if (banned.length) errors.push(`Claim ${n} ("${c.code}") uses banned wording: ${banned.join(', ')}`);
   });
   return errors;

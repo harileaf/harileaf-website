@@ -735,6 +735,14 @@ Deltas from the design above, made while building M1 (`docs/superpowers/plans/20
 - **`workers_dev = false`** in `wrangler.toml`, and the Worker verifies the Cloudflare Access JWT itself (RS256 against the team JWKS) for `/admin*`, `/api/admin*` and `/api/auth`, so no other URL can bypass Access. Not configured → passphrase-only with a dashboard warning; half-configured → 503.
 - **Types**: Cloudflare runtime types are aliased in `src/env.d.ts` rather than added globally, because the global runtime types break DOM typing in client `<script>`s.
 - **Local cron testing**: Wrangler's local assets proxy can't forward `ScheduledController`; see README → Cron.
+- **Review fixes (pre-PR code review)**:
+  - Document numbers are issued only through `issueDocStmts()` (`src/lib/store/docnumbers.ts`): `INSERT OR IGNORE` the FY counter, advance it by one (a trigger rejects any other step), insert the invoice with `seq` from a scalar subquery. A missing counter can no longer make the batch silently insert nothing. `doc_no` is CHECKed to equal the value derived from series/FY/seq, and credit notes must reference a non-credit invoice of the same order.
+  - Reservations: one live hold per order line via a partial unique index (`WHERE state = 'held'`), so a late authorisation can re-reserve. Lines are immutable and rows are never deleted.
+  - `ops` kinds are claimable once per order, so repeatable actions use a discriminator (`refund:<refund_id>`, `credit_note:<n>`).
+  - Outbox: per-row lease timestamps, completion updates require the claimed attempt number (a taken-over drain can't overwrite the newer result), and final attempts that never report back are swept to `dead`.
+  - Access: path matching normalises trailing slashes (`/api/auth/` is routed by Astro) and also covers Keystatic and writes to `/api/photos*`, `/api/produce`, `/api/content`. JWKS fetch failures fall back to the cached keys.
+  - Claims: "organic" requires `mayUseOrganic` from `organicCopy()` (scheme and certificate); all FSSAI Reg 4 conditional terms (natural, fresh, pure, traditional, authentic, genuine, real, original) need an evidenced claim with that code; "cured"/"curing" are not treated as health claims.
+  - Deploy applies D1 migrations (`wrangler d1 migrations apply --remote`) before `wrangler deploy`.
 
 ## Review record
 

@@ -50,7 +50,7 @@ const groups: Array<{ title: string; note?: string; fields: Field[] }> = [
   {
     title: 'Orders',
     fields: [
-      { key: 'min_order_paise', label: 'Minimum order (₹)', type: 'rupees', hint: 'Free shipping applies above this; set from courier rate cards' },
+      { key: 'min_order_paise', label: 'Minimum order (₹)', type: 'rupees', hint: "Orders below this can't be placed; delivery is always free. Set it from courier rate cards." },
       { key: 'cod_max_order_paise', label: 'Maximum COD order (₹)', type: 'rupees' },
     ],
   },

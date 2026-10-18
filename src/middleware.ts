@@ -2,22 +2,20 @@
  * Admin gate, layer 1 of 2: Cloudflare Access.
  *
  * When CF_ACCESS_TEAM_DOMAIN and CF_ACCESS_AUD are set, every admin request
- * must carry a valid Access JWT (layer 2 is the existing passphrase session,
+ * (see requiresAdminAccess: /admin, /api/admin, /api/auth, Keystatic, and
+ * writes to the photo/produce/content APIs) must carry a valid Access JWT (layer 2 is the existing passphrase session,
  * checked by the pages and API routes themselves). When neither is set, admin
  * stays session-only and the dashboard shows a warning. Half-configured fails
  * closed.
  */
 import { defineMiddleware } from 'astro:middleware';
-import { accessDecision, verifyAccessJwt } from './lib/store/access';
-
-const isAdminPath = (p: string) =>
-  p === '/admin' || p.startsWith('/admin/') || p.startsWith('/api/admin/') || p === '/api/auth';
+import { accessDecision, requiresAdminAccess, verifyAccessJwt } from './lib/store/access';
 
 const deny = (status: number, message: string) =>
   new Response(message, { status, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
 
 export const onRequest = defineMiddleware(async (context, next) => {
-  if (!isAdminPath(context.url.pathname)) return next();
+  if (!requiresAdminAccess(context.url.pathname, context.request.method)) return next();
 
   const { env } = await import('cloudflare:workers');
   const decision = accessDecision(env);

@@ -25,6 +25,21 @@ export function accessDecision(env: { CF_ACCESS_AUD?: string; CF_ACCESS_TEAM_DOM
   return { mode: 'enforce', cfg: { aud, teamDomain: team } };
 }
 
+/**
+ * Requests that need Cloudflare Access when it is configured. Astro matches
+ * routes with or without a trailing slash, so paths are normalised first.
+ * Public reads of site content (GET /api/photos, /api/produce, /api/content)
+ * stay open; their writes are admin actions.
+ */
+export function requiresAdminAccess(pathname: string, method: string): boolean {
+  const p = pathname.replace(/\/+$/, '') || '/';
+  const under = (prefix: string) => p === prefix || p.startsWith(`${prefix}/`);
+  if (under('/admin') || under('/api/admin') || p === '/api/auth') return true;
+  if (under('/keystatic') || under('/api/keystatic')) return true;
+  const write = !['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase());
+  return write && (under('/api/photos') || p === '/api/produce' || p === '/api/content');
+}
+
 type Jwks = { keys: Array<JsonWebKey & { kid?: string }> };
 
 const JWKS_TTL_MS = 10 * 60_000;
@@ -99,8 +114,14 @@ async function findKey(url: string, kid: string, fetchJwks?: (url: string) => Pr
     const hit = pick(cached.jwks);
     if (hit) return hit;
   }
-  // Unknown kid or stale cache: refetch once (keys rotate).
-  const jwks = await defaultFetchJwks(url);
-  jwksCache.set(url, { at: Date.now(), jwks });
-  return pick(jwks);
+  // Unknown kid or stale cache: refetch once (keys rotate). If the fetch
+  // fails, fall back to the last known keys rather than failing every request.
+  try {
+    const jwks = await defaultFetchJwks(url);
+    jwksCache.set(url, { at: Date.now(), jwks });
+    return pick(jwks);
+  } catch (err) {
+    console.error(JSON.stringify({ msg: 'Access JWKS fetch failed', error: String(err) }));
+    return cached ? pick(cached.jwks) : null;
+  }
 }

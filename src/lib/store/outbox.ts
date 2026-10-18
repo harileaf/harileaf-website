@@ -7,9 +7,12 @@
  *
  * Each row is claimed with a guarded UPDATE (pending/due, or running with an
  * expired lease) and acted on only if that UPDATE changed exactly one row, so
- * overlapping drains never run a row twice within its lease. A handler that
- * outlives its lease may be retried, so handlers must be idempotent (e.g. look
- * up the Shiprocket order before creating it).
+ * overlapping drains never run a row twice within its lease. The claim bumps
+ * `attempts`, and completion updates require that same value, so a drain whose
+ * lease was taken over can't overwrite the newer run's result. A handler that
+ * outlives its lease may run again, so handlers must be idempotent (e.g. look
+ * up the Shiprocket order before creating it). A row whose final attempt
+ * crashed the isolate is swept to `dead` once its lease expires.
  */
 
 export const MAX_ATTEMPTS = 8;
@@ -43,24 +46,43 @@ export function enqueueStmt(
     .bind(e.orderId ?? null, e.kind, JSON.stringify(e.payload ?? {}), e.at, e.at, e.at);
 }
 
-const CLAIMABLE = `((state = 'pending' AND next_attempt_at <= ?1) OR (state = 'running' AND lease_until < ?1))`;
+const CLAIMABLE = `((state = 'pending' AND next_attempt_at <= ?1) OR (state = 'running' AND lease_until < ?1 AND attempts < ${MAX_ATTEMPTS}))`;
 
 export async function drainOutbox(
   db: D1Database,
   handlers: Record<string, OutboxHandler>,
   opts: { env: Env; now: Date; limit?: number; ids?: number[]; leaseMs?: number },
 ): Promise<{ done: number; failed: number; dead: number }> {
-  const now = opts.now.toISOString();
-  const lease = new Date(opts.now.getTime() + (opts.leaseMs ?? DEFAULT_LEASE_MS)).toISOString();
+  // Long drains must not hand out leases that are already expired: each row
+  // gets its own "now", advanced by the time spent so far.
+  const started = Date.now();
+  const clock = () => new Date(opts.now.getTime() + (Date.now() - started));
+  const leaseMs = opts.leaseMs ?? DEFAULT_LEASE_MS;
   const tally = { done: 0, failed: 0, dead: 0 };
 
   const idFilter = opts.ids ? ` AND id IN (${opts.ids.map(() => '?').join(', ') || 'NULL'})` : '';
+  const ids = opts.ids ?? [];
+
+  // Final attempts that never reported back (isolate crash / timeout).
+  const swept = await db
+    .prepare(
+      `UPDATE outbox SET state = 'dead', lease_until = NULL, updated_at = ?1,
+              last_error = COALESCE(last_error || ' — ', '') || 'final attempt did not finish'
+       WHERE state = 'running' AND lease_until < ?1 AND attempts >= ${MAX_ATTEMPTS}${idFilter}`,
+    )
+    .bind(opts.now.toISOString(), ...ids)
+    .run();
+  tally.dead += swept.meta.changes ?? 0;
+
   const { results: due } = await db
     .prepare(`SELECT id FROM outbox WHERE ${CLAIMABLE}${idFilter} ORDER BY id LIMIT ?`)
-    .bind(now, ...(opts.ids ?? []), opts.limit ?? 25)
+    .bind(opts.now.toISOString(), ...ids, opts.limit ?? 25)
     .all<{ id: number }>();
 
   for (const { id } of due) {
+    const at = clock();
+    const now = at.toISOString();
+    const lease = new Date(at.getTime() + leaseMs).toISOString();
     const claimed = await db
       .prepare(
         `UPDATE outbox SET state = 'running', lease_until = ?2, attempts = attempts + 1, updated_at = ?1
@@ -79,28 +101,28 @@ export async function drainOutbox(
 
     const handler = handlers[row.kind];
     if (!handler) {
-      await finish(db, id, 'dead', now, `no handler for ${row.kind}`);
+      await finish(db, row, 'dead', now, `no handler for ${row.kind}`);
       tally.dead += 1;
       continue;
     }
 
     try {
       await handler(row.payload, { env: opts.env, row });
-      await finish(db, id, 'done', now, null);
+      await finish(db, row, 'done', clock().toISOString(), null);
       tally.done += 1;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       if (row.attempts >= MAX_ATTEMPTS) {
-        await finish(db, id, 'dead', now, message);
+        await finish(db, row, 'dead', clock().toISOString(), message);
         tally.dead += 1;
       } else {
-        const next = new Date(opts.now.getTime() + backoffMs(row.attempts)).toISOString();
+        const next = new Date(at.getTime() + backoffMs(row.attempts)).toISOString();
         await db
           .prepare(
             `UPDATE outbox SET state = 'pending', lease_until = NULL, next_attempt_at = ?, last_error = ?, updated_at = ?
-             WHERE id = ? AND state = 'running'`,
+             WHERE id = ? AND state = 'running' AND attempts = ?`,
           )
-          .bind(next, message.slice(0, 1000), now, id)
+          .bind(next, message.slice(0, 1000), clock().toISOString(), id, row.attempts)
           .run();
         tally.failed += 1;
       }
@@ -110,12 +132,13 @@ export async function drainOutbox(
   return tally;
 }
 
-async function finish(db: D1Database, id: number, state: 'done' | 'dead', now: string, error: string | null) {
+/** Completes a row only if this drain still owns it (same attempt number). */
+async function finish(db: D1Database, row: OutboxRow, state: 'done' | 'dead', now: string, error: string | null) {
   await db
     .prepare(
       `UPDATE outbox SET state = ?, lease_until = NULL, last_error = COALESCE(?, last_error), updated_at = ?
-       WHERE id = ? AND state = 'running'`,
+       WHERE id = ? AND state = 'running' AND attempts = ?`,
     )
-    .bind(state, error?.slice(0, 1000) ?? null, now, id)
+    .bind(state, error?.slice(0, 1000) ?? null, now, row.id, row.attempts)
     .run();
 }

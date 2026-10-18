@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { accessDecision, verifyAccessJwt, type AccessConfig } from '../../src/lib/store/access';
+import { accessDecision, requiresAdminAccess, verifyAccessJwt, type AccessConfig } from '../../src/lib/store/access';
 
 const cfg: AccessConfig = { teamDomain: 'harileaf.cloudflareaccess.com', aud: 'aud-tag-123' };
 const NOW = new Date('2026-10-18T06:00:00Z');
@@ -90,5 +90,26 @@ describe('accessDecision', () => {
       mode: 'enforce',
       cfg: { aud: 'a', teamDomain: 'harileaf.cloudflareaccess.com' },
     });
+  });
+});
+
+describe('requiresAdminAccess', () => {
+  it.each([
+    ['/admin', 'GET'], ['/admin/', 'GET'], ['/admin/settings', 'GET'], ['/admin/settings/', 'POST'],
+    ['/api/admin/settings', 'PUT'], ['/api/admin/settings/', 'GET'],
+    ['/api/auth', 'POST'], ['/api/auth/', 'POST'], ['/api/auth//', 'POST'],
+    ['/keystatic', 'GET'], ['/keystatic/branch/main', 'GET'], ['/api/keystatic/update', 'POST'],
+    ['/api/photos', 'POST'], ['/api/photos/', 'DELETE'], ['/api/photos/image', 'DELETE'],
+    ['/api/produce', 'PUT'], ['/api/produce/', 'PUT'], ['/api/content', 'put'],
+  ])('%s %s needs Access', (path, method) => {
+    expect(requiresAdminAccess(path, method)).toBe(true);
+  });
+
+  it.each([
+    ['/', 'GET'], ['/rice', 'GET'], ['/administrator', 'GET'], ['/admins', 'GET'],
+    ['/api/photos', 'GET'], ['/api/photos/image', 'GET'], ['/api/produce', 'GET'], ['/api/content', 'HEAD'],
+    ['/api/authx', 'POST'], ['/shipping-policy', 'GET'],
+  ])('%s %s stays public', (path, method) => {
+    expect(requiresAdminAccess(path, method)).toBe(false);
   });
 });

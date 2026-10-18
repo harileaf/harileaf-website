@@ -255,6 +255,9 @@ CREATE TABLE invoices (
   snapshot       TEXT NOT NULL CHECK (json_valid(snapshot)),
   reason         TEXT,
   UNIQUE (series, fy, seq),
+  -- The number is derived from (series, fy, seq), never typed in.
+  CHECK (doc_no = CASE series WHEN 'INV' THEN 'HL/' || fy || '/' || printf('%06d', seq)
+                              ELSE 'HLCN/' || fy || '/' || printf('%05d', seq) END),
   CHECK ((series = 'CN') = (doc_type = 'credit_note')),
   CHECK ((doc_type = 'credit_note') = (ref_invoice_id IS NOT NULL))
 );
@@ -267,6 +270,20 @@ CREATE TABLE doc_counters (
   PRIMARY KEY (series, fy)
 );
 INSERT INTO doc_counters (series, fy) VALUES ('INV', '2627'), ('INV', '2728'), ('CN', '2627'), ('CN', '2728');
+-- Rows for later years are created on demand by the issuing batch
+-- (src/lib/store/docnumbers.ts: INSERT OR IGNORE, then +1).
+
+-- A counter only ever advances by exactly one, so no number is skipped.
+CREATE TRIGGER doc_counters_step_one BEFORE UPDATE OF last_no ON doc_counters
+WHEN NEW.last_no IS NOT OLD.last_no + 1
+BEGIN
+  SELECT RAISE(ABORT, 'document counter must advance by one');
+END;
+
+CREATE TRIGGER doc_counters_no_delete BEFORE DELETE ON doc_counters
+BEGIN
+  SELECT RAISE(ABORT, 'document counters are permanent');
+END;
 
 -- Gapless numbering: a document must take exactly the counter's current value,
 -- which the same batch has just incremented.
@@ -274,6 +291,13 @@ CREATE TRIGGER invoices_seq_matches_counter BEFORE INSERT ON invoices
 WHEN NEW.seq IS NOT (SELECT last_no FROM doc_counters WHERE series = NEW.series AND fy = NEW.fy)
 BEGIN
   SELECT RAISE(ABORT, 'invoice sequence mismatch');
+END;
+
+CREATE TRIGGER invoices_credit_note_ref BEFORE INSERT ON invoices
+WHEN NEW.doc_type = 'credit_note'
+ AND (SELECT order_id = NEW.order_id AND doc_type <> 'credit_note' FROM invoices WHERE id = NEW.ref_invoice_id) IS NOT 1
+BEGIN
+  SELECT RAISE(ABORT, 'credit note must reference an invoice of the same order');
 END;
 
 CREATE TRIGGER invoices_no_update BEFORE UPDATE ON invoices
@@ -304,10 +328,12 @@ CREATE TABLE stock_reservations (
   order_id   INTEGER NOT NULL REFERENCES orders(id),
   qty        INTEGER NOT NULL CHECK (qty > 0),
   expires_at TEXT NOT NULL,
-  state      TEXT NOT NULL CHECK (state IN ('held', 'consumed', 'released')),
-  UNIQUE (order_id, variant_id)
+  state      TEXT NOT NULL CHECK (state IN ('held', 'consumed', 'released'))
 );
 CREATE INDEX stock_reservations_expiry ON stock_reservations(state, expires_at);
+-- One live hold per order line. Released rows stay as history, so a late
+-- authorisation can re-reserve the same line with a new row.
+CREATE UNIQUE INDEX stock_reservations_one_held ON stock_reservations(order_id, variant_id) WHERE state = 'held';
 
 -- A reservation can only be taken on a variant that is on sale. Checkout puts
 -- the stock decrement and this insert in one batch, so the abort undoes both.
@@ -327,10 +353,23 @@ BEGIN
   SELECT RAISE(ABORT, 'reservation state is final');
 END;
 
+CREATE TRIGGER stock_reservations_fixed_lines BEFORE UPDATE OF variant_id, order_id, qty ON stock_reservations
+WHEN NEW.variant_id IS NOT OLD.variant_id OR NEW.order_id IS NOT OLD.order_id OR NEW.qty IS NOT OLD.qty
+BEGIN
+  SELECT RAISE(ABORT, 'reservation lines are immutable');
+END;
+
+CREATE TRIGGER stock_reservations_no_delete BEFORE DELETE ON stock_reservations
+BEGIN
+  SELECT RAISE(ABORT, 'reservations are permanent history');
+END;
+
 -- ── Coordination ───────────────────────────────────────────────────────────
 
 -- Exactly-once claims: `ok` is computed in SQL from the current order state,
 -- so a stale or repeated claim errors (CHECK / NOT NULL / PK) and aborts its batch.
+-- A kind is claimable once per order, so anything that can legitimately repeat
+-- must carry a discriminator: 'refund:<refund_id>', 'credit_note:<n>', 'retry_capture:<attempt>'.
 CREATE TABLE ops (
   order_id   INTEGER NOT NULL,
   kind       TEXT NOT NULL,

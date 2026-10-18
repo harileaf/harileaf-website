@@ -31,7 +31,7 @@ export function claimStmt(
 
 export type ClaimResult =
   | { ok: true }
-  | { ok: false; reason: 'claim' | 'stock' | 'other'; error: unknown };
+  | { ok: false; reason: 'claim' | 'stock' | 'inactive' | 'other'; error: unknown };
 
 export async function runClaim(
   db: D1Database,
@@ -43,6 +43,6 @@ export async function runClaim(
     return { ok: true };
   } catch (error) {
     const kind = classifyD1Error(error);
-    return { ok: false, reason: kind === 'claim' || kind === 'stock' ? kind : 'other', error };
+    return { ok: false, reason: kind === 'claim' || kind === 'stock' || kind === 'inactive' ? kind : 'other', error };
   }
 }
