@@ -112,6 +112,11 @@ export const refundPayment = (cfg: RazorpayConfig, paymentId: string, r: { amoun
     notes: r.notes ?? {},
   });
 
+export async function listPaymentRefunds(cfg: RazorpayConfig, paymentId: string): Promise<Array<RazorpayRefund & { receipt?: string | null }>> {
+  const res = await call<{ items: Array<RazorpayRefund & { receipt?: string | null }> }>(cfg, 'GET', `/payments/${encodeURIComponent(paymentId)}/refunds`);
+  return res.items ?? [];
+}
+
 /** Checkout success signature: hex HMAC-SHA256("{our stored order_id}|{payment_id}", key secret). */
 export async function verifyPaymentSignature(keySecret: string, orderId: string, paymentId: string, signature: string): Promise<boolean> {
   if (!signature || !orderId || !paymentId) return false;
