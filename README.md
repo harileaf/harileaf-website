@@ -46,7 +46,7 @@ Store logic lives in `src/lib/store/` as plain TypeScript modules that take a `D
 
 ### Backups
 
-`.github/workflows/d1-backup.yml` exports D1 nightly (02:00 IST) to the private R2 bucket `harileaf-backups` (create it once with `npx wrangler r2 bucket create harileaf-backups`, keep public access off, and add a 90-day lifecycle rule). The API token needs **D1 Edit** and **R2 Edit**. Run it on demand from GitHub → Actions → *Nightly D1 backup* → Run workflow.
+`.github/workflows/d1-backup.yml` exports D1 nightly (02:00 IST) to the private R2 bucket `harileaf-backups` (create it once with `npx wrangler r2 bucket create harileaf-backups`, keep public access off, and add a 90-day lifecycle rule). It uses its own GitHub secret `CLOUDFLARE_BACKUP_API_TOKEN` (D1 Edit + R2 Object Read & Write on `harileaf-backups` only), not the deploy token. Run it on demand from GitHub → Actions → *Nightly D1 backup* → Run workflow.
 
 Restore into a fresh database (never over the live one), check it, then point `wrangler.toml` at it:
 
