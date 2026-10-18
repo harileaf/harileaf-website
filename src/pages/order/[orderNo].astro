@@ -18,7 +18,7 @@ Astro.response.headers.set('Referrer-Policy', 'no-referrer');
 const token = Astro.url.searchParams.get('t') ?? '';
 const view = await getOrderByNo(env.STORE_DB, Astro.params.orderNo ?? '');
 const allowed = Boolean(view && env.ORDER_TOKEN_SECRET && (await checkViewToken(env.ORDER_TOKEN_SECRET, token, view.order.view_token_hash)));
-if (!allowed) return Astro.rewrite('/404');
+if (!allowed) return Astro.rewrite('/order/find'); // same page (404) whether or not the order exists
 const { order: o, items, holdExpiresAt } = view!;
 
 const STATUS: Record<string, { title: string; body: string }> = {

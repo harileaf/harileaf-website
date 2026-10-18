@@ -38,9 +38,14 @@ test('a shopper buys rice with cash on delivery and can cancel before packing', 
   await expect(page.getByRole('heading', { level: 1, name: 'Cancelled' })).toBeVisible();
 });
 
-test('order pages need their token', async ({ page }) => {
+test('order pages need their token, and offer a fresh link instead', async ({ page }) => {
   const res = await page.goto('/order/HL-2610-0001?t=not-the-token');
   expect(res?.status()).toBe(404);
+  await expect(page.getByRole('heading', { level: 1, name: 'Find your order' })).toBeVisible();
+  await expect(page.locator('#f-no')).toHaveValue('HL-2610-0001');
+  await page.fill('#f-email', 'nobody@example.com');
+  await page.getByRole('button', { name: 'Email me the link' }).click();
+  await expect(page.locator('#find-status')).toContainText('If that order number and email match');
 });
 
 test('checkout shows field errors without placing an order', async ({ page }) => {

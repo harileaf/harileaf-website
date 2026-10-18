@@ -55,6 +55,11 @@ export function codReminderEmail(o: OrderRow, viewUrl: string, s: StoreSettings)
   return { to: o.email, subject: `Reminder: confirm your order ${o.order_no} — HariLeaf`, html: wrap('Please confirm your order', body, s), text: `Your COD order ${o.order_no} is waiting for your confirmation: ${viewUrl}#confirm`, idempotencyKey: `email.cod_reminder/${o.order_no}`, replyTo: s.customer_care_email || undefined };
 }
 
+export function orderLinkEmail(o: OrderRow, viewUrl: string, s: StoreSettings, rowId: number): Email {
+  const body = `<p>Hi ${first(o)}, here is the link to your order <strong>${esc(o.order_no)}</strong>. Keep this email — anyone with the link can see the order.</p>${button(viewUrl, 'View your order')}<p style="color:#666;font-size:12px">Didn't ask for this? You can ignore this email.</p>`;
+  return { to: o.email, subject: `Your link to order ${o.order_no} — HariLeaf`, html: wrap('Your order link', body, s), text: `Your order ${o.order_no}: ${viewUrl}`, idempotencyKey: `email.order_link/${o.order_no}/${rowId}`, replyTo: s.customer_care_email || undefined };
+}
+
 export function makeFulfilmentEmailHandlers(fetchImpl?: typeof fetch): Record<string, OutboxHandler> {
   const handler = (build: (o: OrderRow, url: string, s: StoreSettings) => Email): OutboxHandler => async (_p, { env, row }) => {
     const o = await env.STORE_DB.prepare('SELECT * FROM orders WHERE id = ?').bind(row.order_id).first<OrderRow>();
@@ -66,6 +71,11 @@ export function makeFulfilmentEmailHandlers(fetchImpl?: typeof fetch): Record<st
     'email.delivered': handler(deliveredEmail),
     'email.cancelled': handler(cancelledEmail),
     'email.refunded': handler(refundedEmail),
+    'email.order_link': async (_p, { env, row }) => {
+      const o = await env.STORE_DB.prepare('SELECT * FROM orders WHERE id = ?').bind(row.order_id).first<OrderRow>();
+      if (!o) return;
+      await sendEmail(env, orderLinkEmail(o, await orderViewUrl(env, o), await getSettings(env.STORE_DB), row.id), fetchImpl);
+    },
     'email.cod_reminder': async (_p, { env, row }) => {
       const o = await env.STORE_DB.prepare('SELECT * FROM orders WHERE id = ?').bind(row.order_id).first<OrderRow>();
       const s = await getSettings(env.STORE_DB);
