@@ -55,7 +55,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const advance = async (target: 'shipped' | 'delivered' | 'rto'): Promise<ActionResult> => {
     const steps: Array<() => Promise<ActionResult>> = [];
     let status = order.status;
-    if (REACHED[target].includes(status)) return { ok: true }; // late or repeated scan
+    if (REACHED[target].includes(status)) {
+      // Late or repeated scan. If the admin marked it shipped without tracking, fill it in now.
+      if (ship.awb) {
+        await db
+          .prepare('UPDATE orders SET awb = ?, courier = COALESCE(courier, ?), tracking_url = COALESCE(tracking_url, ?), updated_at = ? WHERE id = ? AND awb IS NULL')
+          .bind(ship.awb, ship.courier, ship.trackingUrl, now.toISOString(), order.id)
+          .run();
+      }
+      return { ok: true };
+    }
     if (status === 'placed') {
       steps.push(() => markPacked(db, order.id, { now, actor: 'shiprocket' }));
       status = 'packed';

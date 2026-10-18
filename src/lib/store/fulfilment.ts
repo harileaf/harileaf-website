@@ -361,6 +361,7 @@ export async function createReplacement(
     db.prepare(`INSERT INTO order_events (order_id, at, type, actor, actor_email, note) VALUES (${idQ}, ?, 'placed', 'admin', ?, ?)`).bind(key, at, ctx.actorEmail ?? null, `Replacement for ${o.order_no}: ${ctx.note}`),
     event(db, originalId, at, 'replacement', 'admin', ctx.note, ctx.actorEmail),
     db.prepare(`INSERT INTO outbox (order_id, kind, payload, state, attempts, next_attempt_at, created_at, updated_at) VALUES (${idQ}, 'shiprocket.create', '{}', 'pending', 0, ?, ?, ?)`).bind(key, at, at, at),
+    db.prepare(`INSERT INTO outbox (order_id, kind, payload, state, attempts, next_attempt_at, created_at, updated_at) VALUES (${idQ}, 'email.replacement_placed', '{}', 'pending', 0, ?, ?, ?)`).bind(key, at, at, at),
     db.prepare('SELECT order_no FROM orders WHERE idempotency_key = ?').bind(key),
   );
   try {

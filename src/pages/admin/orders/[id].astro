@@ -17,10 +17,10 @@ const actions = o ? availableActions(o) : [];
 const fmt = (iso: string) => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' });
 const tracking = safeHttpsUrl(o?.tracking_url);
 const LABELS: Record<string, string> = {
-  pack: 'Mark packed (issues invoice)', ship: 'Mark shipped', deliver: 'Mark delivered', rto: 'Mark RTO', returned: 'Mark returned',
+  pack: 'Mark packed (issues invoice)', ship: 'Mark shipped', update_tracking: 'Update tracking', deliver: 'Mark delivered', rto: 'Mark RTO', returned: 'Mark returned',
   cancel: 'Cancel order', refund: 'Refund', receive_return: 'Return received (restock)', replacement: 'Send replacement',
 };
-const needs: Record<string, string[]> = { ship: ['awb', 'courier', 'trackingUrl'], cancel: ['reason'], refund: ['reason', 'manualReference'], returned: ['note'], rto: ['note'], receive_return: ['note'], replacement: ['note'] };
+const needs: Record<string, string[]> = { ship: ['awb', 'courier', 'trackingUrl'], update_tracking: ['awb', 'courier', 'trackingUrl'], cancel: ['reason'], refund: ['reason', 'manualReference'], returned: ['note'], rto: ['note'], receive_return: ['note'], replacement: ['note'] };
 ---
 
 <AdminLayout title={o ? `Order ${o.order_no}` : 'Order'} active="orders">

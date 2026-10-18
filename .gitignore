@@ -56,3 +56,8 @@ pnpm-debug.log*
 .dev.vars
 .dev.vars.*
 .playwright-mcp/
+
+# Local test/CI reports
+.lighthouseci/
+test-results/
+playwright-report/

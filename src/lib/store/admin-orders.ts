@@ -67,6 +67,7 @@ export function availableActions(o: Pick<OrderRow, 'status' | 'payment_method' |
   if (o.status === 'placed' && prepaidReady) a.push('pack');
   if (o.status === 'packed') a.push('ship');
   if (o.status === 'shipped') a.push('deliver', 'rto');
+  if (['shipped', 'delivered', 'rto'].includes(o.status)) a.push('update_tracking');
   if (o.status === 'delivered') a.push('returned');
   if (o.status === 'placed' || o.status === 'packed') a.push('cancel');
   if (['shipped', 'delivered', 'returned', 'rto'].includes(o.status) && o.payment_status === 'paid' && o.total_paise > 0) a.push('refund');
@@ -92,6 +93,21 @@ export async function runAdminAction(
       const tracking = str(body, 'trackingUrl', 500);
       if (tracking && !safeHttpsUrl(tracking)) return { ok: false, error: 'Tracking link must start with https://' };
       return markShipped(db, orderId, { awb: str(body, 'awb', 40) || null, courier: str(body, 'courier', 60) || null, trackingUrl: tracking || null }, { ...base, actor: 'admin' });
+    }
+    case 'update_tracking': {
+      // Correct (or clear) the AWB/courier/link of a shipped order — markShipped never overwrites with blanks.
+      const tracking = str(body, 'trackingUrl', 500);
+      if (tracking && !safeHttpsUrl(tracking)) return { ok: false, error: 'Tracking link must start with https://' };
+      const at = nowIso(ctx.now);
+      const res = await db.batch([
+        db
+          .prepare("UPDATE orders SET awb = ?, courier = ?, tracking_url = ?, updated_at = ? WHERE id = ? AND status IN ('shipped', 'delivered', 'rto')")
+          .bind(str(body, 'awb', 40) || null, str(body, 'courier', 60) || null, tracking || null, at, orderId),
+        db
+          .prepare("INSERT INTO order_events (order_id, at, type, actor, actor_email, note) SELECT ?, ?, 'tracking_updated', 'admin', ?, ? WHERE changes() > 0")
+          .bind(orderId, at, ctx.actorEmail, [str(body, 'courier', 60), str(body, 'awb', 40)].filter(Boolean).join(' · ') || 'Tracking cleared'),
+      ]);
+      return (res[0].meta.changes ?? 0) ? { ok: true } : { ok: false, error: 'Tracking can be edited once the order has shipped' };
     }
     case 'deliver':
       return markDelivered(db, orderId, { ...base, actor: 'admin' });

@@ -155,6 +155,7 @@ describe('after dispatch', () => {
     expect(await scalar('SELECT count(*) FROM orders WHERE replacement_for_order_id = ?', o.id)).toBe(1);
     const rep = await db.prepare('SELECT id, total_paise, status, replacement_for_order_id FROM orders WHERE order_no = ?').bind(r.orderNo).first<{ id: number; total_paise: number; status: string; replacement_for_order_id: number }>();
     expect(rep).toMatchObject({ total_paise: 0, status: 'placed', replacement_for_order_id: o.id });
+    expect(await scalar("SELECT count(*) FROM outbox WHERE order_id = ? AND kind = 'email.replacement_placed'", rep!.id)).toBe(1);
     expect(await stock(o.variantId)).toBe(3);
     expect(await markPacked(db, rep!.id, ctx)).toEqual({ ok: true });
     expect(await scalar("SELECT count(*) FROM invoices WHERE order_id = ?", rep!.id)).toBe(0);

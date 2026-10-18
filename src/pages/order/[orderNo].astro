@@ -32,7 +32,9 @@ const STATUS: Record<string, { title: string; body: string }> = {
 };
 const s = STATUS[o.status] ?? { title: o.status, body: '' };
 const canCancel = o.status === 'placed';
-const hasInvoice = Boolean(o.invoice_id);
+// Replacements carry a delivery challan, not an invoice (orders.invoice_id stays empty).
+const isReplacement = o.total_paise === 0;
+const hasDoc = Boolean(o.invoice_id) || (isReplacement && Boolean(await env.STORE_DB.prepare('SELECT 1 AS d FROM delivery_challans WHERE order_id = ?').bind(o.id).first()));
 const trackingUrl = safeHttpsUrl(o.tracking_url);
 const refundLine =
   o.payment_status === 'refund_pending' ? 'Refund in progress — usually 5–7 business days to reach you.' : o.payment_status === 'refunded' ? 'Refunded.' : null;
@@ -40,7 +42,9 @@ const canPay = o.status === 'pending_payment' && o.payment_method === 'razorpay'
 const fmt = (iso: string) => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' });
 const tax = items.reduce((a, i) => ({ cgst: a.cgst + i.cgst_paise, sgst: a.sgst + i.sgst_paise, igst: a.igst + i.igst_paise }), { cgst: 0, sgst: 0, igst: 0 });
 const paymentLine =
-  o.payment_method === 'cod'
+  isReplacement
+    ? 'Free replacement — nothing to pay'
+    : o.payment_method === 'cod'
     ? `Cash on delivery — ${formatINR(o.total_paise)} to pay on delivery`
     : o.payment_status === 'paid' || o.payment_status === 'authorized'
       ? `Paid online${o.paid_at ? ` on ${fmt(o.paid_at)}` : ''}`
@@ -61,7 +65,13 @@ const paymentLine =
         <p id="pay-status" class="w-full text-sm font-bold" role="status" aria-live="polite"></p>
       </div>
     )}
-    {trackingUrl && <p class="mt-6"><a href={trackingUrl} class="font-extrabold text-primary underline" rel="noopener noreferrer" target="_blank">Track your parcel{o.courier ? ` (${o.courier})` : ''} →</a></p>}
+    {(trackingUrl || o.awb) && (
+      <p class="mt-6">
+        {o.courier && <span>Shipped with <strong>{o.courier}</strong>{o.awb && ' · '}</span>}
+        {o.awb && <span>AWB <strong>{o.awb}</strong></span>}
+        {trackingUrl && <a href={trackingUrl} class="ml-2 font-extrabold text-primary underline" rel="noopener noreferrer" target="_blank">Track your parcel →</a>}
+      </p>
+    )}
 
     <div class="mt-10 grid md:grid-cols-[1.4fr_1fr] gap-8 items-start">
       <section aria-labelledby="items-h" class="rounded-2xl bg-white border border-black/5 p-6">
@@ -89,9 +99,9 @@ const paymentLine =
           <h2 class="font-extrabold mb-1">Payment</h2>
           <p>{paymentLine}</p>
           {refundLine && <p class="mt-1 font-bold">{refundLine}</p>}
-          {hasInvoice
-            ? <p class="mt-2"><a href={`/order/${o.order_no}/invoice?t=${encodeURIComponent(token)}`} class="font-bold text-primary underline">{o.total_paise > 0 ? 'View / download GST invoice' : 'View delivery challan'}</a></p>
-            : o.total_paise > 0 && <p class="mt-2 text-xs text-on-surface-variant">Your GST invoice is issued when we pack your order.</p>}
+          {hasDoc
+            ? <p class="mt-2"><a href={`/order/${o.order_no}/invoice?t=${encodeURIComponent(token)}`} class="font-bold text-primary underline">{isReplacement ? 'View delivery challan' : 'View / download GST invoice'}</a></p>
+            : <p class="mt-2 text-xs text-on-surface-variant">{isReplacement ? 'The delivery challan is issued when we pack the replacement.' : 'Your GST invoice is issued when we pack your order.'}</p>}
         </div>
         {canCancel && (
           <div class="rounded-2xl border border-black/10 p-5">

@@ -161,3 +161,22 @@ describe('courier webhook', () => {
     expect(await scalar("SELECT count(*) FROM order_events WHERE order_id = ? AND type = 'ndr'", o.id)).toBe(1);
   });
 });
+
+describe('PR #4 review', () => {
+  it('splits names for Shiprocket so the last name is never empty', async () => {
+    const { splitName } = await import('../../src/lib/store/shiprocket-orders');
+    expect(splitName('Meenakshi')).toEqual({ first: 'Meenakshi', last: '.' });
+    expect(splitName('  Asha   Rao  Kumar ')).toEqual({ first: 'Asha', last: 'Rao Kumar' });
+  });
+
+  it('fills in the AWB from a late courier scan when the admin shipped it without one', async () => {
+    const o = await order('cod');
+    await db.prepare("UPDATE orders SET shiprocket_order_id = ? WHERE id = ?").bind(`srL${o.id}`, o.id).run();
+    await markPacked(db, o.id, { now: NOW });
+    const { markShipped } = await import('../../src/lib/store/fulfilment');
+    await markShipped(db, o.id, { awb: null, courier: null, trackingUrl: null }, { now: NOW, actor: 'admin' });
+    const res = await courier({ request: new Request('https://harileaf.org/api/webhooks/courier', { method: 'POST', headers: { 'x-api-key': 'test-courier-token' }, body: JSON.stringify({ sr_order_id: `srL${o.id}`, awb: `LATE${o.id}`, courier_name: 'Delhivery', shipment_status_id: 18, shipment_status: 'IN TRANSIT', current_timestamp: 't' }) }), locals: {} } as any);
+    expect(res.status).toBe(200);
+    expect(await scalar('SELECT awb || courier FROM orders WHERE id = ?', o.id)).toBe(`LATE${o.id}Delhivery`);
+  });
+});
