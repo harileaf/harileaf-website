@@ -3,14 +3,13 @@
 // Cloudflare runtime types are imported as named aliases instead of being added
 // globally: the global runtime types clash with the DOM types that client-side
 // <script> code relies on (HTMLSelectElement, Response.json(), …).
-type CF = import('@cloudflare/workers-types');
-type KVNamespace = CF.KVNamespace;
-type R2Bucket = CF.R2Bucket;
-type D1Database = CF.D1Database;
-type D1PreparedStatement = CF.D1PreparedStatement;
-type D1Result<T = unknown> = CF.D1Result<T>;
-type ExecutionContext = CF.ExecutionContext;
-type ScheduledController = CF.ScheduledController;
+type KVNamespace = import('@cloudflare/workers-types/latest').KVNamespace;
+type R2Bucket = import('@cloudflare/workers-types/latest').R2Bucket;
+type D1Database = import('@cloudflare/workers-types/latest').D1Database;
+type D1PreparedStatement = import('@cloudflare/workers-types/latest').D1PreparedStatement;
+type D1Result<T = unknown> = import('@cloudflare/workers-types/latest').D1Result<T>;
+type ExecutionContext = import('@cloudflare/workers-types/latest').ExecutionContext;
+type ScheduledController = import('@cloudflare/workers-types/latest').ScheduledController;
 
 interface Env {
   // Bindings (wrangler.toml)
