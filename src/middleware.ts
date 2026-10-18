@@ -10,12 +10,17 @@
  */
 import { defineMiddleware } from 'astro:middleware';
 import { accessDecision, requiresAdminAccess, verifyAccessJwt } from './lib/store/access';
+import { withEdgeCache } from './lib/store/edge-cache';
 
 const deny = (status: number, message: string) =>
   new Response(message, { status, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
 
 export const onRequest = defineMiddleware(async (context, next) => {
-  if (!requiresAdminAccess(context.url.pathname, context.request.method)) return next();
+  if (!requiresAdminAccess(context.url.pathname, context.request.method)) {
+    // Public store pages are cached at the edge (see edge-cache.ts); everything else passes through.
+    const cf = context.locals.cfContext;
+    return withEdgeCache(context.request, (p) => cf?.waitUntil(p), () => next());
+  }
 
   const { env } = await import('cloudflare:workers');
   const decision = accessDecision(env);
