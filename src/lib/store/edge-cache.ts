@@ -5,8 +5,10 @@
  * we store it ourselves in `caches.default` (per data centre). The cache key is
  * the URL with the query string and trailing slash removed, so `?v=SKU`,
  * `utm_*` and `/rice/` vs `/rice` share one entry — pages must therefore never
- * depend on the query string on the server (variant preselection is done in
- * the browser). Admin writes purge exact keys globally via the Cloudflare API.
+ * depend on those parameters on the server (variant preselection is done in
+ * the browser). Any other query parameter (e.g. `?waitlist=success`, which a
+ * page reads server-side) bypasses the cache. Admin writes purge exact keys
+ * globally via the Cloudflare API.
  */
 import type { OutboxHandler } from './outbox';
 import { CATEGORY_SLUGS } from './urls';
@@ -30,6 +32,14 @@ export function isEdgeCacheable(pathname: string): boolean {
   return (CATEGORY_SLUGS as readonly string[]).includes(first) && extra === undefined && (second === undefined || /^[a-z0-9-]+$/.test(second));
 }
 
+/** Query parameters that never change the server-rendered HTML. */
+const IGNORED_PARAM = /^(v|utm_[a-z_]+|gclid|gbraid|wbraid|fbclid|msclkid|gad_source|srsltid|ref)$/i;
+
+export function onlyIgnorableParams(url: URL): boolean {
+  for (const key of url.searchParams.keys()) if (!IGNORED_PARAM.test(key)) return false;
+  return true;
+}
+
 export function cacheKeyUrl(url: URL): string {
   return `${url.protocol}//${url.host}${normalisePath(url.pathname)}`;
 }
@@ -49,7 +59,7 @@ export async function withEdgeCache(
   cache: Cache | undefined = (globalThis as { caches?: { default?: Cache } }).caches?.default,
 ): Promise<Response> {
   const url = new URL(request.url);
-  if (request.method !== 'GET' || !cache || !isEdgeCacheable(url.pathname)) return render();
+  if (request.method !== 'GET' || !cache || !isEdgeCacheable(url.pathname) || !onlyIgnorableParams(url)) return render();
   const key = new Request(cacheKeyUrl(url), { method: 'GET' });
   const hit = await cache.match(key);
   if (hit) {

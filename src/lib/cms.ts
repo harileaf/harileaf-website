@@ -66,13 +66,13 @@ export async function putProduce(kv: KVNamespace, items: ProduceItem[]): Promise
 }
 
 export const DEFAULT_CONTENT: ContentFields = {
-  heroBadge: 'HariLeaf Farm · Organic Produce',
+  heroBadge: 'HariLeaf Farm · Fresh Produce',
   heroLine1: 'From the earth,',
   heroLine2: 'directly to you.',
-  heroSubtitle: '18 varieties of fruits, vegetables, herbs and flowers — all organically grown on our farm, available for bulk orders.',
+  heroSubtitle: '18 varieties of fruits, vegetables, herbs and flowers — grown on our farm and available for bulk orders.',
   catalogueHeadline: 'Everything we grow',
   photoStripHeadline: 'Growing in the open.',
-  organicPromiseHeadline: 'Everything we grow is 100% organic. No chemicals, ever.',
+  organicPromiseHeadline: 'Grown on our farm. Sold by us, direct to you.',
 };
 
 export async function getContent(kv: KVNamespace): Promise<ContentFields> {

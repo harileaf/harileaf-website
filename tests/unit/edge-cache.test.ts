@@ -53,12 +53,22 @@ describe('withEdgeCache', () => {
     const render = async () => page(`render ${++renders}`);
     const first = await withEdgeCache(new Request('https://harileaf.org/rice/karjat-3?v=A'), (p) => waits.push(p), render, cache as unknown as Cache);
     await Promise.all(waits);
-    const second = await withEdgeCache(new Request('https://harileaf.org/rice/karjat-3/?utm=x'), (p) => waits.push(p), render, cache as unknown as Cache);
+    const second = await withEdgeCache(new Request('https://harileaf.org/rice/karjat-3/?utm_source=x'), (p) => waits.push(p), render, cache as unknown as Cache);
     expect(await first.text()).toBe('render 1');
     expect(first.headers.get('X-HL-Cache')).toBe('MISS');
     expect(await second.text()).toBe('render 1');
     expect(second.headers.get('X-HL-Cache')).toBe('HIT');
     expect(renders).toBe(1);
+  });
+
+  it('bypasses the cache for query parameters a page may read', async () => {
+    const cache = new MemCache();
+    let renders = 0;
+    const render = async () => page(`r${++renders}`);
+    await withEdgeCache(new Request('https://harileaf.org/rice?waitlist=success'), () => {}, render, cache as unknown as Cache);
+    await withEdgeCache(new Request('https://harileaf.org/rice?waitlist=success'), () => {}, render, cache as unknown as Cache);
+    expect(renders).toBe(2);
+    expect(cache.store.size).toBe(0);
   });
 
   it('never caches non-GET requests or uncacheable paths', async () => {

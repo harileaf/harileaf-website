@@ -1,5 +1,9 @@
 ---
-export const prerender = true;
+export const prerender = false;
+import { env } from 'cloudflare:workers';
+import ProductGrid from '../components/store/ProductGrid.astro';
+import { listProducts, type ProductCard } from '../lib/store/catalog';
+import { PAGE_CACHE_CONTROL } from '../lib/store/edge-cache';
 import SiteLayout from '../layouts/SiteLayout.astro';
 import SEO from '../components/seo/SEO.astro';
 import FadeIn from '../components/animations/FadeIn.astro';
@@ -7,14 +11,24 @@ import WaitlistForm from '../components/produce/WaitlistForm.astro';
 import PhotoGallery from '../components/produce/PhotoGallery.astro';
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://harileaf.org');
-const pageTitle = 'Stone-Ground Organic Turmeric & Red Chili | HariLeaf Farm';
-const pageDesc  = 'HariLeaf turmeric and red chili powder, stone-ground the traditional way so the aromatic oils and vivid colour survive — instead of being burned off by high-speed industrial mills.';
+const pageTitle = 'Stone-Ground Turmeric & Red Chili Powder | HariLeaf';
+const pageDesc  = 'Buy HariLeaf turmeric and red chili powder — sun-dried and slowly stone-ground at low temperature so more of the aroma and colour stays in the powder.';
 
 const galleryFilters = [
   { key: 'all', label: 'All' },
   { key: 'spice:turmeric', label: 'Turmeric' },
   { key: 'spice:chili', label: 'Red Chili' },
 ];
+// Live product grid (edge-cached); before any spices product is live the waitlist stays.
+let cards: ProductCard[] = [];
+try {
+  cards = await listProducts(env.STORE_DB, { categorySlug: 'spices', today: new Date() });
+} catch (err) {
+  console.error(JSON.stringify({ msg: 'spices grid failed', error: String(err) }));
+}
+Astro.response.headers.set('Cache-Control', PAGE_CACHE_CONTROL);
+const selling = cards.length > 0;
+
 ---
 
 <SiteLayout title={pageTitle} description={pageDesc}>
@@ -42,17 +56,31 @@ const galleryFilters = [
     <div class="relative z-10 max-w-7xl mx-auto px-6">
       <FadeIn><span class="text-xs uppercase tracking-widest font-extrabold" style="color:rgba(224,165,58,.9);">HariLeaf Farm · Stone-Ground Spices</span></FadeIn>
       <FadeIn delay={100}><h1 class="text-5xl md:text-6xl font-extrabold tracking-tighter leading-[1.05] mt-4 text-white">You can <span class="s-grad">smell</span><br />the difference.</h1></FadeIn>
-      <FadeIn delay={200}><p class="mt-5 text-lg max-w-xl leading-relaxed" style="color:rgba(255,255,255,.55);">Turmeric and red chili, ground slowly on stone the traditional way — so the aromatic oils and vivid colour survive, instead of being burned off by high-speed industrial mills.</p></FadeIn>
+      <FadeIn delay={200}><p class="mt-5 text-lg max-w-xl leading-relaxed" style="color:rgba(255,255,255,.55);">Turmeric and red chili, sun-dried and ground slowly on stone — so more of the aromatic oils and colour stay in the powder instead of being driven off by the heat of high-speed mills.</p></FadeIn>
       <FadeIn delay={300}>
         <div class="mt-7 flex flex-wrap gap-3">
-          {['🪨 Stone-Ground','🌱 Organic','☀️ Sun-Dried','📦 Small-Batch'].map((b) => (
+          {['🪨 Stone-Ground','☀️ Sun-Dried','📦 Small-Batch','🏷️ Batch-Dated'].map((b) => (
             <span class="text-xs font-extrabold uppercase tracking-wider px-4 py-2 rounded-full" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.75);">{b}</span>
           ))}
-          <span class="text-xs font-extrabold uppercase tracking-wider px-4 py-2 rounded-full" style="background:rgba(255,180,80,.14);border:1px solid rgba(255,180,80,.35);color:rgba(255,200,120,.95);">🛒 Online Ordering — Coming Soon</span>
+          {selling ? (
+            <a href="#spices-products" class="text-xs font-extrabold uppercase tracking-wider px-4 py-2 rounded-full" style="background:rgba(224,165,58,.16);border:1px solid rgba(224,165,58,.4);color:#e8b84a;">🛒 Order online ↓</a>
+          ) : (
+            <span class="text-xs font-extrabold uppercase tracking-wider px-4 py-2 rounded-full" style="background:rgba(255,180,80,.14);border:1px solid rgba(255,180,80,.35);color:rgba(255,200,120,.95);">🛒 Online Ordering — Coming Soon</span>
+          )}
         </div>
       </FadeIn>
     </div>
   </section>
+
+  {selling && (
+    <section id="spices-products" style="background:#0c0a08;" class="pt-16 px-6 scroll-mt-24" aria-labelledby="spices-products-heading">
+      <div class="max-w-7xl mx-auto">
+        <p class="text-xs uppercase tracking-widest font-extrabold mb-2" style="color:rgba(224,165,58,.75);">Order online · free delivery across India</p>
+        <h2 id="spices-products-heading" class="text-3xl font-extrabold tracking-tight mb-8 text-white">Buy our spices</h2>
+        <ProductGrid cards={cards} tone="dark" />
+      </div>
+    </section>
+  )}
 
   <!-- PRODUCTS (scalable grid) -->
   <section style="background:#0c0a08;" class="py-16 px-6">
@@ -108,7 +136,7 @@ const galleryFilters = [
       <FadeIn>
         <p class="text-xs uppercase tracking-widest font-extrabold mb-2" style="color:rgba(224,165,58,.75);">The thing nobody tells you</p>
         <h2 class="text-3xl font-extrabold tracking-tight mb-2 text-white">Why grinding <em class="not-italic" style="color:#d05656;">temperature</em> changes everything</h2>
-        <p class="mb-8 max-w-2xl" style="color:rgba(240,240,238,.55);">A spice's soul — its aroma and colour — lives in delicate volatile oils. High-speed industrial mills spin so fast they heat the powder to 90–120°C, and that heat quietly burns those oils away. Traditional stone grinding stays slow and cool.</p>
+        <p class="mb-8 max-w-2xl" style="color:rgba(240,240,238,.55);">A spice's soul — its aroma and colour — lives in delicate volatile oils. High-speed mills spin so fast that friction heats the powder, and heat drives those oils off. Slow stone grinding runs much cooler.</p>
       </FadeIn>
       <div class="rounded-3xl p-8 md:p-12" style="background:linear-gradient(135deg,#15100a 0%,#0e0a08 100%);">
         <div class="grid md:grid-cols-2 gap-4.5" style="gap:1.125rem;">
@@ -116,7 +144,7 @@ const galleryFilters = [
             <div class="text-xs font-extrabold uppercase tracking-widest mb-1.5" style="color:#e07a6a;">🏭 High-speed industrial mill</div>
             <h3 class="text-xl font-bold text-white mb-4">Hot &amp; fast</h3>
             <div class="gauge g-hot h-3 rounded-lg mb-1.5" style="background:rgba(255,255,255,.08);overflow:hidden;"><span></span></div>
-            <div class="text-2xl font-extrabold mb-4" style="color:#e07a6a;">90–120°C</div>
+            <div class="text-2xl font-extrabold mb-4" style="color:#e07a6a;">High heat</div>
             <ul class="text-sm space-y-1.5" style="color:rgba(240,240,238,.65);"><li>✗ Friction heat drives off aromatic oils</li><li>✗ Vivid colour dulls and browns</li><li>✗ Aroma flattens — smells faint</li><li>✓ Cheap, fast, long shelf-life</li></ul>
           </div>
           <div class="rounded-2xl p-7 border" style="background:radial-gradient(ellipse at 50% 0%, rgba(25,106,94,.16), transparent 70%), rgba(255,255,255,.03);border-color:rgba(139,212,198,.3);">
@@ -128,8 +156,8 @@ const galleryFilters = [
           </div>
         </div>
         <div class="text-center mt-7 p-6 rounded-2xl" style="background:rgba(192,57,43,.1);border:1px solid rgba(192,57,43,.25);">
-          <b class="text-4xl font-extrabold block" style="color:#e8b84a;">15–43%</b>
-          <span class="text-sm" style="color:rgba(240,240,238,.6);">of a spice's volatile aromatic oils can be lost to heat in conventional high-speed grinding. Studies on cold &amp; low-temperature grinding show 15–25% higher retention of volatile oils, oleoresin and curcumin.</span>
+          <b class="text-2xl font-extrabold block" style="color:#e8b84a;">Cooler grinding, more aroma kept</b>
+          <span class="text-sm" style="color:rgba(240,240,238,.6);">Research on low-temperature grinding of spices has found better retention of volatile oils than conventional high-speed grinding. We'll publish lab results for our own batches on each product page.</span>
         </div>
       </div>
     </div>
@@ -140,23 +168,23 @@ const galleryFilters = [
     <div class="max-w-7xl mx-auto">
       <FadeIn>
         <p class="text-xs uppercase tracking-widest font-extrabold mb-2" style="color:rgba(224,165,58,.75);">Get to know each spice</p>
-        <h2 class="text-3xl font-extrabold tracking-tight mb-2 text-white">What's inside — and why it's good for you</h2>
-        <p class="mb-8 max-w-2xl" style="color:rgba(240,240,238,.55);">Each spice, its protected compounds and its benefits.</p>
+        <h2 class="text-3xl font-extrabold tracking-tight mb-2 text-white">What's inside each spice</h2>
+        <p class="mb-8 max-w-2xl" style="color:rgba(240,240,238,.55);">Each spice, what gives it colour and aroma, and how it's used.</p>
       </FadeIn>
 
       <div class="rounded-3xl p-8 md:p-11 border mb-5" style="background:radial-gradient(ellipse at 90% 0%, rgba(224,165,58,.12), transparent 60%), #12100b;border-color:rgba(255,255,255,.08);">
         <div class="flex items-center gap-3.5 mb-1"><span class="text-3xl">🟡</span><div><h3 class="text-2xl font-extrabold text-white">Turmeric (Haldi)</h3><div class="text-xs font-bold uppercase tracking-wide" style="color:#e8b84a;">Golden · Earthy · Warming</div></div></div>
-        <p class="my-4 max-w-3xl" style="color:rgba(240,240,238,.6);">India's most revered spice, valued in kitchens and Ayurveda alike for thousands of years. Its power lives in curcumin and its aromatic oils — the exact things we grind gently to protect.</p>
+        <p class="my-4 max-w-3xl" style="color:rgba(240,240,238,.6);">One of India's most loved spices. Its colour comes from curcumin and its aroma from volatile oils — the things slow grinding is meant to keep.</p>
         <div class="grid md:grid-cols-2 gap-7">
           <div>
             <h4 class="text-[13px] uppercase tracking-wide font-extrabold mb-3.5" style="color:rgba(240,240,238,.5);">What stone grinding protects</h4>
-            {[['🌿','Aromatic oils (turmerone)','The warm, earthy smell — the first thing heat destroys.'],['✨','Golden colour (curcumin)','The pigment and antioxidant — kept bright, not browned.'],['🫙','Oleoresin richness','The resinous compounds that carry flavour and body.']].map(([e,k,v]) => (
+            {[['🌿','Aromatic oils (turmerone)','The warm, earthy smell — the first thing heat destroys.'],['✨','Golden colour (curcumin)','The pigment that gives haldi its colour — kept bright, not browned.'],['🫙','Oleoresin richness','The resinous compounds that carry flavour and body.']].map(([e,k,v]) => (
               <div class="flex items-start gap-3 py-2.5 border-t" style="border-color:rgba(255,255,255,.07);"><span class="text-base">{e}</span><div><div class="font-extrabold text-sm text-white">{k}</div><div class="text-[13px]" style="color:rgba(240,240,238,.55);">{v}</div></div></div>
             ))}
           </div>
           <div>
-            <h4 class="text-[13px] uppercase tracking-wide font-extrabold mb-3.5" style="color:rgba(240,240,238,.5);">Why people love it</h4>
-            {[['🧡','Natural antioxidant','Curcumin is one of the most-studied plant antioxidants.'],['🌿','Ayurvedic heritage','Traditionally valued for supporting the body\'s natural balance.'],['🍵','The soul of golden milk','Haldi doodh, curries, rice — warmth and colour in everything.']].map(([e,k,v]) => (
+            <h4 class="text-[13px] uppercase tracking-wide font-extrabold mb-3.5" style="color:rgba(240,240,238,.5);">How people use it</h4>
+            {[['🍛','Everyday cooking','Dal, sabzi, rice and pickles — colour and warmth in a pinch.'],['🍵','Haldi doodh','Warm milk with a spoon of turmeric, a classic at bedtime.'],['🫙','Pickles & masalas','A base for achaar and home-made masala blends.']].map(([e,k,v]) => (
               <div class="flex items-start gap-3 py-2.5 border-t" style="border-color:rgba(255,255,255,.07);"><span class="text-base">{e}</span><div><div class="font-extrabold text-sm text-white">{k}</div><div class="text-[13px]" style="color:rgba(240,240,238,.55);">{v}</div></div></div>
             ))}
           </div>
@@ -169,13 +197,13 @@ const galleryFilters = [
         <div class="grid md:grid-cols-2 gap-7">
           <div>
             <h4 class="text-[13px] uppercase tracking-wide font-extrabold mb-3.5" style="color:rgba(240,240,238,.5);">What stone grinding protects</h4>
-            {[['🎨','Deep red colour (carotenoids)','Heat- and oxidation-sensitive — kept vivid, with no added colour.'],['🌿','Fragrant volatile oils','The aroma that tells you it\'s fresh chili, not just heat.'],['🌶️','Honest pungency (capsaicin)','The heat is naturally robust — what you pay for is colour & aroma.']].map(([e,k,v]) => (
+            {[['🎨','Deep red colour (carotenoids)','Heat- and oxidation-sensitive — kept vivid, with no added colour.'],['🌿','Fragrant volatile oils','The aroma that tells you it\'s good chili, not just heat.'],['🌶️','Honest pungency (capsaicin)','The heat holds up well — what you pay for is colour & aroma.']].map(([e,k,v]) => (
               <div class="flex items-start gap-3 py-2.5 border-t" style="border-color:rgba(255,255,255,.07);"><span class="text-base">{e}</span><div><div class="font-extrabold text-sm text-white">{k}</div><div class="text-[13px]" style="color:rgba(240,240,238,.55);">{v}</div></div></div>
             ))}
           </div>
           <div>
-            <h4 class="text-[13px] uppercase tracking-wide font-extrabold mb-3.5" style="color:rgba(240,240,238,.5);">Why people love it</h4>
-            {[['🔥','Capsaicin warmth','The natural compound behind chili\'s heat, long valued as warming.'],['🧡','Carotenoid antioxidants','The same pigments that make it red are natural antioxidants.'],['🍲','Colour, heat & aroma','Transforms curries, masalas and roasts in one spoon.']].map(([e,k,v]) => (
+            <h4 class="text-[13px] uppercase tracking-wide font-extrabold mb-3.5" style="color:rgba(240,240,238,.5);">How people use it</h4>
+            {[['🔥','Tadka & curries','A spoon in hot oil for colour and heat.'],['🥘','Masalas & marinades','Colour and depth for roasts, tikkas and gravies.'],['🍲','Colour, heat & aroma','Transforms curries, masalas and roasts in one spoon.']].map(([e,k,v]) => (
               <div class="flex items-start gap-3 py-2.5 border-t" style="border-color:rgba(255,255,255,.07);"><span class="text-base">{e}</span><div><div class="font-extrabold text-sm text-white">{k}</div><div class="text-[13px]" style="color:rgba(240,240,238,.55);">{v}</div></div></div>
             ))}
           </div>
@@ -183,7 +211,7 @@ const galleryFilters = [
       </div>
 
       <div class="rounded-2xl p-5 text-[13px]" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);color:rgba(240,240,238,.55);">
-        <b style="color:#cfe0b5;">An honest note on health.</b> We share these benefits for general education, not as medical advice or a cure for any condition. What we can promise is what's in the jar: organically grown, sun-dried, stone-ground spices with their aroma and colour intact.
+        <b style="color:#cfe0b5;">What we promise.</b> No health claims — just what's in the pack: sun-dried, slowly stone-ground spice, with the batch code and packed-on date printed on it.
       </div>
     </div>
   </section>
@@ -194,9 +222,9 @@ const galleryFilters = [
       <div class="rounded-3xl p-9 md:p-12" style="background:linear-gradient(135deg,#1a140b 0%,#120c0a 100%);">
         <p class="text-xs uppercase tracking-widest font-extrabold mb-2" style="color:rgba(224,165,58,.75);">Yes, it costs more</p>
         <h2 class="text-3xl font-extrabold tracking-tight mb-2 text-white">And here's exactly why it's worth it</h2>
-        <p class="max-w-2xl" style="color:rgba(240,240,238,.55);">Traditional processing is slower, yields less, and takes more hands. You taste every bit of that difference.</p>
+        <p class="max-w-2xl" style="color:rgba(240,240,238,.55);">Sun drying and stone grinding are slower, yield less and take more hands. You can smell the difference.</p>
         <div class="grid md:grid-cols-3 gap-4 mt-7">
-          {[['🐢','Slow by design','Stone grinding takes far longer than a hammer mill — but stays cool, so nothing burns off.'],['☀️','Sun-dried whole','Whole rhizomes and chilies dried in the sun, never rushed with industrial heat.'],['🤏','Small batches','Ground fresh in small lots so aroma reaches you at its peak, not after months on a shelf.']].map(([e,t,d]) => (
+          {[['🐢','Slow by design','Stone grinding takes far longer than a hammer mill — but stays cool, so nothing burns off.'],['☀️','Sun-dried whole','Whole rhizomes and chilies dried in the sun, never rushed with industrial heat.'],['🤏','Small batches','Ground in small lots and dated on the pack, not left for months on a shelf.']].map(([e,t,d]) => (
             <div class="rounded-2xl p-6" style="background:rgba(255,255,255,.04);border:1px solid rgba(224,165,58,.18);"><div class="text-3xl mb-2.5">{e}</div><div class="font-extrabold text-white mb-1.5">{t}</div><div class="text-[13px]" style="color:rgba(240,240,238,.58);">{d}</div></div>
           ))}
         </div>
@@ -204,15 +232,15 @@ const galleryFilters = [
     </div>
   </section>
 
-  <!-- WAITLIST -->
-  <div id="spices-waitlist" style="background:#0c0a08;">
+  <!-- WAITLIST (until the first spice product is live) -->
+  {!selling && <div id="spices-waitlist" style="background:#0c0a08;">
     <WaitlistForm
       subject="Spices Waitlist — HariLeaf Farm"
       heading="Get first access to our spices"
       subtext="We're setting up online ordering for our stone-ground turmeric and red chili. Leave your number and we'll message you the moment they're available."
       accent="gold"
     />
-  </div>
+  </div>}
 
   <PhotoGallery groupTitle="HariLeaf Spices" categoryPrefix="spice" filters={galleryFilters} accent="gold" />
 </SiteLayout>
