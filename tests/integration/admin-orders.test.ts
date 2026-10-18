@@ -31,11 +31,14 @@ describe('admin order actions', () => {
     expect(await runAdminAction(db, o.orderId, { action: 'ship', awb: 'A1', trackingUrl: 'javascript:alert(1)' }, ctx)).toMatchObject({ ok: false });
     expect(await runAdminAction(db, o.orderId, { action: 'ship', awb: 'A1', courier: 'Delhivery', trackingUrl: 'https://track.example/A1' }, ctx)).toEqual({ ok: true });
     expect(await runAdminAction(db, o.orderId, { action: 'deliver' }, ctx)).toEqual({ ok: true });
-    expect(availableActions((await detail()).order)).toEqual(['returned', 'refund', 'replacement']);
+    expect(availableActions((await detail()).order)).toEqual(['update_tracking', 'returned', 'refund', 'replacement']);
     expect(await runAdminAction(db, o.orderId, { action: 'note', note: 'Called customer' }, ctx)).toEqual({ ok: true });
+    // Correct a mistyped AWB (markShipped never overwrites with blanks; this action can clear too).
+    expect(await runAdminAction(db, o.orderId, { action: 'update_tracking', awb: 'A1-FIXED', courier: '', trackingUrl: '' }, ctx)).toEqual({ ok: true });
+    expect(await scalar("SELECT awb || '|' || COALESCE(courier, '-') || '|' || COALESCE(tracking_url, '-') FROM orders WHERE id = ?", o.orderId)).toBe('A1-FIXED|-|-');
     const d = await detail();
     expect(d.docs.map((x) => x.series)).toEqual(['INV']);
-    expect(d.events.map((e) => e.type)).toEqual(['placed', 'packed', 'shipped', 'delivered', 'note']);
+    expect(d.events.map((e) => e.type)).toEqual(['placed', 'packed', 'shipped', 'delivered', 'note', 'tracking_updated']);
     expect(d.events[1].actor_email).toBe('admin@harileaf.org');
     expect(await runAdminAction(db, o.orderId, { action: 'cancel', reason: 'x' }, ctx)).toMatchObject({ ok: false });
     expect(await runAdminAction(db, o.orderId, { action: 'nope' }, ctx)).toEqual({ ok: false, error: 'Unknown action' });

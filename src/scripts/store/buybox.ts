@@ -14,7 +14,7 @@ const LABEL: Record<string, string> = {
   notify: 'Out of season',
 };
 
-export function initBuyBox(): void {
+export function initBuyBox(signal?: AbortSignal): void {
   const box = document.querySelector<HTMLElement>('[data-buybox]');
   if (!box) return;
   const radios = Array.from(box.querySelectorAll<HTMLButtonElement>('[data-variant]'));
@@ -107,7 +107,7 @@ export function initBuyBox(): void {
   if (sticky && window.visualViewport) {
     const vv = window.visualViewport;
     const onResize = () => sticky.classList.toggle('hidden', vv.height < window.innerHeight * 0.75);
-    vv.addEventListener('resize', onResize);
+    vv.addEventListener('resize', onResize, { signal });
   }
 
   // Gallery thumbnails.

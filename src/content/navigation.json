@@ -12,23 +12,23 @@
     },
     {
       "label": "Shop",
-      "url": "/shop",
+      "url": "/shop/",
       "children": [
         {
           "label": "Rice",
-          "url": "/rice"
+          "url": "/rice/"
         },
         {
           "label": "Spices",
-          "url": "/spices"
+          "url": "/spices/"
         },
         {
           "label": "Fresh Produce",
-          "url": "/produce"
+          "url": "/produce/"
         },
         {
           "label": "All products",
-          "url": "/shop"
+          "url": "/shop/"
         }
       ]
     },

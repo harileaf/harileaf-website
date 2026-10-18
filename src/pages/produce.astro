@@ -8,7 +8,8 @@ import PhotoStrip from '../components/produce/PhotoStrip.astro';
 
 const web3formsKey = contactJson.form.web3formsKey;
 const success = Astro.url.searchParams.get('success') === 'true';
-const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://harileaf.org');
+// One canonical for /produce and /produce/ (same form as the sitemap and navigation).
+const canonicalURL = new URL('/produce/', Astro.site ?? 'https://harileaf.org');
 const pageTitle = 'Fresh Produce from HariLeaf Farm — Fruits, Vegetables & Flowers';
 const pageDesc  = 'Fruits, vegetables, herbs and flowers grown on HariLeaf Farm. Mangoes, dragon fruit, roses and more — available in bulk, farm direct.';
 
@@ -298,7 +299,7 @@ const mangoVarieties = ['Alphonso', 'Kesar Gir', 'Payri', 'Langda', 'Rajapuri', 
       </FadeIn>
       <div class="grid md:grid-cols-2 gap-4">
         <FadeIn>
-          <a href="/rice" class="block relative overflow-hidden rounded-3xl p-9 border transition-transform duration-200 hover:-translate-y-1" style="background:linear-gradient(145deg,#1a2a1a 0%,#0e1a0e 100%);border-color:rgba(139,212,198,.22);min-height:210px;">
+          <a href="/rice/" class="block relative overflow-hidden rounded-3xl p-9 border transition-transform duration-200 hover:-translate-y-1" style="background:linear-gradient(145deg,#1a2a1a 0%,#0e1a0e 100%);border-color:rgba(139,212,198,.22);min-height:210px;">
             <div class="absolute top-3.5 right-4 text-[5.5rem] opacity-[0.14] pointer-events-none leading-none" aria-hidden="true">🌾</div>
             <div class="relative z-10 flex flex-col justify-end h-full" style="min-height:150px;">
               <h3 class="text-2xl font-extrabold text-white mb-2">HariLeaf Rice</h3>
@@ -308,7 +309,7 @@ const mangoVarieties = ['Alphonso', 'Kesar Gir', 'Payri', 'Langda', 'Rajapuri', 
           </a>
         </FadeIn>
         <FadeIn delay={80}>
-          <a href="/spices" class="block relative overflow-hidden rounded-3xl p-9 border transition-transform duration-200 hover:-translate-y-1" style="background:linear-gradient(145deg,#1a140b 0%,#1a0a08 100%);border-color:rgba(224,165,58,.24);min-height:210px;">
+          <a href="/spices/" class="block relative overflow-hidden rounded-3xl p-9 border transition-transform duration-200 hover:-translate-y-1" style="background:linear-gradient(145deg,#1a140b 0%,#1a0a08 100%);border-color:rgba(224,165,58,.24);min-height:210px;">
             <div class="absolute top-3.5 right-4 text-[5.5rem] opacity-[0.14] pointer-events-none leading-none" aria-hidden="true">🌶️</div>
             <div class="relative z-10 flex flex-col justify-end h-full" style="min-height:150px;">
               <h3 class="text-2xl font-extrabold text-white mb-2">Stone-Ground Spices</h3>

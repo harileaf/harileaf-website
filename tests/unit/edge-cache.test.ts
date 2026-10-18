@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { describe, expect, it } from 'vitest';
 import {
-  PAGE_CACHE_CONTROL, cacheKeyUrl, isEdgeCacheable, makePurgeHandler, normalisePath, productPurgePaths, purgeUrls, shouldStore, withEdgeCache,
+  PAGE_CACHE_CONTROL, cacheKeyUrl, isEdgeCacheable, makePurgeHandler, normalisePath, onlyIgnorableParams, productPurgePaths, purgeUrls, shouldStore, withEdgeCache,
 } from '../../src/lib/store/edge-cache';
 
 class MemCache {
@@ -41,6 +41,10 @@ describe('cacheable paths and keys', () => {
   it('stores only public 200 responses without cookies', () => {
     expect(shouldStore(page('x'))).toBe(true);
     expect(shouldStore(new Response('x', { status: 404, headers: { 'Cache-Control': PAGE_CACHE_CONTROL } }))).toBe(false);
+    // Retired products: crawlers keep asking, so cache the 301 (replacement) and 410 (discontinued) too.
+    expect(shouldStore(new Response(null, { status: 301, headers: { Location: '/rice/new', 'Cache-Control': PAGE_CACHE_CONTROL } }))).toBe(true);
+    expect(shouldStore(new Response('gone', { status: 410, headers: { 'Cache-Control': PAGE_CACHE_CONTROL } }))).toBe(true);
+    expect(shouldStore(new Response(null, { status: 302, headers: { Location: '/x', 'Cache-Control': PAGE_CACHE_CONTROL } }))).toBe(false);
     expect(shouldStore(page('x', { 'Cache-Control': PAGE_CACHE_CONTROL, 'Set-Cookie': 'a=b' }))).toBe(false);
     expect(shouldStore(page('x', { 'Cache-Control': 'no-store' }))).toBe(false);
     expect(shouldStore(page('x', {}))).toBe(false);
@@ -122,5 +126,14 @@ describe('purge', () => {
     const fake = (async () => { called = true; return new Response('{}'); }) as unknown as typeof fetch;
     await makePurgeHandler(fake)({ urls: ['https://harileaf.org/rice'] }, { env: { ...env, CF_ZONE_ID: undefined, CF_PURGE_API_TOKEN: undefined } as Env, row: { id: 1, order_id: null, kind: 'cache.purge', payload: {}, attempts: 1 } });
     expect(called).toBe(false);
+  });
+});
+
+describe('tracking parameters', () => {
+  it('ignores ad, social and email click ids (they never change the page)', () => {
+    for (const q of ['igshid=a', 'ttclid=a', 'twclid=a', 'li_fat_id=a', 'mc_cid=a&mc_eid=b', '_ga=1&_gl=2', 'dclid=a', 'yclid=a', 'utm_source=x&fbclid=y']) {
+      expect(onlyIgnorableParams(new URL(`https://harileaf.org/shop/?${q}`))).toBe(true);
+    }
+    expect(onlyIgnorableParams(new URL('https://harileaf.org/rice/?waitlist=success'))).toBe(false);
   });
 });

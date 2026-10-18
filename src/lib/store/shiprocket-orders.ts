@@ -28,10 +28,20 @@ const srDate = (iso: string) => {
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')} ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
 };
 
+/**
+ * Shiprocket wants first and last names; several couriers reject an empty last
+ * name, and many customers give one name ("Meenakshi"), so that gets ".".
+ */
+export function splitName(full: string): { first: string; last: string } {
+  const parts = full.trim().split(/\s+/).filter(Boolean);
+  return { first: parts[0] ?? '', last: parts.slice(1).join(' ') || '.' };
+}
+
 export function shiprocketOrderPayload(o: OrderRow, items: Array<OrderItemRow & VariantDims>, pickupLocation: string) {
   const bill = !o.bill_same_as_ship && o.bill_line1;
   const p = parcel(items);
-  const [first, ...rest] = o.customer_name.split(' ');
+  const name = splitName(o.customer_name);
+  const billName = bill && o.bill_name ? splitName(o.bill_name) : name;
   const cod = o.payment_method === 'cod' && o.total_paise > 0;
   // A free replacement still declares the goods' value (courier liability / insurance).
   const declared = o.total_paise > 0 ? o.total_paise : items.reduce((a, i) => a + i.unit_price_paise * i.qty, 0);
@@ -39,8 +49,8 @@ export function shiprocketOrderPayload(o: OrderRow, items: Array<OrderItemRow & 
     order_id: o.order_no,
     order_date: srDate(o.created_at),
     pickup_location: pickupLocation,
-    billing_customer_name: bill ? (o.bill_name ?? first) : first,
-    billing_last_name: bill ? '' : rest.join(' '),
+    billing_customer_name: billName.first,
+    billing_last_name: billName.last,
     billing_address: bill ? o.bill_line1 : o.ship_line1,
     billing_address_2: (bill ? o.bill_line2 : o.ship_line2) ?? '',
     billing_city: ((bill ? o.bill_city : o.ship_city) ?? '').slice(0, 30),
@@ -52,8 +62,8 @@ export function shiprocketOrderPayload(o: OrderRow, items: Array<OrderItemRow & 
     shipping_is_billing: !bill,
     ...(bill
       ? {
-          shipping_customer_name: first,
-          shipping_last_name: rest.join(' '),
+          shipping_customer_name: name.first,
+          shipping_last_name: name.last,
           shipping_address: o.ship_line1,
           shipping_address_2: o.ship_line2 ?? '',
           shipping_city: o.ship_city.slice(0, 30),

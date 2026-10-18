@@ -3,7 +3,8 @@
  * Prices are entered in rupees and sent as paise; stock is changed by an
  * adjustment (+/−) so concurrent sales are never overwritten.
  */
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { editorMedia, type AdminMediaRows } from '../../lib/store/editor-media';
 
 type Claim = { code: string; text: string; evidence_note: string };
 type Faq = { q: string; a: string };
@@ -71,6 +72,34 @@ function Field(props: { label: string; error?: string; hint?: string; children: 
   );
 }
 
+/**
+ * Integer field that lets the admin type intermediate text ("-", "") — a
+ * controlled type=number input coerces those to 0 and erases the minus sign.
+ */
+function IntInput(props: { value: number; onChange: (n: number) => void; 'aria-label'?: string }) {
+  const [text, setText] = useState(String(props.value));
+  useEffect(() => {
+    // Follow outside changes (e.g. reset to 0 after saving) without clobbering "-" mid-typing.
+    setText((t) => (t === '' || t === '-' || Number(t) !== props.value ? String(props.value) : t));
+  }, [props.value]);
+  return (
+    <input
+      type="text"
+      inputMode="text"
+      pattern="-?[0-9]*"
+      aria-label={props['aria-label']}
+      value={text}
+      onChange={(e) => {
+        const t = e.target.value.replace(/[−–]/g, '-').trim();
+        if (!/^-?\d*$/.test(t)) return;
+        setText(t);
+        props.onChange(t === '' || t === '-' ? 0 : Number(t));
+      }}
+      onBlur={() => setText(String(props.value))}
+    />
+  );
+}
+
 function KeyValues(props: { value: Record<string, string>; onChange: (v: Record<string, string>) => void; keyLabel: string; valueLabel: string }) {
   const [rows, setRows] = useState(() => Object.entries(props.value));
   const push = (next: Array<[string, string]>) => {
@@ -103,6 +132,13 @@ export default function ProductEditor(props: Props) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState('');
   const [saving, setSaving] = useState(false);
+  const [media, setMedia] = useState({ images: props.images, batches: props.batches, labReports: props.labReports });
+  /** Re-reads photos, batches and lab reports after a change — without a page reload, so unsaved form edits survive. */
+  async function refreshMedia() {
+    if (!props.id) return;
+    const res = await send(`/api/admin/products/${props.id}`, { method: 'GET' });
+    if (res.ok) setMedia(editorMedia(res.data as unknown as AdminMediaRows));
+  }
   const set = <K extends keyof EditorProduct>(k: K, v: EditorProduct[K]) => setP((prev) => ({ ...prev, [k]: v }));
   const err = (k: string) => errors[k];
   const published = Boolean(props.publishedAt);
@@ -303,7 +339,7 @@ export default function ProductEditor(props: Props) {
                 <Field label="Selling price (₹)" error={ve('pricePaise')}><input type="number" step="0.01" value={rupees(v.pricePaise)} onChange={(e) => updateVariant(i, { pricePaise: toPaise(e.target.value) })} /></Field>
                 <Field label="Printed MRP (₹)" error={ve('mrpPaise')}><input type="number" step="0.01" value={rupees(v.mrpPaise)} onChange={(e) => updateVariant(i, { mrpPaise: toPaise(e.target.value) })} /></Field>
                 <Field label={`Stock${v.currentStock !== undefined ? ` (now ${v.currentStock})` : ''}`} error={ve('stockAdjust')} hint={v.id ? 'Adjust by, e.g. +20 or −3' : 'Opening stock'}>
-                  <input type="number" value={v.stockAdjust} onChange={(e) => updateVariant(i, { stockAdjust: Math.trunc(Number(e.target.value)) })} />
+                  <IntInput value={v.stockAdjust} onChange={(n) => updateVariant(i, { stockAdjust: n })} />
                 </Field>
                 <Field label="Low-stock alert at" error={ve('lowStockThreshold')}><input type="number" value={v.lowStockThreshold} onChange={(e) => updateVariant(i, { lowStockThreshold: Number(e.target.value) })} /></Field>
               </div>
@@ -345,8 +381,8 @@ export default function ProductEditor(props: Props) {
 
       {props.id ? (
         <>
-          <Images productId={props.id} images={props.images} />
-          <Batches productId={props.id} batches={props.batches} labReports={props.labReports} />
+          <Images productId={props.id} images={media.images} onChanged={refreshMedia} />
+          <Batches productId={props.id} batches={media.batches} labReports={media.labReports} onChanged={refreshMedia} />
         </>
       ) : (
         <p className="muted">Save the product first to add photos, batches and lab reports.</p>
@@ -376,8 +412,9 @@ function Upload(props: { label: string; url: string; accept: string; current: st
   );
 }
 
-function Images(props: { productId: number; images: EditorImage[] }) {
+function Images(props: { productId: number; images: EditorImage[]; onChanged: () => Promise<void> }) {
   const [images, setImages] = useState(props.images);
+  useEffect(() => setImages(props.images), [props.images]);
   const [alt, setAlt] = useState('');
   const [msg, setMsg] = useState('');
   const base = `/api/admin/products/${props.productId}/images`;
@@ -388,8 +425,11 @@ function Images(props: { productId: number; images: EditorImage[] }) {
     fd.append('alt', alt);
     setMsg('Uploading…');
     const res = await send(base, { method: 'POST', body: fd });
-    if (res.ok) window.location.reload();
-    else setMsg(String(res.data.error ?? 'Upload failed'));
+    if (res.ok) {
+      await props.onChanged();
+      setAlt('');
+      setMsg('✓ Uploaded');
+    } else setMsg(String(res.data.error ?? 'Upload failed'));
   }
 
   async function move(i: number, dir: -1 | 1) {
@@ -433,7 +473,7 @@ function Images(props: { productId: number; images: EditorImage[] }) {
   );
 }
 
-function Batches(props: { productId: number; batches: EditorBatch[]; labReports: EditorLab[] }) {
+function Batches(props: { productId: number; batches: EditorBatch[]; labReports: EditorLab[]; onChanged: () => Promise<void> }) {
   const [msg, setMsg] = useState('');
   const [b, setB] = useState({ batchCode: '', packedOn: '', groundOrMilledOn: '', labReportId: '', makeActive: true });
   const [lab, setLab] = useState({ batchCode: '', testedOn: '', labName: '', labAccreditation: '', testScope: '', summary: '{\n  "Pesticide residues": "Not detected (LOD 0.01 mg/kg)"\n}' });
@@ -454,7 +494,7 @@ function Batches(props: { productId: number; batches: EditorBatch[]; labReports:
               <td>{props.labReports.find((l) => l.id === x.labReportId)?.labName ?? '—'}</td>
               <td>{!x.active && <button type="button" style={btn} onClick={async () => {
                 const res = await send(`${base}/batches`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ batchId: x.id }) });
-                if (res.ok) window.location.reload(); else setMsg(String(res.data.error));
+                if (res.ok) { await props.onChanged(); setMsg('✓ Saved'); } else setMsg(String(res.data.error));
               }}>Make active</button>}</td>
             </tr>
           ))}
@@ -473,7 +513,7 @@ function Batches(props: { productId: number; batches: EditorBatch[]; labReports:
       </div>
       <button type="button" style={{ ...btn, alignSelf: 'flex-start' }} onClick={async () => {
         const res = await send(`${base}/batches`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...b, groundOrMilledOn: b.groundOrMilledOn || null, labReportId: b.labReportId ? Number(b.labReportId) : null }) });
-        if (res.ok) window.location.reload(); else setMsg(String(res.data.error));
+        if (res.ok) { await props.onChanged(); setMsg('✓ Saved'); } else setMsg(String(res.data.error));
       }}>+ Add batch (make active)</button>
 
       <h3 style={{ fontSize: '0.9rem', fontWeight: 800, marginTop: '1rem' }}>Lab reports</h3>
@@ -483,7 +523,7 @@ function Batches(props: { productId: number; batches: EditorBatch[]; labReports:
             {l.batchCode} · {l.labName} · {l.testedOn} {l.pdfUrl && <a href={l.pdfUrl} target="_blank" rel="noreferrer">PDF</a>}{' '}
             <button type="button" style={btn} onClick={async () => {
               const res = await send(`${base}/lab-reports`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reportId: l.id, visible: !l.visible }) });
-              if (res.ok) window.location.reload(); else setMsg(String(res.data.error));
+              if (res.ok) { await props.onChanged(); setMsg('✓ Saved'); } else setMsg(String(res.data.error));
             }}>{l.visible ? 'Hide' : 'Show'}</button>
           </li>
         ))}
@@ -492,7 +532,7 @@ function Batches(props: { productId: number; batches: EditorBatch[]; labReports:
         e.preventDefault();
         const fd = new FormData(e.currentTarget);
         const res = await send(`${base}/lab-reports`, { method: 'POST', body: fd });
-        if (res.ok) window.location.reload(); else setMsg(String(res.data.error));
+        if (res.ok) { await props.onChanged(); setMsg('✓ Saved'); } else setMsg(String(res.data.error));
       }} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         <div style={row}>
           <Field label="Batch code"><input name="batchCode" type="text" value={lab.batchCode} onChange={(e) => setLab({ ...lab, batchCode: e.target.value })} /></Field>

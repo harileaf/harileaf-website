@@ -60,6 +60,11 @@ export function orderLinkEmail(o: OrderRow, viewUrl: string, s: StoreSettings, r
   return { to: o.email, subject: `Your link to order ${o.order_no} — HariLeaf`, html: wrap('Your order link', body, s), text: `Your order ${o.order_no}: ${viewUrl}`, idempotencyKey: `email.order_link/${o.order_no}/${rowId}`, replyTo: s.customer_care_email || undefined };
 }
 
+export function replacementPlacedEmail(o: OrderRow, viewUrl: string, s: StoreSettings, originalOrderNo: string): Email {
+  const body = `<p>Hi ${first(o)}, we're sorry your order <strong>${esc(originalOrderNo)}</strong> wasn't right. We're sending a free replacement as order <strong>${esc(o.order_no)}</strong> — there's nothing to pay. We'll email you a tracking link when it ships.</p>${button(viewUrl, 'View the replacement')}`;
+  return { to: o.email, subject: `Replacement for order ${originalOrderNo} — HariLeaf`, html: wrap('Your replacement is on the way', body, s), text: `We're sending a free replacement for order ${originalOrderNo} as order ${o.order_no}. Nothing to pay.\n${viewUrl}`, idempotencyKey: `email.replacement_placed/${o.order_no}`, replyTo: s.customer_care_email || undefined };
+}
+
 export function makeFulfilmentEmailHandlers(fetchImpl?: typeof fetch): Record<string, OutboxHandler> {
   const handler = (build: (o: OrderRow, url: string, s: StoreSettings) => Email): OutboxHandler => async (_p, { env, row }) => {
     const o = await env.STORE_DB.prepare('SELECT * FROM orders WHERE id = ?').bind(row.order_id).first<OrderRow>();
@@ -80,6 +85,12 @@ export function makeFulfilmentEmailHandlers(fetchImpl?: typeof fetch): Record<st
       const o = await env.STORE_DB.prepare('SELECT * FROM orders WHERE id = ?').bind(row.order_id).first<OrderRow>();
       if (!o || !needsCodConfirmation(o)) return; // confirmed or cancelled meanwhile
       await sendEmail(env, codReminderEmail(o, await orderViewUrl(env, o), await getSettings(env.STORE_DB)), fetchImpl);
+    },
+    'email.replacement_placed': async (_p, { env, row }) => {
+      const o = await env.STORE_DB.prepare('SELECT * FROM orders WHERE id = ?').bind(row.order_id).first<OrderRow & { replacement_for_order_id: number | null }>();
+      if (!o) throw new Error(`order ${row.order_id} not found`);
+      const orig = await env.STORE_DB.prepare('SELECT order_no FROM orders WHERE id = ?').bind(o.replacement_for_order_id).first<{ order_no: string }>();
+      await sendEmail(env, replacementPlacedEmail(o, await orderViewUrl(env, o), await getSettings(env.STORE_DB), orig?.order_no ?? ''), fetchImpl);
     },
   };
 }
