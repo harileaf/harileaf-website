@@ -6,7 +6,13 @@ import { getProductPage } from '../../lib/store/catalog';
 import { PAGE_CACHE_CONTROL } from '../../lib/store/edge-cache';
 import { loadPolicySettings } from '../../lib/store/policy-settings';
 
-const res = await getProductPage(env.STORE_DB, 'spices', Astro.params.slug ?? '', new Date());
+let res: Awaited<ReturnType<typeof getProductPage>>;
+try {
+  res = await getProductPage(env.STORE_DB, 'spices', Astro.params.slug ?? '', new Date());
+} catch (err) {
+  console.error(JSON.stringify({ msg: 'product page load failed', path: Astro.url.pathname, error: String(err) }));
+  return Astro.rewrite('/store-unavailable');
+}
 if (res.kind === 'redirect') return Astro.redirect(res.to, 301);
 if (res.kind === 'gone') return new Response('This product is no longer available.', { status: 410, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': PAGE_CACHE_CONTROL } });
 if (res.kind === 'not_found') return Astro.rewrite('/404');

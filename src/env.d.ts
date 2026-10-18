@@ -51,3 +51,8 @@ declare namespace App {
     accessConfigured?: boolean;
   }
 }
+
+interface ImportMetaEnv {
+  /** Build id baked in by astro.config (vite define); versions edge-cache keys. */
+  readonly HL_BUILD_ID?: string;
+}

@@ -7,7 +7,7 @@ export const STORE_CSP = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://challenges.cloudflare.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "font-src 'self' https://fonts.gstatic.com",
+  "font-src 'self' data: https://fonts.gstatic.com", // the build inlines small fonts as data: URIs
   "img-src 'self' data: https:",
   "connect-src 'self' https://*.razorpay.com https://challenges.cloudflare.com",
   "frame-src https://*.razorpay.com https://challenges.cloudflare.com",

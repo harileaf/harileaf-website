@@ -9,6 +9,10 @@
  * the browser). Any other query parameter (e.g. `?waitlist=success`, which a
  * page reads server-side) bypasses the cache. Admin writes purge exact keys
  * globally via the Cloudflare API.
+ *
+ * Keys carry the build id: a deploy replaces the hashed CSS/JS assets, so HTML
+ * cached by the previous build must never be served (it would reference files
+ * that no longer exist). Old entries simply expire.
  */
 import type { OutboxHandler } from './outbox';
 import { CATEGORY_SLUGS } from './urls';
@@ -40,8 +44,14 @@ export function onlyIgnorableParams(url: URL): boolean {
   return true;
 }
 
-export function cacheKeyUrl(url: URL): string {
-  return `${url.protocol}//${url.host}${normalisePath(url.pathname)}`;
+/** Set per build by astro.config (vite define); 'dev' in tests. */
+export const BUILD_ID: string = import.meta.env.HL_BUILD_ID ?? 'dev';
+
+/** The Cache API key for an already-normalised absolute page URL. */
+export const versionedKey = (pageUrl: string, build = BUILD_ID) => `${pageUrl}?__b=${encodeURIComponent(build)}`;
+
+export function cacheKeyUrl(url: URL, build = BUILD_ID): string {
+  return versionedKey(`${url.protocol}//${url.host}${normalisePath(url.pathname)}`, build);
 }
 
 export function shouldStore(res: Response): boolean {
@@ -99,7 +109,8 @@ const PURGE_BATCH = 30;
  */
 export function makePurgeHandler(fetchImpl: typeof fetch = fetch): OutboxHandler {
   return async (payload: { urls?: unknown }, { env }) => {
-    const urls = Array.isArray(payload.urls) ? payload.urls.filter((u): u is string => typeof u === 'string') : [];
+    // Payloads hold page URLs; purge this build's keys for them.
+    const urls = (Array.isArray(payload.urls) ? payload.urls.filter((u): u is string => typeof u === 'string') : []).map((u) => versionedKey(u));
     if (!urls.length) return;
     const local = (globalThis as { caches?: { default?: Cache } }).caches?.default;
     if (local) await Promise.all(urls.map((u) => local.delete(new Request(u)).catch(() => false)));

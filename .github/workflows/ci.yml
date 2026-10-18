@@ -69,8 +69,9 @@ jobs:
       - run: npm ci
       - run: npm run build
       - name: Seed local D1 for the built Worker
+        # Root config (its migrations_dir resolves correctly); same --persist-to as lighthouserc's server.
         run: |
-          npx wrangler d1 migrations apply harileaf-store --local --config dist/server/wrangler.json
-          npx wrangler d1 execute harileaf-store --local --config dist/server/wrangler.json --file scripts/seed-dev.sql
+          npx wrangler d1 migrations apply harileaf-store --local --persist-to .wrangler/lhci
+          npx wrangler d1 execute harileaf-store --local --persist-to .wrangler/lhci --file scripts/seed-dev.sql
       - run: npx @lhci/cli@0.15 autorun
 

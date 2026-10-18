@@ -16,7 +16,13 @@ Astro.response.headers.set('X-Robots-Tag', 'noindex');
 Astro.response.headers.set('Referrer-Policy', 'no-referrer');
 
 const token = Astro.url.searchParams.get('t') ?? '';
-const view = await getOrderByNo(env.STORE_DB, Astro.params.orderNo ?? '');
+let view: Awaited<ReturnType<typeof getOrderByNo>>;
+try {
+  view = await getOrderByNo(env.STORE_DB, Astro.params.orderNo ?? '');
+} catch (err) {
+  console.error(JSON.stringify({ msg: 'order page load failed', error: String(err) }));
+  return Astro.rewrite('/store-unavailable');
+}
 const allowed = Boolean(view && env.ORDER_TOKEN_SECRET && (await checkViewToken(env.ORDER_TOKEN_SECRET, token, view.order.view_token_hash)));
 if (!allowed) return Astro.rewrite('/order/find'); // same page (404) whether or not the order exists
 const { order: o, items, holdExpiresAt } = view!;

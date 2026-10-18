@@ -32,7 +32,9 @@ describe('cacheable paths and keys', () => {
   });
 
   it('drops the query string and trailing slash from the key', () => {
-    expect(cacheKeyUrl(new URL('https://harileaf.org/rice/karjat-3/?v=KJ3-5KG&utm_source=g'))).toBe('https://harileaf.org/rice/karjat-3');
+    expect(cacheKeyUrl(new URL('https://harileaf.org/rice/karjat-3/?v=KJ3-5KG&utm_source=g'))).toBe('https://harileaf.org/rice/karjat-3?__b=dev');
+    // A new build never reads the previous build's HTML (it references replaced asset hashes).
+    expect(cacheKeyUrl(new URL('https://harileaf.org/rice/karjat-3'), 'b2')).not.toBe(cacheKeyUrl(new URL('https://harileaf.org/rice/karjat-3'), 'b1'));
     expect(normalisePath('/')).toBe('/');
   });
 
@@ -105,6 +107,7 @@ describe('purge', () => {
     expect(calls[0].url).toBe('https://api.cloudflare.com/client/v4/zones/zone1/purge_cache');
     expect((calls[0].init.headers as Record<string, string>).Authorization).toBe('Bearer tok');
     expect(JSON.parse(calls[2].init.body as string).files).toHaveLength(5);
+    expect(JSON.parse(calls[0].init.body as string).files[0]).toBe('https://harileaf.org/p0?__b=dev'); // this build's key
   });
 
   it('throws (so the outbox retries) when Cloudflare rejects the purge', async () => {

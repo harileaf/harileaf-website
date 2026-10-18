@@ -1,0 +1,21 @@
+---
+export const prerender = false;
+import SiteLayout from '../layouts/SiteLayout.astro';
+import SEO from '../components/seo/SEO.astro';
+
+// Rendered (via Astro.rewrite) when the store database can't be reached: a
+// short-lived 503 so crawlers retry instead of dropping the page, never cached.
+Astro.response.status = 503;
+Astro.response.headers.set('Retry-After', '120');
+Astro.response.headers.set('Cache-Control', 'no-store');
+const title = 'Back in a moment | HariLeaf';
+---
+
+<SiteLayout title={title} description="The HariLeaf shop is briefly unavailable." noIndex>
+  <slot name="head" slot="head"><SEO title={title} description="The HariLeaf shop is briefly unavailable." noIndex /></slot>
+  <div class="max-w-xl mx-auto px-6 pt-32 pb-24">
+    <h1 class="text-4xl font-extrabold tracking-tight">We'll be right back</h1>
+    <p class="mt-3 text-on-surface-variant">The shop is having a brief hiccup. Please try again in a minute — your cart is saved in this browser.</p>
+    <p class="mt-6"><a href="/" class="font-bold text-primary underline">Go to the home page</a></p>
+  </div>
+</SiteLayout>

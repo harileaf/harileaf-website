@@ -38,6 +38,8 @@ export default defineConfig({
     keystatic(),
   ],
   vite: {
+    // Versions the edge-cache keys (src/lib/store/edge-cache.ts) so a deploy never serves HTML from the previous build.
+    define: { 'import.meta.env.HL_BUILD_ID': JSON.stringify(process.env.GITHUB_SHA?.slice(0, 12) || Date.now().toString(36)) },
     optimizeDeps: {
       exclude: ['@keystatic/astro', '@keystatic/core'],
     },
