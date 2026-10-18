@@ -28,16 +28,21 @@ Astro.response.headers.set('X-Robots-Tag', 'noindex');
 
   const root = document.getElementById('cart-root')!;
 
+  // Only the newest quote may render: rapid +/− clicks can make responses arrive out of order.
+  let latest = 0;
   async function load() {
+    const seq = ++latest;
     root.setAttribute('aria-busy', 'true');
     const lines = readCart();
     if (!lines.length) return renderEmpty();
     const res = await fetch('/api/store/cart/quote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lines }) });
+    if (seq !== latest) return;
     if (!res.ok) {
       root.replaceChildren(h('p', { class: 'text-on-surface-variant' }, 'We couldn’t load your cart. Please refresh the page.'));
       return;
     }
-    render((await res.json()) as Quote);
+    const q = (await res.json()) as Quote;
+    if (seq === latest) render(q);
   }
 
   function renderEmpty() {
@@ -75,9 +80,9 @@ Astro.response.headers.set('X-Robots-Tag', 'noindex');
             h('div', { class: 'mt-3 flex items-center gap-3' },
               l.qty > 0
                 ? h('div', { class: 'inline-flex items-center rounded-full border-2 border-surface-container-high' },
-                    btn('−', `Decrease ${qtyLabel}`, () => update(l.variantId, l.qty - 1)),
-                    h('span', { class: 'w-8 text-center font-extrabold', 'aria-label': qtyLabel }, String(l.qty)),
-                    btn('+', `Increase ${qtyLabel}`, () => update(l.variantId, l.qty + 1), l.qty >= Math.min(20, l.available)),
+                    btn('−', `Decrease ${qtyLabel}`, () => step(l.variantId, -1, l.available)),
+                    h('span', { class: 'w-8 text-center font-extrabold', 'aria-label': qtyLabel, 'data-qty-for': String(l.variantId) }, String(l.qty)),
+                    btn('+', `Increase ${qtyLabel}`, () => step(l.variantId, 1, l.available), l.qty >= Math.min(20, l.available)),
                   )
                 : null,
               linkBtn('Remove', () => { removeFromCart(l.variantId); load(); }),
@@ -120,9 +125,17 @@ Astro.response.headers.set('X-Robots-Tag', 'noindex');
     b.addEventListener('click', onClick);
     return b;
   }
-  function update(id: number, qty: number) {
+  // Each click adjusts the cart's current quantity (so quick clicks add up), shows it at once,
+  // and re-quotes once the clicking stops.
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  function step(id: number, delta: number, available: number) {
+    const current = readCart().find((x) => x.variantId === id)?.qty ?? 0;
+    const qty = Math.max(0, Math.min(current + delta, 20, Math.max(available, 0)));
     setCartQty(id, qty);
-    load();
+    const shown = root.querySelector<HTMLElement>(`[data-qty-for="${id}"]`);
+    if (shown) shown.textContent = String(qty);
+    clearTimeout(timer);
+    timer = setTimeout(load, 250);
   }
 
   load();

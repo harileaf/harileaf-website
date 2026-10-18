@@ -28,6 +28,8 @@ async function existingResponse(existing: NonNullable<Awaited<ReturnType<typeof 
       payment: paymentOptions(env, { orderNo: existing.order_no, razorpayOrderId: existing.razorpay_order_id, total: existing.total_paise, name: existing.customer_name, email: existing.email, phone: existing.phone, timeoutSeconds: left }),
     });
   }
+  // The first request is still creating the Razorpay order: ask the browser to retry shortly.
+  if (existing.status === 'pending_payment') return json({ error: 'Starting payment…', code: 'in_progress' }, 409);
   return json({ orderNo: existing.order_no, viewUrl, status: existing.status, payment: null });
 }
 
