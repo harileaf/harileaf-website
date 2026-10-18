@@ -3,6 +3,7 @@ import { env } from 'cloudflare:workers';
 import { validateSession } from '../../lib/auth';
 import { getContent, putContent } from '../../lib/cms';
 import type { ContentFields } from '../../lib/cms-types';
+import { contentClaimProblems } from '../../lib/store/content-claims';
 
 export const GET: APIRoute = async () => {
   const fields = await getContent(env.HARILEAF_CMS);
@@ -19,6 +20,11 @@ export const PUT: APIRoute = async ({ request, cookies }) => {
     if (typeof fields !== 'object' || fields === null) throw new Error('Expected object');
   } catch {
     return new Response(JSON.stringify({ error: 'Invalid payload' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+  const problems = contentClaimProblems(fields as unknown as Record<string, unknown>);
+  if (Object.keys(problems).length) {
+    const list = Object.entries(problems).map(([k, v]) => `${k}: ${v}`).join('; ');
+    return new Response(JSON.stringify({ error: `Not saved — wording the claims policy doesn't allow: ${list}` }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
   await putContent(env.HARILEAF_CMS, fields);
   return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });

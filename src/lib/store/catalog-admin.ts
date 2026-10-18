@@ -11,7 +11,7 @@
  */
 import type { Faq, Nutrition, ProductRow, VariantRow } from './catalog';
 import { mapProduct } from './catalog';
-import { findBannedPhrases, organicCopy, validateProcessClaims, type OrganicScheme, type ProcessClaim } from './claims';
+import { RAW_PRODUCE_TERMS, findBannedPhrases, organicCopy, validateProcessClaims, type OrganicScheme, type ProcessClaim } from './claims';
 import { classifyD1Error, nowIso } from './db';
 import { productPurgePaths, purgeUrls } from './edge-cache';
 import { enqueueStmt } from './outbox';
@@ -125,10 +125,11 @@ export function validateProduct(p: ProductInput, variants: VariantInput[], ctx: 
   if (p.organicConversionSince !== null && !isInt(p.organicConversionSince, 2000, 2100)) fail('organicConversionSince', 'Enter a year');
   const mayUseOrganic = organicCopy({ organicScheme: p.organicScheme, conversionSince: p.organicConversionSince, certNumber: p.organicCertNumber }).mayUseOrganic;
 
-  const claimErrors = validateProcessClaims(p.processClaims, { organicScheme: p.organicScheme, mayUseOrganic });
+  const allowedTerms = p.perishable ? RAW_PRODUCE_TERMS : [];
+  const claimErrors = validateProcessClaims(p.processClaims, { organicScheme: p.organicScheme, mayUseOrganic, allowedTerms });
   if (claimErrors.length) fail('processClaims', claimErrors.join('; '));
   for (const [field, text] of visibleTexts(p, variants)) {
-    const banned = findBannedPhrases(text, { organicScheme: p.organicScheme, claims: p.processClaims, mayUseOrganic });
+    const banned = findBannedPhrases(text, { organicScheme: p.organicScheme, claims: p.processClaims, mayUseOrganic, allowedTerms });
     if (banned.length) fail(field, `Remove or substantiate: ${banned.join(', ')} (see the claims guidance)`);
   }
 

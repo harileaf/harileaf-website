@@ -80,7 +80,7 @@ function hasEvidencedClaim(claims: ProcessClaim[], code: string): boolean {
  */
 export function findBannedPhrases(
   text: string,
-  ctx: { organicScheme: OrganicScheme; claims: ProcessClaim[]; mayUseOrganic?: boolean },
+  ctx: { organicScheme: OrganicScheme; claims: ProcessClaim[]; mayUseOrganic?: boolean; allowedTerms?: readonly string[] },
 ): string[] {
   const found: string[] = [];
   // "naturally grown" is banned outright; don't double-report it as "natural".
@@ -98,16 +98,22 @@ export function findBannedPhrases(
 
   // e.g. "traditional" needs a process used for 30+ years; "fresh" has processing limits.
   for (const term of CONDITIONAL_TERMS)
-    if (conditionalRe(term).test(withoutBanned) && !hasEvidencedClaim(ctx.claims, term)) found.push(term);
+    if (conditionalRe(term).test(withoutBanned) && !hasEvidencedClaim(ctx.claims, term) && !ctx.allowedTerms?.includes(term)) found.push(term);
 
   for (const { re, label } of HEALTH) if (re.test(text)) found.push(`health claim: ${label}`);
   return found;
 }
 
+/**
+ * FSSAI Reg 4 allows "fresh" for produce that is not processed beyond washing,
+ * peeling, chilling or trimming — i.e. our raw, perishable produce.
+ */
+export const RAW_PRODUCE_TERMS = ['fresh'] as const;
+
 /** Admin-side validation of a product's process claims. Pass organicCopy(product).mayUseOrganic. */
 export function validateProcessClaims(
   claims: ProcessClaim[],
-  ctx: { organicScheme: OrganicScheme; mayUseOrganic: boolean },
+  ctx: { organicScheme: OrganicScheme; mayUseOrganic: boolean; allowedTerms?: readonly string[] },
 ): string[] {
   const errors: string[] = [];
   const seen = new Set<string>();

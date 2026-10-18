@@ -156,3 +156,10 @@ describe('validateProcessClaims', () => {
     ).toEqual(['Claim 2 duplicates code "unpolished"', 'Claim 2 ("unpolished") uses banned wording: chemical-free']);
   });
 });
+
+describe('allowed terms', () => {
+  it('lets raw produce say "fresh" but not "organic"', () => {
+    expect(findBannedPhrases('Fresh Alphonso mangoes', { organicScheme: 'none', claims: [], allowedTerms: ['fresh'] })).toEqual([]);
+    expect(findBannedPhrases('Fresh organic mangoes', { organicScheme: 'none', claims: [], allowedTerms: ['fresh'] })).toEqual(['organic']);
+  });
+});

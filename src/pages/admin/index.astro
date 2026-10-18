@@ -4,13 +4,17 @@ import { env } from 'cloudflare:workers';
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { validateSession } from '../../lib/auth';
 import { getSettings, missingForLaunch } from '../../lib/store/settings';
+import { getContent } from '../../lib/cms';
+import { contentClaimProblems } from '../../lib/store/content-claims';
 
 const authenticated = await validateSession(env.HARILEAF_CMS, Astro.cookies);
 const accessConfigured = Astro.locals.accessConfigured !== false;
 let missing: string[] = [];
 let dbError = false;
 let deadOutbox = 0;
+let contentProblems: Record<string, string> = {};
 if (authenticated) {
+  contentProblems = contentClaimProblems((await getContent(env.HARILEAF_CMS)) as unknown as Record<string, unknown>);
   try {
     missing = missingForLaunch(await getSettings(env.STORE_DB));
     deadOutbox = (await env.STORE_DB.prepare("SELECT count(*) AS n FROM outbox WHERE state = 'dead'").first<{ n: number }>())?.n ?? 0;
@@ -44,6 +48,12 @@ const sections = [
       </p>
     )}
     {dbError && <p class="warn" role="status">The store database isn't reachable yet. Create the D1 database and apply migrations (README → Store development).</p>}
+    {Object.keys(contentProblems).length > 0 && (
+      <p class="warn" role="status">
+        <strong>Produce page text uses wording the claims policy doesn't allow</strong> ({Object.values(contentProblems).join(', ')}).
+        <a href="/admin/content" style="color:inherit;">Edit it in Content</a>.
+      </p>
+    )}
     {deadOutbox > 0 && <p class="warn" role="status"><strong>{deadOutbox} background task(s) failed permanently.</strong> They need attention.</p>}
     {missing.length > 0 && (
       <div class="warn" role="status">

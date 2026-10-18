@@ -67,12 +67,16 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
       btn.disabled = false;
       btn.textContent = 'Save Changes';
       status.style.display = 'block';
+      if (!res.ok) {
+        const data = await res.clone().json().catch(() => ({})) as { error?: string };
+        if (data.error) status.title = data.error;
+      }
       if (res.ok) {
         status.textContent = '✓ Saved';
         status.style.color = '#196a5e';
         showToast('Content saved successfully');
       } else {
-        status.textContent = 'Save failed';
+        status.textContent = status.title || 'Save failed';
         status.style.color = '#c00';
         showToast('Save failed', 'error');
       }
