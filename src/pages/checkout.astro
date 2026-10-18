@@ -1,0 +1,310 @@
+---
+export const prerender = false;
+import { env } from 'cloudflare:workers';
+import SiteLayout from '../layouts/SiteLayout.astro';
+import SEO from '../components/seo/SEO.astro';
+import { INDIA_STATES } from '../lib/store/india-states';
+
+Astro.response.headers.set('Cache-Control', 'no-store');
+Astro.response.headers.set('X-Robots-Tag', 'noindex');
+const turnstileKey = env.PUBLIC_TURNSTILE_SITE_KEY ?? '';
+const field = 'w-full rounded-xl border border-black/15 bg-white px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-primary';
+const label = 'block text-sm font-bold text-on-surface mb-1.5';
+---
+
+<SiteLayout title="Checkout | HariLeaf" description="Checkout" noIndex>
+  <slot name="head" slot="head">
+    <SEO title="Checkout | HariLeaf" description="Checkout" noIndex />
+    {turnstileKey && <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer is:inline></script>}
+  </slot>
+
+  <div class="max-w-6xl mx-auto px-6 pt-32 pb-24">
+    <h1 class="text-4xl font-extrabold tracking-tight">Checkout</h1>
+    <p class="mt-2 text-on-surface-variant">Free delivery across India. You'll get a confirmation email with a link to your order.</p>
+
+    <div id="checkout-alert" class="hidden mt-6 rounded-2xl px-5 py-4 font-bold" role="alert" style="background:#fff4e0;color:#6b4a07;border:1px solid #e8c37a"></div>
+
+    <form id="checkout-form" class="mt-8 grid lg:grid-cols-[1.5fr_1fr] gap-10 items-start" novalidate>
+      <div class="flex flex-col gap-8">
+        <fieldset class="flex flex-col gap-4">
+          <legend class="text-xl font-extrabold mb-1">Contact</legend>
+          <div><label class={label} for="c-name">Full name</label><input class={field} id="c-name" name="contact.name" autocomplete="name" required /><p class="err" data-err="contact.name"></p></div>
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div><label class={label} for="c-phone">Mobile number</label><input class={field} id="c-phone" name="contact.phone" type="tel" inputmode="numeric" autocomplete="tel-national" required aria-describedby="c-phone-hint" /><p id="c-phone-hint" class="text-xs text-on-surface-variant mt-1">For delivery updates from the courier.</p><p class="err" data-err="contact.phone"></p></div>
+            <div><label class={label} for="c-email">Email</label><input class={field} id="c-email" name="contact.email" type="email" autocomplete="email" required /><p class="err" data-err="contact.email"></p></div>
+          </div>
+        </fieldset>
+
+        <fieldset class="flex flex-col gap-4">
+          <legend class="text-xl font-extrabold mb-1">Delivery address</legend>
+          <div class="grid sm:grid-cols-[12rem_1fr] gap-4">
+            <div>
+              <label class={label} for="s-pincode">Pincode</label>
+              <input class={field} id="s-pincode" name="ship.pincode" inputmode="numeric" maxlength="6" autocomplete="postal-code" required aria-describedby="pin-status" />
+              <p class="err" data-err="ship.pincode"></p>
+            </div>
+            <p id="pin-status" class="self-end pb-3 text-sm font-bold" aria-live="polite"></p>
+          </div>
+          <div><label class={label} for="s-line1">House / flat, building, street</label><input class={field} id="s-line1" name="ship.line1" autocomplete="address-line1" required /><p class="err" data-err="ship.line1"></p></div>
+          <div><label class={label} for="s-line2">Area, landmark <span class="font-normal text-on-surface-variant">(optional)</span></label><input class={field} id="s-line2" name="ship.line2" autocomplete="address-line2" /></div>
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div><label class={label} for="s-city">City</label><input class={field} id="s-city" name="ship.city" autocomplete="address-level2" required /><p class="err" data-err="ship.city"></p></div>
+            <div>
+              <label class={label} for="s-state">State</label>
+              <select class={field} id="s-state" name="ship.stateCode" autocomplete="address-level1" required>
+                <option value="">Choose…</option>
+                {INDIA_STATES.map((s) => <option value={s.code}>{s.name}</option>)}
+              </select>
+              <p class="err" data-err="ship.stateCode"></p>
+            </div>
+          </div>
+          <label class="flex items-center gap-2 text-sm font-bold"><input type="checkbox" id="bill-same" name="billSameAsShip" checked /> Billing address is the same</label>
+          <div id="bill-fields" class="hidden flex flex-col gap-4 rounded-2xl bg-surface-container-low p-5">
+            <div><label class={label} for="b-name">Billing name</label><input class={field} id="b-name" name="bill.name" autocomplete="billing name" /><p class="err" data-err="bill.name"></p></div>
+            <div><label class={label} for="b-line1">Billing address</label><input class={field} id="b-line1" name="bill.line1" autocomplete="billing address-line1" /><p class="err" data-err="bill.line1"></p></div>
+            <div class="grid sm:grid-cols-3 gap-4">
+              <div><label class={label} for="b-city">City</label><input class={field} id="b-city" name="bill.city" autocomplete="billing address-level2" /><p class="err" data-err="bill.city"></p></div>
+              <div>
+                <label class={label} for="b-state">State</label>
+                <select class={field} id="b-state" name="bill.stateCode" autocomplete="billing address-level1"><option value="">Choose…</option>{INDIA_STATES.map((s) => <option value={s.code}>{s.name}</option>)}</select>
+                <p class="err" data-err="bill.stateCode"></p>
+              </div>
+              <div><label class={label} for="b-pincode">Pincode</label><input class={field} id="b-pincode" name="bill.pincode" inputmode="numeric" maxlength="6" autocomplete="billing postal-code" /><p class="err" data-err="bill.pincode"></p></div>
+            </div>
+          </div>
+          <details class="text-sm">
+            <summary class="font-bold cursor-pointer">Buying for a business? Add your GSTIN</summary>
+            <div class="grid sm:grid-cols-2 gap-4 mt-3">
+              <div><label class={label} for="g-gstin">GSTIN</label><input class={field} id="g-gstin" name="buyerGstin" maxlength="15" autocapitalize="characters" /><p class="err" data-err="buyerGstin"></p></div>
+              <div><label class={label} for="g-name">Registered business name</label><input class={field} id="g-name" name="buyerLegalName" /><p class="err" data-err="buyerLegalName"></p></div>
+            </div>
+          </details>
+        </fieldset>
+
+        <fieldset class="flex flex-col gap-3">
+          <legend class="text-xl font-extrabold mb-1">Payment</legend>
+          <label class="flex gap-3 items-start rounded-2xl border-2 border-surface-container-high bg-white p-4 has-[:checked]:border-primary">
+            <input type="radio" name="paymentMethod" value="razorpay" checked class="mt-1" />
+            <span><span class="font-extrabold block">Pay online</span><span class="text-sm text-on-surface-variant">UPI, cards, net banking — secured by Razorpay</span></span>
+          </label>
+          <label class="flex gap-3 items-start rounded-2xl border-2 border-surface-container-high bg-white p-4 has-[:checked]:border-primary" id="cod-option">
+            <input type="radio" name="paymentMethod" value="cod" class="mt-1" />
+            <span><span class="font-extrabold block">Cash on delivery</span><span class="text-sm text-on-surface-variant" id="cod-note">No extra fee</span></span>
+          </label>
+          <p class="err" data-err="paymentMethod"></p>
+        </fieldset>
+
+        <div class="flex flex-col gap-3 text-sm text-on-surface-variant">
+          <p>
+            We use your details only to deliver and support this order (courier, payment provider and email service), and keep order records for tax purposes. See our
+            <a href="/privacy" class="underline">privacy policy</a>, <a href="/shipping-policy" class="underline">shipping</a> and <a href="/refund-policy" class="underline">refund</a> policies.
+          </p>
+          <label class="flex items-start gap-2"><input type="checkbox" name="contact.marketingOptIn" class="mt-1" /> Email me about new harvests and offers (optional).</label>
+          {turnstileKey && <div class="cf-turnstile" data-sitekey={turnstileKey}></div>}
+        </div>
+      </div>
+
+      <aside class="lg:sticky lg:top-28 rounded-2xl bg-surface-container-low p-6 flex flex-col gap-3" aria-label="Order summary">
+        <h2 class="text-xl font-extrabold">Your order</h2>
+        <ul id="summary-lines" class="flex flex-col gap-2 text-sm" aria-live="polite"><li class="text-on-surface-variant">Loading…</li></ul>
+        <div class="border-t border-black/10 pt-3 flex flex-col gap-1.5 text-sm">
+          <p class="flex justify-between"><span>Delivery</span><span>Free</span></p>
+          <p class="flex justify-between text-lg font-extrabold"><span>Total</span><span id="summary-total">—</span></p>
+          <p class="text-xs text-on-surface-variant">Inclusive of all taxes. Your GST invoice is issued when the order ships.</p>
+        </div>
+        <button id="place-order" type="submit" class="mt-2 rounded-full py-3.5 font-extrabold text-white disabled:opacity-50" style="background:linear-gradient(135deg,#196a5e,#2d7a4f)" disabled>Place order</button>
+        <a href="/cart" class="text-center text-sm font-bold text-primary underline">Edit cart</a>
+      </aside>
+    </form>
+  </div>
+</SiteLayout>
+
+<style>
+  .err { color: #b3261e; font-size: 0.8125rem; margin-top: 0.25rem; min-height: 0; }
+  .err:empty { display: none; }
+</style>
+
+<script>
+  import { formatINR } from '../lib/store/money';
+  import { clearCart, readCart } from '../scripts/store/cart';
+  import { h } from '../scripts/store/dom';
+  import { payForOrder } from '../scripts/store/razorpay-checkout';
+
+  type Quote = { ok: boolean; total: number; minOrder: number; meetsMinimum: boolean; cod: { eligible: boolean; reason: string | null }; lines: Array<{ variantId: number; name: string; label: string; qty: number; lineTotal: number; problem: string | null; available: number }> };
+
+  const form = document.getElementById('checkout-form') as HTMLFormElement;
+  const alertBox = document.getElementById('checkout-alert')!;
+  const placeBtn = document.getElementById('place-order') as HTMLButtonElement;
+  const codInput = form.querySelector<HTMLInputElement>('input[name="paymentMethod"][value="cod"]')!;
+  const codNote = document.getElementById('cod-note')!;
+  const pinStatus = document.getElementById('pin-status')!;
+  let quote: Quote | null = null;
+  let pinCod: boolean | null = null;
+
+  const showAlert = (msg: string | null) => {
+    alertBox.textContent = msg ?? '';
+    alertBox.classList.toggle('hidden', !msg);
+    if (msg) alertBox.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  };
+
+  // One idempotency key per cart + form contents: a double-click or retry returns
+  // the same order, while changing anything (e.g. the address) starts a new one.
+  function idempotencyKey(forceNew = false): string {
+    const { turnstileToken: _t, ...rest } = payload();
+    const sig = JSON.stringify(rest);
+    try {
+      const saved = JSON.parse(sessionStorage.getItem('hl_checkout_key') ?? 'null') as { sig: string; key: string } | null;
+      if (saved?.sig === sig && !forceNew) return saved.key;
+      const key = crypto.randomUUID();
+      sessionStorage.setItem('hl_checkout_key', JSON.stringify({ sig, key }));
+      return key;
+    } catch {
+      return crypto.randomUUID();
+    }
+  }
+
+  function renderSummary(q: Quote) {
+    quote = q;
+    const ul = document.getElementById('summary-lines')!;
+    ul.replaceChildren(
+      ...q.lines.map((l) =>
+        h('li', { class: 'flex justify-between gap-3' },
+          h('span', {}, `${l.name} · ${l.label} × ${l.qty}`, l.problem ? h('span', { class: 'block text-xs font-bold', style: 'color:#8a4b00' }, l.problem === 'limited' ? `Only ${l.available} left` : 'No longer available') : null),
+          h('span', { class: 'font-bold whitespace-nowrap' }, formatINR(l.lineTotal)),
+        ),
+      ),
+    );
+    document.getElementById('summary-total')!.textContent = formatINR(q.total);
+    updateCod();
+    placeBtn.disabled = !q.ok;
+    if (!q.ok) showAlert(!q.lines.length ? 'Your cart is empty.' : !q.meetsMinimum ? `The minimum order is ${formatINR(q.minOrder)}.` : 'Some items changed — please review your cart.');
+  }
+
+  function updateCod() {
+    const reason = !quote ? null : !quote.cod.eligible ? quote.cod.reason : pinCod === false ? 'Not available for this pincode' : null;
+    codInput.disabled = Boolean(reason);
+    if (reason && codInput.checked) form.querySelector<HTMLInputElement>('input[value="razorpay"]')!.checked = true;
+    codNote.textContent = reason ?? 'No extra fee';
+  }
+
+  async function loadQuote() {
+    const lines = readCart();
+    if (!lines.length) {
+      location.href = '/cart';
+      return;
+    }
+    const res = await fetch('/api/store/cart/quote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lines }) });
+    if (res.ok) renderSummary((await res.json()) as Quote);
+    else showAlert('We couldn’t load your order. Please refresh the page.');
+  }
+
+  // Pincode → city, state, delivery estimate, COD availability.
+  const pin = form.querySelector<HTMLInputElement>('[name="ship.pincode"]')!;
+  pin.addEventListener('input', async () => {
+    const v = pin.value.replace(/\D/g, '');
+    pin.value = v;
+    pinCod = null;
+    if (v.length !== 6) {
+      pinStatus.textContent = '';
+      updateCod();
+      return;
+    }
+    pinStatus.textContent = 'Checking delivery…';
+    const grams = 1000 * Math.max(1, quote?.lines.reduce((n, l) => n + l.qty, 0) ?? 1);
+    const res = await fetch(`/api/store/pincode?pin=${v}&grams=${grams}&value=${quote?.total ?? 10000}`);
+    const d = (await res.json().catch(() => ({}))) as { serviceable: boolean | null; cod: boolean | null; etaDays: number | null; city: string | null; stateCode: string | null; checked: boolean };
+    if (pin.value !== v) return;
+    if (d.city && !form.querySelector<HTMLInputElement>('[name="ship.city"]')!.value) form.querySelector<HTMLInputElement>('[name="ship.city"]')!.value = d.city;
+    if (d.stateCode) form.querySelector<HTMLSelectElement>('[name="ship.stateCode"]')!.value = d.stateCode;
+    if (!d.checked) pinStatus.textContent = 'We’ll confirm delivery after you order.';
+    else if (!d.serviceable) pinStatus.textContent = 'Sorry — we can’t deliver to this pincode yet.';
+    else pinStatus.textContent = `✓ Delivers${d.etaDays ? ` in about ${d.etaDays} day${d.etaDays === 1 ? '' : 's'}` : ''}${d.cod ? ' · COD available' : ''}`;
+    pinStatus.style.color = d.checked && !d.serviceable ? '#b3261e' : '#1d7a3a';
+    pinCod = d.checked ? Boolean(d.cod) : null;
+    updateCod();
+  });
+
+  document.getElementById('bill-same')!.addEventListener('change', (e) => {
+    document.getElementById('bill-fields')!.classList.toggle('hidden', (e.target as HTMLInputElement).checked);
+  });
+
+  function payload() {
+    const fd = new FormData(form);
+    const get = (k: string) => String(fd.get(k) ?? '');
+    return {
+      lines: readCart(),
+      contact: { name: get('contact.name'), email: get('contact.email'), phone: get('contact.phone'), marketingOptIn: fd.get('contact.marketingOptIn') === 'on' },
+      ship: { name: get('contact.name'), line1: get('ship.line1'), line2: get('ship.line2'), city: get('ship.city'), stateCode: get('ship.stateCode'), pincode: get('ship.pincode') },
+      billSameAsShip: fd.get('billSameAsShip') === 'on',
+      bill: { name: get('bill.name'), line1: get('bill.line1'), city: get('bill.city'), stateCode: get('bill.stateCode'), pincode: get('bill.pincode') },
+      buyerGstin: get('buyerGstin'),
+      buyerLegalName: get('buyerLegalName'),
+      paymentMethod: get('paymentMethod'),
+      turnstileToken: fd.get('cf-turnstile-response') ? String(fd.get('cf-turnstile-response')) : null,
+    };
+  }
+
+  function showFieldErrors(errors: Record<string, string>) {
+    form.querySelectorAll<HTMLElement>('[data-err]').forEach((el) => (el.textContent = errors[el.dataset.err!] ?? ''));
+    const first = Object.keys(errors)[0];
+    if (first) form.querySelector<HTMLElement>(`[name="${first}"]`)?.focus();
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    showAlert(null);
+    showFieldErrors({});
+    placeBtn.disabled = true;
+    placeBtn.textContent = 'Placing order…';
+    try {
+      const submit = (forceNew: boolean) =>
+        fetch('/api/store/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey(forceNew) },
+          body: JSON.stringify(payload()),
+        });
+      let res = await submit(false);
+      let data = (await res.json().catch(() => ({}))) as { error?: string; code?: string; errors?: Record<string, string>; quote?: Quote; orderNo?: string; viewUrl?: string; payment?: Record<string, unknown> | null };
+      if (res.status === 409 && data.code === 'expired') {
+        res = await submit(true);
+        data = (await res.json().catch(() => ({}))) as typeof data;
+      }
+      if (!res.ok) {
+        if (data.errors) showFieldErrors(data.errors);
+        if (data.quote) renderSummary(data.quote);
+        showAlert(data.error ?? 'Something went wrong. Please try again.');
+        return;
+      }
+      const token = new URL(data.viewUrl!, location.origin).searchParams.get('t') ?? '';
+      if (!data.payment) {
+        finish(data.viewUrl!);
+        return;
+      }
+      placeBtn.textContent = 'Opening payment…';
+      const outcome = await payForOrder(data.payment, { orderNo: data.orderNo!, token });
+      if (outcome.kind === 'paid') finish(data.viewUrl!);
+      else showAlert(outcome.kind === 'dismissed' ? 'Payment not completed. Your items are held for 30 minutes — you can pay from your order page.' : outcome.message);
+      if (outcome.kind !== 'paid') {
+        const link = h('a', { href: data.viewUrl!, class: 'underline ml-1' }, 'Go to your order');
+        alertBox.append(' ', link);
+      }
+    } catch (err) {
+      showAlert(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+    } finally {
+      placeBtn.textContent = 'Place order';
+      placeBtn.disabled = !quote?.ok;
+    }
+  });
+
+  function finish(viewUrl: string) {
+    clearCart();
+    try {
+      sessionStorage.removeItem('hl_checkout_key');
+    } catch {
+      /* ignore */
+    }
+    location.href = viewUrl;
+  }
+
+  loadQuote();
+</script>

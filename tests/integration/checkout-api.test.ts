@@ -105,6 +105,16 @@ describe('checkout API', () => {
     expect(await scalar('SELECT status FROM orders WHERE order_no = ?', r.body.orderNo)).toBe('pending_payment');
   });
 
+  it('tells the browser to start over when a retried attempt already expired', async () => {
+    const v = await insertVariant(await insertProduct(), { stock_qty: 2 });
+    stubRazorpay(() => ({}));
+    const key = crypto.randomUUID();
+    const first = await call(checkout, post('/api/store/checkout', form([{ variantId: v, qty: 1 }], 'razorpay'), { 'Idempotency-Key': key }));
+    await db.prepare("UPDATE orders SET status = 'payment_failed' WHERE order_no = ?").bind(first.body.orderNo).run();
+    const again = await call(checkout, post('/api/store/checkout', form([{ variantId: v, qty: 1 }], 'razorpay'), { 'Idempotency-Key': key }));
+    expect(again).toMatchObject({ status: 409, body: { code: 'expired' } });
+  });
+
   it('releases the hold if Razorpay is down', async () => {
     const v = await insertVariant(await insertProduct(), { stock_qty: 2 });
     vi.stubGlobal('fetch', async () => new Response('{"error":{"description":"down"}}', { status: 503 }));

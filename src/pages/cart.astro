@@ -1,0 +1,129 @@
+---
+export const prerender = false;
+import SiteLayout from '../layouts/SiteLayout.astro';
+import SEO from '../components/seo/SEO.astro';
+
+Astro.response.headers.set('Cache-Control', 'no-store');
+Astro.response.headers.set('X-Robots-Tag', 'noindex');
+---
+
+<SiteLayout title="Your cart | HariLeaf" description="Your HariLeaf cart" noIndex>
+  <slot name="head" slot="head"><SEO title="Your cart | HariLeaf" description="Your HariLeaf cart" noIndex /></slot>
+  <div class="max-w-5xl mx-auto px-6 pt-32 pb-24">
+    <h1 class="text-4xl font-extrabold tracking-tight">Your cart</h1>
+    <div id="cart-root" class="mt-8" aria-live="polite" aria-busy="true">
+      <p class="text-on-surface-variant">Loading your cart…</p>
+    </div>
+    <noscript><p class="mt-6 text-on-surface-variant">Your cart needs JavaScript to work.</p></noscript>
+  </div>
+</SiteLayout>
+
+<script>
+  import { formatINR } from '../lib/store/money';
+  import { readCart, removeFromCart, setCartQty } from '../scripts/store/cart';
+  import { h } from '../scripts/store/dom';
+
+  interface Line { variantId: number; name: string; label: string; path: string; image: { url: string; alt: string } | null; qty: number; requestedQty: number; unitPrice: number; mrp: number; lineTotal: number; problem: string | null; available: number }
+  interface Quote { ok: boolean; total: number; subtotal: number; itemCount: number; minOrder: number; meetsMinimum: boolean; cod: { eligible: boolean; reason: string | null }; lines: Line[] }
+
+  const root = document.getElementById('cart-root')!;
+
+  async function load() {
+    root.setAttribute('aria-busy', 'true');
+    const lines = readCart();
+    if (!lines.length) return renderEmpty();
+    const res = await fetch('/api/store/cart/quote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lines }) });
+    if (!res.ok) {
+      root.replaceChildren(h('p', { class: 'text-on-surface-variant' }, 'We couldn’t load your cart. Please refresh the page.'));
+      return;
+    }
+    render((await res.json()) as Quote);
+  }
+
+  function renderEmpty() {
+    root.setAttribute('aria-busy', 'false');
+    root.replaceChildren(
+      h('p', { class: 'text-on-surface-variant text-lg' }, 'Your cart is empty.'),
+      h('a', { href: '/shop/', class: 'inline-block mt-6 rounded-full px-7 py-3.5 font-extrabold text-white', style: 'background:linear-gradient(135deg,#196a5e,#2d7a4f)' }, 'Shop the farm'),
+    );
+  }
+
+  function problemText(l: Line): string | null {
+    if (l.problem === 'limited') return `Only ${l.available} left — we've set the quantity to ${l.available}.`;
+    if (l.problem === 'out_of_stock') return 'Sold out — please remove it.';
+    if (l.problem === 'unavailable') return 'No longer available — please remove it.';
+    return null;
+  }
+
+  function render(q: Quote) {
+    root.setAttribute('aria-busy', 'false');
+    if (!q.lines.length) return renderEmpty();
+    // Quietly correct quantities the server limited.
+    for (const l of q.lines) if (l.problem === 'limited' && l.available > 0) setCartQty(l.variantId, l.available);
+
+    const list = h('ul', { class: 'flex flex-col divide-y divide-black/5 rounded-2xl bg-white border border-black/5' });
+    for (const l of q.lines) {
+      const problem = problemText(l);
+      const qtyLabel = `Quantity for ${l.name} ${l.label}`;
+      list.append(
+        h('li', { class: 'flex gap-4 p-4' },
+          l.image ? h('img', { src: l.image.url, alt: '', width: 88, height: 88, class: 'w-[88px] h-[88px] rounded-xl object-cover bg-surface-container' }) : h('div', { class: 'w-[88px] h-[88px] rounded-xl bg-surface-container' }),
+          h('div', { class: 'flex-1 min-w-0' },
+            h('a', { href: l.path, class: 'font-extrabold hover:underline' }, l.name),
+            h('p', { class: 'text-sm text-on-surface-variant' }, `${l.label} · ${formatINR(l.unitPrice)} each`),
+            problem ? h('p', { class: 'text-sm font-bold mt-1', style: 'color:#8a4b00', role: 'status' }, problem) : null,
+            h('div', { class: 'mt-3 flex items-center gap-3' },
+              l.qty > 0
+                ? h('div', { class: 'inline-flex items-center rounded-full border-2 border-surface-container-high' },
+                    btn('−', `Decrease ${qtyLabel}`, () => update(l.variantId, l.qty - 1)),
+                    h('span', { class: 'w-8 text-center font-extrabold', 'aria-label': qtyLabel }, String(l.qty)),
+                    btn('+', `Increase ${qtyLabel}`, () => update(l.variantId, l.qty + 1), l.qty >= Math.min(20, l.available)),
+                  )
+                : null,
+              linkBtn('Remove', () => { removeFromCart(l.variantId); load(); }),
+            ),
+          ),
+          h('p', { class: 'font-extrabold whitespace-nowrap' }, formatINR(l.lineTotal)),
+        ),
+      );
+    }
+
+    const blocked = !q.ok;
+    const summary = h('aside', { class: 'rounded-2xl bg-surface-container-low p-6 flex flex-col gap-3', 'aria-label': 'Order summary' },
+      row('Subtotal', formatINR(q.subtotal)),
+      row('Delivery', 'Free'),
+      h('div', { class: 'border-t border-black/10 pt-3' }, row('Total', formatINR(q.total), true)),
+      h('p', { class: 'text-xs text-on-surface-variant' }, 'Inclusive of all taxes.'),
+      !q.meetsMinimum ? h('p', { class: 'text-sm font-bold', style: 'color:#8a4b00' }, `Add ${formatINR(q.minOrder - q.total)} more to reach the minimum order of ${formatINR(q.minOrder)}.`) : null,
+      h('a', {
+        href: blocked ? undefined : '/checkout',
+        role: blocked ? 'link' : undefined,
+        'aria-disabled': blocked ? 'true' : undefined,
+        class: `mt-2 text-center rounded-full py-3.5 font-extrabold text-white ${blocked ? 'opacity-50 pointer-events-none' : ''}`,
+        style: 'background:linear-gradient(135deg,#196a5e,#2d7a4f)',
+      }, 'Proceed to checkout'),
+      h('p', { class: 'text-xs text-on-surface-variant' }, q.cod.eligible ? 'Cash on delivery available.' : (q.cod.reason ?? '')),
+    );
+    root.replaceChildren(h('div', { class: 'grid md:grid-cols-[1.6fr_1fr] gap-8 items-start' }, list, summary));
+  }
+
+  function row(label: string, value: string, strong = false) {
+    return h('p', { class: `flex justify-between ${strong ? 'text-lg font-extrabold' : ''}` }, h('span', {}, label), h('span', {}, value));
+  }
+  function btn(text: string, label: string, onClick: () => void, disabled = false) {
+    const b = h('button', { type: 'button', class: 'w-9 h-10 font-extrabold text-lg disabled:opacity-40', 'aria-label': label, disabled }, text);
+    b.addEventListener('click', onClick);
+    return b;
+  }
+  function linkBtn(text: string, onClick: () => void) {
+    const b = h('button', { type: 'button', class: 'text-sm font-bold text-primary underline' }, text);
+    b.addEventListener('click', onClick);
+    return b;
+  }
+  function update(id: number, qty: number) {
+    setCartQty(id, qty);
+    load();
+  }
+
+  load();
+</script>

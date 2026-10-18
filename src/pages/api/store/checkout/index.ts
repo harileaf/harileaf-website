@@ -56,6 +56,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return json({ error: created.message, quote: publicQuote(fresh) }, 409);
   }
   const viewUrl = `/order/${created.orderNo}?t=${created.viewToken}`;
+  if (created.existing && created.status === 'payment_failed') {
+    // A retried submit for an attempt whose payment window closed: the browser starts a fresh attempt.
+    return json({ error: 'Your previous payment attempt expired.', code: 'expired' }, 409);
+  }
 
   if (c.paymentMethod === 'cod' || created.status !== 'pending_payment') {
     drainSoon(env, locals);

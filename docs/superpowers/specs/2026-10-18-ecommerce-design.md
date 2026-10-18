@@ -757,6 +757,18 @@ Deltas from the design above, made while building M1 (`docs/superpowers/plans/20
 - **Fixed a live mobile bug**: the invisible `#mobile-backdrop` (fixed, full-screen, z-30) caught every tap on phones while the menu was closed; it now has `pointer-events: none` until opened.
 - **Real Cloudflare types**: `src/env.d.ts` aliases each type from `@cloudflare/workers-types/latest` (the earlier `import('@cloudflare/workers-types')` alias silently resolved to `any`).
 
+## Implementation notes (M3 Checkout)
+
+- **Razorpay manual capture** uses the documented per-order `payment: { capture: "manual", capture_options: { manual_expiry_period: 4320 } }` (3 days), not the undocumented legacy `payment_capture` flag. Uncaptured authorisations auto-release; refunds are only possible after capture.
+- **Order numbers** come from `order_counters` (one row per IST `yymm`, +1-only trigger) inside the order batch: `HL-YYMM-NNNN`.
+- **View tokens** are derived, not stored: `token = HMAC(ORDER_TOKEN_SECRET, "view-token:" + idempotency_key)[:32]`; only `HMAC(secret, "order-view:" + token)` is stored. A retried submit (same key) gets the same order and link, and email handlers rebuild the link from the stored key.
+- **Idempotency key** is generated per cart *and* form contents in the browser; a retry of an attempt whose payment window already closed gets `409 { code: "expired" }` and the browser starts a fresh attempt.
+- **Payment confirmation**: verify (signature + payment fetch), webhook (raw-body signature, `x-razorpay-event-id` dedupe) and the 5-minute reconciliation all call the same exactly-once `markPaid`. Expiry gives stock back only for reservations still `held` (conditional `UPDATE`), and a late authorisation without stock is never captured; the customer gets an apology email (`email.payment_released`).
+- **Shiprocket in M3** is serviceability only (`/api/store/pincode`, checkout check); results are cached in KV for 12 h per pincode/weight bucket. Unreachable Shiprocket fails open for non-perishables. New settings: `pickup_pincode`, `shiprocket_pickup_location`.
+- **Order confirmation email** (customer + owner) moved from M4 to M3 so `email.placed` rows always have a handler; Resend `Idempotency-Key = email.placed/<order_no>`.
+- **Cart** is a `/cart` page (no drawer); all client rendering uses `textContent` via a tiny DOM helper.
+- **No SRI** on Turnstile `api.js` / Razorpay `checkout.js`: both vendors change these files in place (Cloudflare documents that SRI must not be used for Turnstile). They load only on checkout/order pages.
+
 ## Review record
 
 This revision applies the consensus of a four-model design review (Codex, Antigravity, Sonnet, Claude; 2 rounds, 2026-10-18). Key changes from v1 of this spec:
