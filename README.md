@@ -40,7 +40,7 @@ Store logic lives in `src/lib/store/` as plain TypeScript modules that take a `D
    - **Razorpay**: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`. Dashboard → Webhooks → `https://harileaf.org/api/webhooks/razorpay` with events `payment.authorized`, `payment.captured`, `payment.failed`, `order.paid`, `refund.processed`, `refund.failed`; put its secret in `RAZORPAY_WEBHOOK_SECRET`.
    - **Shiprocket**: an API user (Settings → API) as `SHIPROCKET_EMAIL` / `SHIPROCKET_PASSWORD`; set the pickup location name and pincode in /admin/settings. Settings → API → Webhooks → `https://harileaf.org/api/webhooks/courier` with a security token, stored as `SHIPROCKET_WEBHOOK_TOKEN`.
    - **Resend**: verify `harileaf.org` (SPF/DKIM) and set `RESEND_API_KEY`. Free tier: 100 emails/day.
-   - **Turnstile**: `PUBLIC_TURNSTILE_SITE_KEY` (build var) and `TURNSTILE_SECRET_KEY`.
+   - **Turnstile**: `PUBLIC_TURNSTILE_SITE_KEY` (a Worker variable, read at request time) and `TURNSTILE_SECRET_KEY`.
    - `ORDER_TOKEN_SECRET`: a random 32+ byte string (`openssl rand -hex 32`). Changing it invalidates every order link already emailed.
 6. Daily operations live in **/admin/orders** (pack → issues the GST invoice; ship/deliver update automatically from Shiprocket tracking) and **/admin/remittance** (import Shiprocket's COD remittance CSV).
 
