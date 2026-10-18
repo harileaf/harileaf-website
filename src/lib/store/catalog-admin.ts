@@ -605,3 +605,90 @@ export function shelfLifeWarning(packedOn: string | null, bestBeforeDays: number
   const needed = Math.max(bestBeforeDays * 0.3, Math.min(45, bestBeforeDays));
   return remainingAtDelivery < needed ? `Batch packed ${packedOn} may arrive with too little shelf life left — switch to a newer batch` : null;
 }
+
+// ── request parsing ────────────────────────────────────────────────────────
+
+const str = (v: unknown, d = '') => (typeof v === 'string' ? v : d);
+const strOrNull = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
+const num = (v: unknown, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v)) ? Number(v) : d);
+const numOrNull = (v: unknown) => (v === null || v === undefined || v === '' ? null : num(v, Number.NaN));
+const bool = (v: unknown) => v === true || v === 'true' || v === 1 || v === '1';
+const record = (v: unknown): Record<string, string> =>
+  v && typeof v === 'object' && !Array.isArray(v)
+    ? Object.fromEntries(Object.entries(v as Record<string, unknown>).filter(([k, x]) => k.trim() && typeof x === 'string' && x.trim()).map(([k, x]) => [k.trim(), (x as string).trim()]))
+    : {};
+const oneOf = <T extends string>(v: unknown, xs: readonly T[], d: T): T => (xs.includes(v as T) ? (v as T) : d);
+
+/** Coerces an untrusted JSON body into a ProductInput; validation happens in validateProduct. */
+export function coerceProductInput(raw: unknown): ProductInput {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const nutrition = (r.nutrition && typeof r.nutrition === 'object' ? r.nutrition : {}) as Record<string, unknown>;
+  return {
+    categorySlug: str(r.categorySlug),
+    slug: str(r.slug).trim(),
+    name: str(r.name),
+    shortDescription: str(r.shortDescription),
+    descriptionMd: str(r.descriptionMd),
+    status: oneOf(r.status, ['draft', 'active', 'discontinued'] as const, 'draft'),
+    replacementProductId: numOrNull(r.replacementProductId),
+    organicScheme: oneOf(r.organicScheme, ['none', 'pgs_green', 'pgs_organic', 'npop'] as const, 'none'),
+    organicConversionSince: numOrNull(r.organicConversionSince),
+    organicCertNumber: strOrNull(r.organicCertNumber),
+    processClaims: Array.isArray(r.processClaims)
+      ? r.processClaims.map((c) => ({ code: str((c as Record<string, unknown>)?.code).trim(), text: str((c as Record<string, unknown>)?.text), evidence_note: str((c as Record<string, unknown>)?.evidence_note) }))
+      : [],
+    howItsMade: record(r.howItsMade),
+    harvestInfo: record(r.harvestInfo),
+    attributes: record(r.attributes),
+    faq: Array.isArray(r.faq) ? r.faq.map((f) => ({ q: str((f as Record<string, unknown>)?.q), a: str((f as Record<string, unknown>)?.a) })) : [],
+    bestBeforeDays: numOrNull(r.bestBeforeDays),
+    storageInstructions: str(r.storageInstructions),
+    countryOfOrigin: str(r.countryOfOrigin, 'India'),
+    ingredients: str(r.ingredients),
+    allergenInfo: strOrNull(r.allergenInfo),
+    vegMark: r.vegMark === undefined ? true : bool(r.vegMark),
+    nutrition: {
+      per: str(nutrition.per, '100 g'),
+      source: strOrNull(nutrition.source),
+      rows: Array.isArray(nutrition.rows)
+        ? nutrition.rows.map((x) => ({ name: str((x as Record<string, unknown>)?.name), amount: str((x as Record<string, unknown>)?.amount) }))
+        : [],
+    },
+    hsnCode: str(r.hsnCode).trim(),
+    gstRateBp: num(r.gstRateBp, Number.NaN),
+    perishable: bool(r.perishable),
+    codAllowed: bool(r.codAllowed),
+    seasonStartMd: strOrNull(r.seasonStartMd),
+    seasonEndMd: strOrNull(r.seasonEndMd),
+    offSeasonMode: r.offSeasonMode === 'notify' || r.offSeasonMode === 'preorder' ? r.offSeasonMode : null,
+    preorderDispatchDate: strOrNull(r.preorderDispatchDate),
+    seoTitle: strOrNull(r.seoTitle),
+    seoDescription: strOrNull(r.seoDescription),
+    relatedProductIds: Array.isArray(r.relatedProductIds) ? r.relatedProductIds.map((x) => num(x, Number.NaN)).filter(Number.isInteger) : [],
+  };
+}
+
+export function coerceVariantInputs(raw: unknown): VariantInput[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((x, i) => {
+    const r = (x && typeof x === 'object' ? x : {}) as Record<string, unknown>;
+    const id = numOrNull(r.id);
+    return {
+      ...(id !== null && Number.isInteger(id) ? { id } : {}),
+      sku: str(r.sku).trim().toUpperCase(),
+      label: str(r.label),
+      netQtyLabel: str(r.netQtyLabel),
+      unitQtyG: num(r.unitQtyG, Number.NaN),
+      pricePaise: num(r.pricePaise, Number.NaN),
+      mrpPaise: num(r.mrpPaise, Number.NaN),
+      weightG: num(r.weightG, Number.NaN),
+      lengthCm: num(r.lengthCm, Number.NaN),
+      breadthCm: num(r.breadthCm, Number.NaN),
+      heightCm: num(r.heightCm, Number.NaN),
+      stockAdjust: num(r.stockAdjust, 0),
+      lowStockThreshold: num(r.lowStockThreshold, 5),
+      active: r.active === undefined ? true : bool(r.active),
+      sort: num(r.sort, i),
+    };
+  });
+}
