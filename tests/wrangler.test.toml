@@ -15,3 +15,7 @@ migrations_dir = "../migrations"
 [[kv_namespaces]]
 binding = "HARILEAF_CMS"
 id = "00000000000000000000000000000000"
+
+[[r2_buckets]]
+binding = "HARILEAF_MEDIA"
+bucket_name = "harileaf-media-test"
