@@ -33,8 +33,14 @@ database_id = "00000000-0000-0000-0000-000000000000"
 migrations_dir = "migrations"
 
 [triggers]
-# Outbox drain (and, from M3, reservation expiry + payment reconciliation).
+# Every 5 min: payment reconciliation, reservation expiry, refund re-checks,
+# stuck-capture sweep, COD reminders, then the outbox drain (src/lib/store/scheduled.ts).
 crons = ["*/5 * * * *"]
+
+# Workers Logs: keeps the JSON console logs (order, payment, webhook, outbox
+# failures) searchable in the dashboard. Included in Workers Paid.
+[observability]
+enabled = true
 
 # Per-IP limits for checkout, pincode lookups and payment retries (Workers Rate Limiting).
 [[ratelimits]]
