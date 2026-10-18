@@ -44,7 +44,9 @@ describe('order emails', () => {
     const handlers = makeEmailHandlers(fake);
     const testEnv = { ...env, RESEND_API_KEY: 're_test', ORDER_TOKEN_SECRET: 'sek' } as Env;
     await handlers['email.placed']({}, { env: testEnv, row: { id: 1, order_id: o.orderId, kind: 'email.placed', payload: {}, attempts: 1 } });
+    await handlers['email.owner_new_order']({}, { env: testEnv, row: { id: 2, order_id: o.orderId, kind: 'email.owner_new_order', payload: {}, attempts: 1 } });
     expect(sent.map((s) => s.body.to[0])).toEqual(['asha@example.com', 'owner@harileaf.org']);
+    expect(sent[1].headers['Idempotency-Key']).toBe(`email.owner_new_order/${o.orderNo}`);
     expect(sent[0].headers['Idempotency-Key']).toBe(`email.placed/${o.orderNo}`);
     expect(sent[0].headers['User-Agent']).toBeTruthy();
     expect(sent[0].body.reply_to).toBe('care@harileaf.org');

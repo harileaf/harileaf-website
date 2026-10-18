@@ -2,6 +2,7 @@
  * Minimal Razorpay client (Orders, Payments, Refunds) for Workers — fetch +
  * Web Crypto, no SDK. See docs/superpowers/research/2026-10-18-integration-apis.md.
  */
+import { timedFetch } from './http';
 import { constantTimeEqual, hmacHex } from './tokens';
 
 const BASE = 'https://api.razorpay.com/v1';
@@ -58,7 +59,7 @@ export function razorpayConfig(env: Env, fetchImpl?: typeof fetch): RazorpayConf
 }
 
 async function call<T>(cfg: RazorpayConfig, method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
-  const res = await (cfg.fetch ?? fetch)(`${BASE}${path}`, {
+  const res = await timedFetch(cfg.fetch ?? fetch)(`${BASE}${path}`, {
     method,
     headers: {
       Authorization: `Basic ${btoa(`${cfg.keyId}:${cfg.keySecret}`)}`,

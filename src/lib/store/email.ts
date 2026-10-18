@@ -1,9 +1,10 @@
 /**
  * Transactional email via Resend, sent from outbox handlers. Each send carries
  * an Idempotency-Key (`<kind>/<order_no>`) so a retried outbox row never sends
- * twice within Resend's 24 h window. Without RESEND_API_KEY (local dev) emails
+ * twice within Resend's 24 h window (409 = same send still in flight → retry). Without RESEND_API_KEY (local dev) emails
  * are logged and skipped.
  */
+import { timedFetch } from './http';
 import { formatINR } from './money';
 import type { OrderItemRow, OrderRow } from './orders';
 import type { StoreSettings } from './settings';
@@ -25,7 +26,7 @@ export async function sendEmail(env: Env, e: Email, fetchImpl: typeof fetch = fe
     console.log(JSON.stringify({ msg: 'email skipped (no RESEND_API_KEY)', to: e.to, subject: e.subject }));
     return 'skipped';
   }
-  const res = await fetchImpl('https://api.resend.com/emails', {
+  const res = await timedFetch(fetchImpl)('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${env.RESEND_API_KEY}`,
@@ -37,8 +38,7 @@ export async function sendEmail(env: Env, e: Email, fetchImpl: typeof fetch = fe
   });
   if (res.ok) return 'sent';
   const body = await res.text().catch(() => '');
-  // Same key + same body already sent → treat as sent.
-  if (res.status === 409 && /concurrent_idempotent_requests/.test(body)) throw new Error('Resend: request in flight, retry');
+  // 409 concurrent_idempotent_requests: the same send is still in flight — retry later.
   throw new Error(`Resend ${res.status}: ${body.slice(0, 300)}`);
 }
 
@@ -70,7 +70,12 @@ const address = (o: OrderRow) => [o.customer_name, o.ship_line1, o.ship_line2, `
 
 export function orderPlacedEmail(o: OrderRow, items: OrderItemRow[], viewUrl: string, settings: StoreSettings): Email {
   const t = itemsTable(items);
-  const pay = o.payment_method === 'cod' ? `Cash on delivery — please keep ${formatINR(o.total_paise)} ready.` : `Paid online — ${formatINR(o.total_paise)}.`;
+  const pay =
+    o.payment_method === 'cod'
+      ? `Cash on delivery — please keep ${formatINR(o.total_paise)} ready.`
+      : o.payment_status === 'paid'
+        ? `Paid online — ${formatINR(o.total_paise)}.`
+        : `Payment of ${formatINR(o.total_paise)} received and being confirmed by your bank.`;
   const html = `<p>Hi ${esc(o.customer_name.split(' ')[0])}, thank you for your order <strong>${esc(o.order_no)}</strong>. We'll pack it within 2 business days and email you a tracking link when it ships.</p>
 ${t.html}
 <p style="margin-top:12px"><strong>Total: ${formatINR(o.total_paise)}</strong> (inclusive of GST, free delivery)<br>${esc(pay)}</p>

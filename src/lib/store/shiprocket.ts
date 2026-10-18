@@ -3,6 +3,8 @@
  * pincode details. Order creation and tracking arrive in M4.
  * See docs/superpowers/research/2026-10-18-integration-apis.md.
  */
+import { timedFetch } from './http';
+
 const BASE = 'https://apiv2.shiprocket.in/v1/external';
 const TOKEN_KEY = 'shiprocket:token';
 const TOKEN_TTL_S = 9 * 24 * 3600; // tokens last 10 days
@@ -26,7 +28,7 @@ export class ShiprocketError extends Error {
 }
 
 async function login(cfg: ShiprocketConfig): Promise<string> {
-  const res = await (cfg.fetch ?? fetch)(`${BASE}/auth/login`, {
+  const res = await timedFetch(cfg.fetch ?? fetch)(`${BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: cfg.email, password: cfg.password }),
@@ -44,7 +46,7 @@ async function token(cfg: ShiprocketConfig): Promise<string> {
 /** Authenticated call; on 401 the cached token is dropped and the call retried once. */
 export async function srCall<T>(cfg: ShiprocketConfig, method: 'GET' | 'POST', path: string, body?: unknown): Promise<{ status: number; data: T }> {
   for (let attempt = 0; attempt < 2; attempt++) {
-    const res = await (cfg.fetch ?? fetch)(`${BASE}${path}`, {
+    const res = await timedFetch(cfg.fetch ?? fetch)(`${BASE}${path}`, {
       method,
       headers: { Authorization: `Bearer ${await token(cfg)}`, ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),

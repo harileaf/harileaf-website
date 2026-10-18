@@ -69,6 +69,9 @@ export function validateCheckoutInput(raw: unknown): { ok: true; value: Checkout
   if (buyerGstin && !isValidGstin(buyerGstin)) e.buyerGstin = 'Not a valid GSTIN';
   const buyerLegalName = str(r.buyerLegalName) || null;
   if (buyerGstin && !buyerLegalName) e.buyerLegalName = 'Enter the business name registered with this GSTIN';
+  const billState = bill?.stateCode ?? ship.stateCode;
+  if (buyerGstin && !e.buyerGstin && billState && buyerGstin.slice(0, 2) !== billState)
+    e.buyerGstin = sameBilling ? 'This GSTIN is registered in another state — add the billing address registered with it' : 'The GSTIN doesn’t match the billing state';
 
   const paymentMethod = r.paymentMethod === 'cod' ? 'cod' : r.paymentMethod === 'razorpay' ? 'razorpay' : null;
   if (!paymentMethod) e.paymentMethod = 'Choose how you want to pay';
@@ -88,3 +91,22 @@ export function validateCheckoutInput(raw: unknown): { ok: true; value: Checkout
 }
 
 export const isIdempotencyKey = (k: string | null): k is string => !!k && /^[A-Za-z0-9-]{16,64}$/.test(k);
+
+/**
+ * Place of supply for GST. Goods go to the delivery state, except B2B orders
+ * billed to a registered buyer and shipped elsewhere on their instruction,
+ * where it is the buyer's (billing) state — IGST Act s.10(1)(b).
+ */
+export function placeOfSupplyCode(c: Pick<CheckoutInput, 'ship' | 'bill' | 'buyerGstin'>): string {
+  return c.buyerGstin && c.bill ? c.bill.stateCode : c.ship.stateCode;
+}
+
+/** What an idempotency key was used for: cart lines + email. */
+export async function checkoutFingerprint(lines: unknown, email: unknown): Promise<string> {
+  const norm = (Array.isArray(lines) ? lines : [])
+    .map((l) => `${Number((l as { variantId?: unknown })?.variantId)}x${Math.trunc(Number((l as { qty?: unknown })?.qty))}`)
+    .sort()
+    .join(',');
+  const data = new TextEncoder().encode(`${norm}|${String(email ?? '').trim().toLowerCase()}`);
+  return [...new Uint8Array(await crypto.subtle.digest('SHA-256', data))].map((b) => b.toString(16).padStart(2, '0')).join('');
+}

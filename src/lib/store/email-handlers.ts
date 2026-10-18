@@ -24,6 +24,10 @@ export function makeEmailHandlers(fetchImpl?: typeof fetch): Record<string, Outb
     'email.placed': async (_payload, { env, row }) => {
       const { order, items, settings } = await load(env, row.order_id);
       await sendEmail(env, orderPlacedEmail(order, items, await orderViewUrl(env, order), settings), fetchImpl);
+    },
+    // Separate row: an owner-email failure never re-sends (or blocks) the customer's.
+    'email.owner_new_order': async (_payload, { env, row }) => {
+      const { order, items, settings } = await load(env, row.order_id);
       const owner = ownerNewOrderEmail(order, items, settings);
       if (owner) await sendEmail(env, owner, fetchImpl);
     },

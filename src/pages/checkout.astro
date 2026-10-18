@@ -130,7 +130,7 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
   import { h } from '../scripts/store/dom';
   import { payForOrder } from '../scripts/store/razorpay-checkout';
 
-  type Quote = { ok: boolean; total: number; minOrder: number; meetsMinimum: boolean; cod: { eligible: boolean; reason: string | null }; lines: Array<{ variantId: number; name: string; label: string; qty: number; lineTotal: number; problem: string | null; available: number }> };
+  type Quote = { ok: boolean; total: number; weightG?: number; minOrder: number; meetsMinimum: boolean; cod: { eligible: boolean; reason: string | null }; lines: Array<{ variantId: number; name: string; label: string; qty: number; lineTotal: number; problem: string | null; available: number }> };
 
   const form = document.getElementById('checkout-form') as HTMLFormElement;
   const alertBox = document.getElementById('checkout-alert')!;
@@ -140,6 +140,10 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
   const pinStatus = document.getElementById('pin-status')!;
   let quote: Quote | null = null;
   let pinCod: boolean | null = null;
+  let forceNewKey = false;
+
+  // Turnstile tokens are single-use: reset after every attempt.
+  const resetTurnstile = () => (window as unknown as { turnstile?: { reset(): void } }).turnstile?.reset();
 
   const showAlert = (msg: string | null) => {
     alertBox.textContent = msg ?? '';
@@ -150,7 +154,7 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
   // One idempotency key per cart + form contents: a double-click or retry returns
   // the same order, while changing anything (e.g. the address) starts a new one.
   function idempotencyKey(forceNew = false): string {
-    const { turnstileToken: _t, ...rest } = payload();
+    const { turnstileToken: _t, expectedTotal: _e, ...rest } = payload();
     const sig = JSON.stringify(rest);
     try {
       const saved = JSON.parse(sessionStorage.getItem('hl_checkout_key') ?? 'null') as { sig: string; key: string } | null;
@@ -210,7 +214,7 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
       return;
     }
     pinStatus.textContent = 'Checking delivery…';
-    const grams = 1000 * Math.max(1, quote?.lines.reduce((n, l) => n + l.qty, 0) ?? 1);
+    const grams = Math.max(100, quote?.weightG ?? 1000);
     const res = await fetch(`/api/store/pincode?pin=${v}&grams=${grams}&value=${quote?.total ?? 10000}`);
     const d = (await res.json().catch(() => ({}))) as { serviceable: boolean | null; cod: boolean | null; etaDays: number | null; city: string | null; stateCode: string | null; checked: boolean };
     if (pin.value !== v) return;
@@ -241,13 +245,27 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
       buyerLegalName: get('buyerLegalName'),
       paymentMethod: get('paymentMethod'),
       turnstileToken: fd.get('cf-turnstile-response') ? String(fd.get('cf-turnstile-response')) : null,
+      expectedTotal: quote?.total,
     };
   }
 
   function showFieldErrors(errors: Record<string, string>) {
-    form.querySelectorAll<HTMLElement>('[data-err]').forEach((el) => (el.textContent = errors[el.dataset.err!] ?? ''));
+    form.querySelectorAll<HTMLElement>('[data-err]').forEach((el) => {
+      const name = el.dataset.err!;
+      const msg = errors[name] ?? '';
+      el.textContent = msg;
+      el.id ||= `err-${name.replace(/\W/g, '-')}`;
+      const input = form.querySelector<HTMLElement>(`[name="${name}"]`);
+      if (!input) return;
+      if (msg) {
+        input.setAttribute('aria-invalid', 'true');
+        input.setAttribute('aria-describedby', [input.getAttribute('aria-describedby')?.replace(el.id, '').trim(), el.id].filter(Boolean).join(' '));
+      } else input.removeAttribute('aria-invalid');
+    });
     const first = Object.keys(errors)[0];
-    if (first) form.querySelector<HTMLElement>(`[name="${first}"]`)?.focus();
+    const target = first ? form.querySelector<HTMLElement>(`[name="${first}"]`) : null;
+    target?.closest('details')?.setAttribute('open', '');
+    target?.focus();
   }
 
   form.addEventListener('submit', async (e) => {
@@ -257,19 +275,21 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
     placeBtn.disabled = true;
     placeBtn.textContent = 'Placing order…';
     try {
-      const submit = (forceNew: boolean) =>
-        fetch('/api/store/checkout', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey(forceNew) },
-          body: JSON.stringify(payload()),
-        });
-      let res = await submit(false);
-      let data = (await res.json().catch(() => ({}))) as { error?: string; code?: string; errors?: Record<string, string>; quote?: Quote; orderNo?: string; viewUrl?: string; payment?: Record<string, unknown> | null };
-      if (res.status === 409 && data.code === 'expired') {
-        res = await submit(true);
-        data = (await res.json().catch(() => ({}))) as typeof data;
-      }
+      const res = await fetch('/api/store/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey(forceNewKey) },
+        body: JSON.stringify(payload()),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string; code?: string; errors?: Record<string, string>; quote?: Quote; orderNo?: string; viewUrl?: string; payment?: Record<string, unknown> | null };
+      forceNewKey = false;
       if (!res.ok) {
+        resetTurnstile();
+        if (data.code === 'expired' || data.code === 'key_reused') {
+          // Start a fresh attempt on the next press (it needs a new security token).
+          forceNewKey = true;
+          showAlert(data.code === 'expired' ? 'Your previous payment attempt expired. Press “Place order” to try again.' : 'Please press “Place order” again.');
+          return;
+        }
         if (data.errors) showFieldErrors(data.errors);
         if (data.quote) renderSummary(data.quote);
         showAlert(data.error ?? 'Something went wrong. Please try again.');
@@ -282,6 +302,7 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
       }
       placeBtn.textContent = 'Opening payment…';
       const outcome = await payForOrder(data.payment, { orderNo: data.orderNo!, token });
+      resetTurnstile();
       if (outcome.kind === 'paid') finish(data.viewUrl!);
       else showAlert(outcome.kind === 'dismissed' ? 'Payment not completed. Your items are held for 30 minutes — you can pay from your order page.' : outcome.message);
       if (outcome.kind !== 'paid') {

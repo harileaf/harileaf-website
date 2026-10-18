@@ -34,14 +34,19 @@ export async function payForOrder(options: Record<string, unknown>, order: { ord
     const rzp = new window.Razorpay!({
       ...options,
       handler: async (r: { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string }) => {
-        const res = await fetch('/api/store/checkout/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderNo: order.orderNo, token: order.token, ...r }),
-        });
-        const data = (await res.json().catch(() => ({}))) as { status?: string; error?: string };
-        if (res.ok && data.status === 'placed') resolve({ kind: 'paid' });
-        else resolve({ kind: 'failed', message: data.error ?? 'We could not confirm your payment yet. If money was taken, your order will update within a few minutes.' });
+        const pending = 'We could not confirm your payment yet. If money was taken, your order will update within a few minutes.';
+        try {
+          const res = await fetch('/api/store/checkout/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderNo: order.orderNo, token: order.token, ...r }),
+          });
+          const data = (await res.json().catch(() => ({}))) as { status?: string; error?: string };
+          if (res.ok && data.status === 'placed') resolve({ kind: 'paid' });
+          else resolve({ kind: 'failed', message: data.error ?? pending });
+        } catch {
+          resolve({ kind: 'failed', message: pending }); // network error: the webhook/reconciliation will settle it
+        }
       },
       modal: {
         ondismiss: () => resolve(failedMessage ? { kind: 'failed', message: failedMessage } : { kind: 'dismissed' }),

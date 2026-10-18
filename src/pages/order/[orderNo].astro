@@ -93,13 +93,20 @@ const paymentLine =
 <script>
   import { payForOrder } from '../../scripts/store/razorpay-checkout';
 
+  // Keep the view token out of the address bar (and away from third-party scripts / screenshots).
+  if (new URLSearchParams(location.search).has('t')) history.replaceState(null, '', location.pathname);
+
   const btn = document.getElementById('pay-now') as HTMLButtonElement | null;
   const status = document.getElementById('pay-status');
   btn?.addEventListener('click', async () => {
     btn.disabled = true;
     if (status) status.textContent = 'Opening payment…';
     const res = await fetch('/api/store/order/retry', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderNo: btn.dataset.order, token: btn.dataset.token }) });
-    const data = (await res.json().catch(() => ({}))) as { payment?: Record<string, unknown>; error?: string };
+    const data = (await res.json().catch(() => ({}))) as { payment?: Record<string, unknown>; error?: string; status?: string };
+    if (res.ok && data.status === 'placed') {
+      location.reload(); // a payment had already gone through
+      return;
+    }
     if (!res.ok || !data.payment) {
       if (status) status.textContent = data.error ?? 'Payment can’t be opened right now.';
       btn.disabled = false;

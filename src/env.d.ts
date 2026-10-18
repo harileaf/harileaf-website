@@ -16,6 +16,8 @@ interface Env {
   HARILEAF_CMS: KVNamespace;
   HARILEAF_MEDIA: R2Bucket;
   STORE_DB: D1Database;
+  /** Workers Rate Limiting binding (wrangler.toml [[ratelimits]]); absent in tests. */
+  STORE_RATE_LIMITER?: { limit(opts: { key: string }): Promise<{ success: boolean }> };
   // Secrets / vars (.env.example lists every one)
   ADMIN_PASSPHRASE: string;
   CF_ACCESS_TEAM_DOMAIN?: string;

@@ -6,7 +6,7 @@
  */
 import { OUTBOX_HANDLERS } from './handlers';
 import { drainOutbox } from './outbox';
-import { expireReservations, reconcilePending } from './payments';
+import { expireReservations, reconcilePending, requeueStuckCaptures } from './payments';
 import { razorpayConfig } from './razorpay';
 
 export async function runScheduled(env: Env, now: Date): Promise<void> {
@@ -21,6 +21,7 @@ export async function runScheduled(env: Env, now: Date): Promise<void> {
   const rzp = razorpayConfig(env);
   if (rzp) await step('reconciled', () => reconcilePending(env.STORE_DB, rzp, now));
   await step('expired', () => expireReservations(env.STORE_DB, now));
+  await step('captures_requeued', () => requeueStuckCaptures(env.STORE_DB, now));
   await step('outbox', () => drainOutbox(env.STORE_DB, OUTBOX_HANDLERS, { env, now, limit: 50 }));
   console.log(JSON.stringify({ msg: 'scheduled', ...report }));
 }

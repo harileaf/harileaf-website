@@ -12,3 +12,7 @@ BEGIN
 END;
 
 CREATE INDEX orders_pending ON orders(status, created_at) WHERE status = 'pending_payment';
+
+-- What the idempotency key was used for (hash of cart lines + email): a key can
+-- only ever return the order it created, never one for a different request.
+ALTER TABLE orders ADD COLUMN checkout_fingerprint TEXT;

@@ -72,15 +72,30 @@ export async function markPaid(
       .bind(order.id, at, `${captured ? 'Captured' : 'Authorised'} ${input.payment.id} via ${input.source}`),
     ...(captured ? [] : [enqueueStmt(db, { orderId: order.id, kind: 'razorpay.capture', payload: { paymentId: input.payment.id }, at })]),
     enqueueStmt(db, { orderId: order.id, kind: 'email.placed', payload: {}, at }),
+    enqueueStmt(db, { orderId: order.id, kind: 'email.owner_new_order', payload: {}, at }),
     ...extra,
   ]);
   if (res.ok) return { result: 'placed' };
+  // A transient D1 error must not be swallowed: throw so a webhook answers 5xx and is retried.
+  if (res.reason === 'other') throw res.error;
 
   // Someone else already handled this payment, or the reservation had expired.
   if (input.webhookEventId) await db.prepare("INSERT OR IGNORE INTO webhook_events (source, event_id, received_at) VALUES ('razorpay', ?, ?)").bind(input.webhookEventId, at).run();
   const now = await loadOrder(db, order.id);
   if (now?.status === 'payment_failed') return lateCapture(db, now, input.payment, input.now);
   if (now?.razorpay_payment_id === input.payment.id) return { result: 'already' };
+  if (now && now.razorpay_payment_id && now.razorpay_payment_id !== input.payment.id) {
+    // A second authorisation on the same order (e.g. a UPI collect still in flight when the
+    // customer retried). It is never captured, so the bank releases it; record it for admin.
+    await db
+      .prepare(
+        `INSERT INTO order_events (order_id, at, type, actor, note)
+         SELECT ?1, ?2, 'extra_payment', 'razorpay', ?3
+         WHERE NOT EXISTS (SELECT 1 FROM order_events WHERE order_id = ?1 AND type = 'extra_payment' AND note = ?3)`,
+      )
+      .bind(order.id, at, `Extra authorisation ${input.payment.id} not captured (auto-releases)`)
+      .run();
+  }
   return { result: 'ignored', why: `order is ${now?.status ?? 'missing'}` };
 }
 
@@ -100,7 +115,9 @@ export async function lateCapture(db: D1Database, order: PayableOrder, payment: 
     db,
     order.id,
     'late_capture',
-    "SELECT status = 'payment_failed' AND cancelled_by IS NULL AND total_paise = ? AND razorpay_order_id = ? FROM orders WHERE id = ?",
+    `SELECT status = 'payment_failed' AND cancelled_by IS NULL AND total_paise = ? AND razorpay_order_id = ?
+            AND NOT EXISTS (SELECT 1 FROM ops WHERE order_id = orders.id AND kind = 'late_release')
+     FROM orders WHERE id = ?`,
     [order.total_paise, order.razorpay_order_id, order.id],
     at,
   );
@@ -119,8 +136,10 @@ export async function lateCapture(db: D1Database, order: PayableOrder, payment: 
       .bind(order.id, at, `Late payment ${payment.id} accepted; stock re-reserved`),
     ...(captured ? [] : [enqueueStmt(db, { orderId: order.id, kind: 'razorpay.capture', payload: { paymentId: payment.id }, at })]),
     enqueueStmt(db, { orderId: order.id, kind: 'email.placed', payload: {}, at }),
+    enqueueStmt(db, { orderId: order.id, kind: 'email.owner_new_order', payload: {}, at }),
   ]);
   if (res.ok) return { result: 'late_placed' };
+  if (res.reason === 'other') throw res.error;
   if (res.reason === 'stock' || res.reason === 'inactive') {
     // Don't capture: the authorisation lapses on its own. Tell the customer once.
     const once = claimStmt(db, order.id, 'late_release', "SELECT status = 'payment_failed' FROM orders WHERE id = ?", [order.id], at);
@@ -132,7 +151,9 @@ export async function lateCapture(db: D1Database, order: PayableOrder, payment: 
     ]);
     return { result: 'late_released' };
   }
-  return { result: 'ignored', why: 'late capture not allowed' };
+  // Claim failed: already released (customer told they weren't charged) or cancelled.
+  const released = await db.prepare("SELECT 1 AS r FROM ops WHERE order_id = ? AND kind = 'late_release'").bind(order.id).first();
+  return released ? { result: 'late_released' } : { result: 'ignored', why: 'late capture not allowed' };
 }
 
 /** Statements that release an order's held stock and mark it failed (shared by expiry and checkout aborts). */
@@ -189,21 +210,32 @@ export async function expireReservations(db: D1Database, now: Date, limit = 50):
  */
 export async function reconcilePending(db: D1Database, cfg: RazorpayConfig, now: Date, opts: { olderThanMinutes?: number; limit?: number } = {}): Promise<number> {
   const cutoff = new Date(now.getTime() - (opts.olderThanMinutes ?? 10) * 60_000).toISOString();
+  // Also orders that expired in the last 3 days (an authorisation can arrive late and its
+  // callbacks can be missed); skip ones already released to the customer.
+  const failedSince = new Date(now.getTime() - 3 * 24 * 3600_000).toISOString();
   const { results } = await db
     .prepare(
-      `SELECT id, razorpay_order_id, total_paise FROM orders
-       WHERE status = 'pending_payment' AND razorpay_order_id IS NOT NULL AND created_at <= ?
-       ORDER BY created_at LIMIT ?`,
+      `SELECT id, razorpay_order_id, total_paise FROM orders o
+       WHERE razorpay_order_id IS NOT NULL AND created_at <= ?1
+         AND (status = 'pending_payment'
+              OR (status = 'payment_failed' AND created_at >= ?2 AND cancelled_by IS NULL
+                  AND NOT EXISTS (SELECT 1 FROM ops WHERE order_id = o.id AND kind IN ('late_release', 'late_capture'))))
+       ORDER BY created_at DESC LIMIT ?3`,
     )
-    .bind(cutoff, opts.limit ?? 20)
+    .bind(cutoff, failedSince, opts.limit ?? 20)
     .all<{ id: number; razorpay_order_id: string; total_paise: number }>();
   let placed = 0;
   for (const o of results) {
-    const payments = await listOrderPayments(cfg, o.razorpay_order_id);
-    const good = payments.find((p) => paymentMatches(p, { razorpayOrderId: o.razorpay_order_id, amountPaise: o.total_paise }));
-    if (!good) continue;
-    const r = await markPaid(db, { orderId: o.id, payment: good, source: 'reconcile', now });
-    if (r.result === 'placed') placed += 1;
+    try {
+      const payments = await listOrderPayments(cfg, o.razorpay_order_id);
+      const good = payments.find((p) => paymentMatches(p, { razorpayOrderId: o.razorpay_order_id, amountPaise: o.total_paise }));
+      if (!good) continue;
+      const r = await markPaid(db, { orderId: o.id, payment: good, source: 'reconcile', now });
+      if (r.result === 'placed' || r.result === 'late_placed') placed += 1;
+    } catch (err) {
+      // One bad order (e.g. a test-mode id after switching to live keys) mustn't stall the rest.
+      console.error(JSON.stringify({ msg: 'reconcile failed for order', orderId: o.id, error: String(err) }));
+    }
   }
   return placed;
 }
@@ -231,4 +263,28 @@ export function makeCaptureHandler(fetchImpl?: typeof fetch): OutboxHandler {
       db.prepare("INSERT INTO order_events (order_id, at, type, actor, note) VALUES (?, ?, 'captured', 'razorpay', ?)").bind(order.id, at, `Captured ${p.id}`),
     ]);
   };
+}
+
+/**
+ * A capture row gives up after ~1 h of retries, but the authorisation lasts
+ * 3 days. Re-queue capture (hourly at most) for authorised orders whose
+ * capture rows are all dead, so a long Razorpay outage doesn't let the
+ * payment lapse while the order ships.
+ */
+export async function requeueStuckCaptures(db: D1Database, now: Date): Promise<number> {
+  const at = nowIso(now);
+  const since = new Date(now.getTime() - 3 * 24 * 3600_000).toISOString();
+  const hourAgo = new Date(now.getTime() - 3600_000).toISOString();
+  const res = await db
+    .prepare(
+      `INSERT INTO outbox (order_id, kind, payload, state, attempts, next_attempt_at, created_at, updated_at)
+       SELECT o.id, 'razorpay.capture', '{}', 'pending', 0, ?1, ?1, ?1 FROM orders o
+       WHERE o.payment_method = 'razorpay' AND o.payment_status = 'authorized' AND o.created_at >= ?2
+         AND EXISTS (SELECT 1 FROM outbox x WHERE x.order_id = o.id AND x.kind = 'razorpay.capture')
+         AND NOT EXISTS (SELECT 1 FROM outbox x WHERE x.order_id = o.id AND x.kind = 'razorpay.capture' AND (x.state IN ('pending', 'running') OR x.updated_at > ?3))
+       LIMIT 20`,
+    )
+    .bind(at, since, hourAgo)
+    .run();
+  return res.meta.changes ?? 0;
 }

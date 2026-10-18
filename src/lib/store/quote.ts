@@ -150,6 +150,7 @@ export function publicQuote(q: Quote) {
     minOrder: q.minOrder,
     meetsMinimum: q.meetsMinimum,
     cod: q.cod,
+    weightG: q.lines.reduce((g, l) => g + l.weightG * l.qty, 0),
     lines: q.lines.map((l) => ({
       variantId: l.variantId, name: l.name, label: l.label, path: l.path, image: l.image, qty: l.qty, requestedQty: l.requestedQty,
       unitPrice: l.unitPrice, mrp: l.mrp, lineTotal: l.lineTotal, problem: l.problem, available: l.available, codAllowed: l.codAllowed,

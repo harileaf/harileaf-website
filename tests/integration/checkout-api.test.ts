@@ -61,6 +61,38 @@ describe('checkout API', () => {
     expect(await scalar('SELECT stock_qty FROM variants WHERE id = ?', v)).toBe(2);
   });
 
+  it('a retried submit returns the existing order even when the last unit is now taken', async () => {
+    const v = await insertVariant(await insertProduct(), { stock_qty: 1 });
+    const key = crypto.randomUUID();
+    const a = await call(checkout, post('/api/store/checkout', form([{ variantId: v, qty: 1 }], 'cod'), { 'Idempotency-Key': key }));
+    const b = await call(checkout, post('/api/store/checkout', form([{ variantId: v, qty: 1 }], 'cod'), { 'Idempotency-Key': key }));
+    expect(a.status).toBe(201);
+    expect(b.status).toBe(200);
+    expect(b.body.orderNo).toBe(a.body.orderNo);
+    expect(b.body.viewUrl).toBe(a.body.viewUrl);
+  });
+
+  it('refuses to reuse a key for a different cart or email', async () => {
+    const v = await insertVariant(await insertProduct(), { stock_qty: 5 });
+    const key = crypto.randomUUID();
+    await call(checkout, post('/api/store/checkout', form([{ variantId: v, qty: 1 }], 'cod'), { 'Idempotency-Key': key }));
+    const other = await call(checkout, post('/api/store/checkout', { ...form([{ variantId: v, qty: 2 }], 'cod') }, { 'Idempotency-Key': key }));
+    expect(other).toMatchObject({ status: 409, body: { code: 'key_reused' } });
+  });
+
+  it('asks the shopper to confirm a changed price', async () => {
+    const v = await insertVariant(await insertProduct(), { stock_qty: 5, price_paise: 69900, mrp_paise: 79900 });
+    const r = await call(checkout, post('/api/store/checkout', { ...form([{ variantId: v, qty: 1 }], 'cod'), expectedTotal: 59900 }, { 'Idempotency-Key': crypto.randomUUID() }));
+    expect(r).toMatchObject({ status: 409, body: { code: 'price_changed', quote: { total: 69900 } } });
+  });
+
+  it('requires a buyer GSTIN to match the billing state', async () => {
+    const v = await insertVariant(await insertProduct(), { stock_qty: 5 });
+    const r = await call(checkout, post('/api/store/checkout', { ...form([{ variantId: v, qty: 1 }], 'cod'), buyerGstin: '07AAGFF2194N1Z1', buyerLegalName: 'Rao Foods' }, { 'Idempotency-Key': crypto.randomUUID() }));
+    expect(r.status).toBe(400);
+    expect(r.body.errors.buyerGstin).toMatch(/another state/);
+  });
+
   it('answers 409 with a fresh quote when the cart changed', async () => {
     const v = await insertVariant(await insertProduct(), { stock_qty: 1 });
     const r = await call(checkout, post('/api/store/checkout', form([{ variantId: v, qty: 2 }], 'cod'), { 'Idempotency-Key': crypto.randomUUID() }));

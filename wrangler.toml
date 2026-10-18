@@ -35,3 +35,9 @@ migrations_dir = "migrations"
 [triggers]
 # Outbox drain (and, from M3, reservation expiry + payment reconciliation).
 crons = ["*/5 * * * *"]
+
+# Per-IP limits for checkout, pincode lookups and payment retries (Workers Rate Limiting).
+[[ratelimits]]
+name = "STORE_RATE_LIMITER"
+namespace_id = "1001"
+simple = { limit = 30, period = 60 }

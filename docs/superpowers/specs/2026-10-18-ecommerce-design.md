@@ -789,3 +789,15 @@ Claims to re-verify during implementation:
 - the current FAQ rich-result status;
 - the DPDP Rules commencement dates;
 - current Resend and Cloudflare free-tier limits.
+
+### M3 review fixes
+
+- Checkout looks up the Idempotency-Key **first**: a retried submit returns its existing order before Turnstile, re-quote or courier calls (stock already left `stock_qty`, so a re-quote would wrongly fail). Keys are bound to a fingerprint (SHA-256 of sorted lines + email); a reused key with a different body gets 409 `key_reused`.
+- Turnstile tokens are single-use: the client resets the widget after every attempt; an `expired`/`key_reused` 409 asks the shopper to press Place order again with a fresh key.
+- `markPaid`/`lateCapture` throw on unexpected D1 errors so the webhook returns 5xx and Razorpay retries. Reconciliation also covers `payment_failed` orders from the last 3 days that were neither late-captured nor released, and isolates per-order failures.
+- `late_capture` is refused once `late_release` ran (the customer was told they weren't charged).
+- Order-page retry first checks Razorpay for a completed payment; extra authorisations on a paid order are recorded as `extra_payment` events (never captured; the bank auto-releases them).
+- Pincode endpoint: clamped/bucketed value in the cache key, only positive answers cached, Workers Rate Limiting binding `STORE_RATE_LIMITER` (30/min/IP) on checkout, pincode and retry.
+- Checkout sends `expectedTotal`; a different server total → 409 `price_changed` with the fresh quote. The courier's state for the pincode must match the chosen state. Buyer GSTIN prefix must match the billing state; place of supply follows IGST Act s.10(1)(b) for bill-to/ship-to B2B.
+- 8 s timeouts on Razorpay, Shiprocket and Resend; 5 s on Turnstile (fails closed). The owner email is its own outbox row. A cron sweep re-queues capture (hourly at most) for authorised orders whose capture rows died, within the 3-day authorisation window.
+- Deferred: COD verification (OTP/confirmation before the Shiprocket push) → M5 hardening; view-token rotation ("resend link") → M5.
