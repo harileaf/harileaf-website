@@ -2,7 +2,8 @@ import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { drainSoon } from '../../../lib/admin-api';
 import { markPaid } from '../../../lib/store/payments';
-import { verifyWebhookSignature, type RazorpayPayment } from '../../../lib/store/razorpay';
+import { verifyWebhookSignature, type RazorpayPayment, type RazorpayRefund } from '../../../lib/store/razorpay';
+import { applyRefundStatus } from '../../../lib/store/refunds';
 
 export const prerender = false;
 
@@ -19,7 +20,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   if (!(await verifyWebhookSignature(env.RAZORPAY_WEBHOOK_SECRET ?? '', raw, request.headers.get('X-Razorpay-Signature')))) {
     return new Response('invalid signature', { status: 401 });
   }
-  let event: { event?: string; payload?: { payment?: { entity?: RazorpayPayment } } };
+  let event: { event?: string; payload?: { payment?: { entity?: RazorpayPayment }; refund?: { entity?: RazorpayRefund & { receipt?: string | null } } } };
   try {
     event = JSON.parse(raw);
   } catch {
@@ -56,7 +57,23 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return ok();
   }
 
-  // Refund events are handled in M4; acknowledge everything else.
+  const refund = event.payload?.refund?.entity;
+  if ((event.event === 'refund.processed' || event.event === 'refund.failed') && refund?.id) {
+    const dup = await db.prepare("SELECT 1 AS d FROM webhook_events WHERE source = 'razorpay' AND event_id = ?").bind(eventId).first();
+    if (dup) return ok();
+    const fromReceipt = /^rf-(\d+)$/.exec(refund.receipt ?? '')?.[1];
+    const row = await db
+      .prepare('SELECT id FROM refunds WHERE razorpay_refund_id = ? OR id = ? LIMIT 1')
+      .bind(refund.id, fromReceipt ? Number(fromReceipt) : -1)
+      .first<{ id: number }>();
+    // Throw-through on D1 errors (5xx → Razorpay retries); record the event only once applied.
+    if (row) await applyRefundStatus(db, row.id, { id: refund.id, status: event.event === 'refund.processed' ? 'processed' : 'failed' }, new Date());
+    await db.prepare("INSERT OR IGNORE INTO webhook_events (source, event_id, received_at) VALUES ('razorpay', ?, ?)").bind(eventId, at).run();
+    drainSoon(env, locals);
+    return ok();
+  }
+
+  // Acknowledge everything else.
   await db.prepare("INSERT OR IGNORE INTO webhook_events (source, event_id, received_at) VALUES ('razorpay', ?, ?)").bind(eventId, at).run();
   return ok();
 };

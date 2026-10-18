@@ -125,7 +125,8 @@ export async function createOrder(
       db
         .prepare(
           `INSERT INTO outbox (order_id, kind, payload, state, attempts, next_attempt_at, created_at, updated_at)
-           VALUES (${idQ.replace('?', '?1')}, 'email.placed', '{}', 'pending', 0, ?2, ?2, ?2), (${idQ.replace('?', '?1')}, 'email.owner_new_order', '{}', 'pending', 0, ?2, ?2, ?2)`,
+           VALUES (${idQ.replace('?', '?1')}, 'email.placed', '{}', 'pending', 0, ?2, ?2, ?2), (${idQ.replace('?', '?1')}, 'email.owner_new_order', '{}', 'pending', 0, ?2, ?2, ?2),
+                  (${idQ.replace('?', '?1')}, 'shiprocket.create', '{}', 'pending', 0, ?2, ?2, ?2)`,
         )
         .bind(key, at),
     );

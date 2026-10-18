@@ -47,7 +47,7 @@ describe('happy path', () => {
     expect(await markShipped(db, o.id, { awb: 'AWB1', courier: 'Delhivery', trackingUrl: 'https://shiprocket.co/tracking/AWB1' }, { ...ctx, actor: 'admin' })).toEqual({ ok: true });
     expect(await markDelivered(db, o.id, { ...ctx, actor: 'shiprocket' })).toEqual({ ok: true });
     expect([await st(o.id), await pay(o.id)]).toEqual(['delivered', 'paid']);
-    expect(await scalar("SELECT group_concat(kind) FROM (SELECT kind FROM outbox WHERE order_id = ? AND kind LIKE 'email.%' ORDER BY id)", o.id)).toBe('email.placed,email.shipped,email.delivered');
+    expect(await scalar("SELECT group_concat(kind) FROM (SELECT kind FROM outbox WHERE order_id = ? AND kind LIKE 'email.%' ORDER BY id)", o.id)).toBe('email.placed,email.owner_new_order,email.shipped,email.delivered');
   });
 
   it('refuses to invoice without the seller details', async () => {

@@ -258,8 +258,23 @@ export function makeCaptureHandler(fetchImpl?: typeof fetch): OutboxHandler {
     if (p.status === 'authorized') p = await capturePayment(cfg, p.id, order.total_paise);
     if (p.status !== 'captured') throw new Error(`payment ${p.id} is ${p.status}, not capturable`);
     const at = nowIso(new Date());
+    // A cancel can land between our status check and the capture: then the
+    // captured money is refunded instead of the order going to Shiprocket.
     await db.batch([
-      db.prepare("UPDATE orders SET payment_status = 'paid', updated_at = ? WHERE id = ? AND payment_status = 'authorized'").bind(at, order.id),
+      db.prepare(
+        `INSERT INTO refunds (order_id, amount_paise, status, reason, created_at, updated_at, credit_note_id)
+         SELECT id, total_paise, 'pending', 'Cancelled while the payment was being captured', ?1, ?1,
+                (SELECT MAX(id) FROM invoices WHERE order_id = orders.id AND series = 'CN')
+         FROM orders WHERE id = ?2 AND status = 'cancelled' AND payment_status = 'authorized'`,
+      ).bind(at, order.id),
+      db.prepare(
+        `INSERT INTO outbox (order_id, kind, payload, state, attempts, next_attempt_at, created_at, updated_at)
+         SELECT id, CASE WHEN status = 'cancelled' THEN 'razorpay.refund' ELSE 'shiprocket.create' END, '{}', 'pending', 0, ?1, ?1, ?1
+         FROM orders WHERE id = ?2 AND payment_status = 'authorized'`,
+      ).bind(at, order.id),
+      db
+        .prepare("UPDATE orders SET payment_status = CASE WHEN status = 'cancelled' THEN 'refund_pending' ELSE 'paid' END, updated_at = ? WHERE id = ? AND payment_status = 'authorized'")
+        .bind(at, order.id),
       db.prepare("INSERT INTO order_events (order_id, at, type, actor, note) VALUES (?, ?, 'captured', 'razorpay', ?)").bind(order.id, at, `Captured ${p.id}`),
     ]);
   };

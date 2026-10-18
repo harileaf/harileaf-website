@@ -99,11 +99,15 @@ export function makeShiprocketHandlers(fetchImpl?: typeof fetch): Record<string,
       if (o.shiprocket_order_id || o.status === 'cancelled') return;
       const settings = await getSettings(db);
       if (!settings.shiprocket_pickup_location) throw new Error('Set the Shiprocket pickup location name in Store settings');
-      const save = (id: number, shipmentId: number | null) =>
-        db.batch([
+      const save = async (id: number, shipmentId: number | null) => {
+        await db.batch([
           db.prepare('UPDATE orders SET shiprocket_order_id = ?, shiprocket_shipment_id = ?, updated_at = ? WHERE id = ? AND shiprocket_order_id IS NULL').bind(String(id), shipmentId === null ? null : String(shipmentId), new Date().toISOString(), o.id),
           db.prepare("INSERT INTO order_events (order_id, at, type, actor, note) VALUES (?, ?, 'shiprocket_created', 'system', ?)").bind(o.id, new Date().toISOString(), `Shiprocket order ${id}`),
         ]);
+        // Cancelled while we were creating it (cancelOrder saw no shiprocket id yet).
+        const now = await db.prepare('SELECT status FROM orders WHERE id = ?').bind(o.id).first<{ status: string }>();
+        if (now?.status === 'cancelled') await srCall(cfg, 'POST', '/orders/cancel', { ids: [id] });
+      };
 
       const existing = await findExisting(cfg, o.order_no);
       if (existing) {
