@@ -110,7 +110,7 @@ export function validateSettings(input: Record<string, unknown>, current: StoreS
     if (value[k] && !EMAIL.test(value[k])) fail(k, 'Not a valid email address');
   }
 
-  if (!/^\d+$/.test(value.min_order_paise)) fail('min_order_paise', 'Enter whole rupees');
+  if (!/^\d+$/.test(value.min_order_paise)) fail('min_order_paise', 'Enter an amount in rupees');
   if (!/^\d+$/.test(value.cod_max_order_paise) || Number(value.cod_max_order_paise) <= 0)
     fail('cod_max_order_paise', 'Enter a positive amount');
 

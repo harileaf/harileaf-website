@@ -1,0 +1,145 @@
+---
+/**
+ * Admin shell shared by every /admin page.
+ *
+ * Gate layer 2 (layer 1 is Cloudflare Access in src/middleware.ts): without a
+ * valid passphrase session the page renders the login card instead of its
+ * content, and the page's own data loaders must check `authenticated` too.
+ */
+import { env } from 'cloudflare:workers';
+import { validateSession } from '../lib/auth';
+
+export type AdminSection = 'dashboard' | 'photos' | 'produce' | 'content' | 'settings';
+
+interface Props {
+  title: string;
+  active: AdminSection;
+}
+
+const { title, active } = Astro.props;
+const authenticated = await validateSession(env.HARILEAF_CMS, Astro.cookies);
+Astro.response.headers.set('Cache-Control', 'no-store');
+
+const nav: Array<{ key: AdminSection; label: string; href: string }> = [
+  { key: 'dashboard', label: 'Dashboard', href: '/admin' },
+  { key: 'photos', label: 'Photos', href: '/admin/photos' },
+  { key: 'produce', label: 'Produce', href: '/admin/produce' },
+  { key: 'content', label: 'Content', href: '/admin/content' },
+  { key: 'settings', label: 'Store settings', href: '/admin/settings' },
+];
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{title} — HariLeaf Admin</title>
+  <link rel="icon" href="/favicon.ico" />
+  <meta name="robots" content="noindex, nofollow" />
+  <style is:global>
+    /* Inline critical styles since we can't rely on Tailwind being loaded without the layout */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f6f6f3; color: #1a1a1a; min-height: 100vh; }
+    .brand-btn { background: linear-gradient(135deg, #196a5e 0%, #2d7a4f 100%); color: #fff; border: none; border-radius: 9999px; font-weight: 700; cursor: pointer; transition: opacity .15s; }
+    .brand-btn:hover { opacity: 0.88; }
+    .brand-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .card { background: #ebebea; border: 1px solid rgba(0,0,0,0.08); border-radius: 16px; padding: 2rem; }
+    input[type="password"], input[type="text"], input[type="email"], input[type="tel"], input[type="number"], textarea { background: #fff; border: 1px solid rgba(0,0,0,0.12); border-radius: 8px; padding: 0.75rem 1rem; font-size: 0.875rem; width: 100%; outline: none; transition: border-color .15s; font-family: inherit; }
+    input:focus, textarea:focus { border-color: #196a5e; box-shadow: 0 0 0 3px rgba(25,106,94,0.15); }
+    a:focus-visible, button:focus-visible { outline: 2px solid #196a5e; outline-offset: 2px; }
+    .admin-nav { display: flex; flex-wrap: wrap; border-bottom: 1px solid rgba(0,0,0,0.1); margin-bottom: 2rem; }
+    .admin-nav a { border-bottom: 2px solid transparent; padding: 0.75rem 1.25rem; font-size: 0.875rem; font-weight: 700; color: #666; text-decoration: none; transition: color .15s, border-color .15s; }
+    .admin-nav a[aria-current="page"] { border-bottom-color: #196a5e; color: #196a5e; }
+    .hidden { display: none !important; }
+    .error { color: #c00; font-size: 0.875rem; }
+    .muted { color: #666; font-size: 0.875rem; }
+    label { display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #666; margin-bottom: 0.5rem; }
+    .warn { background: #fff4e0; border: 1px solid #e8c37a; color: #6b4a07; border-radius: 12px; padding: 1rem 1.25rem; font-size: 0.875rem; }
+  </style>
+</head>
+<body>
+
+{!authenticated ? (
+  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem;">
+    <div style="width:100%;max-width:380px;">
+      <div style="text-align:center;margin-bottom:2rem;">
+        <img src="/images/brand/logo-color.png" alt="HariLeaf" style="height:2.5rem;margin:0 auto 1rem;" />
+        <h1 style="font-size:1.5rem;font-weight:800;letter-spacing:-0.03em;">Admin Dashboard</h1>
+        <p class="muted" style="margin-top:0.25rem;">Enter your passphrase to continue</p>
+      </div>
+      <div class="card">
+        <div style="display:flex;flex-direction:column;gap:1rem;">
+          <div>
+            <label for="passphrase">Passphrase</label>
+            <input id="passphrase" type="password" placeholder="••••••••••••" autocomplete="current-password" />
+          </div>
+          <p id="login-error" class="error hidden" role="alert">Incorrect passphrase. Try again.</p>
+          <button id="login-btn" class="brand-btn" style="padding:0.875rem;">Sign In</button>
+        </div>
+      </div>
+    </div>
+  </div>
+) : (
+  <div style="max-width:960px;margin:0 auto;padding:2.5rem 1.5rem;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2.5rem;">
+      <a href="/admin" style="display:flex;align-items:center;gap:0.75rem;text-decoration:none;">
+        <img src="/images/brand/logo-color.png" alt="HariLeaf" style="height:2rem;" />
+        <span style="font-size:1.125rem;font-weight:800;color:#196a5e;">Admin</span>
+      </a>
+      <button id="logout-btn" style="background:none;border:none;cursor:pointer;font-size:0.875rem;font-weight:600;color:#666;">Sign out</button>
+    </div>
+
+    <nav class="admin-nav" aria-label="Admin sections">
+      {nav.map((item) => (
+        <a href={item.href} aria-current={item.key === active ? 'page' : undefined}>{item.label}</a>
+      ))}
+    </nav>
+
+    <main>
+      <slot />
+    </main>
+  </div>
+)}
+
+<div id="toast-container" style="position:fixed;bottom:1.5rem;right:1.5rem;z-index:50;display:flex;flex-direction:column;gap:0.5rem;"></div>
+
+<script>
+  // ── Login ──────────────────────────────────────────────
+  const loginBtn = document.getElementById('login-btn') as HTMLButtonElement | null;
+  const loginError = document.getElementById('login-error');
+  const passphraseInput = document.getElementById('passphrase') as HTMLInputElement | null;
+
+  loginBtn?.addEventListener('click', async () => {
+    const passphrase = passphraseInput?.value ?? '';
+    if (!passphrase) return;
+    loginBtn.textContent = 'Signing in…';
+    loginBtn.disabled = true;
+    const res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ passphrase }),
+    });
+    if (res.ok) {
+      window.location.reload();
+    } else {
+      if (loginError) {
+        loginError.textContent = res.status === 429 ? 'Too many attempts. Try again in 15 minutes.' : 'Incorrect passphrase. Try again.';
+        loginError.classList.remove('hidden');
+      }
+      loginBtn.textContent = 'Sign In';
+      loginBtn.disabled = false;
+    }
+  });
+
+  passphraseInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') loginBtn?.click(); });
+
+  // ── Logout ─────────────────────────────────────────────
+  document.getElementById('logout-btn')?.addEventListener('click', async () => {
+    await fetch('/api/auth', { method: 'DELETE' });
+    window.location.href = '/admin';
+  });
+</script>
+
+</body>
+</html>

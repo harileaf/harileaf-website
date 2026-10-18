@@ -1,0 +1,64 @@
+---
+export const prerender = false;
+import { env } from 'cloudflare:workers';
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { validateSession } from '../../lib/auth';
+import { getSettings, missingForLaunch } from '../../lib/store/settings';
+
+const authenticated = await validateSession(env.HARILEAF_CMS, Astro.cookies);
+const accessConfigured = Astro.locals.accessConfigured !== false;
+let missing: string[] = [];
+let dbError = false;
+let deadOutbox = 0;
+if (authenticated) {
+  try {
+    missing = missingForLaunch(await getSettings(env.STORE_DB));
+    deadOutbox = (await env.STORE_DB.prepare("SELECT count(*) AS n FROM outbox WHERE state = 'dead'").first<{ n: number }>())?.n ?? 0;
+  } catch (err) {
+    dbError = true;
+    console.error(JSON.stringify({ msg: 'dashboard load failed', error: String(err) }));
+  }
+}
+
+const labels: Record<string, string> = {
+  legal_name: 'Legal name', address: 'Address', gstin: 'GSTIN', fssai_license: 'FSSAI licence',
+  customer_care_phone: 'Customer care phone', customer_care_email: 'Customer care email',
+  grievance_officer_name: 'Grievance officer name', grievance_officer_email: 'Grievance officer email',
+  grievance_officer_phone: 'Grievance officer phone',
+};
+
+const sections = [
+  { href: '/admin/photos', title: 'Photos', body: 'Upload and remove farm photos.' },
+  { href: '/admin/produce', title: 'Produce', body: 'Edit the produce catalogue on /produce.' },
+  { href: '/admin/content', title: 'Content', body: 'Edit text on the produce page.' },
+  { href: '/admin/settings', title: 'Store settings', body: 'Seller details, grievance officer, order limits.' },
+];
+---
+
+<AdminLayout title="Dashboard" active="dashboard">
+  <div style="display:flex;flex-direction:column;gap:1rem;margin-bottom:2rem;">
+    {!accessConfigured && (
+      <p class="warn" role="status">
+        <strong>Cloudflare Access isn't configured.</strong> Admin is protected by the passphrase only. Set
+        <code>CF_ACCESS_TEAM_DOMAIN</code> and <code>CF_ACCESS_AUD</code> once the Access application exists.
+      </p>
+    )}
+    {dbError && <p class="warn" role="status">The store database isn't reachable yet. Create the D1 database and apply migrations (README → Store development).</p>}
+    {deadOutbox > 0 && <p class="warn" role="status"><strong>{deadOutbox} background task(s) failed permanently.</strong> They need attention.</p>}
+    {missing.length > 0 && (
+      <div class="warn" role="status">
+        <strong>Needed before launch:</strong>
+        <a href="/admin/settings" style="color:inherit;">{missing.map((k) => labels[k] ?? k).join(', ')}</a>
+      </div>
+    )}
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem;">
+    {sections.map((s) => (
+      <a href={s.href} class="card" style="text-decoration:none;color:inherit;padding:1.5rem;">
+        <p style="font-weight:800;margin-bottom:0.375rem;">{s.title}</p>
+        <p class="muted">{s.body}</p>
+      </a>
+    ))}
+  </div>
+</AdminLayout>
