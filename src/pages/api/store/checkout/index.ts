@@ -18,7 +18,7 @@ const HOLD_SECONDS = 30 * 60;
 
 /** Answer for a key that already created an order (a retry): no Turnstile, quote or courier calls. */
 async function existingResponse(existing: NonNullable<Awaited<ReturnType<typeof findByIdempotencyKey>>>, key: string, secret: string) {
-  const viewUrl = `/order/${existing.order_no}?t=${await viewTokenFor(secret, key)}`;
+  const viewUrl = `/order/${existing.order_no}?t=${await viewTokenFor(secret, key, existing.view_token_rev ?? 0)}`;
   if (existing.status === 'payment_failed') return json({ error: 'Your previous payment attempt expired.', code: 'expired' }, 409);
   if (existing.status === 'pending_payment' && existing.razorpay_order_id) {
     const hold = await env.STORE_DB.prepare("SELECT MIN(expires_at) AS e FROM stock_reservations WHERE order_id = ? AND state = 'held'").bind(existing.id).first<{ e: string | null }>();
@@ -87,7 +87,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
   }
 
-  const created = await createOrder(env.STORE_DB, { quote, checkout: c, idempotencyKey: key, sellerStateCode: settings.state_code, tokenSecret: env.ORDER_TOKEN_SECRET, now, fingerprint });
+  const created = await createOrder(env.STORE_DB, { quote, checkout: c, idempotencyKey: key, sellerStateCode: settings.state_code, tokenSecret: env.ORDER_TOKEN_SECRET, now, fingerprint, codConfirmationRequired: settings.cod_confirmation !== 'off' });
   if (!created.ok) {
     const fresh = await quoteCart(env.STORE_DB, body.lines, { today: new Date(), settings });
     return json({ error: created.message, quote: publicQuote(fresh) }, 409);

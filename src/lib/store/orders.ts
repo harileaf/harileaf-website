@@ -23,8 +23,9 @@ export type CreateOrderResult =
   | { ok: true; orderId: number; orderNo: string; viewToken: string; total: number; existing: boolean; status: string }
   | { ok: false; reason: 'stock' | 'inactive' | 'invalid'; message: string };
 
-export async function viewTokenFor(secret: string, idempotencyKey: string): Promise<string> {
-  return (await hmacHex(secret, `view-token:${idempotencyKey}`)).slice(0, 32);
+/** Rev 0 is the link from the order email; each "find your order" request bumps it (migration 0004). */
+export async function viewTokenFor(secret: string, idempotencyKey: string, rev = 0): Promise<string> {
+  return (await hmacHex(secret, rev > 0 ? `view-token:${idempotencyKey}:${rev}` : `view-token:${idempotencyKey}`)).slice(0, 32);
 }
 
 const yymm = (at: Date) => {
@@ -34,9 +35,9 @@ const yymm = (at: Date) => {
 
 export async function findByIdempotencyKey(db: D1Database, key: string) {
   return db
-    .prepare('SELECT id, order_no, total_paise, status, checkout_fingerprint, razorpay_order_id, customer_name, email, phone FROM orders WHERE idempotency_key = ?')
+    .prepare('SELECT id, order_no, total_paise, status, checkout_fingerprint, razorpay_order_id, customer_name, email, phone, view_token_rev FROM orders WHERE idempotency_key = ?')
     .bind(key)
-    .first<{ id: number; order_no: string; total_paise: number; status: string; checkout_fingerprint: string | null; razorpay_order_id: string | null; customer_name: string; email: string; phone: string }>();
+    .first<{ id: number; order_no: string; total_paise: number; status: string; checkout_fingerprint: string | null; razorpay_order_id: string | null; customer_name: string; email: string; phone: string; view_token_rev: number }>();
 }
 
 export async function createOrder(
@@ -50,6 +51,8 @@ export async function createOrder(
     now: Date;
     /** checkoutFingerprint(lines, email) of this request. */
     fingerprint?: string;
+    /** COD only: the order waits for the customer/admin to confirm it (setting `cod_confirmation`). */
+    codConfirmationRequired?: boolean;
   },
 ): Promise<CreateOrderResult> {
   const { quote, checkout: c, idempotencyKey: key, now } = input;
@@ -58,7 +61,7 @@ export async function createOrder(
   const existing = await findByIdempotencyKey(db, key);
   if (existing) {
     if (input.fingerprint && existing.checkout_fingerprint && existing.checkout_fingerprint !== input.fingerprint) return { ok: false, reason: 'invalid', message: 'Idempotency key reused for a different order' };
-    return { ok: true, orderId: existing.id, orderNo: existing.order_no, viewToken, total: existing.total_paise, existing: true, status: existing.status };
+    return { ok: true, orderId: existing.id, orderNo: existing.order_no, viewToken: await viewTokenFor(input.tokenSecret, key, existing.view_token_rev ?? 0), total: existing.total_paise, existing: true, status: existing.status };
   }
 
   const lines = quote.lines.filter((l) => l.qty > 0);
@@ -84,10 +87,10 @@ export async function createOrder(
            customer_name, email, phone, marketing_opt_in,
            ship_line1, ship_line2, ship_city, ship_state, ship_state_code, ship_pincode,
            bill_same_as_ship, bill_name, bill_line1, bill_line2, bill_city, bill_state, bill_state_code, bill_pincode,
-           buyer_gstin, buyer_legal_name, subtotal_paise, discount_paise, gst_paise, total_paise, created_at, updated_at, checkout_fingerprint)
+           buyer_gstin, buyer_legal_name, subtotal_paise, discount_paise, gst_paise, total_paise, created_at, updated_at, checkout_fingerprint, cod_confirmed_at)
          VALUES ('HL-' || ?1 || '-' || printf('%04d', (SELECT last_no FROM order_counters WHERE yymm = ?1)),
            ?2, ?3, ?4, ?5, 'unpaid', ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15,
-           ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, 0, ?27, ?28, ?29, ?29, ?30)`,
+           ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, 0, ?27, ?28, ?29, ?29, ?30, ?31)`,
       )
       .bind(
         ym, await hashViewToken(input.tokenSecret, viewToken), key, cod ? 'placed' : 'pending_payment', c.paymentMethod,
@@ -95,6 +98,7 @@ export async function createOrder(
         c.ship.line1, c.ship.line2, c.ship.city, c.ship.state, c.ship.stateCode, c.ship.pincode,
         b ? 0 : 1, b?.name ?? null, b?.line1 ?? null, b?.line2 ?? null, b?.city ?? null, b?.state ?? null, b?.stateCode ?? null, b?.pincode ?? null,
         c.buyerGstin, c.buyerLegalName, quote.subtotal, gst, quote.total, at, input.fingerprint ?? null,
+        cod && !input.codConfirmationRequired ? at : null,
       ),
   ];
 
@@ -164,6 +168,8 @@ export interface OrderRow {
   invoice_id: number | null; cancel_reason: string | null; cancelled_by: string | null; created_at: string; updated_at: string;
   /** Migration 0004: when a COD order was confirmed (customer or admin). */
   cod_confirmed_at?: string | null;
+  /** Migration 0004: order-link revision (see viewTokenFor). */
+  view_token_rev?: number;
 }
 
 export interface OrderItemRow {

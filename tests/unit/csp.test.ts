@@ -8,7 +8,7 @@ it('applies the store CSP to cart, checkout and order pages only', () => {
 
 it('allows only our origin plus Razorpay and Turnstile to run scripts or frames', () => {
   const script = STORE_CSP.split('; ').find((d) => d.startsWith('script-src'))!;
-  expect(script.split(' ').filter((t) => t.startsWith('https:'))).toEqual(['https://checkout.razorpay.com', 'https://challenges.cloudflare.com']);
+  expect(script.split(' ').filter((t) => t.startsWith('https:'))).toEqual(['https://checkout.razorpay.com', 'https://cdn.razorpay.com', 'https://challenges.cloudflare.com']);
   expect(STORE_CSP).toContain("frame-ancestors 'none'");
   expect(STORE_CSP).toContain("object-src 'none'");
 });

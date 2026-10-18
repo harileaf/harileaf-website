@@ -7,7 +7,6 @@ import { formatINR } from '../../lib/store/money';
 import { getOrderByNo } from '../../lib/store/orders';
 import { safeHttpsUrl } from '../../lib/store/urls';
 import { needsCodConfirmation } from '../../lib/store/cod';
-import { getSettings } from '../../lib/store/settings';
 import { checkViewToken } from '../../lib/store/tokens';
 
 Astro.response.headers.set('Cache-Control', 'no-store');
@@ -40,7 +39,7 @@ const STATUS: Record<string, { title: string; body: string }> = {
 };
 const s = STATUS[o.status] ?? { title: o.status, body: '' };
 const canCancel = o.status === 'placed';
-const awaitingConfirm = needsCodConfirmation(o, await getSettings(env.STORE_DB));
+const awaitingConfirm = needsCodConfirmation(o);
 const heading = awaitingConfirm ? { title: 'Almost done — please confirm', body: 'Thank you! Confirm your cash-on-delivery order below and we’ll pack it within 2 business days.' } : s;
 const hasInvoice = Boolean(o.invoice_id);
 const trackingUrl = safeHttpsUrl(o.tracking_url);

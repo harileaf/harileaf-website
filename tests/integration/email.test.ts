@@ -25,15 +25,15 @@ describe('order emails', () => {
   it('escapes customer and product text and links the order with its token', async () => {
     const o = await codOrder();
     const view = await getOrderByNo(db, o.orderNo);
-    const email = orderPlacedEmail(view!.order, view!.items, `https://harileaf.org/order/${o.orderNo}?t=${o.viewToken}`, SETTING_DEFAULTS);
+    // Waiting for COD confirmation: asks the customer to confirm, via the order page (a POST there, not a GET link action).
+    const email = orderPlacedEmail({ ...view!.order, cod_confirmed_at: null }, view!.items, `https://harileaf.org/order/${o.orderNo}?t=${o.viewToken}`, SETTING_DEFAULTS);
     expect(email.html).not.toMatch(/<b>Rao|<Rice>/);
     expect(email.html).toContain('Karjat 3 &lt;Rice&gt;');
     expect(email.html).toContain(`?t=${o.viewToken}`);
     expect(email.idempotencyKey).toBe(`email.placed/${o.orderNo}`);
-    // COD with confirmation on (default): asks the customer to confirm, via the order page (POST there, not a GET link action).
     expect(email.subject).toBe(`Please confirm your order ${o.orderNo} — HariLeaf`);
     expect(email.html).toContain(`?t=${o.viewToken}#confirm`);
-    const plain = orderPlacedEmail(view!.order, view!.items, `https://harileaf.org/order/${o.orderNo}?t=${o.viewToken}`, { ...SETTING_DEFAULTS, cod_confirmation: 'off' });
+    const plain = orderPlacedEmail(view!.order, view!.items, `https://harileaf.org/order/${o.orderNo}?t=${o.viewToken}`, SETTING_DEFAULTS); // confirmed at placement
     expect(plain.subject).toBe(`Order ${o.orderNo} confirmed — HariLeaf`);
     expect(plain.html).not.toContain('#confirm');
   });

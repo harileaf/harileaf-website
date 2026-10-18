@@ -2,11 +2,11 @@
   {
     "name": "minScore",
     "expected": 0.85,
-    "actual": 0.76,
+    "actual": 0.74,
     "values": [
-      0.76,
-      0.76,
-      0.76
+      0.55,
+      0.74,
+      0.74
     ],
     "operator": ">=",
     "passed": false,
@@ -18,11 +18,11 @@
   {
     "name": "maxNumericValue",
     "expected": 2500,
-    "actual": 6883.5684,
+    "actual": 41229.2889,
     "values": [
-      6883.5684,
-      6894.4572499999995,
-      6891.7286
+      41304.68375,
+      41232.114100000006,
+      41229.2889
     ],
     "operator": "<=",
     "passed": false,

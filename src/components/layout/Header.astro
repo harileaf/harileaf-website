@@ -188,6 +188,7 @@ const isItemActive = (item: { url: string; children?: { url: string }[] }) =>
   class="fixed inset-0 z-40 flex flex-col bg-surface md:hidden"
   aria-label="Mobile navigation"
   aria-hidden="true"
+  inert
 >
   <!-- Spacer matches header height (py-4 + h-10 logo ≈ 72px) -->
   <div class="h-[72px] shrink-0"></div>
@@ -282,6 +283,7 @@ const isItemActive = (item: { url: string; children?: { url: string }[] }) =>
       _menu.classList.add('is-open');
       _backdrop.classList.add('is-open');
       _menu.setAttribute('aria-hidden', 'false');
+      _menu.inert = false;
       _toggle.setAttribute('aria-expanded', 'true');
       _toggle.setAttribute('aria-label', 'Close navigation menu');
       hamburger?.classList.add('hidden');
@@ -295,6 +297,7 @@ const isItemActive = (item: { url: string; children?: { url: string }[] }) =>
       _menu.classList.remove('is-open');
       _backdrop.classList.remove('is-open');
       _menu.setAttribute('aria-hidden', 'true');
+      _menu.inert = true; // closed menu links must not be reachable with Tab
       _toggle.setAttribute('aria-expanded', 'false');
       _toggle.setAttribute('aria-label', 'Open navigation menu');
       hamburger?.classList.remove('hidden');

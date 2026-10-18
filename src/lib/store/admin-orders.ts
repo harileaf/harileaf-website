@@ -7,6 +7,7 @@ import { orderDocs } from './invoice-docs';
 import type { OrderItemRow, OrderRow } from './orders';
 import { confirmCod } from './cod';
 import { retryRefundStmts } from './refunds';
+import { eraseOrderPersonalData, marketingOptOut } from './retention';
 import { safeHttpsUrl } from './urls';
 
 export const ORDER_STATUSES = ['pending_payment', 'placed', 'packed', 'shipped', 'delivered', 'rto', 'returned', 'cancelled', 'payment_failed'] as const;
@@ -90,6 +91,14 @@ export async function runAdminAction(
   switch (body.action) {
     case 'pack':
       return markPacked(db, orderId, base);
+    case 'marketing_opt_out': {
+      const o = await db.prepare('SELECT email FROM orders WHERE id = ?').bind(orderId).first<{ email: string }>();
+      if (!o) return { ok: false, error: 'Order not found' };
+      await marketingOptOut(db, o.email, { now: ctx.now, orderId, actorEmail: ctx.actorEmail });
+      return { ok: true };
+    }
+    case 'erase_personal_data':
+      return eraseOrderPersonalData(db, orderId, { now: ctx.now, actorEmail: ctx.actorEmail });
     case 'confirm_cod':
       return confirmCod(db, orderId, { now: ctx.now, actor: 'admin', actorEmail: ctx.actorEmail });
     case 'ship': {
@@ -161,7 +170,6 @@ export async function dashboardMetrics(db: D1Database, now: Date) {
             AND NOT EXISTS (SELECT 1 FROM cod_remittances r WHERE r.order_id = o.id)) AS cod_unremitted,
          (SELECT count(*) FROM order_events WHERE type = 'extra_payment' AND at >= ?2) AS extra_payments,
          (SELECT count(DISTINCT order_id) FROM order_events WHERE type IN ('courier_unapplied', 'courier_lost') AND at >= ?2) AS courier_problems,
-         (SELECT count(*) FROM orders WHERE payment_method = 'cod' AND status = 'placed' AND cod_confirmed_at IS NULL AND total_paise > 0) AS cod_unconfirmed,
          (SELECT count(*) FROM orders WHERE payment_method = 'cod' AND status = 'placed' AND cod_confirmed_at IS NULL AND total_paise > 0 AND created_at < ?4) AS cod_unconfirmed_old`,
     )
     .bind(since(1), since(7), since(14), since(2))

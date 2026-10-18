@@ -1,6 +1,7 @@
 ---
 export const prerender = false;
 import SiteLayout from '../../layouts/SiteLayout.astro';
+import { env } from 'cloudflare:workers';
 import SEO from '../../components/seo/SEO.astro';
 
 Astro.response.headers.set('Cache-Control', 'no-store');
@@ -8,13 +9,17 @@ Astro.response.headers.set('Cache-Control', 'no-store');
 if (Astro.originPathname !== '/order/find' && Astro.originPathname !== '/order/find/') Astro.response.status = 404;
 const fromPath = /^\/order\/(HL-\d{4}-\d{4,6})/.exec(Astro.originPathname)?.[1] ?? '';
 const title = 'Find your order | HariLeaf';
+const turnstileKey = env.PUBLIC_TURNSTILE_SITE_KEY ?? '';
 ---
 
 <SiteLayout title={title} description="Get a fresh link to your HariLeaf order" noIndex>
-  <slot name="head" slot="head"><SEO title={title} description="Get a fresh link to your HariLeaf order" noIndex /></slot>
+  <slot name="head" slot="head">
+    <SEO title={title} description="Get a fresh link to your HariLeaf order" noIndex />
+    {turnstileKey && <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer is:inline></script>}
+  </slot>
   <div class="max-w-xl mx-auto px-6 pt-32 pb-24">
     <h1 class="text-4xl font-extrabold tracking-tight">Find your order</h1>
-    <p class="mt-2 text-on-surface-variant">{fromPath ? 'That order link is incomplete or has expired. ' : ''}Enter your order number and the email you used, and we'll email you a fresh link.</p>
+    <p class="mt-2 text-on-surface-variant">{fromPath ? 'That order link is incomplete or no longer valid. ' : ''}Enter your order number and the email you used, and we'll email you a new link (older links to the order stop working).</p>
     <form id="find-form" class="mt-8 flex flex-col gap-4" novalidate>
       <div>
         <label class="block text-sm font-bold mb-1" for="f-no">Order number</label>
@@ -24,6 +29,7 @@ const title = 'Find your order | HariLeaf';
         <label class="block text-sm font-bold mb-1" for="f-email">Email</label>
         <input id="f-email" name="email" type="email" required autocomplete="email" class="w-full rounded-xl border border-black/15 px-4 py-3" />
       </div>
+      {turnstileKey && <div class="cf-turnstile" data-sitekey={turnstileKey}></div>}
       <button class="rounded-full px-7 py-3 font-extrabold text-white self-start" style="background:linear-gradient(135deg,#196a5e,#2d7a4f)">Email me the link</button>
       <p id="find-status" role="status" aria-live="polite" class="font-bold"></p>
     </form>
@@ -39,9 +45,10 @@ const title = 'Find your order | HariLeaf';
     const btn = form.querySelector('button')!;
     btn.disabled = true;
     try {
-      const res = await fetch('/api/store/order/resend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderNo: String(fd.get('orderNo') ?? ''), email: String(fd.get('email') ?? '') }) });
+      const res = await fetch('/api/store/order/resend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderNo: String(fd.get('orderNo') ?? ''), email: String(fd.get('email') ?? ''), turnstileToken: fd.get('cf-turnstile-response') ? String(fd.get('cf-turnstile-response')) : null }) });
       const data = (await res.json().catch(() => ({}))) as { message?: string; error?: string };
       out.textContent = data.message ?? data.error ?? 'Something went wrong — please try again.';
+      (window as unknown as { turnstile?: { reset(): void } }).turnstile?.reset();
     } catch {
       out.textContent = 'Network error — please try again.';
     }

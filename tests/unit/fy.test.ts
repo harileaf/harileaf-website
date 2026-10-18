@@ -13,8 +13,8 @@ describe('fyOf (IST)', () => {
 
 describe('istParts', () => {
   it('shifts UTC to IST (+05:30)', () => {
-    expect(istParts(new Date('2026-10-31T18:30:00.000Z'))).toEqual({ year: 2026, month: 11, day: 1 });
-    expect(istParts(new Date('2026-10-31T18:29:59.000Z'))).toEqual({ year: 2026, month: 10, day: 31 });
+    expect(istParts(new Date('2026-10-31T18:30:00.000Z'))).toEqual({ year: 2026, month: 11, day: 1, hour: 0 });
+    expect(istParts(new Date('2026-10-31T18:29:59.000Z'))).toEqual({ year: 2026, month: 10, day: 31, hour: 23 });
   });
 });
 

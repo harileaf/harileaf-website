@@ -1,20 +1,24 @@
 /**
- * COD confirmation (setting `cod_confirmation`, default on). A cash-on-delivery
- * order ships only after the customer confirms it (button in the order email /
- * on the order page — a POST, so link scanners can't confirm) or an admin does
- * after a call. Unconfirmed orders get one reminder after 24 h and appear on
- * the dashboard; cancelling them stays a human decision.
+ * COD confirmation (setting `cod_confirmation`, default on). Decided per order
+ * at placement — orders placed while the setting is off are created confirmed —
+ * so toggling the setting never strands or re-blocks orders in flight. A
+ * cash-on-delivery order waiting for confirmation ships only after the customer
+ * confirms it (button on the order page, linked from the order email — a POST,
+ * so link scanners can't confirm) or an admin does after a call. Unconfirmed
+ * orders get one reminder after 24 h (sent in daytime IST) and appear on the
+ * dashboard; cancelling them stays a human decision.
  */
 import { nowIso } from './db';
 import { claimStmt, runClaim } from './ops';
 import { enqueueStmt } from './outbox';
 import type { OrderRow } from './orders';
-import type { StoreSettings } from './settings';
+import { istParts } from './fy';
 
 export const COD_REMINDER_AFTER_H = 24;
 
-export function needsCodConfirmation(o: Pick<OrderRow, 'payment_method' | 'total_paise' | 'status' | 'cod_confirmed_at'>, s: Pick<StoreSettings, 'cod_confirmation'>): boolean {
-  return s.cod_confirmation !== 'off' && o.payment_method === 'cod' && o.total_paise > 0 && o.status === 'placed' && !o.cod_confirmed_at;
+export function needsCodConfirmation(o: Pick<OrderRow, 'payment_method' | 'total_paise' | 'status' | 'cod_confirmed_at' | 'shiprocket_order_id'>): boolean {
+  // Already with the courier = confirmed in practice (never block its scans).
+  return o.payment_method === 'cod' && o.total_paise > 0 && o.status === 'placed' && !o.cod_confirmed_at && !o.shiprocket_order_id;
 }
 
 export async function confirmCod(
@@ -43,9 +47,10 @@ export async function confirmCod(
   return { ok: false, error: o?.status === 'cancelled' ? 'This order was cancelled' : 'This order no longer needs confirming' };
 }
 
-/** Cron: one reminder email per unconfirmed COD order, 24 h after placing it. */
-export async function remindUnconfirmedCod(db: D1Database, s: Pick<StoreSettings, 'cod_confirmation'>, now: Date): Promise<number> {
-  if (s.cod_confirmation === 'off') return 0;
+/** Cron: one reminder email per unconfirmed COD order, 24 h after placing it, between 09:00 and 20:00 IST. */
+export async function remindUnconfirmedCod(db: D1Database, now: Date): Promise<number> {
+  const { hour } = istParts(now);
+  if (hour < 9 || hour >= 20) return 0;
   const at = nowIso(now);
   const before = new Date(now.getTime() - COD_REMINDER_AFTER_H * 3600_000).toISOString();
   const res = await db

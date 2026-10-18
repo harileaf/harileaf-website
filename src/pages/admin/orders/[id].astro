@@ -6,7 +6,6 @@ import { validateSession } from '../../../lib/auth';
 import { idParam } from '../../../lib/admin-api';
 import { availableActions, orderDetail } from '../../../lib/store/admin-orders';
 import { needsCodConfirmation } from '../../../lib/store/cod';
-import { getSettings } from '../../../lib/store/settings';
 import { formatINR } from '../../../lib/store/money';
 import { safeHttpsUrl } from '../../../lib/store/urls';
 
@@ -15,7 +14,7 @@ const id = idParam(Astro.params.id);
 const d = authenticated && id ? await orderDetail(env.STORE_DB, id) : null;
 if (authenticated && !d) return Astro.rewrite('/404');
 const o = d?.order;
-const awaitingCod = o ? needsCodConfirmation(o, await getSettings(env.STORE_DB)) : false;
+const awaitingCod = o ? needsCodConfirmation(o) : false;
 const actions = o ? availableActions(o, { awaitingCodConfirmation: awaitingCod }) : [];
 const fmt = (iso: string) => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' });
 const tracking = safeHttpsUrl(o?.tracking_url);
@@ -85,6 +84,11 @@ const needs: Record<string, string[]> = { ship: ['awb', 'courier', 'trackingUrl'
           <p>{o.customer_name}<br />{o.phone} · {o.email}</p>
           <p style="margin-top:0.5rem;">{o.ship_line1}{o.ship_line2 && <><br />{o.ship_line2}</>}<br />{o.ship_city}, {o.ship_state} {o.ship_pincode}</p>
           {o.buyer_gstin && <p style="margin-top:0.5rem;">B2B: {o.buyer_legal_name} · GSTIN {o.buyer_gstin}</p>}
+          <p class="muted" style="margin-top:0.5rem;">Marketing emails: {o.marketing_opt_in ? 'opted in' : 'no'}</p>
+          <p style="margin-top:0.5rem;display:flex;gap:0.5rem;flex-wrap:wrap;">
+            {o.marketing_opt_in ? <button type="button" class="brand-btn" data-quick="marketing_opt_out" style="padding:0.3rem 0.8rem;">Stop marketing emails</button> : null}
+            <button type="button" class="brand-btn" data-quick="erase_personal_data" data-confirm="Erase this customer's personal data from this order? Only possible for orders that never became a sale." style="padding:0.3rem 0.8rem;background:#8a1c1c;">Erase personal data (DPDP request)</button>
+          </p>
         </section>
         <section class="box">
           <h2>Shipping & documents</h2>
@@ -197,7 +201,10 @@ const needs: Record<string, string[]> = { ship: ['awb', 'courier', 'trackingUrl'
   });
 
   document.querySelectorAll<HTMLButtonElement>('[data-quick]').forEach((b) =>
-    b.addEventListener('click', () => void send({ action: b.dataset.quick, taskId: b.dataset.task ? Number(b.dataset.task) : undefined })),
+    b.addEventListener('click', () => {
+      if (b.dataset.confirm && !confirm(b.dataset.confirm)) return;
+      void send({ action: b.dataset.quick, taskId: b.dataset.task ? Number(b.dataset.task) : undefined });
+    }),
   );
   const noteForm = document.getElementById('note-form') as HTMLFormElement | null;
   noteForm?.addEventListener('submit', (e) => {

@@ -56,7 +56,7 @@ export function codReminderEmail(o: OrderRow, viewUrl: string, s: StoreSettings)
 }
 
 export function orderLinkEmail(o: OrderRow, viewUrl: string, s: StoreSettings, rowId: number): Email {
-  const body = `<p>Hi ${first(o)}, here is the link to your order <strong>${esc(o.order_no)}</strong>. Keep this email — anyone with the link can see the order.</p>${button(viewUrl, 'View your order')}<p style="color:#666;font-size:12px">Didn't ask for this? You can ignore this email.</p>`;
+  const body = `<p>Hi ${first(o)}, here is the link to your order <strong>${esc(o.order_no)}</strong>. Keep this email — anyone with the link can see the order. Links sent to you earlier for this order no longer work.</p>${button(viewUrl, 'View your order')}<p style="color:#666;font-size:12px">Didn't ask for this? You can ignore this email.</p>`;
   return { to: o.email, subject: `Your link to order ${o.order_no} — HariLeaf`, html: wrap('Your order link', body, s), text: `Your order ${o.order_no}: ${viewUrl}`, idempotencyKey: `email.order_link/${o.order_no}/${rowId}`, replyTo: s.customer_care_email || undefined };
 }
 
@@ -78,9 +78,8 @@ export function makeFulfilmentEmailHandlers(fetchImpl?: typeof fetch): Record<st
     },
     'email.cod_reminder': async (_p, { env, row }) => {
       const o = await env.STORE_DB.prepare('SELECT * FROM orders WHERE id = ?').bind(row.order_id).first<OrderRow>();
-      const s = await getSettings(env.STORE_DB);
-      if (!o || !needsCodConfirmation(o, s)) return; // confirmed or cancelled meanwhile
-      await sendEmail(env, codReminderEmail(o, await orderViewUrl(env, o), s), fetchImpl);
+      if (!o || !needsCodConfirmation(o)) return; // confirmed or cancelled meanwhile
+      await sendEmail(env, codReminderEmail(o, await orderViewUrl(env, o), await getSettings(env.STORE_DB)), fetchImpl);
     },
   };
 }

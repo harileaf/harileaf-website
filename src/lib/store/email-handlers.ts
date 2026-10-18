@@ -13,9 +13,9 @@ async function load(env: Env, orderId: number | null) {
   return { order, items, settings: await getSettings(env.STORE_DB) };
 }
 
-export async function orderViewUrl(env: Env, order: Pick<OrderRow, 'order_no' | 'idempotency_key'>): Promise<string> {
+export async function orderViewUrl(env: Env, order: Pick<OrderRow, 'order_no' | 'idempotency_key' | 'view_token_rev'>): Promise<string> {
   if (!env.ORDER_TOKEN_SECRET || !order.idempotency_key) throw new Error('cannot build order link (ORDER_TOKEN_SECRET / idempotency key missing)');
-  const token = await viewTokenFor(env.ORDER_TOKEN_SECRET, order.idempotency_key);
+  const token = await viewTokenFor(env.ORDER_TOKEN_SECRET, order.idempotency_key, order.view_token_rev ?? 0);
   return absolute(`/order/${order.order_no}?t=${token}`);
 }
 

@@ -45,7 +45,7 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - name: Local secrets for the dev server
-        run: printf 'ORDER_TOKEN_SECRET=ci-only-%s\nADMIN_PASSPHRASE=ci-only-%s\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ID" > .dev.vars
+        run: printf 'ORDER_TOKEN_SECRET=ci-only-%s\n' "$GITHUB_RUN_ID" > .dev.vars
       - run: npm run test:e2e
         env:
           CI: 'true'

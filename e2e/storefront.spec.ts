@@ -10,6 +10,12 @@ test.beforeEach(({ page }) => {
 });
 test.afterEach(() => expect(cspViolations).toEqual([]));
 
+/** The current document came from a real navigation (not a view-transition swap) — so its own CSP header applies. */
+async function expectFullLoad(page: import('@playwright/test').Page) {
+  const nav = await page.evaluate(() => (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined)?.name ?? '');
+  expect(new URL(nav).pathname).toBe(new URL(page.url()).pathname);
+}
+
 test('a shopper buys rice with cash on delivery and can cancel before packing', async ({ page }) => {
   await page.goto('/shop/');
   await expect(page.getByRole('heading', { level: 1, name: 'Shop the farm' })).toBeVisible();
@@ -22,11 +28,14 @@ test('a shopper buys rice with cash on delivery and can cancel before packing', 
 
   await page.getByRole('radio', { name: /^5 kg/ }).check();
   await page.getByRole('button', { name: 'Add to cart' }).first().click();
-  await page.goto('/cart/');
+  // Click through (no page.goto): the cart and checkout must be full page loads so their CSP applies.
+  await page.getByRole('link', { name: /^Cart/ }).first().click();
+  await expect(page).toHaveURL(/\/cart\/?$/);
+  await expectFullLoad(page);
   await expect(page.locator('#cart-root')).toContainText('5 kg');
   await page.getByRole('link', { name: 'Proceed to checkout' }).click();
-  const csp = (await page.request.get('/checkout/')).headers()['content-security-policy'];
-  expect(csp).toContain('https://checkout.razorpay.com');
+  await expect(page).toHaveURL(/\/checkout\/?$/);
+  await expectFullLoad(page);
 
   await page.fill('#c-name', 'Asha Rao');
   await page.fill('#c-email', 'asha@example.com');
@@ -71,4 +80,39 @@ test('checkout shows field errors without placing an order', async ({ page }) =>
   await expect(page).toHaveURL(/\/checkout/);
   await expect(page.locator('#c-email')).toHaveAttribute('aria-invalid', 'true');
   await expect(page.locator('[data-err="contact.email"]')).not.toBeEmpty();
+});
+
+test('the cart blocks checkout below the minimum order', async ({ page }) => {
+  await page.goto('/rice/karjat-3');
+  await page.getByRole('radio', { name: /^1 kg/ }).check();
+  await page.getByRole('button', { name: 'Add to cart' }).first().click();
+  await page.goto('/cart/');
+  await expect(page.locator('#cart-root')).toContainText('to reach the minimum order of');
+  await expect(page.getByRole('link', { name: 'Proceed to checkout' })).toHaveAttribute('aria-disabled', 'true');
+});
+
+test('product pages hide reviews when there are none', async ({ page }) => {
+  await page.goto('/rice/karjat-3');
+  await expect(page.getByRole('heading', { name: /reviews/i })).toHaveCount(0);
+});
+
+test('keyboard only: choose a pack size and add it to the cart', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'keyboard flow is a desktop concern');
+  await page.goto('/rice/karjat-3');
+  await page.getByRole('radio', { name: /^1 kg/ }).focus();
+  await page.keyboard.press('ArrowRight'); // radiogroup: arrow keys move the selection
+  await expect(page.getByRole('radio', { name: /^5 kg/ })).toBeChecked();
+  await page.getByRole('button', { name: 'Add to cart' }).first().focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('link', { name: /^Cart/ }).first()).toContainText('1');
+});
+
+test('mobile shows the sticky add-to-cart bar', async ({ page, isMobile }) => {
+  test.skip(!isMobile, 'sticky bar is mobile only');
+  await page.goto('/rice/karjat-3');
+  await page.mouse.wheel(0, 1500);
+  const bar = page.locator('[data-sticky-bar]');
+  await expect(bar).toBeVisible();
+  await bar.locator('[data-add-sticky]').click();
+  await expect(page.getByRole('link', { name: /^Cart/ }).first()).toContainText('1');
 });

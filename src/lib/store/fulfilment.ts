@@ -83,7 +83,7 @@ export async function markPacked(db: D1Database, orderId: number, ctx: { now: Da
   const at = nowIso(ctx.now);
   const settings = await getSettings(db);
   const isReplacement = order.replacement_for_order_id !== null;
-  if (needsCodConfirmation(order, settings)) return FAIL('Confirm this COD order with the customer first');
+  if (needsCodConfirmation(order)) return FAIL('Confirm this COD order with the customer first');
   const missing = invoiceSettingsMissing(settings);
   if (missing.length) return FAIL(`Fill in Store settings before issuing invoices: ${missing.join(', ')}`);
   let invoice: D1PreparedStatement[] = [];

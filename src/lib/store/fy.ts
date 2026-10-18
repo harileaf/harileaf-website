@@ -11,9 +11,9 @@ const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
 
 export type DocSeries = 'INV' | 'CN';
 
-export function istParts(at: Date): { year: number; month: number; day: number } {
+export function istParts(at: Date): { year: number; month: number; day: number; hour: number } {
   const ist = new Date(at.getTime() + IST_OFFSET_MS);
-  return { year: ist.getUTCFullYear(), month: ist.getUTCMonth() + 1, day: ist.getUTCDate() };
+  return { year: ist.getUTCFullYear(), month: ist.getUTCMonth() + 1, day: ist.getUTCDate(), hour: ist.getUTCHours() };
 }
 
 /** "2627" for FY 2026-27. */

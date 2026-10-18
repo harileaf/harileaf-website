@@ -53,6 +53,15 @@ interface Props {
   <body class="bg-surface text-on-surface selection:bg-primary-container selection:text-on-primary-container">
     <slot />
 
+    <!-- Cart, checkout and order pages carry their own CSP, which only applies on a full page load:
+         never swap into or out of them with view transitions. -->
+    <script>
+      import { isStoreTransactionalPath } from '../lib/store/csp';
+      document.addEventListener('astro:before-preparation', (e) => {
+        if (isStoreTransactionalPath(e.from.pathname) || isStoreTransactionalPath(e.to.pathname)) e.preventDefault(); // Astro then does a full load
+      });
+    </script>
+
     <!-- Global scroll observer — fires .in-view on [data-animate] elements -->
     <script is:inline>
       (function () {

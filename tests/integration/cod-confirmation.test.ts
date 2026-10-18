@@ -21,12 +21,12 @@ beforeAll(async () => {
   await env.HARILEAF_CMS.put('shiprocket:token', 'tok');
 });
 
-async function codOrder() {
+async function codOrder(required = true) {
   const v = await insertVariant(await insertProduct(), { stock_qty: 5, price_paise: 69900, mrp_paise: 79900 });
   const co = validateCheckoutInput({ contact: { name: 'Asha Rao', email: 'asha@example.com', phone: '9820012345' }, ship: { line1: '12 Lake Road', city: 'Mumbai', stateCode: '27', pincode: '400092' }, paymentMethod: 'cod' });
   if (!co.ok) throw new Error('co');
   const quote = await quoteCart(db, [{ variantId: v, qty: 1 }], { today: T0, settings });
-  const r = await createOrder(db, { quote, checkout: co.value, idempotencyKey: `cod-${crypto.randomUUID()}`, sellerStateCode: '27', tokenSecret: SECRET, now: T0 });
+  const r = await createOrder(db, { quote, checkout: co.value, idempotencyKey: `cod-${crypto.randomUUID()}`, sellerStateCode: '27', tokenSecret: SECRET, now: T0, codConfirmationRequired: required });
   if (!r.ok) throw new Error(r.message);
   return r;
 }
@@ -35,6 +35,15 @@ const confirm = (orderNo: string, token: string) =>
 const row = (orderId: number, kind: string) => ({ env, row: { id: 1, order_id: orderId, kind, payload: {}, attempts: 1 } });
 
 describe('COD confirmation', () => {
+  it('is decided per order at placement, so toggling the setting never strands or re-blocks orders', async () => {
+    const off = await codOrder(false); // placed while the setting was off
+    expect(await scalar('SELECT cod_confirmed_at IS NOT NULL FROM orders WHERE id = ?', off.orderId)).toBe(1);
+    expect(await markPacked(db, off.orderId, { now: T0 })).toEqual({ ok: true });
+    const on = await codOrder(true);
+    await db.prepare('UPDATE orders SET shiprocket_order_id = ? WHERE id = ?').bind('SR1', on.orderId).run(); // already with the courier
+    expect(await markPacked(db, on.orderId, { now: T0 })).toEqual({ ok: true }); // courier scans are never blocked
+  });
+
   it('holds an unconfirmed COD order back from Shiprocket and packing', async () => {
     const o = await codOrder();
     let calls = 0;
@@ -71,12 +80,12 @@ describe('COD confirmation', () => {
     const o = await codOrder();
     const done = await codOrder();
     await confirm(done.orderNo, done.viewToken);
-    expect(await remindUnconfirmedCod(db, settings, hours(23))).toBe(0);
-    await remindUnconfirmedCod(db, settings, hours(25));
-    await remindUnconfirmedCod(db, settings, hours(30));
+    expect(await remindUnconfirmedCod(db, hours(23))).toBe(0);
+    expect(await remindUnconfirmedCod(db, hours(39))).toBe(0); // 03:00 IST: wait for daytime
+    await remindUnconfirmedCod(db, hours(25)); // 13:00 IST
+    await remindUnconfirmedCod(db, hours(30));
     expect(await scalar("SELECT count(*) FROM outbox WHERE order_id = ? AND kind = 'email.cod_reminder'", o.orderId)).toBe(1);
     expect(await scalar("SELECT count(*) FROM outbox WHERE order_id = ? AND kind = 'email.cod_reminder'", done.orderId)).toBe(0);
-    expect(await remindUnconfirmedCod(db, { cod_confirmation: 'off' }, hours(30))).toBe(0);
 
     const sent: string[] = [];
     const fake = (async (_u: string, init: RequestInit) => {

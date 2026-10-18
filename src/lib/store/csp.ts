@@ -5,7 +5,8 @@
  */
 export const STORE_CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://challenges.cloudflare.com",
+  // checkout.js also injects scripts from cdn.razorpay.com (risk detection).
+  "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://cdn.razorpay.com https://challenges.cloudflare.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com", // the build inlines small fonts as data: URIs
   "img-src 'self' data: https:",
@@ -13,7 +14,8 @@ export const STORE_CSP = [
   "frame-src https://*.razorpay.com https://challenges.cloudflare.com",
   "object-src 'none'",
   "base-uri 'self'",
-  "form-action 'self'",
+  // checkout.js's redirect flow (iOS, Android WebView, in-app browsers) submits a form to Razorpay.
+  "form-action 'self' https://*.razorpay.com",
   "frame-ancestors 'none'",
 ].join('; ');
 

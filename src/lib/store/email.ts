@@ -77,7 +77,7 @@ export function orderPlacedEmail(o: OrderRow, items: OrderItemRow[], viewUrl: st
       : o.payment_status === 'paid'
         ? `Paid online — ${formatINR(o.total_paise)}.`
         : `Payment of ${formatINR(o.total_paise)} received and being confirmed by your bank.`;
-  const confirm = needsCodConfirmation(o, settings);
+  const confirm = needsCodConfirmation(o);
   const confirmHtml = confirm
     ? `<div style="background:#fff4e0;border:1px solid #e8c37a;border-radius:10px;padding:12px 14px;margin:12px 0"><p style="margin:0 0 8px"><strong>One quick step:</strong> please confirm your cash-on-delivery order so we can ship it.</p><a href="${esc(viewUrl)}#confirm" style="display:inline-block;background:#196a5e;color:#fff;text-decoration:none;padding:10px 18px;border-radius:999px;font-weight:bold">Confirm my order</a></div>`
     : '';

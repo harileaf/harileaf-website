@@ -8,6 +8,8 @@ import react from '@astrojs/react';
 
 // https://astro.build/config
 export default defineConfig({
+  // The dev toolbar covers the mobile sticky bar in e2e runs (playwright.config sets E2E=1).
+  devToolbar: { enabled: process.env.E2E !== '1' },
   // output: 'server' keeps Keystatic admin UI alive (SSR) while marketing pages
   // are prerendered via `export const prerender = true` in each .astro file.
   // Data reading in prerendered pages uses direct JSON imports (not createReader)
