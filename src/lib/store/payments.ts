@@ -135,6 +135,32 @@ export async function lateCapture(db: D1Database, order: PayableOrder, payment: 
   return { result: 'ignored', why: 'late capture not allowed' };
 }
 
+/** Statements that release an order's held stock and mark it failed (shared by expiry and checkout aborts). */
+async function releaseStatements(db: D1Database, orderId: number, at: string, note: string): Promise<D1PreparedStatement[]> {
+  const { results: held } = await db
+    .prepare("SELECT id, variant_id, qty FROM stock_reservations WHERE order_id = ? AND state = 'held'")
+    .bind(orderId)
+    .all<{ id: number; variant_id: number; qty: number }>();
+  return [
+    // Give stock back only for reservations still held at this moment.
+    ...held.map((r) =>
+      db
+        .prepare("UPDATE variants SET stock_qty = stock_qty + ? WHERE id = ? AND EXISTS (SELECT 1 FROM stock_reservations WHERE id = ? AND state = 'held')")
+        .bind(r.qty, r.variant_id, r.id),
+    ),
+    db.prepare("UPDATE stock_reservations SET state = 'released' WHERE order_id = ? AND state = 'held'").bind(orderId),
+    db.prepare("UPDATE orders SET status = 'payment_failed', updated_at = ? WHERE id = ?").bind(at, orderId),
+    db.prepare("INSERT INTO order_events (order_id, at, type, actor, note) VALUES (?, ?, 'payment_failed', 'system', ?)").bind(orderId, at, note),
+  ];
+}
+
+/** Checkout couldn't start payment (Razorpay down): release the hold right away. */
+export async function abortPendingOrder(db: D1Database, orderId: number, now: Date, note: string): Promise<boolean> {
+  const at = nowIso(now);
+  const claim = claimStmt(db, orderId, 'expire', "SELECT status = 'pending_payment' FROM orders WHERE id = ?", [orderId], at);
+  return (await runClaim(db, claim, await releaseStatements(db, orderId, at, note))).ok;
+}
+
 /** Releases held stock of prepaid orders whose payment window passed. */
 export async function expireReservations(db: D1Database, now: Date, limit = 50): Promise<number> {
   const at = nowIso(now);
@@ -150,24 +176,8 @@ export async function expireReservations(db: D1Database, now: Date, limit = 50):
     .all<{ id: number }>();
   let expired = 0;
   for (const { id } of orders) {
-    const { results: held } = await db
-      .prepare("SELECT id, variant_id, qty FROM stock_reservations WHERE order_id = ? AND state = 'held'")
-      .bind(id)
-      .all<{ id: number; variant_id: number; qty: number }>();
     const claim = claimStmt(db, id, 'expire', "SELECT status = 'pending_payment' FROM orders WHERE id = ?", [id], at);
-    const res = await runClaim(db, claim, [
-      // Give stock back only for reservations still held at this moment.
-      ...held.map((r) =>
-        db
-          .prepare("UPDATE variants SET stock_qty = stock_qty + ? WHERE id = ? AND EXISTS (SELECT 1 FROM stock_reservations WHERE id = ? AND state = 'held')")
-          .bind(r.qty, r.variant_id, r.id),
-      ),
-      db.prepare("UPDATE stock_reservations SET state = 'released' WHERE order_id = ? AND state = 'held'").bind(id),
-      db.prepare("UPDATE orders SET status = 'payment_failed', updated_at = ? WHERE id = ?").bind(at, id),
-      db
-        .prepare("INSERT INTO order_events (order_id, at, type, actor, note) VALUES (?, ?, 'payment_failed', 'system', 'Payment window expired; stock released')")
-        .bind(id, at),
-    ]);
+    const res = await runClaim(db, claim, await releaseStatements(db, id, at, 'Payment window expired; stock released'));
     if (res.ok) expired += 1;
   }
   return expired;

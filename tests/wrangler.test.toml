@@ -19,3 +19,10 @@ id = "00000000000000000000000000000000"
 [[r2_buckets]]
 binding = "HARILEAF_MEDIA"
 bucket_name = "harileaf-media-test"
+
+# Test-only secrets for the checkout/webhook route tests (not real keys).
+[vars]
+ORDER_TOKEN_SECRET = "test-order-token-secret"
+RAZORPAY_KEY_ID = "rzp_test_key"
+RAZORPAY_KEY_SECRET = "rzp_test_secret"
+RAZORPAY_WEBHOOK_SECRET = "rzp_test_webhook_secret"

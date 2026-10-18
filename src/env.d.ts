@@ -28,6 +28,8 @@ interface Env {
   SHIPROCKET_WEBHOOK_TOKEN?: string;
   RESEND_API_KEY?: string;
   ORDER_TOKEN_SECRET?: string;
+  TURNSTILE_SECRET_KEY?: string;
+  PUBLIC_TURNSTILE_SITE_KEY?: string;
   CF_ZONE_ID?: string;
   CF_PURGE_API_TOKEN?: string;
 }
