@@ -1,0 +1,12 @@
+---
+export const prerender = true;
+import RecipeView from '../../components/store/RecipeView.astro';
+import { RECIPES, type Recipe } from '../../content/store/recipes';
+
+export function getStaticPaths() {
+  return RECIPES.map((recipe) => ({ params: { slug: recipe.slug }, props: { recipe } }));
+}
+const { recipe } = Astro.props as { recipe: Recipe };
+---
+
+<RecipeView recipe={recipe} />

@@ -1,0 +1,64 @@
+---
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import SEO from '../seo/SEO.astro';
+import type { Recipe } from '../../content/store/recipes';
+import { breadcrumbJsonLd, jsonLdString } from '../../lib/store/seo';
+import { absolute } from '../../lib/store/urls';
+
+interface Props { recipe: Recipe }
+const { recipe: r } = Astro.props;
+const path = `/recipes/${r.slug}/`;
+const iso = (m: number) => `PT${m}M`;
+const schema = {
+  '@context': 'https://schema.org',
+  '@type': 'Recipe',
+  name: r.title,
+  description: r.summary,
+  image: [absolute(r.image)],
+  author: { '@type': 'Organization', name: 'HariLeaf' },
+  prepTime: iso(r.prepMinutes),
+  cookTime: iso(r.cookMinutes),
+  totalTime: iso(r.prepMinutes + r.cookMinutes),
+  recipeYield: `${r.serves} serving${r.serves === 1 ? '' : 's'}`,
+  recipeCategory: r.category,
+  recipeCuisine: 'Indian',
+  recipeIngredient: r.ingredients,
+  recipeInstructions: r.steps.map((text, i) => ({ '@type': 'HowToStep', position: i + 1, text })),
+};
+const title = `${r.title} | HariLeaf recipes`;
+---
+
+<SiteLayout title={title} description={r.summary} ogImage={absolute(r.image)}>
+  <slot name="head" slot="head">
+    <SEO title={title} description={r.summary} canonicalUrl={absolute(path)} ogImage={absolute(r.image)} ogType="article" />
+    <script type="application/ld+json" is:inline set:html={jsonLdString(schema)} />
+    <script type="application/ld+json" is:inline set:html={jsonLdString(breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Recipes', path: '/recipes/' }, { name: r.title, path }]))} />
+  </slot>
+
+  <article class="max-w-3xl mx-auto px-6 pt-32 pb-24">
+    <nav aria-label="Breadcrumb" class="text-xs text-on-surface-variant mb-4"><a href="/recipes/" class="font-bold text-primary">Recipes</a> › {r.title}</nav>
+    <h1 class="text-4xl font-extrabold tracking-tight text-on-surface">{r.title}</h1>
+    <p class="mt-3 text-lg text-on-surface-variant">{r.summary}</p>
+    <p class="mt-4 text-sm text-on-surface-variant">Prep {r.prepMinutes} min · Cook {r.cookMinutes} min · Serves {r.serves}</p>
+    <img src={r.image} alt={r.imageAlt} width="1200" height="900" class="mt-8 rounded-3xl w-full aspect-[4/3] object-cover" />
+
+    <div class="mt-10 grid md:grid-cols-[1fr_1.4fr] gap-10">
+      <section aria-labelledby="ing">
+        <h2 id="ing" class="text-xl font-extrabold mb-3">Ingredients</h2>
+        <ul class="list-disc pl-5 flex flex-col gap-1.5 text-on-surface-variant">{r.ingredients.map((i) => <li>{i}</li>)}</ul>
+      </section>
+      <section aria-labelledby="method">
+        <h2 id="method" class="text-xl font-extrabold mb-3">Method</h2>
+        <ol class="list-decimal pl-5 flex flex-col gap-3 text-on-surface-variant leading-relaxed">{r.steps.map((s) => <li>{s}</li>)}</ol>
+        {r.tip && <p class="mt-5 rounded-2xl bg-surface-container-low p-4 text-sm"><strong>Tip:</strong> {r.tip}</p>}
+      </section>
+    </div>
+
+    <aside class="mt-12 rounded-3xl p-6 text-white" style="background:#0c110c;" aria-label="Products used">
+      <p class="text-xs uppercase tracking-widest font-extrabold mb-2" style="color:rgba(159,177,125,.85);">Made with</p>
+      <ul class="flex flex-wrap gap-3">
+        {r.uses.map((u) => <li><a href={u.path} class="inline-block rounded-full px-4 py-2 font-bold text-sm" style="background:rgba(139,212,198,.15);color:#8bd4c6;">{u.label} →</a></li>)}
+      </ul>
+    </aside>
+  </article>
+</SiteLayout>

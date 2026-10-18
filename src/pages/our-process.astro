@@ -1,0 +1,50 @@
+---
+export const prerender = true;
+import SiteLayout from '../layouts/SiteLayout.astro';
+import SEO from '../components/seo/SEO.astro';
+import { breadcrumbJsonLd, jsonLdString } from '../lib/store/seo';
+import { absolute } from '../lib/store/urls';
+
+const title = 'How we grow, mill and grind | HariLeaf';
+const description = 'How HariLeaf grows heritage rice and spices on its own farm, mills rice just enough to remove the husk, sun-dries and slowly stone-grinds spices, and dates every batch.';
+
+// Owner review: every statement here must match what the farm actually does
+// (claims policy). Product-specific claims live on each product with evidence.
+const steps = [
+  { title: 'Grown on our farm', body: 'Our rice and spices are grown on HariLeaf\'s own fields. We keep a record of what goes into each field for every season, so each batch can be traced back to where and how it was grown.' },
+  { title: 'Harvested by hand', body: 'Paddy and spice crops are harvested by hand when they are ready, rather than on a fixed machine schedule.' },
+  { title: 'Rice: milled just enough', body: 'Our rice is milled only to remove the husk. We don\'t polish it, so the bran and germ stay on the grain — which is why it is darker and nuttier than white rice and needs a short soak before cooking.' },
+  { title: 'Spices: sun-dried, then stone-ground slowly', body: 'Turmeric and chillies are dried whole in the sun, then ground slowly on stone in small lots. Slow grinding runs cooler than high-speed milling, which is how more of the aroma and colour stays in the powder.' },
+  { title: 'Every pack is batch-dated', body: 'Each pack carries a batch code and its packed-on date. The product page shows the batch currently being shipped, so you know how fresh it is before you buy.' },
+  { title: 'Lab reports, published', body: 'We send batches to an accredited laboratory and publish the report on the product page — what was tested, by which lab, and the results with units.' },
+  { title: 'Certification, shown honestly', body: 'Where a product has an organic certification or is under conversion, the product page names the scheme and certificate number. Where it doesn\'t, we don\'t use the word.' },
+];
+---
+
+<SiteLayout title={title} description={description}>
+  <slot name="head" slot="head">
+    <SEO title={title} description={description} canonicalUrl={absolute('/our-process/')} />
+    <script type="application/ld+json" is:inline set:html={jsonLdString(breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Our process', path: '/our-process/' }]))} />
+  </slot>
+  <section style="background:linear-gradient(135deg,#0e1a0e 0%,#1a2a1a 100%);" class="pt-36 pb-16 px-6 text-white">
+    <div class="max-w-4xl mx-auto">
+      <p class="text-xs uppercase tracking-widest font-extrabold" style="color:rgba(159,177,125,.9);">HariLeaf Farm</p>
+      <h1 class="text-5xl font-extrabold tracking-tighter mt-4">How we grow, mill and grind</h1>
+      <p class="mt-5 text-lg max-w-2xl" style="color:rgba(255,255,255,.6);">What happens between our fields and your kitchen — and what we show you about every batch.</p>
+    </div>
+  </section>
+  <section style="background:#0c110c;" class="py-16 px-6 text-white">
+    <ol class="max-w-4xl mx-auto flex flex-col gap-4">
+      {steps.map((s, i) => (
+        <li class="rounded-3xl p-7 border border-white/10 bg-white/[0.04] flex gap-5">
+          <span class="text-2xl font-extrabold" style="color:#8bd4c6;" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
+          <div><h2 class="text-xl font-extrabold">{s.title}</h2><p class="mt-2 leading-relaxed" style="color:rgba(240,240,238,.65);">{s.body}</p></div>
+        </li>
+      ))}
+    </ol>
+    <p class="max-w-4xl mx-auto mt-10 flex flex-wrap gap-3">
+      <a href="/shop/" class="rounded-full px-7 py-3.5 font-extrabold" style="background:linear-gradient(90deg,#196a5e,#7fc8ba);color:#00201b;">Shop the farm →</a>
+      <a href="/recipes/" class="rounded-full px-7 py-3.5 font-extrabold border border-white/20">Recipes</a>
+    </p>
+  </section>
+</SiteLayout>
