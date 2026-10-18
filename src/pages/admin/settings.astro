@@ -55,6 +55,14 @@ const groups: Array<{ title: string; note?: string; fields: Field[] }> = [
     ],
   },
   {
+    title: 'Shipping (Shiprocket)',
+    note: 'Used to check delivery to a pincode at checkout and to create shipments.',
+    fields: [
+      { key: 'pickup_pincode', label: 'Pickup pincode', hint: 'Where couriers collect from' },
+      { key: 'shiprocket_pickup_location', label: 'Shiprocket pickup location name', hint: 'Exactly as named in Shiprocket → Settings → Pickup addresses' },
+    ],
+  },
+  {
     title: 'Notifications',
     fields: [
       { key: 'notify_email', label: 'New-order email', type: 'email' },

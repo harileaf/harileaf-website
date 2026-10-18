@@ -83,7 +83,7 @@ describe('missingForLaunch', () => {
   it('lists the legal and contact fields that are still empty', () => {
     expect(missingForLaunch(SETTING_DEFAULTS)).toEqual([
       'legal_name', 'address', 'gstin', 'fssai_license', 'customer_care_phone', 'customer_care_email',
-      'grievance_officer_name', 'grievance_officer_email', 'grievance_officer_phone',
+      'grievance_officer_name', 'grievance_officer_email', 'grievance_officer_phone', 'pickup_pincode',
     ]);
   });
 });

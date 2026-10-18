@@ -144,7 +144,7 @@ export async function createOrder(
 // ── reads ─────────────────────────────────────────────────────────────────
 
 export interface OrderRow {
-  id: number; order_no: string; view_token_hash: string; status: string; payment_method: 'razorpay' | 'cod'; payment_status: string;
+  id: number; order_no: string; view_token_hash: string; idempotency_key: string | null; status: string; payment_method: 'razorpay' | 'cod'; payment_status: string;
   customer_name: string; email: string; phone: string; marketing_opt_in: number;
   ship_line1: string; ship_line2: string | null; ship_city: string; ship_state: string; ship_state_code: string; ship_pincode: string;
   bill_same_as_ship: number; bill_name: string | null; bill_line1: string | null; bill_line2: string | null; bill_city: string | null;

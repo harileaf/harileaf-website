@@ -9,6 +9,7 @@ export const SETTING_KEYS = [
   'customer_care_phone', 'customer_care_email',
   'grievance_officer_name', 'grievance_officer_email', 'grievance_officer_phone',
   'min_order_paise', 'cod_max_order_paise', 'notify_email', 'low_stock_email',
+  'pickup_pincode', 'shiprocket_pickup_location',
 ] as const;
 export type SettingKey = (typeof SETTING_KEYS)[number];
 export type StoreSettings = Record<SettingKey, string>;
@@ -29,12 +30,15 @@ export const SETTING_DEFAULTS: StoreSettings = {
   cod_max_order_paise: '300000',
   notify_email: '',
   low_stock_email: '',
+  pickup_pincode: '',
+  shiprocket_pickup_location: '',
 };
 
 /** Required before Razorpay KYC / launch (E-Commerce Rules, Legal Metrology, FSSAI). */
 const LAUNCH_REQUIRED: SettingKey[] = [
   'legal_name', 'address', 'gstin', 'fssai_license', 'customer_care_phone', 'customer_care_email',
   'grievance_officer_name', 'grievance_officer_email', 'grievance_officer_phone',
+  'pickup_pincode',
 ];
 
 const GSTIN_CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -110,6 +114,7 @@ export function validateSettings(input: Record<string, unknown>, current: StoreS
     if (value[k] && !EMAIL.test(value[k])) fail(k, 'Not a valid email address');
   }
 
+  if (value.pickup_pincode && !/^[1-9]\d{5}$/.test(value.pickup_pincode)) fail('pickup_pincode', 'Enter the 6-digit pincode you ship from');
   if (!/^\d+$/.test(value.min_order_paise)) fail('min_order_paise', 'Enter an amount in rupees');
   if (!/^\d+$/.test(value.cod_max_order_paise) || Number(value.cod_max_order_paise) <= 0)
     fail('cod_max_order_paise', 'Enter a positive amount');
