@@ -140,6 +140,8 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
   const pinStatus = document.getElementById('pin-status')!;
   let quote: Quote | null = null;
   let pinCod: boolean | null = null;
+  let pinBlocked = false; // the courier confirmed it can't deliver to this pincode
+  const updatePlaceButton = () => (placeBtn.disabled = !quote?.ok || pinBlocked);
   let forceNewKey = false;
 
   // Turnstile tokens are single-use: reset after every attempt.
@@ -180,7 +182,7 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
     );
     document.getElementById('summary-total')!.textContent = formatINR(q.total);
     updateCod();
-    placeBtn.disabled = !q.ok;
+    updatePlaceButton();
     if (!q.ok) showAlert(!q.lines.length ? 'Your cart is empty.' : !q.meetsMinimum ? `The minimum order is ${formatINR(q.minOrder)}.` : 'Some items changed — please review your cart.');
   }
 
@@ -208,6 +210,8 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
     const v = pin.value.replace(/\D/g, '');
     pin.value = v;
     pinCod = null;
+    pinBlocked = false;
+    updatePlaceButton();
     if (v.length !== 6) {
       pinStatus.textContent = '';
       updateCod();
@@ -225,7 +229,9 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
     else pinStatus.textContent = `✓ Delivers${d.etaDays ? ` in about ${d.etaDays} day${d.etaDays === 1 ? '' : 's'}` : ''}${d.cod ? ' · COD available' : ''}`;
     pinStatus.style.color = d.checked && !d.serviceable ? '#b3261e' : '#1d7a3a';
     pinCod = d.checked ? Boolean(d.cod) : null;
+    pinBlocked = d.checked && !d.serviceable;
     updateCod();
+    updatePlaceButton();
   });
 
   document.getElementById('bill-same')!.addEventListener('change', (e) => {
@@ -275,12 +281,18 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
     placeBtn.disabled = true;
     placeBtn.textContent = 'Placing order…';
     try {
-      const res = await fetch('/api/store/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey(forceNewKey) },
-        body: JSON.stringify(payload()),
-      });
-      const data = (await res.json().catch(() => ({}))) as { error?: string; code?: string; errors?: Record<string, string>; quote?: Quote; orderNo?: string; viewUrl?: string; payment?: Record<string, unknown> | null };
+      type Reply = { error?: string; code?: string; errors?: Record<string, string>; quote?: Quote; orderNo?: string; viewUrl?: string; payment?: Record<string, unknown> | null };
+      const key = idempotencyKey(forceNewKey);
+      const body = JSON.stringify(payload());
+      let res: Response;
+      let data: Reply;
+      // A duplicate submit can arrive while the first is still starting the Razorpay order (409 in_progress): wait and ask again.
+      for (let attempt = 0; ; attempt++) {
+        res = await fetch('/api/store/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': key }, body });
+        data = (await res.json().catch(() => ({}))) as Reply;
+        if (!(res.status === 409 && data.code === 'in_progress') || attempt >= 4) break;
+        await new Promise((r) => setTimeout(r, 1500));
+      }
       forceNewKey = false;
       if (!res.ok) {
         resetTurnstile();
@@ -313,7 +325,7 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
       showAlert(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
     } finally {
       placeBtn.textContent = 'Place order';
-      placeBtn.disabled = !quote?.ok;
+      updatePlaceButton();
     }
   });
 

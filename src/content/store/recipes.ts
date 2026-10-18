@@ -11,6 +11,8 @@ export interface Recipe {
   prepMinutes: number;
   cookMinutes: number;
   serves: number;
+  /** ISO date first published (Recipe structured data). */
+  published: string;
   category: 'Main course' | 'Drink' | 'Breakfast';
   ingredients: string[];
   steps: string[];
@@ -21,6 +23,7 @@ export interface Recipe {
 export const RECIPES: Recipe[] = [
   {
     slug: 'konkan-masoor-khichdi',
+    published: '2026-10-18',
     title: 'Konkan-style masoor khichdi with Karjat 3 rice',
     summary: 'A one-pot khichdi of unpolished short-grain rice and whole masoor, tempered with cumin, garlic and a pinch of turmeric.',
     image: '/images/placeholders/rice-karjat.jpg',
@@ -56,6 +59,7 @@ export const RECIPES: Recipe[] = [
   },
   {
     slug: 'red-rice-pulao',
+    published: '2026-10-18',
     title: 'Red rice vegetable pulao',
     summary: 'Nutty unpolished red rice cooked with whole spices and seasonal vegetables — a hearty one-pot meal.',
     image: '/images/placeholders/rice-red.jpg',
@@ -88,6 +92,7 @@ export const RECIPES: Recipe[] = [
   },
   {
     slug: 'haldi-doodh',
+    published: '2026-10-18',
     title: 'Haldi doodh (turmeric milk)',
     summary: 'Warm milk with stone-ground turmeric, a pinch of pepper and jaggery — a classic Indian bedtime drink.',
     image: '/images/placeholders/spice-turmeric.jpg',

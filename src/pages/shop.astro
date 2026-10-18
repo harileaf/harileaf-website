@@ -72,37 +72,42 @@ const description = 'Buy HariLeaf heritage rice and stone-ground spices direct f
 </style>
 
 <script>
-  const root = document.querySelector('[data-filters]');
-  if (root) {
-    let cat = '';
-    const claims = new Set<string>();
-    const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-product-card]'));
-    const count = document.querySelector<HTMLElement>('[data-filter-count]');
-    const apply = () => {
-      let shown = 0;
-      for (const card of cards) {
-        const codes = (card.dataset.claims ?? '').split(' ');
-        const ok = (!cat || card.dataset.category === cat) && [...claims].every((c) => codes.includes(c));
-        (card.closest('li') ?? card).toggleAttribute('hidden', !ok);
-        if (ok) shown += 1;
-      }
-      if (count) count.textContent = `${shown} product${shown === 1 ? '' : 's'}`;
-    };
-    root.querySelectorAll<HTMLButtonElement>('[data-filter-cat]').forEach((b) =>
-      b.addEventListener('click', () => {
-        cat = b.dataset.filterCat ?? '';
-        root.querySelectorAll('[data-filter-cat]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-        apply();
-      }),
-    );
-    root.querySelectorAll<HTMLButtonElement>('[data-filter-claim]').forEach((b) =>
-      b.addEventListener('click', () => {
-        const code = b.dataset.filterClaim ?? '';
-        if (claims.has(code)) claims.delete(code);
-        else claims.add(code);
-        b.setAttribute('aria-pressed', String(claims.has(code)));
-        apply();
-      }),
-    );
-  }
+  import { onEveryPage } from '../scripts/page-load';
+
+  // Re-run after view-transition navigations (bundled scripts execute once).
+  onEveryPage(() => {
+    const root = document.querySelector('[data-filters]');
+    if (root) {
+      let cat = '';
+      const claims = new Set<string>();
+      const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-product-card]'));
+      const count = document.querySelector<HTMLElement>('[data-filter-count]');
+      const apply = () => {
+        let shown = 0;
+        for (const card of cards) {
+          const codes = (card.dataset.claims ?? '').split(' ');
+          const ok = (!cat || card.dataset.category === cat) && [...claims].every((c) => codes.includes(c));
+          (card.closest('li') ?? card).toggleAttribute('hidden', !ok);
+          if (ok) shown += 1;
+        }
+        if (count) count.textContent = `${shown} product${shown === 1 ? '' : 's'}`;
+      };
+      root.querySelectorAll<HTMLButtonElement>('[data-filter-cat]').forEach((b) =>
+        b.addEventListener('click', () => {
+          cat = b.dataset.filterCat ?? '';
+          root.querySelectorAll('[data-filter-cat]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          apply();
+        }),
+      );
+      root.querySelectorAll<HTMLButtonElement>('[data-filter-claim]').forEach((b) =>
+        b.addEventListener('click', () => {
+          const code = b.dataset.filterClaim ?? '';
+          if (claims.has(code)) claims.delete(code);
+          else claims.add(code);
+          b.setAttribute('aria-pressed', String(claims.has(code)));
+          apply();
+        }),
+      );
+    }
+  });
 </script>

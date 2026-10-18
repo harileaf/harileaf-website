@@ -151,6 +151,7 @@ const fmtDate = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateS
 </style>
 
 <script>
+  import { onEveryPage } from '../../scripts/page-load';
   import { initBuyBox } from '../../scripts/store/buybox';
-  initBuyBox();
+  onEveryPage(initBuyBox); // also after view-transition navigations
 </script>

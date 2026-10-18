@@ -113,10 +113,9 @@ const paymentLine =
   import { payForOrder } from '../../scripts/store/razorpay-checkout';
 
   // Keep the view token out of the address bar (and away from third-party scripts / screenshots).
-  const tokenedUrl = location.href;
-  if (new URLSearchParams(location.search).has('t')) history.replaceState(null, '', location.pathname);
-  // A plain reload would drop the token (and 404): reload the tokened URL instead.
-  const reloadOrder = () => location.replace(tokenedUrl);
+  // The ?t= token stays in the address bar so refresh, bookmarks and Back keep working; the page
+  // is no-referrer, noindex and no-store, so the link isn't leaked to other sites or caches.
+  const reloadOrder = () => location.reload();
 
   const cancelBtn = document.getElementById('cancel-order') as HTMLButtonElement | null;
   cancelBtn?.addEventListener('click', async () => {

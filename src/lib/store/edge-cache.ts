@@ -33,7 +33,7 @@ export function isEdgeCacheable(pathname: string): boolean {
 }
 
 /** Query parameters that never change the server-rendered HTML. */
-const IGNORED_PARAM = /^(v|utm_[a-z_]+|gclid|gbraid|wbraid|fbclid|msclkid|gad_source|srsltid|ref)$/i;
+const IGNORED_PARAM = /^(v|utm_[a-z_]+|gclid|gbraid|wbraid|dclid|fbclid|igshid|ttclid|twclid|li_fat_id|msclkid|yclid|mc_[a-z]+|_ga|_gl|gad_source|srsltid|ref)$/i;
 
 export function onlyIgnorableParams(url: URL): boolean {
   for (const key of url.searchParams.keys()) if (!IGNORED_PARAM.test(key)) return false;
@@ -44,8 +44,11 @@ export function cacheKeyUrl(url: URL): string {
   return `${url.protocol}//${url.host}${normalisePath(url.pathname)}`;
 }
 
+/** 200 pages, plus 301s (replaced products) and 410s (discontinued) that crawlers keep requesting. */
+const CACHEABLE_STATUS = new Set([200, 301, 410]);
+
 export function shouldStore(res: Response): boolean {
-  if (res.status !== 200) return false;
+  if (!CACHEABLE_STATUS.has(res.status)) return false;
   if (res.headers.has('Set-Cookie')) return false;
   const cc = res.headers.get('Cache-Control') ?? '';
   return /s-maxage=\d+/.test(cc) && !/no-store|private/.test(cc);

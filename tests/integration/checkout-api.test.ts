@@ -72,6 +72,18 @@ describe('checkout API', () => {
     expect(b.body.viewUrl).toBe(a.body.viewUrl);
   });
 
+  it('asks a duplicate submit to retry while the first is still starting the Razorpay order', async () => {
+    const v = await insertVariant(await insertProduct(), { stock_qty: 5 });
+    const key = crypto.randomUUID();
+    stubRazorpay(() => ({}));
+    const first = await call(checkout, post('/api/store/checkout', form([{ variantId: v, qty: 1 }], 'razorpay'), { 'Idempotency-Key': key }));
+    expect(first.status).toBe(201);
+    // Simulate the window before the Razorpay order id is stored.
+    await db.prepare('UPDATE orders SET razorpay_order_id = NULL WHERE order_no = ?').bind(first.body.orderNo).run();
+    const dup = await call(checkout, post('/api/store/checkout', form([{ variantId: v, qty: 1 }], 'razorpay'), { 'Idempotency-Key': key }));
+    expect(dup).toMatchObject({ status: 409, body: { code: 'in_progress' } });
+  });
+
   it('refuses to reuse a key for a different cart or email', async () => {
     const v = await insertVariant(await insertProduct(), { stock_qty: 5 });
     const key = crypto.randomUUID();
