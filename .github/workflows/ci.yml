@@ -26,5 +26,8 @@ jobs:
       - name: Astro type-check
         run: npx astro check
 
+      - name: Store tests (Vitest in workerd + local D1)
+        run: npm test
+
       - name: Build
         run: npm run build

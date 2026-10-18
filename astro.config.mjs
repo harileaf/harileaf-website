@@ -17,13 +17,11 @@ export default defineConfig({
   // native session API. Explicitly setting a driver stops the Cloudflare adapter
   // from auto-provisioning a `SESSION` KV binding we don't need.
   session: {
-    driver: sessionDrivers.memory(),
+    driver: sessionDrivers.lruCache(),
   },
-  adapter: cloudflare({
-    platformProxy: {
-      enabled: true,
-    },
-  }),
+  // Adapter 13 reads bindings from wrangler.toml via @cloudflare/vite-plugin in
+  // dev, so the old `platformProxy` option is gone.
+  adapter: cloudflare(),
   site: 'https://harileaf.org',
   integrations: [
     react(),
