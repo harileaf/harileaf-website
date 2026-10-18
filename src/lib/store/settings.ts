@@ -1,0 +1,135 @@
+/**
+ * Store settings (seller identity, grievance officer, order limits), stored as
+ * key/value rows in D1 and edited at /admin/settings. Values are strings;
+ * paise amounts are integer strings.
+ */
+
+export const SETTING_KEYS = [
+  'gstin', 'legal_name', 'trade_name', 'address', 'state_code', 'fssai_license',
+  'customer_care_phone', 'customer_care_email',
+  'grievance_officer_name', 'grievance_officer_email', 'grievance_officer_phone',
+  'min_order_paise', 'cod_max_order_paise', 'notify_email', 'low_stock_email',
+] as const;
+export type SettingKey = (typeof SETTING_KEYS)[number];
+export type StoreSettings = Record<SettingKey, string>;
+
+export const SETTING_DEFAULTS: StoreSettings = {
+  gstin: '',
+  legal_name: '',
+  trade_name: 'HariLeaf',
+  address: '',
+  state_code: '27', // Maharashtra
+  fssai_license: '',
+  customer_care_phone: '',
+  customer_care_email: '',
+  grievance_officer_name: '',
+  grievance_officer_email: '',
+  grievance_officer_phone: '',
+  min_order_paise: '49900', // placeholder until courier rate cards are in (spec)
+  cod_max_order_paise: '300000',
+  notify_email: '',
+  low_stock_email: '',
+};
+
+/** Required before Razorpay KYC / launch (E-Commerce Rules, Legal Metrology, FSSAI). */
+const LAUNCH_REQUIRED: SettingKey[] = [
+  'legal_name', 'address', 'gstin', 'fssai_license', 'customer_care_phone', 'customer_care_email',
+  'grievance_officer_name', 'grievance_officer_email', 'grievance_officer_phone',
+];
+
+const GSTIN_CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+/** 15-character GSTIN with the mod-36 check character. */
+export function isValidGstin(g: string): boolean {
+  if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(g)) return false;
+  let sum = 0;
+  for (let i = 0; i < 14; i++) {
+    const product = GSTIN_CHARS.indexOf(g[i]) * (i % 2 === 0 ? 1 : 2);
+    sum += Math.floor(product / 36) + (product % 36);
+  }
+  return GSTIN_CHARS[(36 - (sum % 36)) % 36] === g[14];
+}
+
+/** Indian phone → 10-digit mobile or 11-digit landline with STD code; null if invalid. */
+function normalisePhone(raw: string): string | null {
+  let d = raw.replace(/\D/g, '');
+  if (d.length === 12 && d.startsWith('91')) d = d.slice(2);
+  if (/^[6-9]\d{9}$/.test(d)) return d;
+  if (/^0\d{10}$/.test(d)) return d;
+  return null;
+}
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_KEYS: SettingKey[] = ['customer_care_email', 'grievance_officer_email', 'notify_email', 'low_stock_email'];
+const PHONE_KEYS: SettingKey[] = ['customer_care_phone', 'grievance_officer_phone'];
+
+export type SettingsValidation =
+  | { ok: true; value: StoreSettings }
+  | { ok: false; errors: Record<string, string> };
+
+/** Validates `input` merged over `current`, so cross-field rules see the final values. */
+export function validateSettings(input: Record<string, unknown>, current: StoreSettings): SettingsValidation {
+  const errors: Record<string, string> = {};
+  const value: StoreSettings = { ...current };
+
+  for (const [key, raw] of Object.entries(input)) {
+    if (!(SETTING_KEYS as readonly string[]).includes(key)) {
+      errors[key] = 'Unknown setting';
+      continue;
+    }
+    if (typeof raw !== 'string') {
+      errors[key] = 'Must be text';
+      continue;
+    }
+    value[key as SettingKey] = raw.trim();
+  }
+
+  const set = (k: SettingKey, v: string) => (value[k] = v);
+  const fail = (k: SettingKey, msg: string) => (errors[k] ??= msg);
+
+  for (const k of SETTING_KEYS) if (value[k].length > 500) fail(k, 'Too long (max 500 characters)');
+
+  set('gstin', value.gstin.toUpperCase());
+  if (value.gstin && !isValidGstin(value.gstin)) fail('gstin', 'Not a valid GSTIN (check the 15 characters)');
+
+  if (!/^(0[1-9]|[12][0-9]|3[0-8])$/.test(value.state_code)) fail('state_code', 'Use the 2-digit GST state code, e.g. 27');
+  if (value.gstin && !errors.gstin && !errors.state_code && value.gstin.slice(0, 2) !== value.state_code)
+    fail('gstin', `GSTIN starts with ${value.gstin.slice(0, 2)} but the state code is ${value.state_code}`);
+
+  if (value.fssai_license && !/^\d{14}$/.test(value.fssai_license)) fail('fssai_license', 'FSSAI licence numbers have 14 digits');
+
+  for (const k of PHONE_KEYS) {
+    if (!value[k]) continue;
+    const p = normalisePhone(value[k]);
+    if (p) set(k, p);
+    else fail(k, 'Use a 10-digit mobile or an STD landline number');
+  }
+
+  for (const k of EMAIL_KEYS) {
+    set(k, value[k].toLowerCase());
+    if (value[k] && !EMAIL.test(value[k])) fail(k, 'Not a valid email address');
+  }
+
+  if (!/^\d+$/.test(value.min_order_paise)) fail('min_order_paise', 'Enter whole rupees');
+  if (!/^\d+$/.test(value.cod_max_order_paise) || Number(value.cod_max_order_paise) <= 0)
+    fail('cod_max_order_paise', 'Enter a positive amount');
+
+  return Object.keys(errors).length ? { ok: false, errors } : { ok: true, value };
+}
+
+export function missingForLaunch(s: StoreSettings): SettingKey[] {
+  return LAUNCH_REQUIRED.filter((k) => !s[k]);
+}
+
+export async function getSettings(db: D1Database): Promise<StoreSettings> {
+  const { results } = await db.prepare('SELECT key, value FROM settings').all<{ key: string; value: string }>();
+  const out: StoreSettings = { ...SETTING_DEFAULTS };
+  for (const { key, value } of results)
+    if ((SETTING_KEYS as readonly string[]).includes(key)) out[key as SettingKey] = value;
+  return out;
+}
+
+export async function putSettings(db: D1Database, value: StoreSettings): Promise<void> {
+  const stmt = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
+  await db.batch(SETTING_KEYS.map((k) => stmt.bind(k, value[k])));
+}
