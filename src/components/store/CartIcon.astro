@@ -21,10 +21,11 @@
 </a>
 
 <script>
-  import { onCartChange } from '../../scripts/store/cart';
-  import { itemCount } from '../../lib/store/cart-lines';
+  import { onEveryPage } from '../../scripts/page-load';
+  import { onCartChange, readCart } from '../../scripts/store/cart';
+  import { itemCount, type CartLine } from '../../lib/store/cart-lines';
 
-  onCartChange((lines) => {
+  function updateBadges(lines: CartLine[]) {
     const n = itemCount(lines);
     document.querySelectorAll<HTMLElement>('[data-cart-link]').forEach((link) => {
       const badge = link.querySelector<HTMLElement>('[data-cart-count]');
@@ -36,5 +37,7 @@
       }
       if (live) live.textContent = n ? `${n} item${n === 1 ? '' : 's'} in cart` : '';
     });
-  });
+  }
+  onCartChange(updateBadges); // global listeners, registered once; they query the current DOM
+  onEveryPage(() => updateBadges(readCart())); // a view transition swaps in a fresh, empty badge
 </script>

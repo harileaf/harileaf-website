@@ -5,6 +5,7 @@ import ProductEditor, { type EditorProduct, type EditorVariant } from '../../../
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { validateSession } from '../../../lib/auth';
 import { getProductForAdmin, listProductsForAdmin, shelfLifeWarning } from '../../../lib/store/catalog-admin';
+import { editorMedia } from '../../../lib/store/editor-media';
 import { mediaUrl } from '../../../lib/store/urls';
 
 const authenticated = await validateSession(env.HARILEAF_CMS, Astro.cookies);
@@ -50,9 +51,7 @@ if (authenticated) {
           mrpPaise: v.mrp_paise, weightG: v.weight_g, lengthCm: v.length_cm, breadthCm: v.breadth_cm, heightCm: v.height_cm,
           stockAdjust: 0, currentStock: v.stock_qty, lowStockThreshold: v.low_stock_threshold, active: v.active === 1, sort: v.sort,
         })),
-        images: a.images.map((i) => ({ id: i.id, url: mediaUrl(i.r2_key), alt: i.alt, sort: i.sort })),
-        batches: a.batches.map((b) => ({ id: b.id, batchCode: b.batch_code, packedOn: b.packed_on, groundOrMilledOn: b.ground_or_milled_on, labReportId: b.lab_report_id, active: b.active === 1 })),
-        labReports: a.labReports.map((l) => ({ id: l.id, batchCode: l.batch_code, testedOn: l.tested_on, labName: l.lab_name, visible: l.visible === 1, pdfUrl: l.pdf_r2_key ? mediaUrl(l.pdf_r2_key) : null })),
+        ...editorMedia(a),
         certUrl: a.certKey ? mediaUrl(a.certKey) : null,
         publishedAt: a.publishedAt,
         others,
