@@ -2,6 +2,13 @@ name = "harileaf"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
+# Custom entry: Astro's fetch handler + scheduled() for store cron jobs.
+main = "src/worker.ts"
+
+# Only serve on the custom domains below. A *.workers.dev URL would bypass the
+# Cloudflare Access policy that protects /admin on harileaf.org.
+workers_dev = false
+
 routes = [
   { pattern = "harileaf.org", custom_domain = true },
   { pattern = "www.harileaf.org", custom_domain = true }
@@ -24,3 +31,7 @@ database_name = "harileaf-store"
 # Replace after `npx wrangler d1 create harileaf-store` (see README "Store development").
 database_id = "00000000-0000-0000-0000-000000000000"
 migrations_dir = "migrations"
+
+[triggers]
+# Outbox drain (and, from M3, reservation expiry + payment reconciliation).
+crons = ["*/5 * * * *"]
