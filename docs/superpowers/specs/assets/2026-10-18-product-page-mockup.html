@@ -366,24 +366,34 @@
       <div>
         <span class="chip">Everyday · Bold grain</span>
         <h1 style="font-size:34px;font-weight:800;letter-spacing:-.03em;margin:10px 0 6px">Karjat 3 Unpolished Rice</h1>
-        <p style="color:var(--muted);font-size:15px;line-height:1.6">Hearty short-grain rice, grown organically and milled gently — the fiber and minerals stay in the grain.</p>
-        <div style="font-size:14px;margin-top:8px"><span class="stars">★★★★★</span> <b>4.8</b> <a style="color:var(--primary);font-weight:700">· 37 reviews</a></div>
+        <p style="color:var(--muted);font-size:15px;line-height:1.6">Hearty short-grain rice, grown without synthetic pesticides or fertilisers and milled just enough to remove the husk, so the bran and germ stay on the grain.</p>
+        <!-- Proof line: packed-on date + batch + lab badge (lab badge only when a visible lab report exists) -->
+        <div class="tiny" style="margin-top:8px"><b style="color:var(--ink)">Packed 12 Oct 2026</b> · Batch KJ-2610 · <b style="color:#1d7a3a">✓ Lab tested</b></div>
+        <!-- Rating line renders only when ≥1 approved review exists; launch-day state has no rating line -->
+        <div style="font-size:14px;margin-top:6px"><span class="stars">★★★★★</span> <b>4.8</b> <a style="color:var(--primary);font-weight:700">· 37 reviews</a></div>
         <div style="margin:14px 0 2px"><span class="price">₹699</span><span class="mrp">₹799</span><span class="off">12% off</span></div>
-        <div class="tiny">Inclusive of all taxes · <b>Free shipping across India</b></div>
-        <div class="opts">
-          <div class="opt">1 kg<small>₹149</small></div>
-          <div class="opt sel">5 kg<small>₹140/kg</small></div>
-          <div class="opt">10 kg<small>₹135/kg</small></div>
+        <div class="tiny">MRP inclusive of all taxes · ₹140/kg · <b>Free shipping</b> · Minimum order ₹499</div>
+        <!-- Variants: a radiogroup; every chip shows pack price + unit price -->
+        <div class="opts" role="radiogroup" aria-label="Pack size">
+          <div class="opt" role="radio" aria-checked="false" tabindex="-1">1 kg<small>₹149 · ₹149/kg</small></div>
+          <div class="opt sel" role="radio" aria-checked="true" tabindex="0">5 kg<small>₹699 · ₹140/kg</small></div>
+          <div class="opt" role="radio" aria-checked="false" tabindex="-1">10 kg<small>₹1,349 · ₹135/kg</small></div>
         </div>
         <div style="display:flex;gap:10px;align-items:center"><div class="qty"><span>−</span><span>1</span><span>+</span></div><button class="btn" style="flex:1">Add to cart</button></div>
-        <div class="pin"><input value="400092"><button>Check</button></div>
+        <div class="pin"><input value="400092" aria-label="Delivery pincode"><button>Check</button></div>
         <div class="ok">✓ Delivers to Borivali, Mumbai by Thu 22 Oct · COD available</div>
+        <div class="tiny" style="margin-top:4px">Damaged or wrong item? Replacement or refund — see refund policy.</div>
         <div class="trust">
-          <div><b>🌱 Organic</b>No chemical inputs</div>
           <div><b>🌾 Unpolished</b>Bran &amp; germ kept</div>
-          <div><b>🚚 Free delivery</b>All India</div>
-          <div><b>💵 COD</b>Pay on delivery</div>
+          <div><b>🌱 No synthetic sprays</b>Or fertilisers</div>
+          <div><b>🚚 Free delivery</b>Orders over ₹499</div>
+          <div><b>💵 COD</b>Orders up to ₹3,000</div>
         </div>
+        <!-- Organic certification line: shown only when products.organic_scheme is set, e.g. "Under conversion to organic (PGS-India Green)". Not shown here. -->
+        <details style="margin-top:14px;background:var(--s-low)"><summary style="font-weight:800;font-size:14px">Product information</summary>
+          <p>Net quantity: 5 kg · Best before: 9 months from packing · Storage: cool, dry, airtight · Country of origin: India<br>
+          Packed by: HariLeaf Farms, &lt;address&gt; · FSSAI Lic. No. &lt;14 digits&gt; · Customer care: &lt;phone&gt; / &lt;email&gt;</p>
+        </details>
       </div>
     </div>
   </div>
@@ -395,14 +405,17 @@
       <div class="bento">
         <div class="bcell wide" style="padding:0;display:grid;grid-template-columns:1fr 1fr">
           <img src="../../../../public/images/general/hero-field.png" style="height:100%;min-height:200px;object-fit:cover">
-          <div style="padding:22px"><h3>How it's grown</h3><p>Developed at a Konkan rice research station. We grow it without chemical inputs, harvest by hand and mill it just enough to remove the husk.</p></div>
+          <div style="padding:22px"><h3>How it's grown</h3><p>Developed at a Konkan rice research station. We grow it without synthetic pesticides or fertilisers, harvest by hand and mill it just enough to remove the husk.</p></div>
         </div>
         <div class="bcell">
-          <h3>Per 100 g <span style="font-size:11px;color:rgba(255,255,255,.4)">(sample)</span></h3>
-          <div style="font-size:13px;color:rgba(255,255,255,.7);margin-top:10px">Fiber<div class="bar"><span style="width:62%"></span></div></div>
-          <div style="font-size:13px;color:rgba(255,255,255,.7);margin-top:10px">Protein<div class="bar"><span style="width:48%"></span></div></div>
-          <div style="font-size:13px;color:rgba(255,255,255,.7);margin-top:10px">Magnesium<div class="bar"><span style="width:70%"></span></div></div>
+          <h3>Per 100 g <span style="font-size:11px;color:rgba(255,255,255,.4)">(sample — replace with lab values)</span></h3>
+          <p style="display:grid;grid-template-columns:1fr auto;gap:6px 16px;color:rgba(255,255,255,.75)">
+            <span>Dietary fibre</span><b style="color:#fff">3.2 g</b>
+            <span>Protein</span><b style="color:#fff">7.9 g</b>
+            <span>Magnesium</span><b style="color:#fff">110 mg</b>
+          </p>
         </div>
+        <div class="bcell"><h3>Lab report · Batch KJ-2610</h3><p>Tested 14 Oct 2026 by &lt;NABL lab&gt;. Pesticide residues: not detected (sample).<br><b style="color:#8bd4c6">Download report (PDF) →</b></p></div>
         <div class="bcell"><h3>Why unpolished</h3><p>Polishing strips the bran and germ — where most of the fiber and minerals live. Ours keeps them.</p></div>
         <div class="bcell"><h3>Cook it</h3><p>Soak 20 min · 1 : 2¼ water · simmer 18 min, rest 5.</p></div>
         <div class="bcell"><h3>Recipe</h3><p><b style="color:#8bd4c6">Konkan-style masoor khichdi →</b><br>One-pot, 30 minutes.</p></div>
@@ -424,7 +437,7 @@
       <div class="lbl">Questions</div>
       <details open><summary>Why is unpolished rice higher in fiber?</summary><p>Polishing removes the bran and germ layers. Unpolished rice keeps them, so it has more fiber and minerals than polished white rice.</p></details>
       <details><summary>How long should I soak it?</summary><p>15–20 minutes, then cook 1 cup rice to 2¼ cups water.</p></details>
-      <details><summary>Do you deliver outside Maharashtra?</summary><p>Yes — free delivery to all serviceable pincodes in India.</p></details>
+      <details><summary>Do you deliver outside Maharashtra?</summary><p>Yes — free delivery to serviceable pincodes across India (minimum order ₹499).</p></details>
     </div>
     <div class="sec" style="padding-top:0">
       <div class="lbl">You may also like</div>
@@ -436,8 +449,9 @@
       </div>
     </div>
   </div>
-  <div class="sticky"><div class="p">₹699<br><span class="tiny">5 kg · free delivery</span></div><button class="btn">Add to cart</button></div>
-  <footer class="foot"><b>HariLeaf</b> · Shop · Rice · Spices · Produce · Shipping policy · Refund policy · Privacy · Terms</footer>
+  <!-- Sticky bar mirrors the selected variant (label, price, unit price) -->
+  <div class="sticky"><div class="p">₹699<br><span class="tiny">5 kg · ₹140/kg</span></div><button class="btn">Add to cart</button></div>
+  <footer class="foot"><b>HariLeaf</b> · Shop · Rice · Spices · Produce · Shipping policy · Refund policy · Privacy · Terms · Grievance officer</footer>
 </div>
 
 </div></div>
