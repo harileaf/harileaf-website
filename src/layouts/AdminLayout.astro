@@ -9,7 +9,7 @@
 import { env } from 'cloudflare:workers';
 import { validateSession } from '../lib/auth';
 
-export type AdminSection = 'dashboard' | 'photos' | 'produce' | 'content' | 'settings';
+export type AdminSection = 'dashboard' | 'products' | 'photos' | 'produce' | 'content' | 'settings';
 
 interface Props {
   title: string;
@@ -22,6 +22,7 @@ Astro.response.headers.set('Cache-Control', 'no-store');
 
 const nav: Array<{ key: AdminSection; label: string; href: string }> = [
   { key: 'dashboard', label: 'Dashboard', href: '/admin' },
+  { key: 'products', label: 'Products', href: '/admin/products' },
   { key: 'photos', label: 'Photos', href: '/admin/photos' },
   { key: 'produce', label: 'Produce', href: '/admin/produce' },
   { key: 'content', label: 'Content', href: '/admin/content' },
@@ -81,7 +82,7 @@ const nav: Array<{ key: AdminSection; label: string; href: string }> = [
     </div>
   </div>
 ) : (
-  <div style="max-width:960px;margin:0 auto;padding:2.5rem 1.5rem;">
+  <div style="max-width:1080px;margin:0 auto;padding:2.5rem 1.5rem;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2.5rem;">
       <a href="/admin" style="display:flex;align-items:center;gap:0.75rem;text-decoration:none;">
         <img src="/images/brand/logo-color.png" alt="HariLeaf" style="height:2rem;" />
@@ -96,7 +97,7 @@ const nav: Array<{ key: AdminSection; label: string; href: string }> = [
       ))}
     </nav>
 
-    <main>
+    <main style="max-width:100%;">
       <slot />
     </main>
   </div>

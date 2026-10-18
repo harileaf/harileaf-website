@@ -1,0 +1,59 @@
+---
+export const prerender = false;
+import { env } from 'cloudflare:workers';
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { validateSession } from '../../../lib/auth';
+import { listProductsForAdmin, shelfLifeWarning, type AdminProductRow } from '../../../lib/store/catalog-admin';
+
+const authenticated = await validateSession(env.HARILEAF_CMS, Astro.cookies);
+let rows: AdminProductRow[] = [];
+let dbError = false;
+if (authenticated) {
+  try {
+    rows = await listProductsForAdmin(env.STORE_DB);
+  } catch (err) {
+    dbError = true;
+    console.error(JSON.stringify({ msg: 'product list failed', error: String(err) }));
+  }
+}
+const today = new Date();
+const badge = (s: string) => ({ active: '#196a5e', draft: '#8a6d1d', discontinued: '#888' })[s] ?? '#888';
+---
+
+<AdminLayout title="Products" active="products">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;">
+    <p class="muted">Rice and spices are sold in v1; fresh produce comes with delivery zones in v2.</p>
+    <a href="/admin/products/new" class="brand-btn" style="padding:0.6rem 1.25rem;text-decoration:none;">+ New product</a>
+  </div>
+  {dbError && <p class="warn">The store database isn't reachable yet (README → Store development).</p>}
+  {!dbError && rows.length === 0 && <p class="muted">No products yet.</p>}
+  {rows.length > 0 && (
+    <table style="width:100%;border-collapse:collapse;font-size:0.875rem;background:#fff;border-radius:12px;overflow:hidden;">
+      <thead>
+        <tr style="text-align:left;background:#ebebea;">
+          <th style="padding:0.6rem;">Product</th><th>Status</th><th>Packs</th><th>Stock</th><th>Photos</th><th>Current batch</th><th>Attention</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => {
+          const warn = [
+            r.lowStock > 0 ? `${r.lowStock} pack(s) low on stock` : null,
+            r.images === 0 ? 'no photo' : null,
+            shelfLifeWarning(r.packedOn, r.bestBeforeDays, today) ? 'batch too old' : null,
+          ].filter(Boolean).join(' · ');
+          return (
+            <tr style="border-top:1px solid rgba(0,0,0,0.06);">
+              <td style="padding:0.6rem;"><a href={`/admin/products/${r.id}`} style="font-weight:700;color:#196a5e;">{r.name}</a><br /><span class="muted" style="font-size:0.75rem;">/{r.categorySlug}/{r.slug}</span></td>
+              <td><span style={`color:${badge(r.status)};font-weight:700;text-transform:capitalize;`}>{r.status}</span></td>
+              <td>{r.activeVariants}</td>
+              <td>{r.stock}</td>
+              <td>{r.images}</td>
+              <td>{r.batchCode ? `${r.batchCode} · ${r.packedOn}` : '—'}</td>
+              <td style="color:#8a4b00;">{warn || '—'}</td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  )}
+</AdminLayout>
