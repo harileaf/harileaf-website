@@ -94,7 +94,10 @@ const paymentLine =
   import { payForOrder } from '../../scripts/store/razorpay-checkout';
 
   // Keep the view token out of the address bar (and away from third-party scripts / screenshots).
+  const tokenedUrl = location.href;
   if (new URLSearchParams(location.search).has('t')) history.replaceState(null, '', location.pathname);
+  // A plain reload would drop the token (and 404): reload the tokened URL instead.
+  const reloadOrder = () => location.replace(tokenedUrl);
 
   const btn = document.getElementById('pay-now') as HTMLButtonElement | null;
   const status = document.getElementById('pay-status');
@@ -104,7 +107,7 @@ const paymentLine =
     const res = await fetch('/api/store/order/retry', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderNo: btn.dataset.order, token: btn.dataset.token }) });
     const data = (await res.json().catch(() => ({}))) as { payment?: Record<string, unknown>; error?: string; status?: string };
     if (res.ok && data.status === 'placed') {
-      location.reload(); // a payment had already gone through
+      reloadOrder(); // a payment had already gone through
       return;
     }
     if (!res.ok || !data.payment) {
@@ -114,7 +117,7 @@ const paymentLine =
     }
     try {
       const outcome = await payForOrder(data.payment, { orderNo: btn.dataset.order!, token: btn.dataset.token! });
-      if (outcome.kind === 'paid') location.reload();
+      if (outcome.kind === 'paid') reloadOrder();
       else if (status) status.textContent = outcome.kind === 'dismissed' ? 'Payment not completed.' : outcome.message;
     } catch (err) {
       if (status) status.textContent = err instanceof Error ? err.message : 'Payment can’t be opened right now.';
