@@ -146,20 +146,27 @@ const needs: Record<string, string[]> = { ship: ['awb', 'courier', 'trackingUrl'
   };
   const orderId = form?.dataset.id ?? location.pathname.split('/').filter(Boolean).pop();
 
+  // One key per page load: a double click or retry can't create two replacements.
+  const requestKey = crypto.randomUUID();
+  let busy = false;
+
   async function send(body: Record<string, unknown>) {
+    if (busy) return;
+    busy = true;
+    document.querySelectorAll<HTMLButtonElement>('.od button').forEach((b) => (b.disabled = true));
     say('Working…');
     try {
       const res = await fetch(`/api/admin/orders/${orderId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const data = (await res.json().catch(() => ({}))) as { error?: string; orderNo?: string };
-      if (!res.ok) {
-        say(data.error ?? 'Failed');
-        return;
-      }
+      if (!res.ok) throw new Error(data.error ?? 'Failed');
       if (data.orderNo) say(`Replacement ${data.orderNo} created`);
       location.reload();
-    } catch {
-      say('Network error — try again');
+      return; // stay disabled until the page reloads
+    } catch (err) {
+      say(err instanceof TypeError ? 'Network error — try again' : String((err as Error).message));
     }
+    busy = false;
+    document.querySelectorAll<HTMLButtonElement>('.od button').forEach((b) => (b.disabled = false));
   }
 
   function syncFields() {
@@ -179,6 +186,7 @@ const needs: Record<string, string[]> = { ship: ['awb', 'courier', 'trackingUrl'
     if (['cancel', 'refund'].includes(action) && !confirm(action === 'cancel' ? 'Cancel this order? Stock is restored and any payment refunded.' : 'Refund the full order amount?')) return;
     const body: Record<string, unknown> = Object.fromEntries(fd.entries());
     if (action === 'replacement') {
+      body.requestKey = requestKey;
       body.lines = Array.from(form.querySelectorAll<HTMLInputElement>('[data-item]')).map((i) => ({ itemId: Number(i.dataset.item), qty: Number(i.value) })).filter((l) => l.qty > 0);
     }
     void send(body);

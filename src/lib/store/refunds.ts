@@ -1,30 +1,64 @@
 /**
- * Razorpay refunds (outbox `razorpay.refund`, refund webhooks). Refund
- * creation isn't idempotent at Razorpay, so every refund carries our receipt
- * (`rf-<refund id>`) and we look for it before creating — a crash between
- * Razorpay accepting the refund and our DB write can't refund twice.
+ * Razorpay refunds (outbox `razorpay.refund`, refund webhooks, cron re-check).
+ * Refund creation isn't idempotent at Razorpay, so every refund row carries
+ * its own receipt (`rf-<refund id>`, also in notes) and we look for it before
+ * creating — a crash between Razorpay accepting the refund and our DB write
+ * can't refund twice. A retry after a failure makes a new row (new receipt).
  */
 import { nowIso } from './db';
+import { claimStmt, runClaim } from './ops';
 import { enqueueStmt, type OutboxHandler } from './outbox';
-import { listPaymentRefunds, razorpayConfig, refundPayment, type RazorpayRefund } from './razorpay';
+import { fetchRefund, listPaymentRefunds, razorpayConfig, refundPayment, type RazorpayConfig, type RazorpayRefund } from './razorpay';
 
+const receiptFor = (refundId: number) => `rf-${refundId}`;
+
+/** Our refunds row for a Razorpay refund entity (by id, receipt or notes). */
+export function refundRowIdFrom(r: { receipt?: string | null; notes?: unknown }): number | null {
+  const fromReceipt = /^rf-(\d+)$/.exec(r.receipt ?? '')?.[1];
+  const notes = r.notes && typeof r.notes === 'object' && !Array.isArray(r.notes) ? (r.notes as Record<string, unknown>) : {};
+  const n = Number(fromReceipt ?? notes.refund_row_id);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+/** Records Razorpay's view of a refund. Settling (processed/failed) happens exactly once per row. */
 export async function applyRefundStatus(db: D1Database, refundId: number, r: Pick<RazorpayRefund, 'id' | 'status'>, now: Date): Promise<void> {
   const at = nowIso(now);
   const row = await db.prepare('SELECT order_id, status FROM refunds WHERE id = ?').bind(refundId).first<{ order_id: number; status: string }>();
-  if (!row || row.status === 'processed') return;
-  const stmts: D1PreparedStatement[] = [
-    db.prepare('UPDATE refunds SET razorpay_refund_id = COALESCE(razorpay_refund_id, ?), status = ?, updated_at = ? WHERE id = ?').bind(r.id, r.status === 'processed' ? 'processed' : r.status === 'failed' ? 'failed' : 'pending', at, refundId),
-  ];
-  if (r.status === 'processed') {
-    stmts.push(
-      db.prepare("UPDATE orders SET payment_status = 'refunded', updated_at = ? WHERE id = ? AND payment_status = 'refund_pending'").bind(at, row.order_id),
-      db.prepare("INSERT INTO order_events (order_id, at, type, actor, note) VALUES (?, ?, 'refunded', 'razorpay', ?)").bind(row.order_id, at, `Refund ${r.id} processed`),
-      enqueueStmt(db, { orderId: row.order_id, kind: 'email.refunded', payload: {}, at }),
-    );
-  } else if (r.status === 'failed') {
-    stmts.push(db.prepare("INSERT INTO order_events (order_id, at, type, actor, note) VALUES (?, ?, 'refund_failed', 'razorpay', ?)").bind(row.order_id, at, `Refund ${r.id} failed — retry from admin`));
+  if (!row || row.status !== 'pending') return;
+  const link = db.prepare('UPDATE refunds SET razorpay_refund_id = COALESCE(razorpay_refund_id, ?), updated_at = ? WHERE id = ?').bind(r.id, at, refundId);
+  if (r.status !== 'processed' && r.status !== 'failed') {
+    await link.run();
+    return;
   }
-  await db.batch(stmts);
+  const claim = claimStmt(db, row.order_id, `refund_settled:${refundId}`, "SELECT status = 'pending' FROM refunds WHERE id = ?", [refundId], at);
+  const rest =
+    r.status === 'processed'
+      ? [
+          db.prepare("UPDATE refunds SET status = 'processed', updated_at = ? WHERE id = ?").bind(at, refundId),
+          db.prepare("UPDATE orders SET payment_status = 'refunded', updated_at = ? WHERE id = ? AND payment_status = 'refund_pending'").bind(at, row.order_id),
+          db.prepare("INSERT INTO order_events (order_id, at, type, actor, note) VALUES (?, ?, 'refunded', 'razorpay', ?)").bind(row.order_id, at, `Refund ${r.id} processed`),
+          enqueueStmt(db, { orderId: row.order_id, kind: 'email.refunded', payload: {}, at }),
+        ]
+      : [
+          db.prepare("UPDATE refunds SET status = 'failed', updated_at = ? WHERE id = ?").bind(at, refundId),
+          // Back to paid: the money is still with us; the admin retries (dashboard to-do).
+          db.prepare("UPDATE orders SET payment_status = 'paid', updated_at = ? WHERE id = ? AND payment_status = 'refund_pending'").bind(at, row.order_id),
+          db.prepare("INSERT INTO order_events (order_id, at, type, actor, note) VALUES (?, ?, 'refund_failed', 'razorpay', ?)").bind(row.order_id, at, `Refund ${r.id} failed — retry from the order page`),
+        ];
+  const res = await runClaim(db, claim, [link, ...rest]);
+  if (!res.ok && res.reason === 'other') throw res.error;
+}
+
+/** Admin retry after a failure: a fresh refunds row (new receipt) for the same amount. */
+export function retryRefundStmts(db: D1Database, orderId: number, at: string): D1PreparedStatement[] {
+  const failed = `FROM refunds f WHERE f.order_id = ?1 AND f.status = 'failed'
+    AND NOT EXISTS (SELECT 1 FROM refunds p WHERE p.order_id = ?1 AND p.status IN ('pending', 'processed'))
+    AND f.id = (SELECT MAX(id) FROM refunds WHERE order_id = ?1)`;
+  return [
+    db.prepare(`INSERT INTO outbox (order_id, kind, payload, state, attempts, next_attempt_at, created_at, updated_at) SELECT ?1, 'razorpay.refund', '{}', 'pending', 0, ?2, ?2, ?2 ${failed}`).bind(orderId, at),
+    db.prepare(`INSERT INTO refunds (order_id, credit_note_id, amount_paise, status, reason, created_at, updated_at) SELECT ?1, f.credit_note_id, f.amount_paise, 'pending', f.reason || ' (retry)', ?2, ?2 ${failed}`).bind(orderId, at),
+    db.prepare("UPDATE orders SET payment_status = 'refund_pending', updated_at = ?2 WHERE id = ?1 AND payment_status = 'paid' AND EXISTS (SELECT 1 FROM refunds WHERE order_id = ?1 AND status = 'pending')").bind(orderId, at),
+  ];
 }
 
 export function makeRefundHandler(fetchImpl?: typeof fetch): OutboxHandler {
@@ -39,11 +73,34 @@ export function makeRefundHandler(fetchImpl?: typeof fetch): OutboxHandler {
       )
       .bind(row.order_id)
       .first<{ id: number; amount_paise: number; razorpay_refund_id: string | null; razorpay_payment_id: string | null; order_no: string }>();
-    if (!r || r.razorpay_refund_id) return; // nothing pending, or already sent (webhook will settle it)
+    if (!r || r.razorpay_refund_id) return; // nothing pending, or already sent (webhook / cron settles it)
     if (!r.razorpay_payment_id) throw new Error('refund without a Razorpay payment id');
-    const receipt = `rf-${r.id}`;
-    const existing = (await listPaymentRefunds(cfg, r.razorpay_payment_id)).find((x) => x.receipt === receipt);
-    const refund = existing ?? (await refundPayment(cfg, r.razorpay_payment_id, { amountPaise: r.amount_paise, receipt, notes: { order_no: r.order_no } }));
+    const existing = (await listPaymentRefunds(cfg, r.razorpay_payment_id)).find((x) => refundRowIdFrom(x) === r.id);
+    const refund = existing ?? (await refundPayment(cfg, r.razorpay_payment_id, { amountPaise: r.amount_paise, receipt: receiptFor(r.id), notes: { order_no: r.order_no, refund_row_id: String(r.id) } }));
     await applyRefundStatus(db, r.id, refund, new Date());
   };
+}
+
+/** Cron: settle refunds still pending a day after Razorpay accepted them (missed webhooks). */
+export async function reconcileRefunds(db: D1Database, cfg: RazorpayConfig, now: Date, limit = 20): Promise<number> {
+  const cutoff = new Date(now.getTime() - 24 * 3600_000).toISOString();
+  const { results } = await db
+    .prepare(
+      `SELECT r.id, r.razorpay_refund_id, o.razorpay_payment_id FROM refunds r JOIN orders o ON o.id = r.order_id
+       WHERE r.status = 'pending' AND r.razorpay_refund_id IS NOT NULL AND r.updated_at < ? ORDER BY r.updated_at LIMIT ?`,
+    )
+    .bind(cutoff, limit)
+    .all<{ id: number; razorpay_refund_id: string; razorpay_payment_id: string }>();
+  let settled = 0;
+  for (const r of results) {
+    try {
+      const rf = await fetchRefund(cfg, r.razorpay_payment_id, r.razorpay_refund_id);
+      await applyRefundStatus(db, r.id, rf, now);
+      if (rf.status !== 'pending') settled += 1;
+      else await db.prepare('UPDATE refunds SET updated_at = ? WHERE id = ?').bind(nowIso(now), r.id).run();
+    } catch (err) {
+      console.error(JSON.stringify({ msg: 'refund re-check failed', refund: r.id, error: String(err) }));
+    }
+  }
+  return settled;
 }

@@ -5,7 +5,7 @@ import { formatINR } from './money';
 import type { OutboxHandler } from './outbox';
 import type { OrderRow } from './orders';
 import { getSettings, type StoreSettings } from './settings';
-import { absolute } from './urls';
+import { absolute, safeHttpsUrl } from './urls';
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const first = (o: OrderRow) => esc(o.customer_name.split(' ')[0]);
@@ -20,9 +20,11 @@ const button = (href: string, label: string) =>
 
 export function shippedEmail(o: OrderRow, viewUrl: string, s: StoreSettings): Email {
   const invoiceUrl = viewUrl.replace(`/order/${o.order_no}?`, `/order/${o.order_no}/invoice?`);
-  const track = o.tracking_url ? button(o.tracking_url, 'Track your parcel') : '';
-  const body = `<p>Hi ${first(o)}, your order <strong>${esc(o.order_no)}</strong> is on its way${o.courier ? ` with ${esc(o.courier)}` : ''}${o.awb ? ` (AWB ${esc(o.awb)})` : ''}.</p>${track}<p><a href="${esc(invoiceUrl)}">Download your GST invoice</a> · <a href="${esc(viewUrl)}">View your order</a></p>`;
-  return { to: o.email, subject: `Order ${o.order_no} has shipped — HariLeaf`, html: wrap('Your order is on its way', body, s), text: `Your order ${o.order_no} has shipped.${o.tracking_url ? ` Track: ${o.tracking_url}` : ''}\nInvoice: ${invoiceUrl}\nOrder: ${viewUrl}`, idempotencyKey: `email.shipped/${o.order_no}`, replyTo: s.customer_care_email || undefined };
+  const trackingUrl = safeHttpsUrl(o.tracking_url);
+  const track = trackingUrl ? button(trackingUrl, 'Track your parcel') : '';
+  const docLink = o.total_paise > 0 ? `<a href="${esc(invoiceUrl)}">Download your GST invoice</a> · ` : '';
+  const body = `<p>Hi ${first(o)}, your order <strong>${esc(o.order_no)}</strong> is on its way${o.courier ? ` with ${esc(o.courier)}` : ''}${o.awb ? ` (AWB ${esc(o.awb)})` : ''}.</p>${track}<p>${docLink}<a href="${esc(viewUrl)}">View your order</a></p>`;
+  return { to: o.email, subject: `Order ${o.order_no} has shipped — HariLeaf`, html: wrap('Your order is on its way', body, s), text: `Your order ${o.order_no} has shipped.${trackingUrl ? ` Track: ${trackingUrl}` : ''}${o.total_paise > 0 ? `\nInvoice: ${invoiceUrl}` : ''}\nOrder: ${viewUrl}`, idempotencyKey: `email.shipped/${o.order_no}`, replyTo: s.customer_care_email || undefined };
 }
 
 export function deliveredEmail(o: OrderRow, viewUrl: string, s: StoreSettings): Email {

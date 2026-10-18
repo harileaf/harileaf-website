@@ -4,8 +4,8 @@ import {
   cancelOrder, createReplacement, markDelivered, markPacked, markReturned, markRto, markShipped, receiveReturn, refundOrder,
 } from './fulfilment';
 import { orderDocs } from './invoice-docs';
-import { enqueueStmt } from './outbox';
 import type { OrderItemRow, OrderRow } from './orders';
+import { retryRefundStmts } from './refunds';
 import { safeHttpsUrl } from './urls';
 
 export const ORDER_STATUSES = ['pending_payment', 'placed', 'packed', 'shipped', 'delivered', 'rto', 'returned', 'cancelled', 'payment_failed'] as const;
@@ -63,7 +63,7 @@ export async function orderDetail(db: D1Database, id: number) {
 /** Which buttons the detail page shows for an order (the server re-checks every action). */
 export function availableActions(o: Pick<OrderRow, 'status' | 'payment_method' | 'payment_status' | 'total_paise'>): string[] {
   const a: string[] = [];
-  const prepaidReady = o.payment_method === 'cod' || o.payment_status === 'authorized' || o.payment_status === 'paid';
+  const prepaidReady = o.payment_method === 'cod' || o.payment_status === 'paid';
   if (o.status === 'placed' && prepaidReady) a.push('pack');
   if (o.status === 'packed') a.push('ship');
   if (o.status === 'shipped') a.push('deliver', 'rto');
@@ -110,7 +110,7 @@ export async function runAdminAction(
     case 'replacement': {
       const lines = Array.isArray(body.lines) ? (body.lines as Array<{ itemId?: unknown; qty?: unknown }>).map((l) => ({ itemId: Number(l?.itemId), qty: Number(l?.qty) })) : [];
       if (!str(body, 'note')) return { ok: false, error: 'Say what was wrong (damaged / wrong item)' };
-      return createReplacement(db, orderId, { now: ctx.now, lines, note: str(body, 'note'), tokenSecret: ctx.tokenSecret, actorEmail: ctx.actorEmail });
+      return createReplacement(db, orderId, { now: ctx.now, lines, note: str(body, 'note'), tokenSecret: ctx.tokenSecret, requestKey: str(body, 'requestKey', 64), actorEmail: ctx.actorEmail });
     }
     case 'note': {
       if (!str(body, 'note', 1000)) return { ok: false, error: 'Empty note' };
@@ -129,11 +129,8 @@ export async function runAdminAction(
     }
     case 'retry_refund': {
       const at = nowIso(ctx.now);
-      const res = await db.batch([
-        db.prepare("UPDATE refunds SET status = 'pending', razorpay_refund_id = NULL, updated_at = ? WHERE order_id = ? AND status = 'failed'").bind(at, orderId),
-        enqueueStmt(db, { orderId, kind: 'razorpay.refund', payload: {}, at }),
-      ]);
-      return (res[0].meta.changes ?? 0) ? { ok: true } : { ok: false, error: 'No failed refund to retry' };
+      const res = await db.batch(retryRefundStmts(db, orderId, at));
+      return (res[1].meta.changes ?? 0) ? { ok: true } : { ok: false, error: 'No failed refund to retry' };
     }
     default:
       return { ok: false, error: 'Unknown action' };
@@ -158,7 +155,8 @@ export async function dashboardMetrics(db: D1Database, now: Date) {
             AND EXISTS (SELECT 1 FROM orders o WHERE o.id = e.order_id AND o.status = 'shipped')) AS ndr_open,
          (SELECT count(*) FROM orders o WHERE payment_method = 'cod' AND status = 'delivered' AND total_paise > 0 AND updated_at < ?3
             AND NOT EXISTS (SELECT 1 FROM cod_remittances r WHERE r.order_id = o.id)) AS cod_unremitted,
-         (SELECT count(*) FROM order_events WHERE type = 'extra_payment' AND at >= ?2) AS extra_payments`,
+         (SELECT count(*) FROM order_events WHERE type = 'extra_payment' AND at >= ?2) AS extra_payments,
+         (SELECT count(DISTINCT order_id) FROM order_events WHERE type IN ('courier_unapplied', 'courier_lost') AND at >= ?2) AS courier_problems`,
     )
     .bind(since(1), since(7), since(14))
     .first<Record<string, number>>();

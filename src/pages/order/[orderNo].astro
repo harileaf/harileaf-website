@@ -90,8 +90,8 @@ const paymentLine =
           <p>{paymentLine}</p>
           {refundLine && <p class="mt-1 font-bold">{refundLine}</p>}
           {hasInvoice
-            ? <p class="mt-2"><a href={`/order/${o.order_no}/invoice?t=${encodeURIComponent(token)}`} class="font-bold text-primary underline">View / download GST invoice</a></p>
-            : <p class="mt-2 text-xs text-on-surface-variant">Your GST invoice is issued when the order ships.</p>}
+            ? <p class="mt-2"><a href={`/order/${o.order_no}/invoice?t=${encodeURIComponent(token)}`} class="font-bold text-primary underline">{o.total_paise > 0 ? 'View / download GST invoice' : 'View delivery challan'}</a></p>
+            : o.total_paise > 0 && <p class="mt-2 text-xs text-on-surface-variant">Your GST invoice is issued when we pack your order.</p>}
         </div>
         {canCancel && (
           <div class="rounded-2xl border border-black/10 p-5">

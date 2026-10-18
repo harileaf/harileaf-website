@@ -144,14 +144,24 @@ describe('after dispatch', () => {
     await markShipped(db, o.id, { awb: 'A5', courier: 'X', trackingUrl: null }, { ...ctx, actor: 'admin' });
     await markDelivered(db, o.id, { ...ctx, actor: 'admin' });
     const itemId = await scalar<number>('SELECT id FROM order_items WHERE order_id = ?', o.id);
-    const r = await createReplacement(db, o.id, { now: NOW, lines: [{ itemId, qty: 1 }], note: 'Pack arrived torn', tokenSecret: 'sek' });
+    const requestKey = crypto.randomUUID();
+    const [r, again] = await Promise.all([
+      createReplacement(db, o.id, { now: NOW, lines: [{ itemId, qty: 1 }], note: 'Pack arrived torn', tokenSecret: 'sek', requestKey }),
+      createReplacement(db, o.id, { now: NOW, lines: [{ itemId, qty: 1 }], note: 'Pack arrived torn', tokenSecret: 'sek', requestKey }),
+    ]);
     expect(r.ok).toBe(true);
-    if (!r.ok) return;
+    if (!r.ok || !again.ok) throw new Error('replacement failed');
+    expect(again.orderNo).toBe(r.orderNo); // double submit → same replacement
+    expect(await scalar('SELECT count(*) FROM orders WHERE replacement_for_order_id = ?', o.id)).toBe(1);
     const rep = await db.prepare('SELECT id, total_paise, status, replacement_for_order_id FROM orders WHERE order_no = ?').bind(r.orderNo).first<{ id: number; total_paise: number; status: string; replacement_for_order_id: number }>();
     expect(rep).toMatchObject({ total_paise: 0, status: 'placed', replacement_for_order_id: o.id });
     expect(await stock(o.variantId)).toBe(3);
     expect(await markPacked(db, rep!.id, ctx)).toEqual({ ok: true });
     expect(await scalar("SELECT count(*) FROM invoices WHERE order_id = ?", rep!.id)).toBe(0);
-    expect((await createReplacement(db, o.id, { now: NOW, lines: [{ itemId, qty: 5 }], note: 'x', tokenSecret: 'sek' })).ok).toBe(false);
+    const dc = await db.prepare('SELECT doc_no, snapshot FROM delivery_challans WHERE order_id = ?').bind(rep!.id).first<{ doc_no: string; snapshot: string }>();
+    expect(dc?.doc_no).toMatch(/^HLDC\/2627\/\d{5}$/);
+    expect(JSON.parse(dc!.snapshot)).toMatchObject({ docType: 'delivery_challan', totals: { total: 69900, cgst: 0, igst: 0 } });
+    // The original had 1 unit, already replaced: no second replacement for it.
+    expect(await createReplacement(db, o.id, { now: NOW, lines: [{ itemId, qty: 1 }], note: 'x', tokenSecret: 'sek', requestKey: crypto.randomUUID() })).toMatchObject({ ok: false, error: /already replaced/ });
   });
 });

@@ -70,7 +70,8 @@ export async function markPaid(
     db
       .prepare("INSERT INTO order_events (order_id, at, type, actor, note) VALUES (?, ?, 'paid', 'razorpay', ?)")
       .bind(order.id, at, `${captured ? 'Captured' : 'Authorised'} ${input.payment.id} via ${input.source}`),
-    ...(captured ? [] : [enqueueStmt(db, { orderId: order.id, kind: 'razorpay.capture', payload: { paymentId: input.payment.id }, at })]),
+    // Normally authorised (manual capture); if it arrives already captured, ship straight away.
+    enqueueStmt(db, { orderId: order.id, kind: captured ? 'shiprocket.create' : 'razorpay.capture', payload: captured ? {} : { paymentId: input.payment.id }, at }),
     enqueueStmt(db, { orderId: order.id, kind: 'email.placed', payload: {}, at }),
     enqueueStmt(db, { orderId: order.id, kind: 'email.owner_new_order', payload: {}, at }),
     ...extra,
@@ -134,7 +135,7 @@ export async function lateCapture(db: D1Database, order: PayableOrder, payment: 
     db
       .prepare("INSERT INTO order_events (order_id, at, type, actor, note) VALUES (?, ?, 'paid', 'razorpay', ?)")
       .bind(order.id, at, `Late payment ${payment.id} accepted; stock re-reserved`),
-    ...(captured ? [] : [enqueueStmt(db, { orderId: order.id, kind: 'razorpay.capture', payload: { paymentId: payment.id }, at })]),
+    enqueueStmt(db, { orderId: order.id, kind: captured ? 'shiprocket.create' : 'razorpay.capture', payload: captured ? {} : { paymentId: payment.id }, at }),
     enqueueStmt(db, { orderId: order.id, kind: 'email.placed', payload: {}, at }),
     enqueueStmt(db, { orderId: order.id, kind: 'email.owner_new_order', payload: {}, at }),
   ]);

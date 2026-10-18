@@ -33,7 +33,7 @@ export interface DocLine {
 
 export interface DocSnapshot {
   version: 1;
-  docType: DocumentType | 'credit_note';
+  docType: DocumentType | 'credit_note' | 'delivery_challan';
   title: string;
   seller: { legalName: string; tradeName: string; address: string; gstin: string; stateCode: string; state: string; fssai: string };
   buyer: { billing: DocAddress; shipping: DocAddress; gstin: string | null; legalName: string | null; email: string; phone: string };
@@ -47,11 +47,12 @@ export interface DocSnapshot {
   reason?: string;
 }
 
-const TITLES: Record<DocumentType | 'credit_note', string> = {
+const TITLES: Record<DocumentType | 'credit_note' | 'delivery_challan', string> = {
   tax_invoice: 'Tax Invoice',
   bill_of_supply: 'Bill of Supply',
   invoice_cum_bill_of_supply: 'Invoice-cum-Bill of Supply',
   credit_note: 'Credit Note',
+  delivery_challan: 'Delivery Challan',
 };
 
 function shipping(o: OrderRow): DocAddress {
@@ -66,6 +67,16 @@ function billing(o: OrderRow): DocAddress {
     stateCode: o.bill_state_code,
     state: o.bill_state ?? stateName(o.bill_state_code) ?? '',
   };
+}
+
+/**
+ * Goods: the delivery state, except a registered buyer billed in one state and
+ * shipped to another on their instruction — then the billing state (IGST Act
+ * s.10(1)(b)). Mirrors checkout's placeOfSupplyCode.
+ */
+function placeOfSupply(o: OrderRow): { stateCode: string; state: string } {
+  if (o.buyer_gstin && !o.bill_same_as_ship && o.bill_state_code) return { stateCode: o.bill_state_code, state: o.bill_state ?? stateName(o.bill_state_code) ?? '' };
+  return { stateCode: o.ship_state_code, state: o.ship_state };
 }
 
 function totals(lines: DocLine[]) {
@@ -98,8 +109,9 @@ export function invoiceSnapshot(o: OrderRow, items: OrderItemRow[], s: StoreSett
       state: stateName(s.state_code) ?? '', fssai: s.fssai_license,
     },
     buyer: { billing: billing(o), shipping: shipping(o), gstin: o.buyer_gstin, legalName: o.buyer_legal_name, email: o.email, phone: o.phone },
-    placeOfSupply: { stateCode: o.ship_state_code, state: o.ship_state },
-    intraState: o.ship_state_code === s.state_code,
+    placeOfSupply: placeOfSupply(o),
+    // Follow the tax actually charged at checkout (same place-of-supply rule).
+    intraState: lines.some((l) => l.igst > 0) ? false : lines.some((l) => l.cgst > 0) ? true : placeOfSupply(o).stateCode === s.state_code,
     reverseCharge: false,
     order: { orderNo: o.order_no, orderDate: o.created_at, paymentMethod: o.payment_method },
     lines,
@@ -110,4 +122,32 @@ export function invoiceSnapshot(o: OrderRow, items: OrderItemRow[], s: StoreSett
 /** A credit note for the whole invoice (v1 refunds and cancellations are full). */
 export function creditNoteSnapshot(invoice: DocSnapshot, ref: { docNo: string; issuedAt: string }, reason: string): DocSnapshot {
   return { ...invoice, docType: 'credit_note', title: TITLES.credit_note, reference: ref, reason, totals: totals(invoice.lines) };
+}
+
+/**
+ * Delivery challan (CGST Rule 55) for a free replacement: the goods move
+ * without a supply (CBIC Circular 195/07/2023), so no tax is charged; the
+ * value shown is the original line value.
+ */
+export function challanSnapshot(o: OrderRow, items: OrderItemRow[], s: StoreSettings, originalOrderNo: string): DocSnapshot {
+  if (!items.length) throw new Error('cannot issue a challan without items');
+  const lines: DocLine[] = items.map((i) => {
+    const value = i.unit_price_paise * i.qty;
+    return { description: `${i.product_name} — ${i.variant_label}`, hsn: i.hsn_code, qty: i.qty, unitPrice: i.unit_price_paise, discount: 0, taxable: value, rateBp: 0, cgst: 0, sgst: 0, igst: 0, total: value };
+  });
+  const pos = placeOfSupply(o);
+  return {
+    version: 1,
+    docType: 'delivery_challan',
+    title: TITLES.delivery_challan,
+    seller: { legalName: s.legal_name, tradeName: s.trade_name, address: s.address, gstin: s.gstin, stateCode: s.state_code, state: stateName(s.state_code) ?? '', fssai: s.fssai_license },
+    buyer: { billing: shipping(o), shipping: shipping(o), gstin: o.buyer_gstin, legalName: o.buyer_legal_name, email: o.email, phone: o.phone },
+    placeOfSupply: pos,
+    intraState: pos.stateCode === s.state_code,
+    reverseCharge: false,
+    order: { orderNo: o.order_no, orderDate: o.created_at, paymentMethod: o.payment_method },
+    lines,
+    totals: totals(lines),
+    reason: `Free replacement against order ${originalOrderNo} — not a supply; no tax charged.`,
+  };
 }

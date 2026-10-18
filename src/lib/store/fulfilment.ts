@@ -7,10 +7,11 @@
 import { nowIso } from './db';
 import { issueDocStmts } from './docnumbers';
 import { fyOf } from './fy';
-import { creditNoteSnapshot, invoiceSnapshot, type DocSnapshot } from './invoices';
-import { claimStmt, runClaim } from './ops';
+import type { DocumentType } from './gst';
+import { challanSnapshot, creditNoteSnapshot, invoiceSnapshot, type DocSnapshot } from './invoices';
+import { claimStmt, runClaim, type ClaimResult } from './ops';
 import { enqueueStmt } from './outbox';
-import { viewTokenFor, type OrderItemRow, type OrderRow } from './orders';
+import { findByIdempotencyKey, viewTokenFor, type OrderItemRow, type OrderRow } from './orders';
 import { getSettings } from './settings';
 import { hashViewToken } from './tokens';
 import { istParts } from './fy';
@@ -19,6 +20,19 @@ export type Actor = 'customer' | 'admin' | 'shiprocket' | 'system';
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
 const FAIL = (error: string): ActionResult => ({ ok: false, error });
+
+/**
+ * A claim that lost (wrong state / already done) is an ordinary failure; any
+ * other D1 error is thrown so webhooks answer 5xx and get retried.
+ */
+function settle(res: ClaimResult, failure: string): ActionResult {
+  if (res.ok) return { ok: true };
+  if (res.reason === 'other') throw res.error;
+  return FAIL(failure);
+}
+
+/** Prepaid orders move only once the money is captured (an authorisation can still lapse). */
+const PAID_SQL = "(payment_method = 'cod' OR payment_status = 'paid')";
 
 async function load(db: D1Database, orderId: number) {
   const order = await db.prepare('SELECT * FROM orders WHERE id = ?').bind(orderId).first<OrderRow & { replacement_for_order_id: number | null }>();
@@ -59,20 +73,36 @@ function invoiceSettingsMissing(s: Awaited<ReturnType<typeof getSettings>>): str
 // ── transitions ──────────────────────────────────────────────────────────
 
 /** Packed and ready to dispatch: issues the GST invoice in the same batch (CGST s.31(1)(a)). */
-export async function markPacked(db: D1Database, orderId: number, ctx: { now: Date; actorEmail?: string | null }): Promise<ActionResult> {
+export async function markPacked(db: D1Database, orderId: number, ctx: { now: Date; actor?: Actor; actorEmail?: string | null }): Promise<ActionResult> {
   const data = await load(db, orderId);
   if (!data) return FAIL('Order not found');
   const { order, items } = data;
   if (order.status !== 'placed') return FAIL(`Order is ${order.status}`);
+  if (order.payment_method !== 'cod' && order.payment_status !== 'paid') return FAIL('Wait for the payment to be captured before packing');
   const at = nowIso(ctx.now);
   const settings = await getSettings(db);
   const isReplacement = order.replacement_for_order_id !== null;
+  const missing = invoiceSettingsMissing(settings);
+  if (missing.length) return FAIL(`Fill in Store settings before issuing invoices: ${missing.join(', ')}`);
   let invoice: D1PreparedStatement[] = [];
-  if (!isReplacement) {
-    const missing = invoiceSettingsMissing(settings);
-    if (missing.length) return FAIL(`Fill in Store settings before issuing invoices: ${missing.join(', ')}`);
+  if (isReplacement) {
+    // No consideration, so no invoice: the goods travel under a delivery challan (Rule 55).
+    const original = await db.prepare('SELECT order_no FROM orders WHERE id = ?').bind(order.replacement_for_order_id).first<{ order_no: string }>();
     invoice = [
-      ...issueDocStmts(db, { series: 'INV', fy: fyOf(ctx.now), docType: invoiceSnapshot(order, items, settings).docType, orderId, issuedAt: at, snapshot: invoiceSnapshot(order, items, settings) }),
+      db
+        .prepare(
+          `INSERT INTO delivery_challans (order_id, fy, seq, doc_no, issued_at, snapshot)
+           SELECT ?1, ?2, n, 'HLDC/' || ?2 || '/' || printf('%05d', n), ?3, ?4
+           FROM (SELECT COALESCE(MAX(seq), 0) + 1 AS n FROM delivery_challans WHERE fy = ?2)`,
+        )
+        .bind(orderId, fyOf(ctx.now), at, JSON.stringify(challanSnapshot(order, items, settings, original?.order_no ?? ''))),
+    ];
+  } else {
+    invoice = [
+      ...(() => {
+        const snapshot = invoiceSnapshot(order, items, settings);
+        return issueDocStmts(db, { series: 'INV', fy: fyOf(ctx.now), docType: snapshot.docType as DocumentType, orderId, issuedAt: at, snapshot });
+      })(),
       db.prepare("UPDATE orders SET invoice_id = (SELECT id FROM invoices WHERE order_id = ? AND series = 'INV') WHERE id = ?").bind(orderId, orderId),
     ];
   }
@@ -80,16 +110,16 @@ export async function markPacked(db: D1Database, orderId: number, ctx: { now: Da
     db,
     orderId,
     'pack',
-    "SELECT status = 'placed' AND (payment_method = 'cod' OR payment_status IN ('authorized', 'paid')) FROM orders WHERE id = ?",
+    `SELECT status = 'placed' AND ${PAID_SQL} FROM orders WHERE id = ?`,
     [orderId],
     at,
   );
   const res = await runClaim(db, claim, [
     db.prepare("UPDATE orders SET status = 'packed', updated_at = ? WHERE id = ?").bind(at, orderId),
     ...invoice,
-    event(db, orderId, at, 'packed', 'admin', isReplacement ? 'Replacement packed (no invoice: no consideration)' : 'Packed; invoice issued', ctx.actorEmail),
+    event(db, orderId, at, 'packed', ctx.actor ?? 'admin', isReplacement ? 'Replacement packed; delivery challan issued' : 'Packed; invoice issued', ctx.actorEmail),
   ]);
-  return res.ok ? { ok: true } : FAIL(res.reason === 'claim' ? 'Order can no longer be packed' : 'Could not pack the order');
+  return settle(res, 'Order can no longer be packed');
 }
 
 export async function markShipped(
@@ -99,7 +129,7 @@ export async function markShipped(
   ctx: { now: Date; actor: Actor; actorEmail?: string | null },
 ): Promise<ActionResult> {
   const at = nowIso(ctx.now);
-  const claim = claimStmt(db, orderId, 'ship', "SELECT status = 'packed' FROM orders WHERE id = ?", [orderId], at);
+  const claim = claimStmt(db, orderId, 'ship', `SELECT status = 'packed' AND ${PAID_SQL} FROM orders WHERE id = ?`, [orderId], at);
   const res = await runClaim(db, claim, [
     db
       .prepare("UPDATE orders SET status = 'shipped', awb = COALESCE(?, awb), courier = COALESCE(?, courier), tracking_url = COALESCE(?, tracking_url), updated_at = ? WHERE id = ?")
@@ -107,7 +137,7 @@ export async function markShipped(
     event(db, orderId, at, 'shipped', ctx.actor, [ship.courier, ship.awb].filter(Boolean).join(' · ') || null, ctx.actorEmail),
     enqueueStmt(db, { orderId, kind: 'email.shipped', payload: {}, at }),
   ]);
-  return res.ok ? { ok: true } : FAIL('Order is not packed');
+  return settle(res, 'Order is not packed (or its payment is not captured)');
 }
 
 export async function markDelivered(db: D1Database, orderId: number, ctx: { now: Date; actor: Actor; actorEmail?: string | null }): Promise<ActionResult> {
@@ -121,7 +151,7 @@ export async function markDelivered(db: D1Database, orderId: number, ctx: { now:
     event(db, orderId, at, 'delivered', ctx.actor, null, ctx.actorEmail),
     enqueueStmt(db, { orderId, kind: 'email.delivered', payload: {}, at }),
   ]);
-  return res.ok ? { ok: true } : FAIL('Order is not shipped');
+  return settle(res, 'Order is not shipped');
 }
 
 export async function markRto(db: D1Database, orderId: number, ctx: { now: Date; actor: Actor; actorEmail?: string | null; note?: string }): Promise<ActionResult> {
@@ -131,7 +161,7 @@ export async function markRto(db: D1Database, orderId: number, ctx: { now: Date;
     db.prepare("UPDATE orders SET status = 'rto', updated_at = ? WHERE id = ?").bind(at, orderId),
     event(db, orderId, at, 'rto', ctx.actor, ctx.note ?? 'Returning to origin', ctx.actorEmail),
   ]);
-  return res.ok ? { ok: true } : FAIL('Order is not shipped');
+  return settle(res, 'Order is not shipped');
 }
 
 export async function markReturned(db: D1Database, orderId: number, ctx: { now: Date; actorEmail?: string | null; note: string }): Promise<ActionResult> {
@@ -141,7 +171,7 @@ export async function markReturned(db: D1Database, orderId: number, ctx: { now: 
     db.prepare("UPDATE orders SET status = 'returned', updated_at = ? WHERE id = ?").bind(at, orderId),
     event(db, orderId, at, 'returned', 'admin', ctx.note, ctx.actorEmail),
   ]);
-  return res.ok ? { ok: true } : FAIL('Only delivered orders can be marked returned');
+  return settle(res, 'Only delivered orders can be marked returned');
 }
 
 /**
@@ -154,6 +184,20 @@ export async function cancelOrder(
   orderId: number,
   ctx: { now: Date; actor: 'customer' | 'admin'; reason: string; actorEmail?: string | null },
 ): Promise<ActionResult> {
+  // The batch below is built from what we read; the claim re-checks those exact
+  // values, so a capture or pack landing in between makes us re-read and retry.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const r = await cancelOnce(db, orderId, ctx);
+    if (r !== 'changed') return r;
+  }
+  return FAIL('The order changed while cancelling — please try again');
+}
+
+async function cancelOnce(
+  db: D1Database,
+  orderId: number,
+  ctx: { now: Date; actor: 'customer' | 'admin'; reason: string; actorEmail?: string | null },
+): Promise<ActionResult | 'changed'> {
   const data = await load(db, orderId);
   if (!data) return FAIL('Order not found');
   const { order, items } = data;
@@ -162,14 +206,7 @@ export async function cancelOrder(
   const reason = ctx.reason.trim().slice(0, 300) || (ctx.actor === 'customer' ? 'Cancelled by customer' : 'Cancelled by HariLeaf');
   const at = nowIso(ctx.now);
   const refundNeeded = order.payment_method === 'razorpay' && order.payment_status === 'paid' && order.total_paise > 0;
-  const claim = claimStmt(
-    db,
-    orderId,
-    'cancel',
-    `SELECT status IN (${allowed.map(() => '?').join(',')}) FROM orders WHERE id = ?`,
-    [...allowed, orderId],
-    at,
-  );
+  const claim = claimStmt(db, orderId, 'cancel', 'SELECT status = ? AND payment_status = ? FROM orders WHERE id = ?', [order.status, order.payment_status, orderId], at);
   const res = await runClaim(db, claim, [
     db
       .prepare(`UPDATE orders SET status = 'cancelled', cancelled_by = ?, cancel_reason = ?, payment_status = ?, updated_at = ? WHERE id = ?`)
@@ -182,11 +219,16 @@ export async function cancelOrder(
           enqueueStmt(db, { orderId, kind: 'razorpay.refund', payload: {}, at }),
         ]
       : []),
-    ...(order.shiprocket_order_id ? [enqueueStmt(db, { orderId, kind: 'shiprocket.cancel', payload: { shiprocketOrderId: order.shiprocket_order_id }, at })] : []),
+    // Always: the Shiprocket order may be created concurrently; the handler looks it up when it runs.
+    enqueueStmt(db, { orderId, kind: 'shiprocket.cancel', payload: {}, at }),
     event(db, orderId, at, 'cancelled', ctx.actor, reason, ctx.actorEmail),
     enqueueStmt(db, { orderId, kind: 'email.cancelled', payload: {}, at }),
   ]);
-  return res.ok ? { ok: true } : FAIL('Order can no longer be cancelled');
+  if (res.ok) return { ok: true };
+  if (res.reason === 'other') throw res.error;
+  // Lost the claim: already cancelled, or the status/payment changed under us.
+  const now = await db.prepare('SELECT status FROM orders WHERE id = ?').bind(orderId).first<{ status: string }>();
+  return now && now.status !== 'cancelled' && allowed.includes(now.status) ? 'changed' : FAIL('Order can no longer be cancelled');
 }
 
 /**
@@ -231,7 +273,7 @@ export async function refundOrder(
     ...(online ? [enqueueStmt(db, { orderId, kind: 'razorpay.refund', payload: {}, at })] : [enqueueStmt(db, { orderId, kind: 'email.refunded', payload: {}, at })]),
     event(db, orderId, at, 'refund', 'admin', online ? reason : `${reason} · manual ref ${ctx.manualReference!.trim()}`, ctx.actorEmail),
   ]);
-  return res.ok ? { ok: true } : FAIL('This order was already refunded');
+  return settle(res, 'This order was already refunded');
 }
 
 /** The parcel is back and inspected: restock what can be resold (never perishables). */
@@ -246,7 +288,7 @@ export async function receiveReturn(db: D1Database, orderId: number, ctx: { now:
     ...restockStmts(db, data.items, true),
     event(db, orderId, at, 'return_received', 'admin', [ctx.note, perishables ? `${perishables} perishable line(s) written off` : null].filter(Boolean).join(' · ') || 'Restocked', ctx.actorEmail),
   ]);
-  return res.ok ? { ok: true } : FAIL('This return was already received');
+  return settle(res, 'This return was already received');
 }
 
 /**
@@ -257,8 +299,12 @@ export async function receiveReturn(db: D1Database, orderId: number, ctx: { now:
 export async function createReplacement(
   db: D1Database,
   originalId: number,
-  ctx: { now: Date; lines: Array<{ itemId: number; qty: number }>; note: string; tokenSecret: string; actorEmail?: string | null },
+  ctx: { now: Date; lines: Array<{ itemId: number; qty: number }>; note: string; tokenSecret: string; requestKey: string; actorEmail?: string | null },
 ): Promise<{ ok: true; orderNo: string } | { ok: false; error: string }> {
+  if (!/^[A-Za-z0-9-]{16,64}$/.test(ctx.requestKey)) return { ok: false, error: 'Missing request key' };
+  const key = `replacement-${ctx.requestKey}`;
+  const again = await findByIdempotencyKey(db, key);
+  if (again) return { ok: true, orderNo: again.order_no }; // double submit
   const data = await load(db, originalId);
   if (!data) return FAIL('Order not found') as { ok: false; error: string };
   const { order: o, items } = data;
@@ -267,11 +313,20 @@ export async function createReplacement(
     .map((l) => ({ item: items.find((i) => i.id === l.itemId), qty: Math.trunc(l.qty) }))
     .filter((x): x is { item: OrderItemRow; qty: number } => Boolean(x.item) && x.qty > 0);
   if (!chosen.length || chosen.some((c) => c.qty > c.item.qty)) return { ok: false, error: 'Choose which items (and how many) to replace' };
+  // Across all replacements, never more than was originally ordered.
+  const { results: already } = await db
+    .prepare(
+      `SELECT i.variant_id, SUM(i.qty) AS qty FROM order_items i JOIN orders r ON r.id = i.order_id
+       WHERE r.replacement_for_order_id = ? AND r.status <> 'cancelled' GROUP BY i.variant_id`,
+    )
+    .bind(originalId)
+    .all<{ variant_id: number; qty: number }>();
+  const over = chosen.find((c) => c.qty + (already.find((a) => a.variant_id === c.item.variant_id)?.qty ?? 0) > c.item.qty);
+  if (over) return { ok: false, error: `${over.item.product_name} ${over.item.variant_label} was already replaced` };
 
   const at = nowIso(ctx.now);
   const { year, month } = istParts(ctx.now);
   const ym = `${String(year % 100).padStart(2, '0')}${String(month).padStart(2, '0')}`;
-  const key = `replacement-${crypto.randomUUID()}`;
   const tokenHash = await hashViewToken(ctx.tokenSecret, await viewTokenFor(ctx.tokenSecret, key));
   const idQ = '(SELECT id FROM orders WHERE idempotency_key = ?)';
   const stmts: D1PreparedStatement[] = [
@@ -313,6 +368,10 @@ export async function createReplacement(
     return { ok: true, orderNo: res[res.length - 1].results[0].order_no };
   } catch (err) {
     if (/stock_qty >= 0/.test(String(err))) return { ok: false, error: 'Not enough stock for the replacement' };
+    if (/UNIQUE.*idempotency_key/.test(String(err))) {
+      const won = await findByIdempotencyKey(db, key);
+      if (won) return { ok: true, orderNo: won.order_no };
+    }
     if (/not purchasable/.test(String(err))) return { ok: false, error: 'A replacement item is no longer on sale' };
     throw err;
   }

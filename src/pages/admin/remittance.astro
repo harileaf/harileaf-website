@@ -69,10 +69,11 @@ const day = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'n
     btn.disabled = true;
     try {
       const res = await fetch('/api/admin/remittance', { method: 'POST', headers: { 'Content-Type': 'text/csv' }, body: await file.text() });
-      const r = (await res.json().catch(() => ({}))) as { error?: string; imported?: number; duplicates?: number; invalid?: number; unmatched?: string[]; mismatched?: Array<{ orderNo: string; expected: number; got: number }> };
+      const r = (await res.json().catch(() => ({}))) as { error?: string; imported?: number; duplicates?: number; invalid?: number; unmatched?: string[]; mismatched?: Array<{ orderNo: string; expected: number; got: number }>; notCod?: string[] };
       if (!res.ok) return line(r.error ?? 'Import failed', true);
       line(`Imported ${r.imported} row(s); ${r.duplicates} already imported; ${r.invalid} unreadable.`, true);
       if (r.unmatched?.length) line(`No matching order for: ${r.unmatched.join(', ')}`);
+      if (r.notCod?.length) line(`Matched prepaid (not COD) orders — check these: ${r.notCod.join(', ')}`);
       for (const m of r.mismatched ?? []) line(`${m.orderNo}: remitted ${formatINR(m.got)} but the order total is ${formatINR(m.expected)}`);
     } catch {
       line('Network error — try again.', true);

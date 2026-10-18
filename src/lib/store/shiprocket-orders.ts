@@ -32,6 +32,8 @@ export function shiprocketOrderPayload(o: OrderRow, items: Array<OrderItemRow & 
   const p = parcel(items);
   const [first, ...rest] = o.customer_name.split(' ');
   const cod = o.payment_method === 'cod' && o.total_paise > 0;
+  // A free replacement still declares the goods' value (courier liability / insurance).
+  const declared = o.total_paise > 0 ? o.total_paise : items.reduce((a, i) => a + i.unit_price_paise * i.qty, 0);
   return {
     order_id: o.order_no,
     order_date: srDate(o.created_at),
@@ -71,7 +73,7 @@ export function shiprocketOrderPayload(o: OrderRow, items: Array<OrderItemRow & 
       hsn: i.hsn_code,
     })),
     payment_method: cod ? 'COD' : 'Prepaid',
-    sub_total: (o.total_paise / 100).toFixed(2),
+    sub_total: (declared / 100).toFixed(2),
     length: p.length,
     breadth: p.breadth,
     height: p.height,
@@ -83,7 +85,8 @@ async function findExisting(cfg: ShiprocketConfig, orderNo: string): Promise<{ i
   const { status, data } = await srCall<{ data?: Array<{ id: number; channel_order_id: string; shipments?: Array<{ id: number }> }> }>(
     cfg, 'GET', `/orders?filter_by=channel_order_id&filter=${encodeURIComponent(orderNo)}`,
   );
-  if (status >= 500) throw new ShiprocketError(status, `Shiprocket order lookup failed (${status})`);
+  // Anything but 200 (incl. 429) is "don't know" — never treat it as "not found", or a retry creates a duplicate.
+  if (status !== 200) throw new ShiprocketError(status, `Shiprocket order lookup failed (${status})`);
   const hit = (data.data ?? []).find((o) => o.channel_order_id === orderNo);
   return hit ? { id: hit.id, shipmentId: hit.shipments?.[0]?.id ?? null } : null;
 }
@@ -123,12 +126,21 @@ export function makeShiprocketHandlers(fetchImpl?: typeof fetch): Record<string,
       await save(data.order_id, data.shipment_id ?? null);
     },
 
-    'shiprocket.cancel': async (payload: { shiprocketOrderId?: string }, { env }) => {
+    // Resolves the Shiprocket order when it runs (it may have been created after the cancel was queued).
+    'shiprocket.cancel': async (_payload, { env, row }) => {
+      const o = await env.STORE_DB.prepare('SELECT order_no, shiprocket_order_id FROM orders WHERE id = ?').bind(row.order_id).first<{ order_no: string; shiprocket_order_id: string | null }>();
+      if (!o) return;
       const cfg = shiprocketConfig(env, fetchImpl);
-      if (!cfg) throw new Error('Shiprocket is not configured');
-      if (!payload.shiprocketOrderId) return;
-      const { status } = await srCall(cfg, 'POST', '/orders/cancel', { ids: [Number(payload.shiprocketOrderId)] });
-      if (status !== 200 && status !== 204) throw new ShiprocketError(status, `Shiprocket cancel failed (${status})`);
+      if (!cfg) {
+        if (o.shiprocket_order_id) throw new Error('Shiprocket is not configured');
+        return; // never pushed
+      }
+      const id = o.shiprocket_order_id ? Number(o.shiprocket_order_id) : (await findExisting(cfg, o.order_no))?.id;
+      if (!id) return;
+      const { status, data } = await srCall<{ message?: string }>(cfg, 'POST', '/orders/cancel', { ids: [id] });
+      if (status === 200 || status === 204) return;
+      if (status >= 400 && status < 500 && /already\s+cancel/i.test(data.message ?? '')) return;
+      throw new ShiprocketError(status, `Shiprocket cancel failed (${status}): ${data.message ?? ''}`.slice(0, 300));
     },
   };
 }

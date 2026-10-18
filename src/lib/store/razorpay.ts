@@ -112,8 +112,11 @@ export const refundPayment = (cfg: RazorpayConfig, paymentId: string, r: { amoun
     notes: r.notes ?? {},
   });
 
-export async function listPaymentRefunds(cfg: RazorpayConfig, paymentId: string): Promise<Array<RazorpayRefund & { receipt?: string | null }>> {
-  const res = await call<{ items: Array<RazorpayRefund & { receipt?: string | null }> }>(cfg, 'GET', `/payments/${encodeURIComponent(paymentId)}/refunds`);
+export const fetchRefund = (cfg: RazorpayConfig, paymentId: string, refundId: string) =>
+  call<RazorpayRefund & { receipt?: string | null; notes?: Record<string, string> }>(cfg, 'GET', `/payments/${encodeURIComponent(paymentId)}/refunds/${encodeURIComponent(refundId)}`);
+
+export async function listPaymentRefunds(cfg: RazorpayConfig, paymentId: string): Promise<Array<RazorpayRefund & { receipt?: string | null; notes?: Record<string, string> | unknown[] }>> {
+  const res = await call<{ items: Array<RazorpayRefund & { receipt?: string | null; notes?: Record<string, string> | unknown[] }> }>(cfg, 'GET', `/payments/${encodeURIComponent(paymentId)}/refunds`);
   return res.items ?? [];
 }
 
