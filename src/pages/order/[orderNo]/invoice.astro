@@ -1,0 +1,20 @@
+---
+export const prerender = false;
+import { env } from 'cloudflare:workers';
+import InvoicePage from '../../../components/store/InvoicePage.astro';
+import { orderDocs } from '../../../lib/store/invoice-docs';
+import { getOrderByNo } from '../../../lib/store/orders';
+import { checkViewToken } from '../../../lib/store/tokens';
+
+Astro.response.headers.set('Cache-Control', 'no-store');
+Astro.response.headers.set('X-Robots-Tag', 'noindex');
+Astro.response.headers.set('Referrer-Policy', 'no-referrer');
+
+const token = Astro.url.searchParams.get('t') ?? '';
+const view = await getOrderByNo(env.STORE_DB, Astro.params.orderNo ?? '');
+const allowed = Boolean(view && env.ORDER_TOKEN_SECRET && (await checkViewToken(env.ORDER_TOKEN_SECRET, token, view.order.view_token_hash)));
+if (!allowed) return Astro.rewrite('/404');
+const docs = await orderDocs(env.STORE_DB, view!.order.id);
+---
+
+<InvoicePage title={`Invoice — order ${view!.order.order_no} | HariLeaf`} docs={docs} backHref={`/order/${view!.order.order_no}?t=${encodeURIComponent(token)}`} />

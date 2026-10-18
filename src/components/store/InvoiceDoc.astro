@@ -1,0 +1,133 @@
+---
+/**
+ * One GST document (tax invoice / bill of supply / credit note), rendered only
+ * from its frozen snapshot plus the number and date the database assigned.
+ */
+import type { DocSnapshot } from '../../lib/store/invoices';
+import { formatINR } from '../../lib/store/money';
+
+interface Props {
+  snapshot: DocSnapshot;
+  docNo: string;
+  issuedAt: string;
+}
+const { snapshot: d, docNo, issuedAt } = Astro.props;
+const date = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
+const showTax = d.docType !== 'bill_of_supply';
+const pct = (bp: number) => `${bp / 100}%`;
+const sameAddress = JSON.stringify(d.buyer.billing) === JSON.stringify(d.buyer.shipping);
+---
+
+<article class="doc">
+  <header class="doc-head">
+    <div>
+      <p class="seller">{d.seller.legalName}</p>
+      {d.seller.tradeName && d.seller.tradeName !== d.seller.legalName && <p>Trading as {d.seller.tradeName}</p>}
+      <p class="pre">{d.seller.address}</p>
+      <p>GSTIN <strong>{d.seller.gstin}</strong> · State {d.seller.state} ({d.seller.stateCode})</p>
+      {d.seller.fssai && <p>FSSAI Lic. No. {d.seller.fssai}</p>}
+    </div>
+    <div class="meta">
+      <h1>{d.title}</h1>
+      <p><span>No.</span> <strong>{docNo}</strong></p>
+      <p><span>Date</span> {date(issuedAt)}</p>
+      <p><span>Order</span> {d.order.orderNo} ({date(d.order.orderDate)})</p>
+      {d.reference && <p><span>Against invoice</span> {d.reference.docNo} dated {date(d.reference.issuedAt)}</p>}
+    </div>
+  </header>
+
+  <section class="parties">
+    <div>
+      <h2>{sameAddress ? 'Billed & shipped to' : 'Billed to'}</h2>
+      <p><strong>{d.buyer.legalName ?? d.buyer.billing.name}</strong></p>
+      {d.buyer.legalName && d.buyer.legalName !== d.buyer.billing.name && <p>Attn. {d.buyer.billing.name}</p>}
+      {d.buyer.billing.lines.map((l) => <p>{l}</p>)}
+      <p>{d.buyer.billing.state} ({d.buyer.billing.stateCode})</p>
+      {d.buyer.gstin && <p>GSTIN <strong>{d.buyer.gstin}</strong></p>}
+    </div>
+    {!sameAddress && (
+      <div>
+        <h2>Shipped to</h2>
+        <p><strong>{d.buyer.shipping.name}</strong></p>
+        {d.buyer.shipping.lines.map((l) => <p>{l}</p>)}
+        <p>{d.buyer.shipping.state} ({d.buyer.shipping.stateCode})</p>
+      </div>
+    )}
+    <div>
+      <h2>Place of supply</h2>
+      <p>{d.placeOfSupply.state} ({d.placeOfSupply.stateCode})</p>
+      <p>Reverse charge: No</p>
+      <p>Payment: {d.order.paymentMethod === 'cod' ? 'Cash on delivery' : 'Online (Razorpay)'}</p>
+    </div>
+  </section>
+
+  {d.reason && <p class="reason"><strong>Reason:</strong> {d.reason}</p>}
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th><th class="l">Description</th><th>HSN</th><th>Qty</th><th>Rate</th><th>Discount</th><th>Taxable value</th>
+        {showTax && (d.intraState ? <><th>CGST</th><th>SGST</th></> : <th>IGST</th>)}
+        <th>Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {d.lines.map((l, i) => (
+        <tr>
+          <td>{i + 1}</td>
+          <td class="l">{l.description}</td>
+          <td>{l.hsn}</td>
+          <td>{l.qty}</td>
+          <td>{formatINR(l.unitPrice)}</td>
+          <td>{l.discount ? formatINR(l.discount) : '—'}</td>
+          <td>{formatINR(l.taxable)}</td>
+          {showTax && (d.intraState
+            ? <><td>{formatINR(l.cgst)}<small>{pct(l.rateBp / 2)}</small></td><td>{formatINR(l.sgst)}<small>{pct(l.rateBp / 2)}</small></td></>
+            : <td>{formatINR(l.igst)}<small>{pct(l.rateBp)}</small></td>)}
+          <td>{formatINR(l.total)}</td>
+        </tr>
+      ))}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="6" class="l">Delivery: free</td>
+        <td>{formatINR(d.totals.taxable)}</td>
+        {showTax && (d.intraState ? <><td>{formatINR(d.totals.cgst)}</td><td>{formatINR(d.totals.sgst)}</td></> : <td>{formatINR(d.totals.igst)}</td>)}
+        <td><strong>{formatINR(d.totals.total)}</strong></td>
+      </tr>
+    </tfoot>
+  </table>
+  <p class="words">Amount in words: <strong>{d.totals.inWords}</strong></p>
+  {d.docType === 'bill_of_supply' && <p class="note">Supply of goods exempt from GST.</p>}
+  <footer>
+    <p>This is a computer-generated document and does not require a signature.</p>
+    <p class="sign">For {d.seller.legalName}<br />Authorised signatory</p>
+  </footer>
+</article>
+
+<style>
+  .doc { background: #fff; color: #111; max-width: 820px; margin: 0 auto 2rem; padding: 2rem; border: 1px solid #ddd; font: 13px/1.45 Arial, Helvetica, sans-serif; break-after: page; }
+  .doc:last-child { break-after: auto; }
+  .doc p { margin: 0; }
+  .doc-head { display: flex; justify-content: space-between; gap: 1.5rem; border-bottom: 2px solid #196a5e; padding-bottom: 1rem; }
+  .seller { font-size: 16px; font-weight: 700; }
+  .pre { white-space: pre-line; }
+  .meta { text-align: right; }
+  .meta h1 { font-size: 20px; margin: 0 0 0.5rem; color: #196a5e; text-transform: uppercase; letter-spacing: 0.04em; }
+  .meta span { color: #555; }
+  .parties { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 1rem 0; }
+  .parties h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #555; margin: 0 0 0.25rem; }
+  .reason { margin: 0 0 1rem; padding: 0.5rem 0.75rem; background: #fff7e6; border: 1px solid #f0d58c; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border: 1px solid #ccc; padding: 0.35rem 0.45rem; text-align: right; vertical-align: top; }
+  th { background: #f2f5f4; font-size: 11px; }
+  .l { text-align: left; }
+  td small { display: block; color: #666; font-size: 10px; }
+  tfoot td { font-weight: 700; background: #fafafa; }
+  .words { margin-top: 0.75rem; }
+  .note { margin-top: 0.25rem; color: #555; }
+  footer { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 2rem; color: #555; font-size: 11px; }
+  .sign { text-align: right; color: #111; }
+  @media (max-width: 640px) { .doc { padding: 1rem; overflow-x: auto; } .doc-head { flex-direction: column; } .meta { text-align: left; } }
+  @media print { .doc { border: 0; padding: 0; max-width: none; margin: 0; } }
+</style>

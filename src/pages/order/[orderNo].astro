@@ -5,6 +5,7 @@ import SiteLayout from '../../layouts/SiteLayout.astro';
 import SEO from '../../components/seo/SEO.astro';
 import { formatINR } from '../../lib/store/money';
 import { getOrderByNo } from '../../lib/store/orders';
+import { safeHttpsUrl } from '../../lib/store/urls';
 import { checkViewToken } from '../../lib/store/tokens';
 
 Astro.response.headers.set('Cache-Control', 'no-store');
@@ -30,6 +31,11 @@ const STATUS: Record<string, { title: string; body: string }> = {
   returned: { title: 'Returned', body: 'This order was returned.' },
 };
 const s = STATUS[o.status] ?? { title: o.status, body: '' };
+const canCancel = o.status === 'placed';
+const hasInvoice = Boolean(o.invoice_id);
+const trackingUrl = safeHttpsUrl(o.tracking_url);
+const refundLine =
+  o.payment_status === 'refund_pending' ? 'Refund in progress — usually 5–7 business days to reach you.' : o.payment_status === 'refunded' ? 'Refunded.' : null;
 const canPay = o.status === 'pending_payment' && o.payment_method === 'razorpay' && Boolean(holdExpiresAt && holdExpiresAt > new Date().toISOString());
 const fmt = (iso: string) => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' });
 const tax = items.reduce((a, i) => ({ cgst: a.cgst + i.cgst_paise, sgst: a.sgst + i.sgst_paise, igst: a.igst + i.igst_paise }), { cgst: 0, sgst: 0, igst: 0 });
@@ -55,7 +61,7 @@ const paymentLine =
         <p id="pay-status" class="w-full text-sm font-bold" role="status" aria-live="polite"></p>
       </div>
     )}
-    {o.tracking_url && <p class="mt-6"><a href={o.tracking_url} class="font-extrabold text-primary underline" rel="noopener noreferrer" target="_blank">Track your parcel{o.courier ? ` (${o.courier})` : ''} →</a></p>}
+    {trackingUrl && <p class="mt-6"><a href={trackingUrl} class="font-extrabold text-primary underline" rel="noopener noreferrer" target="_blank">Track your parcel{o.courier ? ` (${o.courier})` : ''} →</a></p>}
 
     <div class="mt-10 grid md:grid-cols-[1.4fr_1fr] gap-8 items-start">
       <section aria-labelledby="items-h" class="rounded-2xl bg-white border border-black/5 p-6">
@@ -82,8 +88,21 @@ const paymentLine =
         <div class="rounded-2xl bg-surface-container-low p-5">
           <h2 class="font-extrabold mb-1">Payment</h2>
           <p>{paymentLine}</p>
-          <p class="mt-2 text-xs text-on-surface-variant">Your GST invoice is issued when the order ships.</p>
+          {refundLine && <p class="mt-1 font-bold">{refundLine}</p>}
+          {hasInvoice
+            ? <p class="mt-2"><a href={`/order/${o.order_no}/invoice?t=${encodeURIComponent(token)}`} class="font-bold text-primary underline">View / download GST invoice</a></p>
+            : <p class="mt-2 text-xs text-on-surface-variant">Your GST invoice is issued when the order ships.</p>}
         </div>
+        {canCancel && (
+          <div class="rounded-2xl border border-black/10 p-5">
+            <h2 class="font-extrabold mb-1">Need to cancel?</h2>
+            <p class="text-on-surface-variant">You can cancel free of charge until we pack it.</p>
+            <label class="block mt-3 text-xs font-bold" for="cancel-reason">Reason (optional)</label>
+            <input id="cancel-reason" maxlength="300" class="mt-1 w-full rounded-lg border border-black/15 px-3 py-2" />
+            <button id="cancel-order" type="button" data-order={o.order_no} data-token={token} class="mt-3 rounded-full px-5 py-2 font-bold border-2 border-red-700 text-red-800">Cancel order</button>
+            <p id="cancel-status" class="mt-2 font-bold" role="status" aria-live="polite"></p>
+          </div>
+        )}
         <p class="text-on-surface-variant">Questions? See our <a href="/refund-policy" class="underline">refund policy</a> or <a href="/grievance" class="underline">contact customer care</a> with your order number.</p>
       </section>
     </div>
@@ -98,6 +117,26 @@ const paymentLine =
   if (new URLSearchParams(location.search).has('t')) history.replaceState(null, '', location.pathname);
   // A plain reload would drop the token (and 404): reload the tokened URL instead.
   const reloadOrder = () => location.replace(tokenedUrl);
+
+  const cancelBtn = document.getElementById('cancel-order') as HTMLButtonElement | null;
+  cancelBtn?.addEventListener('click', async () => {
+    if (!confirm('Cancel this order?')) return;
+    const out = document.getElementById('cancel-status');
+    cancelBtn.disabled = true;
+    try {
+      const res = await fetch('/api/store/order/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderNo: cancelBtn.dataset.order, token: cancelBtn.dataset.token, reason: (document.getElementById('cancel-reason') as HTMLInputElement | null)?.value ?? '' }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (res.ok) return reloadOrder();
+      if (out) out.textContent = data.error ?? 'Couldn’t cancel right now. Please contact customer care.';
+    } catch {
+      if (out) out.textContent = 'Network error — please try again.';
+    }
+    cancelBtn.disabled = false;
+  });
 
   const btn = document.getElementById('pay-now') as HTMLButtonElement | null;
   const status = document.getElementById('pay-status');

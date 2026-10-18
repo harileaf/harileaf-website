@@ -15,3 +15,14 @@ export const absolute = (path: string) => new URL(path, SITE).toString();
 
 /** Public URL for an R2 object served by /media/[...key]. */
 export const mediaUrl = (key: string) => `/media/${key.split('/').map(encodeURIComponent).join('/')}`;
+
+/** An https URL safe to render as a link (rejects javascript:, data:, http: etc.). */
+export function safeHttpsUrl(u: string | null | undefined): string | null {
+  if (!u) return null;
+  try {
+    const url = new URL(u);
+    return url.protocol === 'https:' ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
