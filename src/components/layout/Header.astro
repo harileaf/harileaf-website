@@ -150,7 +150,7 @@ const isItemActive = (item: { url: string; children?: { url: string }[] }) =>
       <CartIcon />
       <a
         href={cta.url}
-        class={ctaClass}
+        class:list={[ctaClass, 'hidden sm:inline-block whitespace-nowrap']}
       >
         {cta.label}
       </a>

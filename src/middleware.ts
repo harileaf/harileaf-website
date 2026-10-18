@@ -18,6 +18,8 @@ const deny = (status: number, message: string) =>
 export const onRequest = defineMiddleware(async (context, next) => {
   if (!requiresAdminAccess(context.url.pathname, context.request.method)) {
     // Public store pages are cached at the edge (see edge-cache.ts); everything else passes through.
+    // Skipped in `astro dev` so edits show up immediately.
+    if (import.meta.env.DEV) return next();
     const cf = context.locals.cfContext;
     return withEdgeCache(context.request, (p) => cf?.waitUntil(p), () => next());
   }

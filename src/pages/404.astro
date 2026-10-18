@@ -1,5 +1,5 @@
 ---
-export const prerender = true;
+export const prerender = false; // on-demand so product routes can Astro.rewrite("/404")
 import BaseLayout from '../layouts/BaseLayout.astro';
 import FadeIn from '../components/animations/FadeIn.astro';
 import SEO from '../components/seo/SEO.astro';

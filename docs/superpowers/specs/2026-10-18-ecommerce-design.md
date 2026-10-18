@@ -744,6 +744,19 @@ Deltas from the design above, made while building M1 (`docs/superpowers/plans/20
   - Claims: "organic" requires `mayUseOrganic` from `organicCopy()` (scheme and certificate); all FSSAI Reg 4 conditional terms (natural, fresh, pure, traditional, authentic, genuine, real, original) need an evidenced claim with that code; "cured"/"curing" are not treated as health claims.
   - Deploy applies D1 migrations (`wrangler d1 migrations apply --remote`) before `wrangler deploy`.
 
+## Implementation notes (M2 Catalog)
+
+- **No React on storefront pages.** The buy box, gallery, cart icon and /shop filters are small TypeScript modules; React is only used for the admin product editor. Keeps product pages light for the Lighthouse target.
+- **Product routes** are `src/pages/{rice,spices,produce}/[slug].astro` (not a catch-all `[category]/[slug]`, which would compete with `/farms/*` and Keystatic). `404.astro` is now on-demand so product routes can `Astro.rewrite('/404')`.
+- **Edge cache key** drops the trailing slash and these query params: `v`, `utm_*`, `gclid`, `gbraid`, `wbraid`, `fbclid`, `msclkid`, `gad_source`, `srsltid`, `ref`. Any other param (e.g. `?waitlist=success`, read server-side) bypasses the cache. Skipped entirely in `astro dev`.
+- **Stock is edited as a delta** (`stock_qty = stock_qty + Δ`) so an admin save can't overwrite concurrent sales. A product's URL (category + slug) is frozen once published.
+- **Nutrition** is stored as `{ per, source, rows: [{ name, amount }] }`.
+- **Claims checker**: "fresh" is allowed for raw produce (perishable products and the produce-page content); it still needs evidence elsewhere. `/admin/content` rejects banned wording, and the dashboard warns when stored KV content still contains it.
+- **Return policy in JSON-LD** is `MerchantReturnNotPermitted` (food packs are only replaced/refunded when damaged or wrong). Revisit if the refund policy changes.
+- **Copy reworded** on `/rice`, `/spices`, `/produce`, the homepage and content defaults: removed organic/chemical-free, disease/health-benefit wording and uncited statistics; nutrition panels are labelled as typical values for the variety until lab values exist.
+- **Fixed a live mobile bug**: the invisible `#mobile-backdrop` (fixed, full-screen, z-30) caught every tap on phones while the menu was closed; it now has `pointer-events: none` until opened.
+- **Real Cloudflare types**: `src/env.d.ts` aliases each type from `@cloudflare/workers-types/latest` (the earlier `import('@cloudflare/workers-types')` alias silently resolved to `any`).
+
 ## Review record
 
 This revision applies the consensus of a four-model design review (Codex, Antigravity, Sonnet, Claude; 2 rounds, 2026-10-18). Key changes from v1 of this spec:

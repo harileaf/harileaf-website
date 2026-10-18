@@ -338,10 +338,13 @@
 #mobile-backdrop {
   opacity: 0;
   transition: opacity 300ms;
-  /* display:none removed */
+  /* display:none was removed for the fade, so the invisible backdrop must not
+     catch taps while the menu is closed (it covers the whole viewport). */
+  pointer-events: none;
 }
 #mobile-backdrop.is-open {
   opacity: 1;
+  pointer-events: auto;
 }
 
 /* ── Scroll progress bar ─────────────────────────────────────────────── */

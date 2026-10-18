@@ -38,15 +38,15 @@ export function initBuyBox(): void {
     const price = Number(r.dataset.price);
     const mrp = Number(r.dataset.mrp);
     const off = mrp > price ? Math.round((1 - price / mrp) * 100) : 0;
-    set('[data-price]', formatINR(price));
-    set('[data-mrp]', formatINR(mrp));
-    set('[data-off]', `${off}% off`);
-    box!.querySelector('[data-mrp-wrap]')?.classList.toggle('hidden', !off);
-    box!.querySelector('[data-off]')?.classList.toggle('hidden', !off);
-    set('[data-unit]', `${formatINR(Number(r.dataset.unit))}/kg`);
-    set('[data-netqty]', r.dataset.netqty ?? '');
-    set('[data-sticky-price]', formatINR(price));
-    set('[data-sticky-meta]', `${r.dataset.label} · ${formatINR(Number(r.dataset.unit))}/kg`);
+    set('[data-bb-price]', formatINR(price));
+    set('[data-bb-mrp]', formatINR(mrp));
+    set('[data-bb-off]', `${off}% off`);
+    box!.querySelector('[data-bb-mrp-wrap]')?.classList.toggle('hidden', !off);
+    box!.querySelector('[data-bb-off]')?.classList.toggle('hidden', !off);
+    set('[data-bb-unit]', `${formatINR(Number(r.dataset.unit))}/kg`);
+    set('[data-bb-netqty]', r.dataset.netqty ?? '');
+    set('[data-bb-sticky-price]', formatINR(price));
+    set('[data-bb-sticky-meta]', `${r.dataset.label} · ${formatINR(Number(r.dataset.unit))}/kg`);
     const available = r.dataset.availability === 'buy';
     for (const b of [addBtn, stickyBtn]) {
       if (!b) continue;
