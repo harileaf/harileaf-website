@@ -56,3 +56,8 @@ pnpm-debug.log*
 .dev.vars
 .dev.vars.*
 .playwright-mcp/
+
+# Playwright
+playwright-report/
+test-results/
+.lighthouseci/

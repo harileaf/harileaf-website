@@ -44,6 +44,20 @@ Store logic lives in `src/lib/store/` as plain TypeScript modules that take a `D
    - `ORDER_TOKEN_SECRET`: a random 32+ byte string (`openssl rand -hex 32`). Changing it invalidates every order link already emailed.
 6. Daily operations live in **/admin/orders** (pack → issues the GST invoice; ship/deliver update automatically from Shiprocket tracking) and **/admin/remittance** (import Shiprocket's COD remittance CSV).
 
+### Backups
+
+`.github/workflows/d1-backup.yml` exports D1 nightly (02:00 IST) to the private R2 bucket `harileaf-backups` (create it once with `npx wrangler r2 bucket create harileaf-backups`, keep public access off, and add a 90-day lifecycle rule). The API token needs **D1 Edit** and **R2 Edit**. Run it on demand from GitHub → Actions → *Nightly D1 backup* → Run workflow.
+
+Restore into a fresh database (never over the live one), check it, then point `wrangler.toml` at it:
+
+```sh
+npx wrangler r2 object get harileaf-backups/d1/store-<stamp>.sql.gz --file backup.sql.gz --remote && gunzip backup.sql.gz
+npx wrangler d1 create harileaf-store-restore
+npx wrangler d1 execute harileaf-store-restore --remote --file backup.sql
+```
+
+D1 also keeps 30 days of point-in-time history: `npx wrangler d1 time-travel restore harileaf-store --timestamp <ISO time>`.
+
 ### Local database
 
 ```sh

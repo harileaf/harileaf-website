@@ -31,3 +31,46 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  e2e:
+    name: Storefront end-to-end (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Local secrets for the dev server
+        run: printf 'ORDER_TOKEN_SECRET=ci-only-%s\nADMIN_PASSPHRASE=ci-only-%s\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ID" > .dev.vars
+      - run: npm run test:e2e
+        env:
+          CI: 'true'
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  lighthouse:
+    name: Lighthouse (performance, accessibility, SEO)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build
+      - name: Seed local D1 for the built Worker
+        run: |
+          npx wrangler d1 migrations apply harileaf-store --local --config dist/server/wrangler.json
+          npx wrangler d1 execute harileaf-store --local --config dist/server/wrangler.json --file scripts/seed-dev.sql
+      - run: npx @lhci/cli@0.15 autorun
+
