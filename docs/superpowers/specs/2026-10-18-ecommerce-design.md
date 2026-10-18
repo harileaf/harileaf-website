@@ -821,3 +821,13 @@ Claims to re-verify during implementation:
 - **Replacements** are idempotent per admin page load (request key → order idempotency key) and capped cumulatively at the originally ordered quantity per line.
 - COD remittance import: chunked lookups and batched inserts, at most 800 rows per file (D1 per-invocation query limit), and flags matches to prepaid orders.
 - Perishables are restocked on cancellation (they never left the farm); never after dispatch.
+
+### M5 implementation notes
+
+- **COD confirmation** (setting `cod_confirmation`, default on; migration 0004 `orders.cod_confirmed_at`): unconfirmed COD orders are not pushed to Shiprocket and can't be packed. The customer confirms with a button on the order page (linked from the order email as `#confirm`; a POST, so mail link scanners can't confirm), or an admin confirms after a call. One reminder email after 24 h (cron); orders unconfirmed for 2 days appear as a dashboard to-do. No auto-cancel — that stays a human call (stock is held meanwhile).
+- **Find your order** (`/order/find`): order number + email → emails a fresh link; same answer whether or not they match, per-IP rate limit, at most one email per order per 10 minutes. Missing/wrong order tokens land on this page (404), whether or not the order exists. Token rotation is out of scope (links are derived from the order's idempotency key).
+- **Headers**: HSTS everywhere; an enforced CSP on `/cart`, `/checkout`, `/order/*` allowing scripts only from self, Razorpay Checkout and Turnstile (inline allowed for layout code). Playwright fails on CSP violations.
+- **Edge cache keys carry the build id** (`?__b=<git sha>`), so a deploy never serves HTML cached by the previous build (which references replaced asset hashes). Purges target the current build's keys.
+- **D1 outage**: product and order pages render a 503 "back in a moment" page (`Retry-After`, `no-store`, never edge-cached); listing and policy pages already degrade gracefully.
+- **Privacy policy** rewritten for the shop and the DPDP Act 2023 (data collected at checkout, processors, retention aligned with CGST s.36, data-principal rights, grievance officer, breach notice, children) — for legal review.
+- **Testing & ops**: seeded concurrency stress test (stock conservation, gapless documents); Playwright e2e on desktop + mobile; Lighthouse CI (accessibility, SEO, best practices and CLS are errors, performance a warning); nightly D1 export to the private R2 bucket `harileaf-backups`; Workers Logs enabled; `docs/launch-checklist.md`.
