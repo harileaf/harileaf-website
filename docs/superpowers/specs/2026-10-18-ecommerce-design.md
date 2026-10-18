@@ -722,6 +722,20 @@ Perishables + delivery zones + dispatch calendar, pre-orders + ready-to-dispatch
 
 ---
 
+## Implementation notes (M1 Foundation)
+
+Deltas from the design above, made while building M1 (`docs/superpowers/plans/2026-10-18-ecommerce-m1-foundation.md`):
+
+- **Invoices** have an explicit `series` column (`INV` | `CN`); uniqueness is `UNIQUE(series, fy, seq)` (the design referred to an undefined `doc_type_series`). A `BEFORE INSERT` trigger requires `seq` to equal the just-incremented `doc_counters.last_no`, so numbering is gapless at the database level. Document numbers are built in SQL from the counter.
+- **Purchasable-variant guard**: instead of `UPDATE … WHERE active = 1` (which silently matches 0 rows and doesn't abort a batch), a `BEFORE INSERT` trigger on `stock_reservations` aborts unless the variant is active and its product is `active`. Checkout puts the decrement and the reservation in one batch, so both roll back. Admins can still correct stock on inactive variants.
+- **Forward-only / append-only**: `stock_reservations.state` can't leave `consumed`/`released`; `order_events` can't be updated or deleted.
+- **Extra CHECKs**: perishable products can't allow COD; `orders.total_paise = subtotal_paise - discount_paise`; order lines must satisfy `line_total = unit × qty − discount = taxable + CGST + SGST + IGST` and never mix IGST with CGST/SGST; at most one active batch per product.
+- **Outbox** has a `running` state with `lease_until`: drains claim rows with a guarded `UPDATE`, so overlapping cron runs never execute a row twice within its lease, and a crashed run's rows are reclaimed. Handlers must be idempotent. Unknown kinds go straight to `dead`.
+- **`orders.idempotency_key UNIQUE`** backs the checkout `Idempotency-Key` header (M3).
+- **`workers_dev = false`** in `wrangler.toml`, and the Worker verifies the Cloudflare Access JWT itself (RS256 against the team JWKS) for `/admin*`, `/api/admin*` and `/api/auth`, so no other URL can bypass Access. Not configured → passphrase-only with a dashboard warning; half-configured → 503.
+- **Types**: Cloudflare runtime types are aliased in `src/env.d.ts` rather than added globally, because the global runtime types break DOM typing in client `<script>`s.
+- **Local cron testing**: Wrangler's local assets proxy can't forward `ScheduledController`; see README → Cron.
+
 ## Review record
 
 This revision applies the consensus of a four-model design review (Codex, Antigravity, Sonnet, Claude; 2 rounds, 2026-10-18). Key changes from v1 of this spec:
