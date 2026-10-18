@@ -12,31 +12,35 @@ import type { APIContext, MiddlewareNext } from 'astro';
 import { defineMiddleware } from 'astro:middleware';
 import { accessDecision, requiresAdminAccess, verifyAccessJwt } from './lib/store/access';
 import { withEdgeCache } from './lib/store/edge-cache';
+import { STORE_CSP, isStoreTransactionalPath } from './lib/store/csp';
 
 /** Same headers public/_headers gives static assets; SSR responses need them too. */
 const SECURITY_HEADERS: Record<string, string> = {
   'X-Frame-Options': 'DENY',
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(self "https://checkout.razorpay.com" "https://api.razorpay.com")',
+  'Strict-Transport-Security': 'max-age=31536000',
 };
 
-function withSecurityHeaders(res: Response): Response {
+function withSecurityHeaders(res: Response, pathname: string): Response {
+  const extra: Record<string, string> = isStoreTransactionalPath(pathname) ? { 'Content-Security-Policy': STORE_CSP } : {};
+  const apply = (r: Response) => {
+    for (const [k, v] of Object.entries({ ...SECURITY_HEADERS, ...extra })) if (!r.headers.has(k)) r.headers.set(k, v);
+    return r;
+  };
   try {
-    for (const [k, v] of Object.entries(SECURITY_HEADERS)) if (!res.headers.has(k)) res.headers.set(k, v);
-    return res;
+    return apply(res);
   } catch {
     // Immutable headers (e.g. a fetched response): copy into a new Response.
-    const copy = new Response(res.body, res);
-    for (const [k, v] of Object.entries(SECURITY_HEADERS)) if (!copy.headers.has(k)) copy.headers.set(k, v);
-    return copy;
+    return apply(new Response(res.body, res));
   }
 }
 
 const deny = (status: number, message: string) =>
   new Response(message, { status, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
 
-export const onRequest = defineMiddleware(async (context, next) => withSecurityHeaders(await gate(context, next)));
+export const onRequest = defineMiddleware(async (context, next) => withSecurityHeaders(await gate(context, next), context.url.pathname));
 
 const gate = async (context: APIContext, next: MiddlewareNext): Promise<Response> => {
   if (!requiresAdminAccess(context.url.pathname, context.request.method)) {

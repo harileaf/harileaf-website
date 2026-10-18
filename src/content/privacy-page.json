@@ -1,13 +1,13 @@
 {
   "seo": {
     "metaTitle": "Privacy Policy | HariLeaf Agritech",
-    "metaDescription": "Learn how HariLeaf Agritech collects, uses, and protects your personal data across our agri-intelligence platform."
+    "metaDescription": "How HariLeaf collects, uses and protects your personal data when you shop with us or use our platform, and how to exercise your rights under India’s DPDP Act."
   },
   "hero": {
     "badge": "Legal",
     "title": "Privacy Policy",
-    "subtitle": "How we handle your data across the HariLeaf platform.",
-    "effectiveDate": "Effective 1 January 2026"
+    "subtitle": "How we handle your data on harileaf.org — including orders from our shop — and across the HariLeaf platform.",
+    "effectiveDate": "Last updated 19 October 2026"
   },
   "sections": [
     {
@@ -16,24 +16,49 @@
       "body": "We collect information you provide directly — such as your name, email address, organisation name, and any details submitted through our contact or demo request forms. When you use our platform, we automatically collect technical data including IP addresses, browser type, pages visited, and device identifiers. For farm operators using HariLeaf's field intelligence tools, we may collect operational telemetry such as sensor readings, crop metadata, and field boundaries, solely to deliver and improve the service."
     },
     {
+      "id": "shopping",
+      "title": "When You Shop With Us",
+      "body": "To take and deliver an order we collect your name, email address, mobile number and delivery address, and — only if you ask for a GST invoice in a business name — your GSTIN, business name and billing address. We use these details to process and deliver your order, issue the GST invoice or credit note the law requires, send you emails about that order (confirmation, shipping, delivery, cancellation, refund), handle returns and complaints, and prevent fraud (for example, asking you to confirm a cash-on-delivery order). We do not create accounts or passwords; your order page is protected by a private link sent to your email. We send marketing emails only if you tick the box at checkout, and you can withdraw that consent at any time by replying to any email or writing to us."
+    },
+    {
+      "id": "payments",
+      "title": "Payments",
+      "body": "Online payments are processed by Razorpay Software Private Limited. Your card, UPI or bank details are entered on Razorpay’s secure page and are never seen or stored by HariLeaf; we keep only the payment reference, amount and status. Cash-on-delivery amounts are collected by our courier partners. For a refund of a cash-on-delivery order we ask for a UPI ID or bank account, used only to send that refund."
+    },
+    {
+      "id": "third-party-services",
+      "title": "Who We Share Data With",
+      "body": "We share only what each service needs: Cloudflare (website hosting, database and security), Razorpay (online payments and refunds), Shiprocket and its courier partners (your name, phone and delivery address, to deliver the parcel and collect cash on delivery), and Resend (to send order emails). Some of these providers may process data outside India. They are bound by contract to use your data only to provide their service to us. We do not sell your personal data. We may disclose information when the law requires it, for example to tax authorities or in response to a lawful order. For the HariLeaf platform we also use cloud infrastructure, analytics and communication providers on the same terms; a current list is available on request."
+    },
+    {
       "id": "how-we-use-it",
       "title": "How We Use It",
       "body": "We use collected data to operate and improve the HariLeaf platform, respond to enquiries, send service-related communications, and personalise your experience. We may analyse aggregated, anonymised operational data to improve our AI models and produce industry insights. We do not sell your personal data to third parties. Marketing communications are opt-in only and you may unsubscribe at any time."
     },
     {
-      "id": "third-party-services",
-      "title": "Third-Party Services",
-      "body": "HariLeaf uses a limited set of trusted third-party processors — including cloud infrastructure, analytics, and communication providers — to deliver our services. These processors are contractually bound to handle your data in accordance with applicable data protection law. We do not permit them to use your data for their own purposes. A current list of sub-processors is available on request."
-    },
-    {
       "id": "data-retention",
       "title": "Data Retention",
-      "body": "We retain personal data only as long as necessary to fulfil the purpose for which it was collected, or as required by law. Account data is retained for the duration of the relationship plus 36 months. Contact and enquiry data is retained for 24 months. You may request deletion of your data at any time, subject to legal retention obligations."
+      "body": "Order records, invoices and credit notes are kept for as long as Indian tax law requires — at least 72 months from the due date of the annual GST return for that year (CGST Act, section 36) — and then deleted or anonymised. Order emails and courier tracking details are kept with the order. Marketing consent is kept until you withdraw it. Platform account data is retained for the duration of the relationship plus 36 months; contact and enquiry data for 24 months. Encrypted database backups are kept for up to 90 days."
     },
     {
       "id": "your-rights",
       "title": "Your Rights",
-      "body": "Depending on your jurisdiction, you may have the right to access, correct, delete, or port your personal data, as well as the right to restrict or object to certain processing. To exercise any of these rights, contact us at the address below. We will respond within 30 days. You also have the right to lodge a complaint with your local data protection authority."
+      "body": "Under the Digital Personal Data Protection Act, 2023 you may ask us for a summary of the personal data we hold about you and how we use it, ask us to correct, complete or update it, ask us to erase it (we will, except where the law requires us to keep it, such as GST records), withdraw any consent you have given, and nominate another person to exercise these rights on your behalf if you die or become unable to. To make a request, email privacy@harileaf.org from the address you used, with your order number if you have one. We will respond within 30 days. If you are not satisfied with our response, you may complain to the Data Protection Board of India."
+    },
+    {
+      "id": "grievance",
+      "title": "Grievance Officer",
+      "body": "You can raise any complaint about your data or an order with our Grievance Officer, whose name and contact details are published at harileaf.org/grievance. We acknowledge complaints within 48 hours and aim to resolve them within one month."
+    },
+    {
+      "id": "security",
+      "title": "Security and Breaches",
+      "body": "Our website uses HTTPS throughout, admin access is protected by single sign-on, order pages are reachable only through private links, and payment details never reach our systems. If a personal data breach affects you, we will inform you and the Data Protection Board of India as the law requires, with what happened, the likely impact and what we are doing about it."
+    },
+    {
+      "id": "children",
+      "title": "Children",
+      "body": "Our shop is meant for adults. We do not knowingly collect personal data from anyone under 18; if you believe a child has placed an order or shared details with us, contact us and we will delete them."
     },
     {
       "id": "contact",

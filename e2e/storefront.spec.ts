@@ -1,5 +1,15 @@
 import { expect, test } from '@playwright/test';
 
+// Fail on any Content-Security-Policy violation (the cart, checkout and order pages enforce one).
+let cspViolations: string[] = [];
+test.beforeEach(({ page }) => {
+  cspViolations = [];
+  page.on('console', (m) => {
+    if (/Content Security Policy/i.test(m.text())) cspViolations.push(m.text());
+  });
+});
+test.afterEach(() => expect(cspViolations).toEqual([]));
+
 test('a shopper buys rice with cash on delivery and can cancel before packing', async ({ page }) => {
   await page.goto('/shop/');
   await expect(page.getByRole('heading', { level: 1, name: 'Shop the farm' })).toBeVisible();
@@ -15,6 +25,8 @@ test('a shopper buys rice with cash on delivery and can cancel before packing', 
   await page.goto('/cart/');
   await expect(page.locator('#cart-root')).toContainText('5 kg');
   await page.getByRole('link', { name: 'Proceed to checkout' }).click();
+  const csp = (await page.request.get('/checkout/')).headers()['content-security-policy'];
+  expect(csp).toContain('https://checkout.razorpay.com');
 
   await page.fill('#c-name', 'Asha Rao');
   await page.fill('#c-email', 'asha@example.com');
