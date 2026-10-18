@@ -1,0 +1,62 @@
+---
+export const prerender = false;
+import { env } from 'cloudflare:workers';
+import PolicyPage, { type PolicySection } from '../components/policy/PolicyPage.astro';
+import { POLICY_CACHE, displayPhone, loadPolicySettings, orPending } from '../lib/store/policy-settings';
+
+const s = await loadPolicySettings(env.STORE_DB);
+Astro.response.headers.set('Cache-Control', POLICY_CACHE);
+
+const sections: PolicySection[] = [
+  {
+    id: 'cancel',
+    title: 'Cancelling an order',
+    paragraphs: [
+      'You can cancel an order free of charge until it has been packed, using the link in your order confirmation email or by contacting customer care. Prepaid orders are refunded in full. We never charge a cancellation fee.',
+    ],
+  },
+  {
+    id: 'damaged',
+    title: 'Damaged, defective or wrong items',
+    paragraphs: [
+      'If your order arrives damaged, defective, with a wrong item, or not as described, tell us within 48 hours of delivery and include photos of the parcel and the product.',
+      'Once we have reviewed it, we will send a replacement or give you a full refund for the affected items — whichever you prefer, subject to stock.',
+    ],
+  },
+  {
+    id: 'returns',
+    title: 'Returns',
+    paragraphs: [
+      'Because our products are food, we cannot accept returns of opened packs for reasons other than those above. If you have a concern about quality after 48 hours, contact us and we will look into it.',
+    ],
+  },
+  {
+    id: 'how',
+    title: 'How refunds are paid',
+    paragraphs: [
+      'Refunds for prepaid orders go back to the original payment method within 5–7 business days of approval. Your bank may take a few more days to show it.',
+      'For cash-on-delivery orders we refund by UPI or bank transfer to details you share with us.',
+    ],
+  },
+  {
+    id: 'contact',
+    title: 'Contact',
+    paragraphs: ['To cancel, report a problem or ask about a refund, contact customer care with your order number. If you are not satisfied with the response, you can contact our grievance officer.'],
+    rows: [
+      { label: 'Phone', value: displayPhone(s.customer_care_phone) },
+      { label: 'Email', value: orPending(s.customer_care_email), href: s.customer_care_email ? `mailto:${s.customer_care_email}` : undefined },
+      { label: 'Grievance officer', value: 'Contact details', href: '/grievance' },
+    ],
+  },
+];
+---
+
+<PolicyPage
+  title="Refund & Cancellation Policy"
+  badge="Store"
+  subtitle="Cancellations, damaged items and how refunds are paid."
+  updated="Last updated 18 October 2026"
+  path="/refund-policy"
+  description="Free cancellation until packing, replacement or refund for damaged or wrong items reported within 48 hours, and refunds within 5–7 business days at HariLeaf."
+  sections={sections}
+/>

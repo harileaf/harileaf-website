@@ -1,0 +1,140 @@
+---
+/**
+ * Shared layout for the store policy pages (shipping, refund, grievance):
+ * same hero + sticky table of contents as /privacy, but sections are built in
+ * code so they can include live store settings (minimum order, contacts).
+ */
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import FadeIn from '../animations/FadeIn.astro';
+import SEO from '../seo/SEO.astro';
+import JsonLd from '../seo/JsonLd.astro';
+
+export interface PolicySection {
+  id: string;
+  title: string;
+  paragraphs: string[];
+  /** Optional label/value rows (e.g. seller and grievance officer details). */
+  rows?: Array<{ label: string; value: string; href?: string }>;
+}
+
+interface Props {
+  title: string;
+  badge: string;
+  subtitle: string;
+  updated: string;
+  path: string;
+  description: string;
+  sections: PolicySection[];
+}
+
+const { title, badge, subtitle, updated, path, description, sections } = Astro.props;
+const canonicalURL = new URL(path, Astro.site ?? 'https://harileaf.org');
+const pageTitle = `${title} | HariLeaf`;
+---
+
+<SiteLayout title={pageTitle} description={description}>
+  <slot name="head" slot="head">
+    <SEO title={pageTitle} description={description} canonicalUrl={canonicalURL} />
+    <JsonLd
+      type="BreadcrumbList"
+      data={{
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://harileaf.org/' },
+          { '@type': 'ListItem', position: 2, name: title, item: canonicalURL.toString() },
+        ],
+      }}
+    />
+  </slot>
+
+  <header class="pt-32 pb-16 border-b border-outline-variant">
+    <div class="max-w-7xl mx-auto px-8">
+      <FadeIn>
+        <span class="inline-block px-4 py-1 rounded-full bg-secondary-container text-on-secondary-container text-sm font-bold tracking-widest uppercase mb-6">
+          {badge}
+        </span>
+      </FadeIn>
+      <FadeIn delay={100}>
+        <h1 class="text-5xl font-extrabold tracking-tighter text-on-surface mb-4">{title}</h1>
+      </FadeIn>
+      <FadeIn delay={200}>
+        <p class="text-lg text-on-surface-variant mb-3">{subtitle}</p>
+        <p class="text-sm text-tertiary font-medium">{updated}</p>
+      </FadeIn>
+    </div>
+  </header>
+
+  <div class="max-w-7xl mx-auto px-8 py-16">
+    <div class="flex gap-16 items-start">
+      <aside class="hidden lg:block w-64 shrink-0 sticky top-28 self-start">
+        <p class="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-4">On this page</p>
+        <nav class="flex flex-col gap-1" aria-label="On this page">
+          {sections.map((s) => (
+            <a
+              href={`#${s.id}`}
+              class="toc-link text-sm text-on-surface-variant hover:text-primary transition-colors py-1 pl-3 border-l-2 border-transparent"
+              data-section={s.id}
+            >
+              {s.title}
+            </a>
+          ))}
+        </nav>
+      </aside>
+
+      <div class="flex-1 min-w-0">
+        {sections.map((s) => (
+          <section id={s.id} class="mb-14 scroll-mt-32">
+            <h2 class="text-2xl font-bold text-on-surface mb-4">{s.title}</h2>
+            {s.paragraphs.map((p) => (
+              <p class="text-on-surface-variant leading-relaxed text-base mb-3">{p}</p>
+            ))}
+            {s.rows && (
+              <dl class="mt-4 grid grid-cols-1 sm:grid-cols-[14rem_1fr] gap-x-6 gap-y-2 text-base">
+                {s.rows.map((r) => (
+                  <>
+                    <dt class="font-bold text-on-surface">{r.label}</dt>
+                    <dd class="text-on-surface-variant break-words">
+                      {r.href ? <a href={r.href} class="text-primary hover:underline">{r.value}</a> : r.value}
+                    </dd>
+                  </>
+                ))}
+              </dl>
+            )}
+          </section>
+        ))}
+      </div>
+    </div>
+  </div>
+
+  <div class="border-t border-outline-variant">
+    <div class="max-w-7xl mx-auto px-8 py-12 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <p class="text-on-surface-variant text-sm">Questions about an order?</p>
+      <a
+        href="/grievance"
+        class="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-primary text-on-primary font-bold text-sm tracking-wide hover:opacity-90 transition-opacity"
+      >
+        Contact customer care
+      </a>
+    </div>
+  </div>
+</SiteLayout>
+
+<script>
+  const links = document.querySelectorAll<HTMLAnchorElement>('.toc-link');
+  const observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        links.forEach((l) => {
+          const active = l.dataset.section === entry.target.id;
+          l.classList.toggle('text-primary', active);
+          l.classList.toggle('font-bold', active);
+          l.classList.toggle('border-primary', active);
+          l.classList.toggle('text-on-surface-variant', !active);
+          l.classList.toggle('border-transparent', !active);
+        });
+      }
+    },
+    { rootMargin: '-30% 0px -60% 0px' },
+  );
+  document.querySelectorAll<HTMLElement>('section[id]').forEach((s) => observer.observe(s));
+</script>

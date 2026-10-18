@@ -1,8 +1,26 @@
 {
   "copyrightText": "© 2026 HariLeaf Agritech. Cultivating a sustainable future through autonomous field intelligence and regenerative precision.",
   "legalLinks": [
-    { "label": "Privacy Policy",   "url": "/privacy" },
-    { "label": "Terms of Service", "url": "/terms" }
+    {
+      "label": "Privacy Policy",
+      "url": "/privacy"
+    },
+    {
+      "label": "Terms of Service",
+      "url": "/terms"
+    },
+    {
+      "label": "Shipping Policy",
+      "url": "/shipping-policy"
+    },
+    {
+      "label": "Refund Policy",
+      "url": "/refund-policy"
+    },
+    {
+      "label": "Grievance Officer",
+      "url": "/grievance"
+    }
   ],
   "columns": []
 }
