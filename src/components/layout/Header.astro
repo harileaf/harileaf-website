@@ -25,6 +25,7 @@
  *   logoSize    — 'sm' (default, h-10) | 'md' (h-12)
  */
 import navJson  from '../../content/navigation.json';
+import CartIcon from '../store/CartIcon.astro';
 import siteJson from '../../content/site-settings.json';
 
 interface Props {
@@ -144,8 +145,9 @@ const isItemActive = (item: { url: string; children?: { url: string }[] }) =>
       ))}
     </div>
 
-    <!-- Right: CTA + mobile hamburger -->
+    <!-- Right: cart + CTA + mobile hamburger -->
     <div class="flex items-center gap-3">
+      <CartIcon />
       <a
         href={cta.url}
         class={ctaClass}

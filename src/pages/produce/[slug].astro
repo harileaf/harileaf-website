@@ -1,0 +1,17 @@
+---
+export const prerender = false;
+import { env } from 'cloudflare:workers';
+import ProductPageView from '../../components/store/ProductPageView.astro';
+import { getProductPage } from '../../lib/store/catalog';
+import { PAGE_CACHE_CONTROL } from '../../lib/store/edge-cache';
+import { loadPolicySettings } from '../../lib/store/policy-settings';
+
+const res = await getProductPage(env.STORE_DB, 'produce', Astro.params.slug ?? '', new Date());
+if (res.kind === 'redirect') return Astro.redirect(res.to, 301);
+if (res.kind === 'gone') return new Response('This product is no longer available.', { status: 410, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': PAGE_CACHE_CONTROL } });
+if (res.kind === 'not_found') return Astro.rewrite('/404');
+const settings = await loadPolicySettings(env.STORE_DB);
+Astro.response.headers.set('Cache-Control', PAGE_CACHE_CONTROL);
+---
+
+<ProductPageView {...res} settings={settings} />

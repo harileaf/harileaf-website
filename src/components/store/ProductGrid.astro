@@ -1,0 +1,17 @@
+---
+import type { ProductCard as Card } from '../../lib/store/catalog';
+import ProductCard from './ProductCard.astro';
+
+interface Props {
+  cards: Card[];
+  tone?: 'light' | 'dark';
+  headingLevel?: 'h2' | 'h3';
+}
+const { cards, tone = 'light', headingLevel = 'h3' } = Astro.props;
+---
+
+<ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5" role="list">
+  {cards.map((card) => (
+    <li class="flex"><ProductCard card={card} tone={tone} headingLevel={headingLevel} /></li>
+  ))}
+</ul>

@@ -1,0 +1,62 @@
+---
+/** Product card for /shop, category grids and "You may also like". */
+import type { ProductCard } from '../../lib/store/catalog';
+import { formatINR } from '../../lib/store/money';
+
+interface Props {
+  card: ProductCard;
+  tone?: 'light' | 'dark';
+  headingLevel?: 'h2' | 'h3';
+}
+
+const { card, tone = 'light', headingLevel = 'h3' } = Astro.props;
+const H = headingLevel;
+const dark = tone === 'dark';
+const badge = { buy: null, sold_out: 'Sold out', preorder: 'Pre-order', notify: 'Out of season' }[card.availability];
+const off = card.fromPrice && card.fromMrp && card.fromMrp > card.fromPrice ? Math.round((1 - card.fromPrice / card.fromMrp) * 100) : 0;
+---
+
+<a
+  href={card.path}
+  class:list={[
+    'group flex flex-col rounded-2xl overflow-hidden border transition-transform duration-200 hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+    dark ? 'border-white/10 bg-white/[0.04] text-white' : 'border-black/5 bg-white text-on-surface shadow-sm',
+  ]}
+  data-product-card
+  data-category={card.categorySlug}
+  data-claims={card.claims.map((c) => c.code).join(' ')}
+>
+  <div class="relative aspect-[4/3] overflow-hidden" style={dark ? 'background:#1c2a1c' : 'background:#ecefe8'}>
+    {card.image && (
+      <img src={card.image.url} alt={card.image.alt} loading="lazy" decoding="async" width="600" height="450" class="w-full h-full object-cover" />
+    )}
+    {badge && (
+      <span class="absolute top-3 left-3 text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full bg-black/70 text-white">{badge}</span>
+    )}
+  </div>
+  <div class="p-5 flex flex-col gap-2 flex-1">
+    <H class="text-lg font-extrabold leading-snug">{card.name}</H>
+    {card.claims.length > 0 && (
+      <ul class="flex flex-wrap gap-1.5" aria-label="Process">
+        {card.claims.slice(0, 3).map((c) => (
+          <li class:list={['text-[11px] font-bold px-2.5 py-1 rounded-full', dark ? 'bg-white/10 text-white/80' : 'bg-surface-container-high text-secondary']}>{c.text}</li>
+        ))}
+      </ul>
+    )}
+    {card.fromPrice !== null && (
+      <p class="mt-auto pt-2 text-sm">
+        {card.variantCount > 1 && <span class:list={[dark ? 'text-white/60' : 'text-on-surface-variant']}>From </span>}
+        <span class="text-lg font-extrabold">{formatINR(card.fromPrice)}</span>
+        {off > 0 && (
+          <span class:list={['ml-1.5 line-through', dark ? 'text-white/40' : 'text-on-surface-variant']}>
+            <span class="sr-only">MRP </span>{formatINR(card.fromMrp!)}
+          </span>
+        )}
+        {off > 0 && <span class="ml-1.5 font-bold" style="color:#1d7a3a">{off}% off</span>}
+        {card.fromUnitPricePerKg !== null && (
+          <span class:list={['block text-xs', dark ? 'text-white/50' : 'text-on-surface-variant']}>{formatINR(card.fromUnitPricePerKg)}/kg</span>
+        )}
+      </p>
+    )}
+  </div>
+</a>

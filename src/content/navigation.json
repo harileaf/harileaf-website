@@ -1,18 +1,47 @@
 {
   "items": [
-    { "label": "Technology",        "url": "/technology", "children": [] },
-    { "label": "Solutions & Farms", "url": "/solutions",  "children": [] },
     {
-      "label": "Produce",
-      "url": "/produce",
+      "label": "Technology",
+      "url": "/technology",
+      "children": []
+    },
+    {
+      "label": "Solutions & Farms",
+      "url": "/solutions",
+      "children": []
+    },
+    {
+      "label": "Shop",
+      "url": "/shop",
       "children": [
-        { "label": "Fresh Produce", "url": "/produce" },
-        { "label": "Rice",          "url": "/rice" },
-        { "label": "Spices",        "url": "/spices" }
+        {
+          "label": "Rice",
+          "url": "/rice"
+        },
+        {
+          "label": "Spices",
+          "url": "/spices"
+        },
+        {
+          "label": "Fresh Produce",
+          "url": "/produce"
+        },
+        {
+          "label": "All products",
+          "url": "/shop"
+        }
       ]
     },
-    { "label": "About",             "url": "/about",      "children": [] },
-    { "label": "Contact",           "url": "/contact",    "children": [] }
+    {
+      "label": "About",
+      "url": "/about",
+      "children": []
+    },
+    {
+      "label": "Contact",
+      "url": "/contact",
+      "children": []
+    }
   ],
   "ctaButton": {
     "label": "Get Started",
