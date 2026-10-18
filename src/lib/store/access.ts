@@ -26,13 +26,36 @@ export function accessDecision(env: { CF_ACCESS_AUD?: string; CF_ACCESS_TEAM_DOM
 }
 
 /**
- * Requests that need Cloudflare Access when it is configured. Astro matches
- * routes with or without a trailing slash, so paths are normalised first.
+ * The path as the router will see it. Astro decodes percent-escapes before
+ * matching routes (so `/%61dmin` renders /admin) and tolerates repeated
+ * slashes (`//admin`); the gate must match the same page, so decode
+ * (repeatedly, for double-encoding), collapse slashes, drop trailing slashes
+ * and lowercase (fail closed if a route ever matches case-insensitively).
+ */
+export function normaliseGatePath(pathname: string): string {
+  let p = pathname;
+  for (let i = 0; i < 3; i++) {
+    let next: string;
+    try {
+      next = decodeURIComponent(p);
+    } catch {
+      break; // malformed escape: check what we have
+    }
+    if (next === p) break;
+    p = next;
+  }
+  return p.toLowerCase().replace(/\/{2,}/g, '/').replace(/\/+$/, '') || '/';
+}
+
+/**
+ * Requests that need Cloudflare Access when it is configured. Paths are
+ * normalised first (normaliseGatePath), so every spelling the router serves
+ * as an admin page is gated.
  * Public reads of site content (GET /api/photos, /api/produce, /api/content)
  * stay open; their writes are admin actions.
  */
 export function requiresAdminAccess(pathname: string, method: string): boolean {
-  const p = pathname.replace(/\/+$/, '') || '/';
+  const p = normaliseGatePath(pathname);
   const under = (prefix: string) => p === prefix || p.startsWith(`${prefix}/`);
   if (under('/admin') || under('/api/admin') || p === '/api/auth') return true;
   if (under('/keystatic') || under('/api/keystatic')) return true;
