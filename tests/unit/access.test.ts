@@ -101,6 +101,9 @@ describe('requiresAdminAccess', () => {
     ['/keystatic', 'GET'], ['/keystatic/branch/main', 'GET'], ['/api/keystatic/update', 'POST'],
     ['/api/photos', 'POST'], ['/api/photos/', 'DELETE'], ['/api/photos/image', 'DELETE'],
     ['/api/produce', 'PUT'], ['/api/produce/', 'PUT'], ['/api/content', 'put'],
+    // Spellings the router still serves as admin pages (Astro decodes escapes and tolerates repeated slashes).
+    ['/%61dmin', 'GET'], ['/%61dmin/orders', 'GET'], ['/%2561dmin', 'GET'], ['//admin', 'GET'], ['/api//admin/settings', 'PUT'],
+    ['/api/%61dmin/settings', 'PUT'], ['/api/aut%68', 'POST'], ['/ADMIN', 'GET'], ['/API/Admin/settings', 'PUT'], ['/api/PHOTOS', 'POST'],
   ])('%s %s needs Access', (path, method) => {
     expect(requiresAdminAccess(path, method)).toBe(true);
   });
