@@ -7,6 +7,11 @@ import { OUTBOX_HANDLERS } from './handlers';
 import { drainOutbox } from './outbox';
 
 export async function runScheduled(env: Env, now: Date): Promise<void> {
-  const outbox = await drainOutbox(env.STORE_DB, OUTBOX_HANDLERS, { env, now, limit: 50 });
-  console.log(JSON.stringify({ msg: 'scheduled', at: now.toISOString(), outbox }));
+  try {
+    const outbox = await drainOutbox(env.STORE_DB, OUTBOX_HANDLERS, { env, now, limit: 50 });
+    console.log(JSON.stringify({ msg: 'scheduled', at: now.toISOString(), outbox }));
+  } catch (err) {
+    // e.g. D1 briefly unavailable: log with context; the next run (5 min) retries.
+    console.error(JSON.stringify({ msg: 'scheduled run failed', at: now.toISOString(), error: err instanceof Error ? `${err.name}: ${err.message}` : String(err) }));
+  }
 }
