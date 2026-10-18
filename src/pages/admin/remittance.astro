@@ -1,0 +1,83 @@
+---
+export const prerender = false;
+import { env } from 'cloudflare:workers';
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { validateSession } from '../../lib/auth';
+import { formatINR } from '../../lib/store/money';
+
+const authenticated = await validateSession(env.HARILEAF_CMS, Astro.cookies);
+let outstanding: Array<{ id: number; order_no: string; total_paise: number; awb: string | null; updated_at: string }> = [];
+let recent: Array<{ order_no: string | null; awb: string | null; amount_paise: number; remitted_on: string | null; utr: string | null; order_id: number | null }> = [];
+if (authenticated) {
+  const cutoff = new Date(Date.now() - 10 * 86400_000).toISOString();
+  outstanding = (await env.STORE_DB.prepare(
+    `SELECT id, order_no, total_paise, awb, updated_at FROM orders o WHERE payment_method = 'cod' AND status = 'delivered' AND total_paise > 0 AND updated_at < ?
+       AND NOT EXISTS (SELECT 1 FROM cod_remittances r WHERE r.order_id = o.id) ORDER BY updated_at LIMIT 100`,
+  ).bind(cutoff).all<(typeof outstanding)[number]>()).results;
+  recent = (await env.STORE_DB.prepare('SELECT order_no, awb, amount_paise, remitted_on, utr, order_id FROM cod_remittances ORDER BY id DESC LIMIT 50').all<(typeof recent)[number]>()).results;
+}
+const day = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' });
+---
+
+<AdminLayout title="COD remittance" active="remittance">
+  <div style="display:flex;flex-direction:column;gap:1.25rem;font-size:0.875rem;">
+    <section class="card" style="padding:1.5rem;background:#fff;">
+      <h2 style="font-weight:800;margin-bottom:0.5rem;">Import a remittance report</h2>
+      <p class="muted">Shiprocket → Billing → COD Remittance → download the CSV. Rows are matched to orders by AWB; re-importing the same file is safe.</p>
+      <div style="display:flex;gap:0.75rem;align-items:center;margin-top:0.75rem;flex-wrap:wrap;">
+        <input id="csv" type="file" accept=".csv,text/csv" aria-label="Remittance CSV" />
+        <button id="import" class="brand-btn" style="padding:0.6rem 1.25rem;">Import</button>
+      </div>
+      <div id="report" role="status" aria-live="polite" style="margin-top:0.75rem;"></div>
+    </section>
+
+    <section class="card" style="padding:1.5rem;background:#fff;">
+      <h2 style="font-weight:800;margin-bottom:0.5rem;">Delivered over 10 days ago, not yet remitted ({outstanding.length})</h2>
+      {outstanding.length === 0 ? <p class="muted">Nothing outstanding.</p> : (
+        <ul style="list-style:none;display:flex;flex-direction:column;gap:0.25rem;">
+          {outstanding.map((o) => <li><a href={`/admin/orders/${o.id}`} style="color:#196a5e;font-weight:700;">{o.order_no}</a> · {formatINR(o.total_paise)} · AWB {o.awb ?? '—'} · delivered {day(o.updated_at)}</li>)}
+        </ul>
+      )}
+    </section>
+
+    <section class="card" style="padding:1.5rem;background:#fff;">
+      <h2 style="font-weight:800;margin-bottom:0.5rem;">Recently imported</h2>
+      {recent.length === 0 ? <p class="muted">None yet.</p> : (
+        <ul style="list-style:none;display:flex;flex-direction:column;gap:0.25rem;">
+          {recent.map((r) => <li>{r.order_no ?? '—'} · AWB {r.awb} · {formatINR(r.amount_paise)} · {r.remitted_on ?? ''} {r.utr && `· ${r.utr}`}{!r.order_id && <strong style="color:#8a1c1c;"> · not matched</strong>}</li>)}
+        </ul>
+      )}
+    </section>
+  </div>
+</AdminLayout>
+
+<script>
+  import { formatINR } from '../../lib/store/money';
+
+  const btn = document.getElementById('import') as HTMLButtonElement | null;
+  const out = document.getElementById('report')!;
+  const line = (text: string, strong = false) => {
+    const p = document.createElement('p');
+    if (strong) p.style.fontWeight = '700';
+    p.textContent = text;
+    out.append(p);
+  };
+  btn?.addEventListener('click', async () => {
+    const file = (document.getElementById('csv') as HTMLInputElement).files?.[0];
+    out.replaceChildren();
+    if (!file) return line('Choose the CSV file first.', true);
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/admin/remittance', { method: 'POST', headers: { 'Content-Type': 'text/csv' }, body: await file.text() });
+      const r = (await res.json().catch(() => ({}))) as { error?: string; imported?: number; duplicates?: number; invalid?: number; unmatched?: string[]; mismatched?: Array<{ orderNo: string; expected: number; got: number }> };
+      if (!res.ok) return line(r.error ?? 'Import failed', true);
+      line(`Imported ${r.imported} row(s); ${r.duplicates} already imported; ${r.invalid} unreadable.`, true);
+      if (r.unmatched?.length) line(`No matching order for: ${r.unmatched.join(', ')}`);
+      for (const m of r.mismatched ?? []) line(`${m.orderNo}: remitted ${formatINR(m.got)} but the order total is ${formatINR(m.expected)}`);
+    } catch {
+      line('Network error — try again.', true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+</script>

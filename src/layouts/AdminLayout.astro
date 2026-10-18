@@ -9,7 +9,7 @@
 import { env } from 'cloudflare:workers';
 import { validateSession } from '../lib/auth';
 
-export type AdminSection = 'dashboard' | 'products' | 'photos' | 'produce' | 'content' | 'settings';
+export type AdminSection = 'dashboard' | 'orders' | 'products' | 'remittance' | 'photos' | 'produce' | 'content' | 'settings';
 
 interface Props {
   title: string;
@@ -22,7 +22,9 @@ Astro.response.headers.set('Cache-Control', 'no-store');
 
 const nav: Array<{ key: AdminSection; label: string; href: string }> = [
   { key: 'dashboard', label: 'Dashboard', href: '/admin' },
+  { key: 'orders', label: 'Orders', href: '/admin/orders' },
   { key: 'products', label: 'Products', href: '/admin/products' },
+  { key: 'remittance', label: 'COD remittance', href: '/admin/remittance' },
   { key: 'photos', label: 'Photos', href: '/admin/photos' },
   { key: 'produce', label: 'Produce', href: '/admin/produce' },
   { key: 'content', label: 'Content', href: '/admin/content' },

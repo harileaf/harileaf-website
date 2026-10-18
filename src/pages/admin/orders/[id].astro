@@ -1,0 +1,195 @@
+---
+export const prerender = false;
+import { env } from 'cloudflare:workers';
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { validateSession } from '../../../lib/auth';
+import { idParam } from '../../../lib/admin-api';
+import { availableActions, orderDetail } from '../../../lib/store/admin-orders';
+import { formatINR } from '../../../lib/store/money';
+import { safeHttpsUrl } from '../../../lib/store/urls';
+
+const authenticated = await validateSession(env.HARILEAF_CMS, Astro.cookies);
+const id = idParam(Astro.params.id);
+const d = authenticated && id ? await orderDetail(env.STORE_DB, id) : null;
+if (authenticated && !d) return Astro.rewrite('/404');
+const o = d?.order;
+const actions = o ? availableActions(o) : [];
+const fmt = (iso: string) => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' });
+const tracking = safeHttpsUrl(o?.tracking_url);
+const LABELS: Record<string, string> = {
+  pack: 'Mark packed (issues invoice)', ship: 'Mark shipped', deliver: 'Mark delivered', rto: 'Mark RTO', returned: 'Mark returned',
+  cancel: 'Cancel order', refund: 'Refund', receive_return: 'Return received (restock)', replacement: 'Send replacement',
+};
+const needs: Record<string, string[]> = { ship: ['awb', 'courier', 'trackingUrl'], cancel: ['reason'], refund: ['reason', 'manualReference'], returned: ['note'], rto: ['note'], receive_return: ['note'], replacement: ['note'] };
+---
+
+<AdminLayout title={o ? `Order ${o.order_no}` : 'Order'} active="orders">
+  {d && o && (
+    <div class="od">
+      <p><a href="/admin/orders">← Orders</a></p>
+      <p id="toast" role="status" aria-live="polite" class="toast hidden"></p>
+      <header style="display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;align-items:flex-end;">
+        <div>
+          <h1 style="font-size:1.75rem;font-weight:800;">{o.order_no}</h1>
+          <p class="muted">Placed {fmt(o.created_at)} · <strong>{o.status}</strong> · {o.payment_method === 'cod' ? 'COD' : 'Online'} ({o.payment_status.replace('_', ' ')})</p>
+          {d.original && <p class="warn" style="margin-top:0.5rem;">Free replacement for <a href={`/admin/orders/${d.original.id}`}>{d.original.order_no}</a> — no invoice is issued (no consideration). Confirm document treatment with your CA.</p>}
+          {d.replacements.length > 0 && <p class="muted">Replacements: {d.replacements.map((r) => r.order_no).join(', ')}</p>}
+        </div>
+        <p style="font-size:1.5rem;font-weight:800;">{formatINR(o.total_paise)}</p>
+      </header>
+
+      <section class="box">
+        <h2>Actions</h2>
+        {actions.length === 0 ? <p class="muted">No actions for this status.</p> : (
+          <form id="action-form" data-id={o.id} style="display:flex;flex-direction:column;gap:0.75rem;">
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;" role="radiogroup" aria-label="Action">
+              {actions.map((a, i) => (
+                <label class="act"><input type="radio" name="action" value={a} checked={i === 0} data-needs={(needs[a] ?? []).join(' ')} /> {LABELS[a] ?? a}</label>
+              ))}
+            </div>
+            <div data-field="awb"><label for="f-awb">AWB</label><input id="f-awb" name="awb" type="text" value={o.awb ?? ''} /></div>
+            <div data-field="courier"><label for="f-courier">Courier</label><input id="f-courier" name="courier" type="text" value={o.courier ?? ''} /></div>
+            <div data-field="trackingUrl"><label for="f-tracking">Tracking link (https://…)</label><input id="f-tracking" name="trackingUrl" type="text" value={o.tracking_url ?? ''} /></div>
+            <div data-field="reason"><label for="f-reason">Reason (printed on the credit note and emailed)</label><input id="f-reason" name="reason" type="text" maxlength="300" /></div>
+            <div data-field="manualReference"><label for="f-ref">COD refund — UPI / bank reference</label><input id="f-ref" name="manualReference" type="text" maxlength="80" /></div>
+            <div data-field="note"><label for="f-note">Note</label><input id="f-note" name="note" type="text" maxlength="300" /></div>
+            <fieldset data-field="replacement" style="border:0;">
+              <legend class="muted">Items to replace</legend>
+              {d.items.map((i) => (
+                <p style="display:flex;gap:0.5rem;align-items:center;margin-top:0.25rem;">
+                  <input type="number" min="0" max={i.qty} value="0" data-item={i.id} aria-label={`Quantity of ${i.product_name} ${i.variant_label}`} style="width:5rem;" />
+                  <span>{i.product_name} · {i.variant_label} (ordered {i.qty})</span>
+                </p>
+              ))}
+            </fieldset>
+            <div><button class="brand-btn" style="padding:0.7rem 1.5rem;">Apply</button></div>
+          </form>
+        )}
+      </section>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1rem;">
+        <section class="box">
+          <h2>Items</h2>
+          <table class="mini">
+            {d.items.map((i) => (
+              <tr><td>{i.product_name} · {i.variant_label} × {i.qty}<br /><span class="muted">{i.sku} · HSN {i.hsn_code} · GST {i.gst_rate_bp / 100}%{i.perishable ? ' · perishable' : ''}</span></td><td style="text-align:right;">{formatINR(i.line_total_paise)}</td></tr>
+            ))}
+          </table>
+        </section>
+        <section class="box">
+          <h2>Customer</h2>
+          <p>{o.customer_name}<br />{o.phone} · {o.email}</p>
+          <p style="margin-top:0.5rem;">{o.ship_line1}{o.ship_line2 && <><br />{o.ship_line2}</>}<br />{o.ship_city}, {o.ship_state} {o.ship_pincode}</p>
+          {o.buyer_gstin && <p style="margin-top:0.5rem;">B2B: {o.buyer_legal_name} · GSTIN {o.buyer_gstin}</p>}
+        </section>
+        <section class="box">
+          <h2>Shipping & documents</h2>
+          <p>Shiprocket order: {o.shiprocket_order_id ?? '—'}<br />AWB: {o.awb ?? '—'} {o.courier && `(${o.courier})`}</p>
+          {tracking && <p><a href={tracking} target="_blank" rel="noopener noreferrer">Tracking →</a></p>}
+          {d.docs.length > 0 ? (
+            <p style="margin-top:0.5rem;">{d.docs.map((x) => x.doc_no).join(', ')} · <a href={`/admin/orders/${o.id}/invoice`}>View / print</a></p>
+          ) : <p class="muted" style="margin-top:0.5rem;">No GST documents yet (issued on packing).</p>}
+          {d.remittances.map((r) => <p class="muted">COD remitted {formatINR(r.amount_paise)} {r.remitted_on && `on ${r.remitted_on}`} {r.utr && `· ${r.utr}`}</p>)}
+        </section>
+        {d.refunds.length > 0 && (
+          <section class="box">
+            <h2>Refunds</h2>
+            {d.refunds.map((r) => <p>{formatINR(r.amount_paise)} · <strong>{r.status}</strong> · {r.reason}{r.razorpay_refund_id && <span class="muted"> · {r.razorpay_refund_id}</span>}</p>)}
+            {d.refunds.some((r) => r.status === 'failed') && <button type="button" class="brand-btn" data-quick="retry_refund" style="padding:0.5rem 1rem;margin-top:0.5rem;">Retry failed refund</button>}
+          </section>
+        )}
+      </div>
+
+      <section class="box">
+        <h2>Timeline</h2>
+        <ol class="tl">
+          {d.events.map((e) => <li><span class="muted">{fmt(e.at)}</span> <strong>{e.type.replace('_', ' ')}</strong> <span class="muted">by {e.actor_email ?? e.actor}</span>{e.note && <> — {e.note}</>}</li>)}
+        </ol>
+        <form id="note-form" style="display:flex;gap:0.5rem;margin-top:0.75rem;"><input name="note" type="text" maxlength="1000" placeholder="Add an internal note" aria-label="Internal note" /><button class="brand-btn" style="padding:0.5rem 1rem;">Add</button></form>
+      </section>
+
+      <section class="box">
+        <h2>Background tasks</h2>
+        <table class="mini">
+          {d.outbox.map((t) => (
+            <tr>
+              <td>{t.kind}</td><td><strong>{t.state}</strong> ({t.attempts})</td>
+              <td class="muted" style="max-width:24rem;overflow-wrap:anywhere;">{t.last_error}</td>
+              <td>{t.state === 'dead' && <button type="button" data-quick="retry_task" data-task={t.id} class="brand-btn" style="padding:0.3rem 0.8rem;">Retry</button>}</td>
+            </tr>
+          ))}
+        </table>
+      </section>
+    </div>
+  )}
+</AdminLayout>
+
+<style is:global>
+  .od { display: flex; flex-direction: column; gap: 1rem; }
+  .od a { color: #196a5e; }
+  .box { background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 14px; padding: 1.25rem; font-size: 0.875rem; }
+  .box h2 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: #666; margin-bottom: 0.6rem; }
+  .act { display: inline-flex; gap: 0.4rem; align-items: center; text-transform: none; letter-spacing: 0; font-size: 0.875rem; color: #1a1a1a; border: 1px solid rgba(0,0,0,0.12); border-radius: 999px; padding: 0.4rem 0.8rem; margin: 0; cursor: pointer; }
+  .act:has(input:checked) { border-color: #196a5e; background: #eef8f5; }
+  table.mini { width: 100%; border-collapse: collapse; } table.mini td { padding: 0.4rem 0.25rem; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+  .toast { position: sticky; top: 0.5rem; z-index: 5; background: #1a1a1a; color: #fff; border-radius: 10px; padding: 0.6rem 1rem; font-weight: 700; }
+  .tl { list-style: none; display: flex; flex-direction: column; gap: 0.35rem; }
+</style>
+
+<script>
+  const form = document.getElementById('action-form') as HTMLFormElement | null;
+  const toast = document.getElementById('toast');
+  const say = (msg: string) => {
+    if (!toast) return;
+    toast.textContent = msg;
+    toast.classList.remove('hidden');
+  };
+  const orderId = form?.dataset.id ?? location.pathname.split('/').filter(Boolean).pop();
+
+  async function send(body: Record<string, unknown>) {
+    say('Working…');
+    try {
+      const res = await fetch(`/api/admin/orders/${orderId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const data = (await res.json().catch(() => ({}))) as { error?: string; orderNo?: string };
+      if (!res.ok) {
+        say(data.error ?? 'Failed');
+        return;
+      }
+      if (data.orderNo) say(`Replacement ${data.orderNo} created`);
+      location.reload();
+    } catch {
+      say('Network error — try again');
+    }
+  }
+
+  function syncFields() {
+    if (!form) return;
+    const chosen = form.querySelector<HTMLInputElement>('input[name="action"]:checked');
+    const needs = new Set((chosen?.dataset.needs ?? '').split(' ').filter(Boolean));
+    if (chosen?.value === 'replacement') needs.add('replacement');
+    form.querySelectorAll<HTMLElement>('[data-field]').forEach((el) => el.classList.toggle('hidden', !needs.has(el.dataset.field!)));
+  }
+  form?.addEventListener('change', syncFields);
+  syncFields();
+
+  form?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fd = new FormData(form);
+    const action = String(fd.get('action'));
+    if (['cancel', 'refund'].includes(action) && !confirm(action === 'cancel' ? 'Cancel this order? Stock is restored and any payment refunded.' : 'Refund the full order amount?')) return;
+    const body: Record<string, unknown> = Object.fromEntries(fd.entries());
+    if (action === 'replacement') {
+      body.lines = Array.from(form.querySelectorAll<HTMLInputElement>('[data-item]')).map((i) => ({ itemId: Number(i.dataset.item), qty: Number(i.value) })).filter((l) => l.qty > 0);
+    }
+    void send(body);
+  });
+
+  document.querySelectorAll<HTMLButtonElement>('[data-quick]').forEach((b) =>
+    b.addEventListener('click', () => void send({ action: b.dataset.quick, taskId: b.dataset.task ? Number(b.dataset.task) : undefined })),
+  );
+  const noteForm = document.getElementById('note-form') as HTMLFormElement | null;
+  noteForm?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    void send({ action: 'note', note: String(new FormData(noteForm).get('note') ?? '') });
+  });
+</script>

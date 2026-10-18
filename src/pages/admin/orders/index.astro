@@ -1,0 +1,74 @@
+---
+export const prerender = false;
+import { env } from 'cloudflare:workers';
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { validateSession } from '../../../lib/auth';
+import { ORDER_STATUSES, listOrders, type OrderListRow } from '../../../lib/store/admin-orders';
+import { formatINR } from '../../../lib/store/money';
+
+const authenticated = await validateSession(env.HARILEAF_CMS, Astro.cookies);
+const status = Astro.url.searchParams.get('status') ?? 'open';
+const q = Astro.url.searchParams.get('q') ?? '';
+const page = Math.max(0, Math.trunc(Number(Astro.url.searchParams.get('page')) || 0));
+let rows: OrderListRow[] = [];
+if (authenticated) rows = await listOrders(env.STORE_DB, { status: status === 'all' ? undefined : status, q, limit: 50, offset: page * 50 });
+
+const LABEL: Record<string, string> = {
+  open: 'Open', all: 'All', pending_payment: 'Awaiting payment', placed: 'To pack', packed: 'To ship', shipped: 'Shipped',
+  delivered: 'Delivered', rto: 'RTO', returned: 'Returned', cancelled: 'Cancelled', payment_failed: 'Payment failed',
+};
+const tabs = ['open', 'placed', 'packed', 'shipped', 'rto', 'delivered', 'cancelled', 'all', ...ORDER_STATUSES.filter((s) => !['placed', 'packed', 'shipped', 'rto', 'delivered', 'cancelled'].includes(s))];
+const fmt = (iso: string) => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' });
+const href = (p: Record<string, string | number>) => `/admin/orders?${new URLSearchParams({ status, q, ...Object.fromEntries(Object.entries(p).map(([k, v]) => [k, String(v)])) })}`;
+---
+
+<AdminLayout title="Orders" active="orders">
+  <form method="get" style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap;">
+    <input type="hidden" name="status" value={status} />
+    <input type="text" name="q" value={q} placeholder="Order no., phone, email, AWB or name" aria-label="Search orders" style="flex:1;min-width:14rem;" />
+    <button class="brand-btn" style="padding:0.6rem 1.25rem;">Search</button>
+  </form>
+  <nav aria-label="Order status" style="display:flex;gap:0.375rem;flex-wrap:wrap;margin-bottom:1.25rem;">
+    {tabs.map((t) => (
+      <a href={href({ status: t, page: 0 })} aria-current={t === status ? 'page' : undefined} class="pill">{LABEL[t] ?? t}</a>
+    ))}
+  </nav>
+  {rows.length === 0 ? (
+    <p class="muted">No orders here.</p>
+  ) : (
+    <div style="overflow-x:auto;">
+      <table class="grid">
+        <thead><tr><th>Order</th><th>Placed</th><th>Customer</th><th>Status</th><th>Payment</th><th style="text-align:right">Total</th></tr></thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr>
+              <td><a href={`/admin/orders/${r.id}`} style="font-weight:700;color:#196a5e;">{r.order_no}</a>{r.replacement_for_order_id && <span class="tag">replacement</span>}</td>
+              <td>{fmt(r.created_at)}</td>
+              <td>{r.customer_name}<br /><span class="muted">{r.ship_city}, {r.ship_state}</span></td>
+              <td><span class={`st st-${r.status}`}>{LABEL[r.status] ?? r.status}</span></td>
+              <td>{r.payment_method === 'cod' ? 'COD' : 'Online'} · {r.payment_status.replace('_', ' ')}</td>
+              <td style="text-align:right;font-weight:700;">{formatINR(r.total_paise)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )}
+  <p style="display:flex;justify-content:space-between;margin-top:1rem;">
+    {page > 0 ? <a href={href({ page: page - 1 })}>← Newer</a> : <span />}
+    {rows.length === 50 && <a href={href({ page: page + 1 })}>Older →</a>}
+  </p>
+</AdminLayout>
+
+<style is:global>
+  .pill { border-radius: 9999px; padding: 0.35rem 0.9rem; font-size: 0.8125rem; font-weight: 700; border: 1px solid rgba(0,0,0,0.12); color: #3f4946; text-decoration: none; background: #fff; }
+  .pill[aria-current='page'] { background: #196a5e; color: #fff; border-color: #196a5e; }
+  table.grid { width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px; overflow: hidden; font-size: 0.875rem; }
+  table.grid th, table.grid td { padding: 0.6rem 0.75rem; border-bottom: 1px solid #eee; text-align: left; vertical-align: top; }
+  table.grid th { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: #666; background: #fafaf8; }
+  .tag { margin-left: 0.4rem; font-size: 0.7rem; background: #eef; border-radius: 6px; padding: 0.1rem 0.4rem; }
+  .st { font-weight: 700; font-size: 0.8rem; border-radius: 6px; padding: 0.15rem 0.5rem; background: #eee; }
+  .st-placed { background: #fff4e0; color: #6b4a07; } .st-packed { background: #e6f0ff; color: #1d3f7a; }
+  .st-shipped { background: #e7f6f2; color: #155e52; } .st-delivered { background: #e5f5e5; color: #1f5f1f; }
+  .st-rto, .st-cancelled, .st-payment_failed { background: #fde8e8; color: #8a1c1c; }
+</style>
