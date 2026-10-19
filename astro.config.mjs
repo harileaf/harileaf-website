@@ -37,7 +37,7 @@ export default defineConfig({
         !page.includes('/keystatic') &&
         !page.includes('/api/') &&
         !page.includes('/admin') &&
-        !/\/(cart|checkout|order|review|store-unavailable)(\/|$)/.test(new URL(page).pathname),
+        !/^\/(cart|checkout|order|review|store-unavailable)(\/|$)/.test(new URL(page).pathname),
     }),
     keystatic(),
   ],
