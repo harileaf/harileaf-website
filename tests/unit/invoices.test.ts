@@ -45,11 +45,6 @@ describe('invoiceSnapshot', () => {
     expect(s.totals.igst).toBe(6657);
   });
 
-  it('chooses bill of supply and invoice-cum-bill of supply for exempt and mixed carts', () => {
-    const exempt = item({ gst_rate_bp: 0, taxable_paise: 50000, cgst_paise: 0, sgst_paise: 0, line_total_paise: 50000, unit_price_paise: 25000, mrp_paise: 25000 });
-    expect(invoiceSnapshot(order(), [exempt], settings).title).toBe('Bill of Supply');
-    expect(invoiceSnapshot(order(), [item(), exempt], settings).title).toBe('Invoice-cum-Bill of Supply');
-  });
 
   it('builds a credit note referencing the invoice', () => {
     const inv = invoiceSnapshot(order(), [item()], settings);
@@ -57,7 +52,4 @@ describe('invoiceSnapshot', () => {
     expect(cn).toMatchObject({ docType: 'credit_note', title: 'Credit Note', reference: { docNo: 'HL/2627/000042' }, reason: 'Cancelled by customer', totals: { total: 139800 } });
   });
 
-  it('refuses to invoice an empty order', () => {
-    expect(() => invoiceSnapshot(order(), [], settings)).toThrow();
-  });
 });

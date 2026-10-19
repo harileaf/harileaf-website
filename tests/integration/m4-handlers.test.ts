@@ -96,7 +96,10 @@ describe('Shiprocket push', () => {
     expect(await scalar('SELECT shiprocket_shipment_id FROM orders WHERE id = ?', o.id)).toBe('888');
   });
 
-  it('sizes the parcel from the variants', () => {
+  it('sizes the parcel from the variants and never sends an empty last name', async () => {
+    const { splitName } = await import('../../src/lib/store/shiprocket-orders');
+    expect(splitName('Meenakshi')).toEqual({ first: 'Meenakshi', last: '.' });
+    expect(splitName('  Asha   Rao  Kumar ')).toEqual({ first: 'Asha', last: 'Rao Kumar' });
     expect(parcel([{ qty: 2, weight_g: 1000, length_cm: 20, breadth_cm: 12, height_cm: 6 }, { qty: 1, weight_g: 250, length_cm: 15, breadth_cm: 10, height_cm: 4 }])).toEqual({ weight: 2.25, length: 20, breadth: 12, height: 16 });
   });
 });
@@ -132,11 +135,9 @@ describe('courier webhook', () => {
   const hook = (body: unknown, token = 'test-courier-token') =>
     courier({ request: new Request('https://harileaf.org/api/webhooks/courier', { method: 'POST', headers: { 'x-api-key': token, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }), locals: {} } as any);
 
-  it('rejects a wrong token', async () => {
-    expect((await hook({}, 'nope')).status).toBe(403);
-  });
 
-  it('packs (with invoice) and ships on pickup, delivers on delivery, ignores duplicates', async () => {
+  it('rejects a wrong token; packs (with invoice) and ships on pickup, delivers on delivery, ignores duplicates', async () => {
+    expect((await hook({}, 'nope')).status).toBe(403);
     const o = await order('cod');
     await db.prepare("UPDATE orders SET shiprocket_order_id = ? WHERE id = ?").bind(`sr${o.id}`, o.id).run();
     const base = { sr_order_id: `sr${o.id}`, awb: `AWB${o.id}`, courier_name: 'Delhivery' };
@@ -162,12 +163,7 @@ describe('courier webhook', () => {
   });
 });
 
-describe('PR #4 review', () => {
-  it('splits names for Shiprocket so the last name is never empty', async () => {
-    const { splitName } = await import('../../src/lib/store/shiprocket-orders');
-    expect(splitName('Meenakshi')).toEqual({ first: 'Meenakshi', last: '.' });
-    expect(splitName('  Asha   Rao  Kumar ')).toEqual({ first: 'Asha', last: 'Rao Kumar' });
-  });
+describe('manual shipping', () => {
 
   it('fills in the AWB from a late courier scan when the admin shipped it without one', async () => {
     const o = await order('cod');

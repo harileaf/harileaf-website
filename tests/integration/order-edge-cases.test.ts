@@ -1,4 +1,4 @@
-/** Regression tests for the M4 review findings (races, refunds retry, B2B place of supply, courier edge cases). */
+/** Order edge cases: cancel/capture races, Shiprocket cancel, refund retry, B2B place of supply, courier oddities. */
 import { env } from 'cloudflare:workers';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { POST as courier } from '../../src/pages/api/webhooks/courier';
