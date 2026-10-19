@@ -23,19 +23,19 @@
 
 ## Tasks
 
-- [ ] **1. Migration `0005_coupons.sql`.** `coupons`, `coupon_redemptions`, the triggers above, and an `orders` trigger: a discount needs a coupon code unless the order is a replacement. Schema test: last-use CHECK, phone UNIQUE, paused/expired refusal, terms frozen after first use, release decrements.
-- [ ] **2. `allocateDiscount` back in `gst.ts`** (from 059989d). Property test: Σ shares = discount, each share ≤ its line, and Σ `splitTax` totals = Σ lines − discount.
-- [ ] **3. `coupons.ts`:** `normalizeCode`, `evaluateCoupon` (reasons: not_found, paused, not_started, expired, below_minimum, limit_reached, phone_used, no_eligible_items; percent cap, flat cap, category eligibility), `validateCouponInput`, `createCoupon`, `setCouponActive`, `updateCoupon`, `listCoupons`, `couponUsage`. One table-driven unit test for the reasons and amounts.
-- [ ] **4. Quote:** `quoteCart(..., { coupon, phone })` → `Quote.coupon`, per-line `discount`/`categoryId`, `discount`, `total`. `publicQuote` exposes the coupon result and line discounts.
-- [ ] **5. Order batch:** `createOrder` writes `coupon_code`, `discount_paise`, item discounts and the redemption insert; `classifyD1Error` → `'coupon'`; `createOrder` returns `reason: 'coupon'`. The checkout API passes `coupon` and the phone, refuses an invalid code with 422 `{ errors: { coupon } }`, and includes the code in the fingerprint.
-- [ ] **6. Release and late capture:** `releaseStatements` deletes the redemption. `lateCapture` re-inserts it (with the original `created_at`) and, if the coupon refuses, takes the late-release path with a coupon-specific email. Integration races: last use (exactly one wins), one-per-phone, release on expiry exactly once (overlapping expiry + abort), cancel keeps the use, late capture re-takes it.
-- [ ] **7. Retention:** anonymisation clears `coupon_redemptions.phone` (extend the existing retention test with one assertion).
-- [ ] **8. Storefront UI:** "Have a discount code?" disclosure on `/cart` and `/checkout` (code in `localStorage` `hl_coupon_v1`). Apply/remove re-quotes live. The discount shows as its own line and the total is what the shopper pays. Place order is blocked while an applied code is invalid, with the reason shown.
-- [ ] **9. Order page, emails, invoices, admin order detail:** lines at gross, then "Discount (CODE) −₹X", then the total. The invoice snapshot gains an optional `order.couponCode`; the discount column is already there.
-- [ ] **10. Admin `/admin/coupons`:** list with usage and status, create form, pause/resume, edit while unused, usage drill-down (orders using the code). API `/api/admin/coupons` (+ `[code]`). Nav entry.
-- [ ] **11. Policies:** privacy (phone kept for one-per-phone codes), terms (coupon terms sentence), flagged for owner approval.
-- [ ] **12. e2e:** one flow: apply a code in the cart → discount line → checkout total matches. Seed one coupon in `e2e/setup-db.mjs`.
-- [ ] **13. Gates + browser pass** (desktop 1280, phone 390): admin create → cart/checkout → COD order → order page, outbox email rows, invoice after pack; feed/JSON-LD unchanged. Spec notes, PR.
+- [x] **1. Migration `0005_coupons.sql`.** `coupons`, `coupon_redemptions`, the triggers above, and an `orders` trigger: a discount needs a coupon code unless the order is a replacement. Schema test: last-use CHECK, phone UNIQUE, paused/expired refusal, terms frozen after first use, release decrements.
+- [x] **2. `allocateDiscount` back in `gst.ts`** (from 059989d). Property test: Σ shares = discount, each share ≤ its line, and Σ `splitTax` totals = Σ lines − discount.
+- [x] **3. `coupons.ts`:** `normalizeCode`, `evaluateCoupon` (reasons: not_found, paused, not_started, expired, below_minimum, limit_reached, phone_used, no_eligible_items; percent cap, flat cap, category eligibility), `validateCouponInput`, `createCoupon`, `setCouponActive`, `updateCoupon`, `listCoupons`, `couponUsage`. One table-driven unit test for the reasons and amounts.
+- [x] **4. Quote:** `quoteCart(..., { coupon, phone })` → `Quote.coupon`, per-line `discount`/`categoryId`, `discount`, `total`. `publicQuote` exposes the coupon result and line discounts.
+- [x] **5. Order batch:** `createOrder` writes `coupon_code`, `discount_paise`, item discounts and the redemption insert; `classifyD1Error` → `'coupon'`; `createOrder` returns `reason: 'coupon'`. The checkout API passes `coupon` and the phone, refuses an invalid code with 422 `{ errors: { coupon } }`, and includes the code in the fingerprint.
+- [x] **6. Release and late capture:** `releaseStatements` deletes the redemption. `lateCapture` re-inserts it (with the original `created_at`) and, if the coupon refuses, takes the late-release path with a coupon-specific email. Integration races: last use (exactly one wins), one-per-phone, release on expiry exactly once (overlapping expiry + abort), cancel keeps the use, late capture re-takes it.
+- [x] **7. Retention:** anonymisation clears `coupon_redemptions.phone` (extend the existing retention test with one assertion).
+- [x] **8. Storefront UI:** "Have a discount code?" disclosure on `/cart` and `/checkout` (code in `localStorage` `hl_coupon_v1`). Apply/remove re-quotes live. The discount shows as its own line and the total is what the shopper pays. Place order is blocked while an applied code is invalid, with the reason shown.
+- [x] **9. Order page, emails, invoices, admin order detail:** lines at gross, then "Discount (CODE) −₹X", then the total. The invoice snapshot gains an optional `order.couponCode`; the discount column is already there.
+- [x] **10. Admin `/admin/coupons`:** list with usage and status, create form, pause/resume, edit while unused, usage drill-down (orders using the code). API `/api/admin/coupons` (+ `[code]`). Nav entry.
+- [x] **11. Policies:** privacy (phone kept for one-per-phone codes), terms (coupon terms sentence), flagged for owner approval.
+- [x] **12. e2e:** one flow: apply a code in the cart → discount line → checkout total matches. Seed one coupon in `e2e/setup-db.mjs`.
+- [x] **13. Gates + browser pass** (desktop 1280, phone 390): admin create → cart/checkout → COD order → order page, outbox email rows, invoice after pack; feed/JSON-LD unchanged. Spec notes, PR.
 
 ## SEO (§3)
 - Coupons never change `Offer.price`, the feed price or any structured data. Nothing in `seo.ts`/`feed.ts` reads coupons (checked by grep in review).

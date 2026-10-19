@@ -850,3 +850,24 @@ Claims to re-verify during implementation:
 - **#3**: the order token stays in the URL (stripping it broke refresh, bookmarks and Back); the page is no-referrer/noindex/no-store and, from M5, CSP-protected. Duplicate submits during Razorpay order creation get 409 `in_progress` and the browser retries. Place order is disabled for unserviceable pincodes; the cart stepper accumulates clicks, debounces and ignores stale quotes.
 - **#4**: report files untracked; replacement orders show their delivery challan and "free replacement"; AWB/courier shown; Shiprocket last names never empty; late courier scans fill a missing AWB; admin *Update tracking* corrects or clears it; replacement confirmation email.
 - **#5**: **unconfirmed COD orders are cancelled after `cod_confirm_window_hours` (default 48, 0 = never)** and a shopper may hold at most 2 unconfirmed COD orders (by email or phone) — fake orders can no longer hoard stock. CI runs on PRs into `feat/**`. "Confirming…" state; find-page success/error styling and lock after sending; erase button only on erasable orders; `ORDER_LINK_DAILY_CAP` overrides the 40/day link-email ceiling.
+
+## Implementation notes (v2)
+
+Owner decisions taken before the v2 build (2026-10-19): perishables launch with **Kesar mango only**, in one zone (**Mumbai MMR**); dragon fruit stays notify-me. Mangoes are **hay/straw ripened, no carbide**, which the copy may state once the claim has its evidence note. **PDF invoices are not built**: the print-ready HTML invoice stays the format. In-admin courier booking sits **beside** Shiprocket auto-push, behind a setting.
+
+### V2-1 Coupons
+
+- **The database counts uses** (migration 0005):
+  - the order batch inserts a `coupon_redemptions` row, and triggers add or subtract one from `coupons.used_count` as rows are inserted or deleted;
+  - `CHECK (used_count <= usage_limit)` and `UNIQUE (coupon_code, phone)` abort the order batch when a code is used up;
+  - a `BEFORE INSERT` trigger refuses paused, not-yet-started or ended codes, judged at the row's `created_at`;
+  - terms are frozen (`BEFORE UPDATE`) once `first_used_at` is set, so a used code can only be paused;
+  - an `orders` trigger refuses a discount without a coupon code, except on free replacements.
+- **Release**: the expiry and abort batches `DELETE` the order's redemption inside their `expire` claim, so the use comes back exactly once. A late authorisation re-inserts the redemption with the original order time. If the code is used up or paused by then, the payment is not captured and the customer gets the "not charged" email naming the code. Cancelled and refunded orders keep their use.
+- **Minimum order** (store and coupon) is compared with the subtotal **before** the discount, so applying a code never makes a valid cart invalid. The COD cap is compared with the amount payable.
+- A coupon can never bring a total to ₹0: percent codes are capped at 90%, and a flat code needs `min_order_paise > value` (CHECK). ₹0 orders remain free replacements only.
+- `phone` is stored only for one-per-phone codes. Anonymisation (180-day job and erasure requests) clears it, together with the order.
+- **Abuse**: the quote endpoint rate-limits requests that carry a code (`coupon` bucket, Workers Rate Limiting binding), so codes can't be enumerated quickly. A shopper can learn whether a phone has used a one-per-phone code only by knowing a valid code.
+- **Display**: lines at full price, then "Discount (CODE)", then the total payable (cart, checkout, order page, emails). Invoices keep the per-line discount column, and the snapshot names the code (`order.couponCode`, optional, so older snapshots render unchanged).
+- **SEO**: coupons never touch `Offer.price`, the feed or structured data. Google defines `Offer.price` as "the current, active offer price" (developers.google.com/search/docs/appearance/structured-data/merchant-listing, checked 2026-10-19), and a code the shopper has to enter isn't that. There are no `?coupon=` URLs. Merchant Center Promotions (which supports India) would be the way to show codes on Google; proposed, not built.
+- Not done: auto-cancelled unconfirmed COD orders keep their use, as the "cancel keeps the use" rule says. If fake COD orders burn limited codes, consider releasing the use on that system cancel.
