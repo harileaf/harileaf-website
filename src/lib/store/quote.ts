@@ -68,6 +68,7 @@ export interface Quote {
   cod: { eligible: boolean; reason: string | null; max: Paise };
   /** Groups present among the lines being bought; more than one means the cart must be split. */
   groups: CartGroup[];
+  /** More than one group, or pre-orders with different dispatch dates. */
   mixed: boolean;
   /** True when every line can be bought as asked, the minimum is met and the cart isn't mixed. */
   ok: boolean;
@@ -152,7 +153,9 @@ export async function quoteCart(
   const meetsMinimum = subtotal >= minOrder;
   const buyable = lines.filter((l) => l.qty > 0);
   const groups = (['preorder', 'perishable', 'regular'] as const).filter((g) => buyable.some((l) => l.group === g));
-  const mixed = groups.length > 1;
+  // Pre-orders with different dispatch dates can't share an order either: one order is one parcel.
+  const preorderDates = [...new Set(buyable.map((l) => l.preorderDate).filter((d): d is string => Boolean(d)))].sort();
+  const mixed = groups.length > 1 || preorderDates.length > 1;
   const codReason = !buyable.length
     ? 'Your cart is empty'
     : groups.includes('preorder')
@@ -183,7 +186,7 @@ export async function quoteCart(
 async function applyCoupon(db: D1Database, lines: QuoteLine[], opts: { today: Date; coupon?: unknown; phone?: string | null }): Promise<CouponResult | null> {
   if (opts.coupon === undefined || opts.coupon === null || opts.coupon === '') return null;
   const code = normalizeCode(opts.coupon);
-  if (!code) return { ok: false, code: String(opts.coupon).slice(0, 24).toUpperCase(), reason: 'not_found', message: 'This code isn’t valid.' };
+  if (!code) return { ok: false, code: typeof opts.coupon === 'string' ? opts.coupon.slice(0, 24).toUpperCase() : '', reason: 'not_found', message: 'This code isn’t valid.' };
   const c = await getCoupon(db, code);
   const phoneUsed = Boolean(c?.one_per_phone && opts.phone && (await phoneHasUsed(db, code, opts.phone)));
   const result = evaluateCoupon(c, code, lines.map((l) => ({ lineTotal: l.grossTotal, categoryId: l.categoryId })), opts.today, { phoneUsed });

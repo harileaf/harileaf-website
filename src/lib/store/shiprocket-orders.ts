@@ -139,7 +139,7 @@ export function makeShiprocketHandlers(fetchImpl?: typeof fetch): Record<string,
       if (!o) throw new Error(`order ${row.order_id} not found`);
       if (o.shiprocket_order_id || o.status === 'cancelled') return;
       if (needsCodConfirmation(o)) return; // confirmCod queues a new push
-      if (o.is_preorder === 1 && !(o as OrderRow & { ready_to_dispatch?: number }).ready_to_dispatch) return; // "Ready to dispatch" queues a new push
+      if (o.is_preorder === 1 && !o.ready_to_dispatch) return; // "Ready to dispatch" queues a new push
       const settings = await getSettings(db);
       // v2: with auto-push off, the admin books the courier from the order page instead.
       if (settings.shiprocket_auto_push === 'off') return;

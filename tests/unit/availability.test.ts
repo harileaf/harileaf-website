@@ -27,4 +27,5 @@ it('offers pre-order out of season only with a dispatch date and stock', () => {
   expect(availability(pre, ist('2027-02-01'))).toBe('preorder');
   expect(availability({ ...pre, preorderDispatchDate: null }, ist('2027-02-01'))).toBe('notify');
   expect(availability({ ...pre, stockQty: 0 }, ist('2027-02-01'))).toBe('notify');
+  expect(availability({ ...pre, preorderDispatchDate: '2027-03-20' }, ist('2027-03-25'))).toBe('notify'); // date passed, season not open
 });

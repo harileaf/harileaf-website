@@ -26,7 +26,7 @@ Astro.response.headers.set('X-Robots-Tag', 'noindex');
   import { h } from '../scripts/store/dom';
 
   type Group = 'preorder' | 'perishable' | 'regular';
-  interface Line { variantId: number; name: string; label: string; path: string; image: { url: string; alt: string } | null; qty: number; requestedQty: number; unitPrice: number; mrp: number; grossTotal: number; lineTotal: number; problem: string | null; available: number; group: Group }
+  interface Line { variantId: number; name: string; label: string; path: string; image: { url: string; alt: string } | null; qty: number; requestedQty: number; unitPrice: number; mrp: number; grossTotal: number; lineTotal: number; problem: string | null; available: number; group: Group; preorderDate: string | null }
   interface Quote { ok: boolean; total: number; subtotal: number; discount: number; coupon: QuoteCoupon | null; itemCount: number; minOrder: number; meetsMinimum: boolean; mixed: boolean; groups: Group[]; cod: { eligible: boolean; reason: string | null }; lines: Line[] }
 
   const GROUP_NAME: Record<Group, string> = { preorder: 'pre-orders', perishable: 'fresh produce', regular: 'rice and spices' };
@@ -86,19 +86,29 @@ Astro.response.headers.set('X-Robots-Tag', 'noindex');
       );
     }
 
-    // A cart can't mix groups that ship differently: the shopper picks one to check out now.
+    // A cart can't mix groups that ship differently (or pre-orders dispatching on different dates):
+    // the shopper picks one to check out now; the rest is saved for later.
+    const batchOf = (l: Line) => (l.group === 'preorder' ? `preorder:${l.preorderDate}` : l.group);
+    const shortDay = (ymd: string, year = false) => new Date(`${ymd}T00:00:00+05:30`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', ...(year ? { year: 'numeric' } : {}), timeZone: 'Asia/Kolkata' });
     function splitNotice(q: Quote) {
-      const buttons = q.groups.map((g) => {
-        const b = h('button', { type: 'button', class: 'rounded-full px-5 py-2.5 font-extrabold text-white', style: 'background:linear-gradient(135deg,#196a5e,#2d7a4f)' }, `Check out ${GROUP_NAME[g]} now`);
+      const live = q.lines.filter((l) => l.qty > 0);
+      const batches = [...new Map(live.map((l) => [batchOf(l), l])).values()];
+      const preorderDates = new Set(live.filter((l) => l.group === 'preorder').map((l) => l.preorderDate));
+      const buttons = batches.map((first) => {
+        const what = first.group === 'preorder' && preorderDates.size > 1 ? `pre-orders dispatching ${shortDay(first.preorderDate!)}` : GROUP_NAME[first.group];
+        const b = h('button', { type: 'button', class: 'rounded-full px-5 py-2.5 font-extrabold text-white', style: 'background:linear-gradient(135deg,#196a5e,#2d7a4f)' }, `Check out ${what} now`);
         b.addEventListener('click', () => {
-          saveForLater(q.lines.filter((l) => l.group !== g).map((l) => ({ variantId: l.variantId, qty: l.requestedQty, name: l.name, label: l.label })));
+          saveForLater(q.lines.filter((l) => batchOf(l) !== batchOf(first)).map((l) => ({ variantId: l.variantId, qty: l.requestedQty, name: l.name, label: l.label })));
           load();
         });
         return b;
       });
+      const datesOnly = q.groups.length === 1 && preorderDates.size > 1;
       return h('div', { class: 'mb-6 rounded-2xl px-5 py-4', role: 'status', style: 'background:#fff4e0;border:1px solid #e8c37a;color:#6b4a07' },
-        h('p', { class: 'font-bold' }, q.groups.includes('preorder') ? 'Pre-orders are checked out separately' : 'Fresh produce is checked out separately'),
-        h('p', { class: 'text-sm mt-1' }, q.groups.includes('preorder')
+        h('p', { class: 'font-bold' }, datesOnly ? 'Pre-orders for different dates are checked out separately' : q.groups.includes('preorder') ? 'Pre-orders are checked out separately' : 'Fresh produce is checked out separately'),
+        h('p', { class: 'text-sm mt-1' }, datesOnly
+          ? 'Each order ships as one parcel, so pre-orders dispatching on different dates need their own orders. Choose what to check out now — the rest is saved for your next order, not removed.'
+          : q.groups.includes('preorder')
           ? 'Pre-orders are prepaid and dispatched later, when the harvest is in, so they can’t share an order with items that ship now. Choose what to check out now — the rest is saved for your next order, not removed.'
           : 'It ships by express courier within its delivery area and is prepaid only, so it can’t share an order with rice and spices. Choose what to check out now — the rest is saved for your next order, not removed.'),
         h('div', { class: 'mt-3 flex flex-wrap gap-2' }, ...buttons),
@@ -133,6 +143,7 @@ Astro.response.headers.set('X-Robots-Tag', 'noindex');
             h('div', { class: 'flex-1 min-w-0' },
               h('a', { href: l.path, class: 'font-extrabold hover:underline' }, l.name),
               h('p', { class: 'text-sm text-on-surface-variant' }, `${l.label} · ${formatINR(l.unitPrice)} each`),
+              l.preorderDate ? h('p', { class: 'text-sm font-bold mt-1', style: 'color:#3a2470' }, `Pre-order · dispatches from ${shortDay(l.preorderDate, true)} · prepaid`) : null,
               problem ? h('p', { class: 'text-sm font-bold mt-1', style: 'color:#8a4b00', role: 'status' }, problem) : null,
               h('div', { class: 'mt-3 flex items-center gap-3' },
                 l.qty > 0

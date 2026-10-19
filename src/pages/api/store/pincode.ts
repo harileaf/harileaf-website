@@ -15,7 +15,8 @@ export const prerender = false;
  * checkout still allows non-perishable orders and confirms delivery afterwards.
  *
  * With `&zone={id}` (a perishable's delivery zone) the answer is that zone's
- * verdict instead: { zone: { name, inZone, courier, etaDays, dispatch, window } }.
+ * verdict instead: { zone: { name, inZone, courier, etaDays, dispatch, window, city, stateCode } }
+ * (one call: checkout skips the general check for a fresh-produce cart).
  */
 export const GET: APIRoute = async ({ url, request }) => {
   if (!(await allowed(env, request, 'pincode'))) return tooMany();
@@ -38,13 +39,14 @@ export const GET: APIRoute = async ({ url, request }) => {
   if (zoneId) {
     const zone = parseZones(settings.delivery_zones).find((z) => z.id === zoneId && z.enabled);
     if (!zone) return json({ error: 'Not on sale' }, 404);
-    const base = { name: zone.name, maxTransitDays: zone.maxTransitDays, inZone: pincodeInZone(pin, zone), courier: null as boolean | null, etaDays: null as number | null, dispatch: null as string | null, window: null as { from: string; to: string } | null };
+    const base = { name: zone.name, maxTransitDays: zone.maxTransitDays, inZone: pincodeInZone(pin, zone), courier: null as boolean | null, etaDays: null as number | null, dispatch: null as string | null, window: null as { from: string; to: string } | null, city: null as string | null, stateCode: null as string | null };
     if (!base.inZone || !cfg || !settings.pickup_pincode) return json({ zone: base });
     try {
       const list = await couriers(cfg, { pickup: settings.pickup_pincode, delivery: pin, weightKg: grams / 1000, cod: false, declaredValue: value / 100 });
       const pick = pickCourier(list, zone);
       const dispatch = pick ? nextDispatch(new Date(), parseCalendar(settings)) : null;
-      return json({ zone: { ...base, courier: Boolean(pick), etaDays: pick?.etaDays ?? null, dispatch, window: dispatch && pick ? deliveryWindow(dispatch, pick.etaDays) : null } });
+      const place = list.find((c) => c.city && c.state);
+      return json({ zone: { ...base, city: place?.city ?? null, stateCode: place?.state ? stateCodeFor(place.state) : null, courier: Boolean(pick), etaDays: pick?.etaDays ?? null, dispatch, window: dispatch && pick ? deliveryWindow(dispatch, pick.etaDays) : null } });
     } catch (err) {
       console.error(JSON.stringify({ msg: 'zone pincode check failed', pin, error: String(err) }));
       return json({ zone: base });

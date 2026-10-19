@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { dashboardMetrics } from '../../src/lib/store/admin-orders';
 import { validateCheckoutInput } from '../../src/lib/store/checkout-input';
 import { cancelOrder, delayPreorder, markPacked, readyToDispatch } from '../../src/lib/store/fulfilment';
 import { createOrder } from '../../src/lib/store/orders';
@@ -19,8 +20,8 @@ beforeAll(() => putSettings(db, settings));
 afterEach(() => vi.unstubAllGlobals());
 const ctx = { now: NOW, actorEmail: 'owner@harileaf.org' };
 
-const preorderVariant = async (stock = 5) =>
-  insertVariant(await insertProduct({ season_start_md: '04-01', season_end_md: '06-30', off_season_mode: 'preorder', preorder_dispatch_date: '2027-04-10' }), { stock_qty: stock, price_paise: 90000, mrp_paise: 90000 });
+const preorderVariant = async (stock = 5, date = '2027-04-10') =>
+  insertVariant(await insertProduct({ season_start_md: '04-01', season_end_md: '06-30', off_season_mode: 'preorder', preorder_dispatch_date: date }), { stock_qty: stock, price_paise: 90000, mrp_paise: 90000 });
 
 let n = 0;
 async function preorder(variantId: number) {
@@ -42,7 +43,12 @@ describe('pre-orders', () => {
     const q = await quoteCart(db, [{ variantId: pre, qty: 1 }], { today: NOW, settings });
     expect(q).toMatchObject({ ok: true, groups: ['preorder'], cod: { eligible: false, reason: 'Pre-orders are prepaid' } });
     expect(await quoteCart(db, [{ variantId: pre, qty: 1 }, { variantId: rice, qty: 1 }], { today: NOW, settings })).toMatchObject({ ok: false, mixed: true });
+    const later = await preorderVariant(5, '2027-05-15'); // one order is one parcel: different dispatch dates split too
+    expect(await quoteCart(db, [{ variantId: pre, qty: 1 }, { variantId: later, qty: 1 }], { today: NOW, settings })).toMatchObject({ ok: false, mixed: true, groups: ['preorder'] });
+    const before = await dashboardMetrics(db, NOW);
     const id = await preorder(pre);
+    const after = await dashboardMetrics(db, NOW);
+    expect([after.to_pack - before.to_pack, after.preorders_open - before.preorders_open]).toEqual([0, 1]); // waiting for harvest isn't "to pack"
     expect(await db.prepare('SELECT is_preorder, expected_dispatch_date, status, payment_status FROM orders WHERE id = ?').bind(id).first()).toEqual({ is_preorder: 1, expected_dispatch_date: '2027-04-10', status: 'placed', payment_status: 'paid' });
     expect(await scalar('SELECT stock_qty FROM variants WHERE id = ?', pre)).toBe(4);
   });

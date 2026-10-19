@@ -85,3 +85,43 @@ export function restoreLater(): void {
   for (const l of later) lines = addLine(lines, l.variantId, l.qty);
   write(lines);
 }
+
+const UNPAID_KEY = 'hl_cart_unpaid_v1';
+
+/** Checkout placed this order but it isn't paid yet: remember which cart it was for. */
+export function rememberUnpaidOrder(orderNo: string): void {
+  try {
+    localStorage.setItem(UNPAID_KEY, JSON.stringify({ orderNo, cart: JSON.stringify(readCart()) }));
+  } catch {
+    /* private mode */
+  }
+}
+
+/** Checkout finished normally: nothing is left unpaid. */
+export function forgetUnpaidOrder(): void {
+  try {
+    localStorage.removeItem(UNPAID_KEY);
+  } catch {
+    /* private mode */
+  }
+}
+
+/**
+ * The order checkout left unpaid has now been paid (from its order page): empty
+ * the cart it was for, unless the shopper has changed the cart since, and bring
+ * back what was saved for later. True when the cart was this order's.
+ */
+export function settleUnpaidOrder(orderNo: string): boolean {
+  let saved: { orderNo?: string; cart?: string } | null = null;
+  try {
+    saved = JSON.parse(localStorage.getItem(UNPAID_KEY) ?? 'null');
+  } catch {
+    return false;
+  }
+  if (saved?.orderNo !== orderNo) return false;
+  forgetUnpaidOrder();
+  const same = saved.cart === JSON.stringify(readCart());
+  if (same) clearCart();
+  restoreLater();
+  return same;
+}

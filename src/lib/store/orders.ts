@@ -184,7 +184,7 @@ export interface OrderRow {
   shiprocket_order_id: string | null; shiprocket_shipment_id: string | null; awb: string | null; courier: string | null; tracking_url: string | null;
   invoice_id: number | null; cancel_reason: string | null; cancelled_by: string | null; created_at: string; updated_at: string;
   /** v2: perishables / pre-orders. */
-  expected_dispatch_date?: string | null; is_preorder?: number;
+  expected_dispatch_date?: string | null; is_preorder?: number; ready_to_dispatch?: number;
   /** Migration 0004: when a COD order was confirmed (customer or admin). */
   cod_confirmed_at?: string | null;
   /** Migration 0004: order-link revision (see viewTokenFor). */
