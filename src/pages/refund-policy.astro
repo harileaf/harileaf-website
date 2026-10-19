@@ -2,7 +2,7 @@
 export const prerender = false;
 import { env } from 'cloudflare:workers';
 import PolicyPage, { type PolicySection } from '../components/policy/PolicyPage.astro';
-import { POLICY_CACHE, displayPhone, loadPolicySettings, orPending } from '../lib/store/policy-settings';
+import { POLICY_CACHE, displayPhone, loadPolicySettings, phoneHref, orPending } from '../lib/store/policy-settings';
 
 const s = await loadPolicySettings(env.STORE_DB);
 Astro.response.headers.set('Cache-Control', POLICY_CACHE);
@@ -43,7 +43,7 @@ const sections: PolicySection[] = [
     title: 'Contact',
     paragraphs: ['To cancel, report a problem or ask about a refund, contact customer care with your order number. If you are not satisfied with the response, you can contact our grievance officer.'],
     rows: [
-      { label: 'Phone', value: displayPhone(s.customer_care_phone) },
+      { label: 'Phone', value: displayPhone(s.customer_care_phone), href: phoneHref(s.customer_care_phone) },
       { label: 'Email', value: orPending(s.customer_care_email), href: s.customer_care_email ? `mailto:${s.customer_care_email}` : undefined },
       { label: 'Grievance officer', value: 'Contact details', href: '/grievance' },
     ],
@@ -55,7 +55,7 @@ const sections: PolicySection[] = [
   title="Refund & Cancellation Policy"
   badge="Store"
   subtitle="Cancellations, damaged items and how refunds are paid."
-  updated="Last updated 18 October 2026"
+  updated="2026-10-18"
   path="/refund-policy"
   description="Free cancellation until packing, replacement or refund for damaged or wrong items reported within 48 hours, and refunds within 5–7 business days at HariLeaf."
   sections={sections}

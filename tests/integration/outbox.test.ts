@@ -58,6 +58,8 @@ describe('drainOutbox', () => {
     expect(await drainOutbox(db, handlers, { env, now: plus(29_000), ids: [id] })).toEqual({ done: 0, failed: 0, dead: 0 });
     expect(await drainOutbox(db, handlers, { env, now: plus(31_000), ids: [id] })).toEqual({ done: 1, failed: 0, dead: 0 });
     expect(calls).toBe(2);
+    // The successful retry clears the earlier attempt's error.
+    expect(await row(id)).toMatchObject({ state: 'done', attempts: 2, last_error: null });
   });
 
   it('marks a row dead after the maximum number of attempts', async () => {

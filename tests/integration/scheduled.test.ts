@@ -11,7 +11,7 @@ it('drains the outbox; rows without a registered handler go dead', async () => {
   expect(await scalar('SELECT state FROM outbox WHERE id = ?', meta.last_row_id)).toBe('dead');
 });
 
-it('logs a failed run with context instead of rejecting (e.g. D1 unavailable)', async () => {
+it('logs a failed run with context, then rejects so Cron Events records it (e.g. D1 unavailable)', async () => {
   const errors: string[] = [];
   const orig = console.error;
   const origLog = console.log;
@@ -19,7 +19,7 @@ it('logs a failed run with context instead of rejecting (e.g. D1 unavailable)', 
   console.log = (m: unknown) => void errors.push(String(m)); // per-job failures are reported in the run summary
   const broken = { ...env, STORE_DB: { prepare: () => { throw new Error('D1 unavailable'); }, batch: async () => { throw new Error('D1 unavailable'); } } } as unknown as Env;
   try {
-    await expect(runScheduled(broken, new Date('2026-10-18T06:00:00Z'))).resolves.toBeUndefined();
+    await expect(runScheduled(broken, new Date('2026-10-18T06:00:00Z'))).rejects.toThrow('D1 unavailable');
   } finally {
     console.error = orig;
     console.log = origLog;

@@ -128,6 +128,7 @@ const rupees = (paise: string) => (/^\d+$/.test(paise) ? String(Number(paise) / 
     const btn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
     const status = document.getElementById('settings-status')!;
     form.querySelectorAll<HTMLElement>('[data-error-for]').forEach((el) => (el.textContent = ''));
+    form.querySelectorAll('[aria-invalid]').forEach((el) => el.removeAttribute('aria-invalid'));
 
     const body: Record<string, string> = {};
     form.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('input[name], textarea[name], select[name]').forEach((el) => {
@@ -157,8 +158,13 @@ const rupees = (paise: string) => (/^\d+$/.test(paise) ? String(Number(paise) / 
       for (const [k, msg] of Object.entries(data.errors ?? {})) {
         const el = form.querySelector<HTMLElement>(`[data-error-for="${k}"]`);
         if (el) el.textContent = msg;
+        form.querySelector(`[name="${k}"]`)?.setAttribute('aria-invalid', 'true');
       }
-      form.querySelector<HTMLElement>('[data-error-for]:not(:empty)')?.previousElementSibling?.scrollIntoView({ block: 'center' });
+      // Move to the first invalid field in page order (not its hint), so keyboard users land on it too.
+      const first = form.querySelector<HTMLElement>('[data-error-for]:not(:empty)')?.dataset.errorFor;
+      const field = first ? form.querySelector<HTMLElement>(`[name="${first}"]`) : null;
+      field?.focus({ preventScroll: true });
+      field?.scrollIntoView({ block: 'center' });
       showToast('Save failed', 'error');
     }
   });

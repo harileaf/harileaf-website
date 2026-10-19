@@ -51,8 +51,10 @@ const nav: Array<{ key: AdminSection; label: string; href: string }> = [
     input[type="password"], input[type="text"], input[type="email"], input[type="tel"], input[type="number"], textarea { background: #fff; border: 1px solid rgba(0,0,0,0.12); border-radius: 8px; padding: 0.75rem 1rem; font-size: 0.875rem; width: 100%; outline: none; transition: border-color .15s; font-family: inherit; }
     input:focus, textarea:focus { border-color: #196a5e; box-shadow: 0 0 0 3px rgba(25,106,94,0.15); }
     a:focus-visible, button:focus-visible { outline: 2px solid #196a5e; outline-offset: 2px; }
-    .admin-nav { display: flex; flex-wrap: wrap; border-bottom: 1px solid rgba(0,0,0,0.1); margin-bottom: 2rem; }
-    .admin-nav a { border-bottom: 2px solid transparent; padding: 0.75rem 1.25rem; font-size: 0.875rem; font-weight: 700; color: #666; text-decoration: none; transition: color .15s, border-color .15s; }
+    /* One scrollable row on narrow screens: wrapped tabs made their underlines collide with the next line. */
+    .admin-nav { display: flex; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid rgba(0,0,0,0.1); margin-bottom: 2rem; }
+    .admin-nav::-webkit-scrollbar { display: none; }
+    .admin-nav a { flex: none; white-space: nowrap; border-bottom: 2px solid transparent; padding: 0.75rem 1.25rem; font-size: 0.875rem; font-weight: 700; color: #666; text-decoration: none; transition: color .15s, border-color .15s; }
     .admin-nav a[aria-current="page"] { border-bottom-color: #196a5e; color: #196a5e; }
     .hidden { display: none !important; }
     .error { color: #c00; font-size: 0.875rem; }
