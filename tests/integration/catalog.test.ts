@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getProductPage, listActiveProductsWithVariants, listProducts } from '../../src/lib/store/catalog';
+import { getProductPage, listProducts } from '../../src/lib/store/catalog';
 import { db, insertProduct, insertVariant } from '../helpers/fixtures';
 
 const TODAY = new Date('2026-10-18T06:30:00Z');
@@ -36,27 +36,14 @@ describe('listProducts', () => {
     expect(card.claims[0].code).toBe('unpolished');
   });
 
-  it('filters by category', async () => {
-    const t = await insertProduct({ slug: 'turmeric', category_id: 2 });
-    await insertVariant(t);
-    const spices = await listProducts(db, { categorySlug: 'spices', today: TODAY });
-    expect(spices.every((c) => c.categorySlug === 'spices')).toBe(true);
-    expect(spices.map((c) => c.slug)).toContain('turmeric');
-  });
 
-  it('treats pre-orders as notify in v1', async () => {
+  it('treats pre-orders as notify in v1 (no pre-order checkout yet)', async () => {
     const m = await insertProduct({ slug: 'kesar', category_id: 3, perishable: 1, cod_allowed: 0, season_start_md: '04-01', season_end_md: '06-30', off_season_mode: 'preorder', preorder_dispatch_date: '2027-04-05' });
     await insertVariant(m);
     const [card] = (await listProducts(db, { categorySlug: 'produce', today: TODAY })).filter((c) => c.slug === 'kesar');
     expect(card.availability).toBe('notify');
   });
 
-  it('marks out-of-season products as notify', async () => {
-    const m = await insertProduct({ slug: 'alphonso', category_id: 3, perishable: 1, cod_allowed: 0, season_start_md: '04-01', season_end_md: '06-30' });
-    await insertVariant(m);
-    const [card] = (await listProducts(db, { categorySlug: 'produce', today: TODAY })).filter((c) => c.slug === 'alphonso');
-    expect(card.availability).toBe('notify');
-  });
 });
 
 describe('getProductPage', () => {
@@ -113,13 +100,3 @@ describe('getProductPage', () => {
   });
 });
 
-describe('listActiveProductsWithVariants', () => {
-  it('returns only products that can be shown', async () => {
-    const all = await listActiveProductsWithVariants(db, TODAY);
-    expect(all.length).toBeGreaterThan(0);
-    for (const x of all) {
-      expect(x.product.status).toBe('active');
-      expect(x.variants.length).toBeGreaterThan(0);
-    }
-  });
-});

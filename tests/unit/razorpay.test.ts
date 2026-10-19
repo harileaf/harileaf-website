@@ -29,7 +29,7 @@ describe('Razorpay API calls', () => {
     });
   });
 
-  it('fetches, lists and captures payments', async () => {
+  it('fetches, lists and captures payments; API errors become RazorpayError', async () => {
     const pay = { id: 'pay_1', amount: 69900, currency: 'INR', status: 'authorized', order_id: 'order_1' };
     const { cfg, calls } = mock([{ body: pay }, { body: { items: [pay] } }, { body: { ...pay, status: 'captured' } }]);
     expect((await fetchPayment(cfg, 'pay_1')).status).toBe('authorized');
@@ -41,14 +41,12 @@ describe('Razorpay API calls', () => {
       ['POST', 'https://api.razorpay.com/v1/payments/pay_1/capture'],
     ]);
     expect(JSON.parse(calls[2].init.body as string)).toEqual({ amount: 69900, currency: 'INR' });
-  });
-
-  it('turns API errors into RazorpayError with the description', async () => {
-    const { cfg } = mock([{ status: 400, body: { error: { code: 'BAD_REQUEST_ERROR', description: 'Payment is not in authorized state' } } }]);
-    const err = await capturePayment(cfg, 'pay_1', 100).catch((e) => e);
+    const failing = mock([{ status: 400, body: { error: { code: 'BAD_REQUEST_ERROR', description: 'Payment is not in authorized state' } } }]);
+    const err = await capturePayment(failing.cfg, 'pay_1', 100).catch((e) => e);
     expect(err).toBeInstanceOf(RazorpayError);
     expect(err).toMatchObject({ status: 400, code: 'BAD_REQUEST_ERROR', message: 'Payment is not in authorized state' });
   });
+
 });
 
 describe('signatures', () => {

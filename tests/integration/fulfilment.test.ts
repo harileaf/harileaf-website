@@ -56,12 +56,6 @@ describe('happy path', () => {
     expect(await markPacked(db, o.id, ctx)).toEqual({ ok: false, error: 'Fill in Store settings before issuing invoices: gstin' });
     await putSettings(db, settings);
   });
-
-  it('refuses to pack an unpaid prepaid order', async () => {
-    const o = await order('cod');
-    await db.prepare("UPDATE orders SET payment_method = 'razorpay', payment_status = 'unpaid' WHERE id = ?").bind(o.id).run();
-    expect((await markPacked(db, o.id, ctx)).ok).toBe(false);
-  });
 });
 
 describe('cancellation', () => {

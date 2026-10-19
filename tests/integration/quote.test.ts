@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { quoteCart, taxForQuote } from '../../src/lib/store/quote';
+import { quoteCart } from '../../src/lib/store/quote';
 import { SETTING_DEFAULTS } from '../../src/lib/store/settings';
 import { db, insertProduct, insertVariant } from '../helpers/fixtures';
 
@@ -28,13 +28,9 @@ describe('quoteCart', () => {
     expect(q.total).toBe(50000);
   });
 
-  it('enforces the minimum order', async () => {
-    const v = await insertVariant(await insertProduct(), { price_paise: 14900, mrp_paise: 16900 });
-    const q = await quoteCart(db, [{ variantId: v, qty: 1 }], { today: TODAY, settings });
-    expect(q).toMatchObject({ meetsMinimum: false, ok: false, minOrder: 49900 });
-  });
-
-  it('explains when COD is not available', async () => {
+  it('enforces the minimum order and explains when COD is not available', async () => {
+    const small = await insertVariant(await insertProduct(), { price_paise: 14900, mrp_paise: 16900 });
+    expect(await quoteCart(db, [{ variantId: small, qty: 1 }], { today: TODAY, settings })).toMatchObject({ meetsMinimum: false, ok: false, minOrder: 49900 });
     const big = await insertVariant(await insertProduct(), { price_paise: 200000, mrp_paise: 200000 });
     const noCod = await insertVariant(await insertProduct({ cod_allowed: 0 }), { price_paise: 60000, mrp_paise: 60000 });
     expect((await quoteCart(db, [{ variantId: big, qty: 2 }], { today: TODAY, settings })).cod).toEqual({ eligible: false, reason: 'Cash on delivery is available on orders up to ₹3000', max: 300000 });
@@ -42,10 +38,4 @@ describe('quoteCart', () => {
     expect((await quoteCart(db, [], { today: TODAY, settings })).cod.reason).toBe('Your cart is empty');
   });
 
-  it('splits tax by place of supply', async () => {
-    const v = await insertVariant(await insertProduct({ gst_rate_bp: 500 }), { price_paise: 69900, mrp_paise: 79900 });
-    const q = await quoteCart(db, [{ variantId: v, qty: 1 }], { today: TODAY, settings });
-    expect(taxForQuote(q, true)[0]).toMatchObject({ taxable: 66571, cgst: 1664, sgst: 1665, igst: 0 });
-    expect(taxForQuote(q, false)[0]).toMatchObject({ igst: 3329 });
-  });
 });

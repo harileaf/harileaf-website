@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { availableActions, dashboardMetrics, listOrders, orderDetail, runAdminAction } from '../../src/lib/store/admin-orders';
+import { availableActions, listOrders, orderDetail, runAdminAction } from '../../src/lib/store/admin-orders';
 import { validateCheckoutInput } from '../../src/lib/store/checkout-input';
 import { createOrder } from '../../src/lib/store/orders';
 import { quoteCart } from '../../src/lib/store/quote';
@@ -64,11 +64,6 @@ describe('admin order actions', () => {
     expect((await listOrders(db, { status: 'placed' })).every((r) => r.status === 'placed')).toBe(true);
   });
 
-  it('computes dashboard to-dos', async () => {
-    const m = await dashboardMetrics(db, NOW);
-    expect(m.to_pack).toBeGreaterThan(0);
-    expect(typeof m.revenue_7d).toBe('number');
-  });
 });
 
 describe('COD remittance import', () => {

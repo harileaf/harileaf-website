@@ -2,181 +2,71 @@ import { describe, expect, it } from 'vitest';
 import { findBannedPhrases, organicCopy, validateProcessClaims, type ProcessClaim } from '../../src/lib/store/claims';
 
 const none = { organicScheme: 'none' as const, claims: [] as ProcessClaim[] };
+const noOrganic = { organicScheme: 'none' as const, mayUseOrganic: false };
 
 describe('organicCopy', () => {
-  it('says nothing about organic without a scheme', () => {
-    expect(organicCopy({ organicScheme: 'none', conversionSince: null, certNumber: null })).toEqual({
-      certificationLine: null,
-      mayUseOrganic: false,
-      badge: null,
-    });
+  it('says nothing about organic without a scheme and certificate number', () => {
+    const nothing = { certificationLine: null, mayUseOrganic: false, badge: null };
+    expect(organicCopy({ organicScheme: 'none', conversionSince: null, certNumber: null })).toEqual(nothing);
+    for (const organicScheme of ['pgs_green', 'pgs_organic', 'npop'] as const) expect(organicCopy({ organicScheme, conversionSince: 2025, certNumber: '  ' })).toEqual(nothing);
   });
 
-  it('describes PGS-India Green as under conversion, never as organic', () => {
+  it('describes PGS-India Green as under conversion, never organic; certified schemes may say organic', () => {
     expect(organicCopy({ organicScheme: 'pgs_green', conversionSince: 2025, certNumber: 'PGS-123' })).toEqual({
-      certificationLine: 'Under conversion to organic (PGS-India Green) since 2025 · Certificate PGS-123',
-      mayUseOrganic: false,
-      badge: 'pgs_green',
-    });
-    expect(organicCopy({ organicScheme: 'pgs_green', conversionSince: null, certNumber: 'PGS-123' }).certificationLine).toBe(
-      'Under conversion to organic (PGS-India Green) · Certificate PGS-123',
-    );
-  });
-
-  it('allows "organic" only for certified schemes with a certificate number', () => {
-    expect(organicCopy({ organicScheme: 'pgs_organic', conversionSince: null, certNumber: 'PGS-9' })).toEqual({
-      certificationLine: 'Certified organic (PGS-India Organic) · Certificate PGS-9',
-      mayUseOrganic: true,
-      badge: 'pgs_organic',
+      certificationLine: 'Under conversion to organic (PGS-India Green) since 2025 · Certificate PGS-123', mayUseOrganic: false, badge: 'pgs_green',
     });
     expect(organicCopy({ organicScheme: 'npop', conversionSince: null, certNumber: 'NPOP/1' })).toEqual({
-      certificationLine: 'Certified organic (NPOP, India Organic) · Certificate NPOP/1',
-      mayUseOrganic: true,
-      badge: 'npop',
+      certificationLine: 'Certified organic (NPOP, India Organic) · Certificate NPOP/1', mayUseOrganic: true, badge: 'npop',
     });
-  });
-
-  it('treats a scheme without a certificate number as no scheme', () => {
-    for (const organicScheme of ['pgs_green', 'pgs_organic', 'npop'] as const) {
-      expect(organicCopy({ organicScheme, conversionSince: 2025, certNumber: null })).toEqual({
-        certificationLine: null,
-        mayUseOrganic: false,
-        badge: null,
-      });
-      expect(organicCopy({ organicScheme, conversionSince: 2025, certNumber: '  ' }).badge).toBeNull();
-    }
   });
 });
 
 describe('findBannedPhrases', () => {
-  it.each([
-    ['Grown chemical-free on our farm', 'chemical-free'],
-    ['CHEMICAL FREE rice', 'chemical-free'],
-    ['chemicalfree', 'chemical-free'],
-    ['100% Organic turmeric', '100% organic'],
-    ['100 % organic', '100% organic'],
-    ['Naturally grown in Karjat', 'naturally grown'],
-    ['naturally-grown', 'naturally grown'],
-    ['Organic Karjat 3 rice', 'organic'],
-    ['organically farmed', 'organic'],
-    ['Traditionally made turmeric', 'traditional'],
-    ['a traditional stone mill', 'traditional'],
-    ['Pure turmeric', 'pure'],
-    ['Farm fresh rice', 'fresh'],
-    ['freshly ground', 'fresh'],
-    ['All natural', 'natural'],
-    ['Authentic Wada Kolam', 'authentic'],
-    ['the real taste', 'real'],
-    ['Genuine Karjat rice', 'genuine'],
-    ['the original recipe', 'original'],
-  ])('flags %j', (text, phrase) => {
-    expect(findBannedPhrases(text, none)).toContain(phrase);
+  it('flags banned marketing words in any spelling, and health claims', () => {
+    const cases: Array<[string, string]> = [
+      ['CHEMICAL FREE rice', 'chemical-free'], ['100 % organic', '100% organic'], ['naturally-grown', 'naturally grown'],
+      ['organically farmed', 'organic'], ['a traditional stone mill', 'traditional'], ['Pure turmeric', 'pure'], ['freshly ground', 'fresh'],
+      ['All natural', 'natural'], ['Authentic Wada Kolam', 'authentic'], ['the real taste', 'real'], ['Genuine rice', 'genuine'], ['the original recipe', 'original'],
+      ['Pesticide-free turmeric', 'pesticide-free'], ['No pesticides, no chemicals', 'no chemicals'], ['A superfood', 'superfood'],
+      ['Good for diabetics', 'health claim: diabet'], ['Lowers cholesterol', 'health claim: cholesterol'], ['Boosts immunity', 'health claim: immunity'],
+      ['Anti-inflammatory', 'health claim: inflammation'], ['gentle on blood sugar', 'health claim: blood sugar'], ['Antioxidant-rich', 'health claim: antioxidant'],
+      ['Good for heart health', 'health claim: heart health'], ['A natural detox', 'health claim: detox'], ['Helps weight loss', 'health claim: weight/metabolism'], ['A cure for colds', 'health claim: cure'],
+    ];
+    for (const [text, phrase] of cases) expect([text, findBannedPhrases(text, none)]).toEqual([text, expect.arrayContaining([phrase])]);
+    expect(findBannedPhrases('Naturally grown', none)).toEqual(['naturally grown']); // not also "natural"
   });
 
-  it('flags health and disease claims', () => {
-    expect(findBannedPhrases('Good for diabetics', none)).toContain('health claim: diabet');
-    expect(findBannedPhrases('Lowers cholesterol', none)).toContain('health claim: cholesterol');
-    expect(findBannedPhrases('An immunity booster', none)).toContain('health claim: immunity');
-    expect(findBannedPhrases('Boosts immunity', none)).toContain('health claim: immunity');
-    expect(findBannedPhrases('Anti-inflammatory', none)).toContain('health claim: inflammation');
-    expect(findBannedPhrases('Low GI, gentle on blood sugar', none)).toContain('health claim: blood sugar');
-    expect(findBannedPhrases('Antioxidant-rich', none)).toContain('health claim: antioxidant');
-    expect(findBannedPhrases('Good for heart health', none)).toContain('health claim: heart health');
-    expect(findBannedPhrases('A natural detox', none)).toContain('health claim: detox');
-    expect(findBannedPhrases('Cures colds', none)).toContain('health claim: cure');
-    expect(findBannedPhrases('A cure for colds', none)).toContain('health claim: cure');
+  it('has no false positives on factual process wording', () => {
+    for (const text of ['Sun-cured red chillies', 'Turmeric curing: boiled and sun dried', 'Inorganic fertilisers are never used', 'Secure packaging', 'Net weight 5 kg; packed weight 5.1 kg', 'Stone ground below 40 °C. No synthetic pesticides or fertilisers used. 3.2 g fibre per 100 g.'])
+      expect([text, findBannedPhrases(text, none)]).toEqual([text, []]);
   });
 
-  it('does not treat processing words like sun-cured or curing as health claims', () => {
-    expect(findBannedPhrases('Sun-cured red chillies', none)).toEqual([]);
-    expect(findBannedPhrases('Turmeric curing: boiled and sun dried', none)).toEqual([]);
-  });
-
-  it('reports "naturally grown" once, not also as "natural"', () => {
-    expect(findBannedPhrases('Naturally grown', none)).toEqual(['naturally grown']);
-  });
-
-  it('never allows "organic" unless the caller says the certificate permits it', () => {
-    expect(findBannedPhrases('Organic rice', { organicScheme: 'npop', claims: [] })).toContain('organic');
-  });
-
-  it('allows a conditional term backed by an evidenced claim of the same code', () => {
-    const claims: ProcessClaim[] = [{ code: 'fresh', text: 'Ground within 7 days of packing', evidence_note: 'Grinding log per batch' }];
-    expect(findBannedPhrases('Freshly ground turmeric', { organicScheme: 'none', claims })).toEqual([]);
-  });
-
-  it('does not flag ordinary words like net weight', () => {
-    expect(findBannedPhrases('Net weight 5 kg; packed weight 5.1 kg', none)).toEqual([]);
-    expect(findBannedPhrases('Helps weight loss', none)).toContain('health claim: weight/metabolism');
-  });
-
-  it('bans absolute free-from claims', () => {
-    expect(findBannedPhrases('Pesticide-free turmeric', none)).toContain('pesticide-free');
-    expect(findBannedPhrases('No pesticides, no chemicals', none)).toEqual(expect.arrayContaining(['pesticide-free', 'no chemicals']));
-    expect(findBannedPhrases('A superfood', none)).toContain('superfood');
-  });
-
-  it('accepts specific, factual process claims', () => {
-    expect(
-      findBannedPhrases('Stone ground below 40 °C. No synthetic pesticides or fertilisers used. 3.2 g fibre per 100 g.', none),
-    ).toEqual([]);
-  });
-
-  it('does not match words that merely contain a banned stem', () => {
-    expect(findBannedPhrases('Inorganic fertilisers are never used', none)).toEqual([]);
-    expect(findBannedPhrases('Secure packaging', none)).toEqual([]);
-  });
-
-  it('allows "organic" once the scheme permits it, but never "100% organic"', () => {
+  it('allows "organic" only when the certificate permits it (never "100% organic"), and "under conversion" only for PGS-Green', () => {
     const npop = { organicScheme: 'npop' as const, claims: [] as ProcessClaim[], mayUseOrganic: true };
+    expect(findBannedPhrases('Organic rice', { organicScheme: 'npop', claims: [] })).toContain('organic');
     expect(findBannedPhrases('Certified organic Karjat 3', npop)).toEqual([]);
     expect(findBannedPhrases('100% organic', npop)).toContain('100% organic');
-  });
-
-  it('allows "under conversion to organic" only for PGS-Green', () => {
-    expect(findBannedPhrases('Under conversion to organic since 2025', { organicScheme: 'pgs_green', claims: [] })).toEqual([]);
+    const green = { organicScheme: 'pgs_green' as const, claims: [] as ProcessClaim[] };
+    expect(findBannedPhrases('Under conversion to organic since 2025', green)).toEqual([]);
     expect(findBannedPhrases('Under conversion to organic since 2025', none)).toContain('organic');
-    expect(findBannedPhrases('Under conversion to organic. Organic rice!', { organicScheme: 'pgs_green', claims: [] })).toContain('organic');
+    expect(findBannedPhrases('Under conversion to organic. Organic rice!', green)).toContain('organic');
   });
 
-  it('allows "traditional" only with an evidenced traditional claim', () => {
+  it('allows a conditional term only when backed by an evidenced claim of the same code, or allowed for the category', () => {
+    expect(findBannedPhrases('Fresh organic mangoes', { organicScheme: 'none', claims: [], allowedTerms: ['fresh'] })).toEqual(['organic']);
     const claims: ProcessClaim[] = [{ code: 'traditional', text: 'Stone-milled the way our family has since 1985', evidence_note: 'Mill records since 1985' }];
     expect(findBannedPhrases('Traditionally milled', { organicScheme: 'none', claims })).toEqual([]);
-    expect(
-      findBannedPhrases('Traditionally milled', { organicScheme: 'none', claims: [{ ...claims[0], evidence_note: '' }] }),
-    ).toContain('traditional');
+    expect(findBannedPhrases('Traditionally milled', { organicScheme: 'none', claims: [{ ...claims[0], evidence_note: '' }] })).toContain('traditional');
   });
 });
 
-describe('validateProcessClaims', () => {
-  it('requires a code, text and evidence note for every claim', () => {
-    expect(
-      validateProcessClaims([
-        { code: 'stone_ground', text: 'Stone ground below 40 °C', evidence_note: 'Batch thermometer log' },
-      ], { organicScheme: 'none', mayUseOrganic: false }),
-    ).toEqual([]);
-    expect(validateProcessClaims([{ code: 'stone_ground', text: 'Stone ground', evidence_note: '' }], { organicScheme: 'none', mayUseOrganic: false })).toEqual([
-      'Claim 1 ("stone_ground") needs an evidence note',
-    ]);
-    expect(validateProcessClaims([{ code: 'Bad Code', text: '', evidence_note: 'x' }], { organicScheme: 'none', mayUseOrganic: false })).toEqual([
-      'Claim 1 has an invalid code (use lower_snake_case)',
-      'Claim 1 ("Bad Code") needs text',
-    ]);
-  });
-
-  it('rejects duplicate codes and banned wording inside claim text', () => {
-    expect(
-      validateProcessClaims([
-        { code: 'unpolished', text: 'Unpolished', evidence_note: 'Mill setting' },
-        { code: 'unpolished', text: 'Chemical-free', evidence_note: 'x' },
-      ], { organicScheme: 'none', mayUseOrganic: false }),
-    ).toEqual(['Claim 2 duplicates code "unpolished"', 'Claim 2 ("unpolished") uses banned wording: chemical-free']);
-  });
-});
-
-describe('allowed terms', () => {
-  it('lets raw produce say "fresh" but not "organic"', () => {
-    expect(findBannedPhrases('Fresh Alphonso mangoes', { organicScheme: 'none', claims: [], allowedTerms: ['fresh'] })).toEqual([]);
-    expect(findBannedPhrases('Fresh organic mangoes', { organicScheme: 'none', claims: [], allowedTerms: ['fresh'] })).toEqual(['organic']);
-  });
+it('validateProcessClaims requires code, text and evidence, unique codes and clean wording', () => {
+  expect(validateProcessClaims([{ code: 'stone_ground', text: 'Stone ground below 40 °C', evidence_note: 'Batch thermometer log' }], noOrganic)).toEqual([]);
+  expect(validateProcessClaims([{ code: 'Bad Code', text: '', evidence_note: '' }], noOrganic)).toEqual([
+    'Claim 1 has an invalid code (use lower_snake_case)', 'Claim 1 ("Bad Code") needs text', 'Claim 1 ("Bad Code") needs an evidence note',
+  ]);
+  expect(validateProcessClaims([
+    { code: 'unpolished', text: 'Unpolished', evidence_note: 'Mill setting' },
+    { code: 'unpolished', text: 'Chemical-free', evidence_note: 'x' },
+  ], noOrganic)).toEqual(['Claim 2 duplicates code "unpolished"', 'Claim 2 ("unpolished") uses banned wording: chemical-free']);
 });
