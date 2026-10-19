@@ -1,6 +1,12 @@
 ---
-export const prerender = true;
+// SSR + edge cache (v2): the live grid shows which produce can be ordered now.
+export const prerender = false;
+import { env } from 'cloudflare:workers';
 import SiteLayout from '../layouts/SiteLayout.astro';
+import ProductGrid from '../components/store/ProductGrid.astro';
+import { listProducts, type ProductCard } from '../lib/store/catalog';
+import { PAGE_CACHE_CONTROL } from '../lib/store/edge-cache';
+import { PRODUCE_SEASON } from '../content/store/produce-season';
 import FadeIn from '../components/animations/FadeIn.astro';
 import SEO from '../components/seo/SEO.astro';
 import contactJson from '../content/contact-page.json';
@@ -14,6 +20,17 @@ const pageTitle = 'Fresh Produce from HariLeaf Farm — Fruits, Vegetables & Flo
 const pageDesc  = 'Fruits, vegetables, herbs and flowers grown on HariLeaf Farm. Mangoes, dragon fruit, roses and more — available in bulk, farm direct.';
 
 const mangoVarieties = ['Alphonso', 'Kesar Gir', 'Payri', 'Langda', 'Rajapuri', 'Badami'];
+
+// Produce products (edge-cached). Only products whose delivery zone is enabled can be bought;
+// the rest show as out of season with "notify me" on their page.
+let cards: ProductCard[] = [];
+try {
+  cards = await listProducts(env.STORE_DB, { categorySlug: 'produce', today: new Date() });
+  Astro.response.headers.set('Cache-Control', PAGE_CACHE_CONTROL);
+} catch (err) {
+  Astro.response.headers.set('Cache-Control', 'no-store');
+  console.error(JSON.stringify({ msg: 'produce grid failed', error: String(err) }));
+}
 ---
 
 <style>
@@ -109,6 +126,24 @@ const mangoVarieties = ['Alphonso', 'Kesar Gir', 'Payri', 'Langda', 'Rajapuri', 
   <!-- ══════════════════════════════════════════════════════
        BENTO CATALOGUE — dark section
        ══════════════════════════════════════════════════════ -->
+  {cards.length > 0 && (
+    <section style="background:#0c110c;" class="pt-16 px-6" aria-labelledby="season-heading">
+      <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[1fr_1.3fr] gap-10 items-start">
+        <div>
+          <p class="text-xs uppercase tracking-widest font-bold mb-2" style="color:rgba(255,180,80,0.85);">{PRODUCE_SEASON.eyebrow}</p>
+          <h2 id="season-heading" class="text-3xl font-extrabold tracking-tight mb-4" style="color:#f0f0ee;">{PRODUCE_SEASON.heading}</h2>
+          <p class="leading-relaxed" style="color:rgba(240,240,238,0.78);">{PRODUCE_SEASON.intro}</p>
+          <h3 class="mt-6 font-extrabold" style="color:#f0f0ee;">{PRODUCE_SEASON.howToTellHeading}</h3>
+          <ul class="mt-2 flex flex-col gap-2 text-sm list-disc pl-5" style="color:rgba(240,240,238,0.75);">
+            {PRODUCE_SEASON.howToTell.map((t) => <li>{t}</li>)}
+          </ul>
+          <p class="mt-4 text-sm" style="color:rgba(240,240,238,0.6);">{PRODUCE_SEASON.storage} {PRODUCE_SEASON.outOfSeason}</p>
+        </div>
+        <ProductGrid cards={cards} tone="dark" />
+      </div>
+    </section>
+  )}
+
   <section style="background: #0c110c;" class="py-16 px-6">
     <div class="max-w-7xl mx-auto">
 

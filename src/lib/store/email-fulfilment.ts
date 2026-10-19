@@ -30,11 +30,13 @@ export function shippedEmail(o: OrderRow, viewUrl: string, s: StoreSettings): Em
 }
 
 /** `reviewUrl` is null for free replacements (only the original order can be reviewed). */
-export function deliveredEmail(o: OrderRow, viewUrl: string, s: StoreSettings, reviewUrl: string | null = null): Email {
+export function deliveredEmail(o: OrderRow, viewUrl: string, s: StoreSettings, reviewUrl: string | null = null, perishable = false): Email {
+  // Fresh produce: report damage within 24 hours (refund policy); packs: 48 hours.
+  const within = perishable ? '24 hours' : '48 hours';
   // A plain request: no reward, and no hint that only good reviews are wanted (IS 19000:2022).
   const review = reviewUrl ? `<p>Once you've tried it, would you tell other shoppers what you thought? Good or bad, every honest review is published.</p>${button(reviewUrl, 'Review your order')}` : '';
-  const body = `<p>Hi ${first(o)}, your order <strong>${esc(o.order_no)}</strong> has been delivered. We hope you enjoy it!</p><p>Something not right — a damaged pack or a wrong item? Reply to this email with a photo within 48 hours and we'll send a replacement or refund it. See our <a href="${absolute('/refund-policy/')}">refund policy</a>.</p>${review}<p><a href="${esc(viewUrl)}">View your order</a></p>`;
-  return { to: o.email, subject: `Order ${o.order_no} delivered — HariLeaf`, html: wrap('Delivered', body, s), text: `Your order ${o.order_no} has been delivered. Damaged or wrong item? Reply with a photo within 48 hours.${reviewUrl ? `\nReview your order: ${reviewUrl}` : ''}\n${viewUrl}`, idempotencyKey: `email.delivered/${o.order_no}`, replyTo: s.customer_care_email || undefined };
+  const body = `<p>Hi ${first(o)}, your order <strong>${esc(o.order_no)}</strong> has been delivered. We hope you enjoy it!</p><p>Something not right — ${perishable ? 'fruit that arrived damaged' : 'a damaged pack'} or a wrong item? Reply to this email with a photo within ${within} and we'll send a replacement or refund it. See our <a href="${absolute('/refund-policy/')}">refund policy</a>.</p>${review}<p><a href="${esc(viewUrl)}">View your order</a></p>`;
+  return { to: o.email, subject: `Order ${o.order_no} delivered — HariLeaf`, html: wrap('Delivered', body, s), text: `Your order ${o.order_no} has been delivered. Damaged or wrong item? Reply with a photo within ${within}.${reviewUrl ? `\nReview your order: ${reviewUrl}` : ''}\n${viewUrl}`, idempotencyKey: `email.delivered/${o.order_no}`, replyTo: s.customer_care_email || undefined };
 }
 
 export function cancelledEmail(o: OrderRow, viewUrl: string, s: StoreSettings): Email {
@@ -85,7 +87,8 @@ export function makeFulfilmentEmailHandlers(fetchImpl?: typeof fetch): Record<st
       const reviewUrl = o.replacement_for_order_id === null && o.idempotency_key && env.ORDER_TOKEN_SECRET
         ? absolute(`/review?o=${o.order_no}&t=${await reviewTokenFor(env.ORDER_TOKEN_SECRET, o.idempotency_key)}`)
         : null;
-      await sendEmail(env, deliveredEmail(o, await orderViewUrl(env, o), await getSettings(env.STORE_DB), reviewUrl), fetchImpl);
+      const perishable = Boolean(await env.STORE_DB.prepare('SELECT 1 AS p FROM order_items WHERE order_id = ? AND perishable = 1').bind(o.id).first());
+      await sendEmail(env, deliveredEmail(o, await orderViewUrl(env, o), await getSettings(env.STORE_DB), reviewUrl, perishable), fetchImpl);
     },
     'email.cancelled': handler(cancelledEmail),
     'email.refunded': handler(refundedEmail),

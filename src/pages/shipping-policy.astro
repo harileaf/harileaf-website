@@ -3,20 +3,37 @@ export const prerender = false;
 import { env } from 'cloudflare:workers';
 import PolicyPage, { type PolicySection } from '../components/policy/PolicyPage.astro';
 import { POLICY_CACHE, displayPhone, loadPolicySettings, phoneHref, orPending, rupeesSetting } from '../lib/store/policy-settings';
+import { WEEKDAY_NAMES, parseCalendar, parseZones } from '../lib/store/zones';
 
 const s = await loadPolicySettings(env.STORE_DB);
 Astro.response.headers.set('Cache-Control', POLICY_CACHE);
 const minOrder = rupeesSetting(s.min_order_paise);
 const codMax = rupeesSetting(s.cod_max_order_paise);
+const zones = parseZones(s.delivery_zones).filter((z) => z.enabled);
+const cal = parseCalendar(s);
+const list = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}` : (xs[0] ?? ''));
+const cutoff = cal.cutoffHour === 0 ? 'midnight' : cal.cutoffHour < 12 ? `${cal.cutoffHour} am` : cal.cutoffHour === 12 ? 'noon' : `${cal.cutoffHour - 12} pm`;
+const freshParagraphs = zones.length
+  ? [
+      ...zones.map((z) => `${z.name}: pincodes starting ${list(z.pincodes)}, by ${z.expressOnly ? 'express (air) ' : ''}courier within ${z.maxTransitDays} day${z.maxTransitDays === 1 ? '' : 's'} of dispatch. Before you order, the product page and checkout check your pincode and show the dispatch day and expected delivery dates.`),
+      `We dispatch fresh produce only on ${list(cal.days.map((d) => WEEKDAY_NAMES[d - 1]))}, so it doesn't sit in a courier hub over the weekend. Orders paid before ${cutoff} (IST) on a dispatch day leave the same day${cal.blackouts.length ? `; we don't dispatch on ${list(cal.blackouts)}` : ''}.`,
+      'Fresh produce is prepaid only (no cash on delivery) and is checked out separately from rice and spices, because it ships differently. Delivery is free.',
+    ]
+  : ['Fresh produce such as mangoes is not available for delivery at the moment. Product pages say when it is in season.'];
 
 const sections: PolicySection[] = [
   {
     id: 'where',
     title: 'Where we deliver',
     paragraphs: [
-      'We deliver across India to every pincode our courier partners serve. Enter your pincode on a product page or at checkout to check delivery to your address before you order.',
-      'We currently ship our rice and spices. Fresh produce such as mangoes is not yet available for delivery.',
+      'We deliver rice and spices across India to every pincode our courier partners serve. Enter your pincode at checkout to check delivery to your address before you order.',
+      'Fresh produce is delivered only within the areas listed below, so it reaches you fresh.',
     ],
+  },
+  {
+    id: 'fresh',
+    title: 'Fresh produce (mangoes and other perishables)',
+    paragraphs: freshParagraphs,
   },
   {
     id: 'charges',
@@ -29,7 +46,7 @@ const sections: PolicySection[] = [
     id: 'dispatch',
     title: 'Dispatch and delivery times',
     paragraphs: [
-      'Orders are packed and dispatched within 2 business days of confirmation (Sundays and public holidays excluded).',
+      'Rice and spices are packed and dispatched within 2 business days of confirmation (Sundays and public holidays excluded). Fresh produce follows its own dispatch days, above.',
       'After dispatch, delivery usually takes 3–7 business days depending on your location. The estimated delivery date shown at checkout comes from our courier partner and may vary.',
     ],
   },
@@ -44,7 +61,7 @@ const sections: PolicySection[] = [
     id: 'cod',
     title: 'Cash on delivery',
     paragraphs: [
-      `Cash on delivery is available for orders up to ${codMax} at pincodes where our courier partner offers it. There is no fee for cash on delivery.`,
+      `Cash on delivery is available for rice and spices on orders up to ${codMax} at pincodes where our courier partner offers it. There is no fee for cash on delivery. Fresh produce is prepaid only.`,
     ],
   },
   {
@@ -70,8 +87,8 @@ const sections: PolicySection[] = [
   title="Shipping Policy"
   badge="Store"
   subtitle="How and where we deliver your order."
-  updated="2026-10-18"
+  updated="2026-10-19"
   path="/shipping-policy"
-  description="Free delivery across India to serviceable pincodes, dispatch within 2 business days, tracking by email and cash on delivery from HariLeaf."
+  description="Free delivery across India for rice and spices, fresh produce within its delivery area by express courier, dispatch days, tracking and cash on delivery at HariLeaf."
   sections={sections}
 />
