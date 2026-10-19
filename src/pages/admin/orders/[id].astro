@@ -16,14 +16,14 @@ const d = authenticated && id ? await orderDetail(env.STORE_DB, id) : null;
 if (authenticated && !d) return Astro.rewrite('/404');
 const o = d?.order;
 const awaitingCod = o ? needsCodConfirmation(o) : false;
-const actions = o ? availableActions(o, { awaitingCodConfirmation: awaitingCod }) : [];
+const actions = o ? availableActions(o, { awaitingCodConfirmation: awaitingCod, returnReceived: d!.events.some((e) => e.type === 'return_received') }) : [];
 const fmt = (iso: string) => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' });
 const tracking = safeHttpsUrl(o?.tracking_url);
 const LABELS: Record<string, string> = {
   pack: 'Mark packed (issues invoice)', ship: 'Mark shipped', update_tracking: 'Update tracking', deliver: 'Mark delivered', rto: 'Mark RTO', returned: 'Mark returned',
   confirm_cod: 'Confirm COD order (after calling the customer)', cancel: 'Cancel order', refund: 'Refund', receive_return: 'Return received (restock)', replacement: 'Send replacement',
 };
-const needs: Record<string, string[]> = { ship: ['awb', 'courier', 'trackingUrl'], update_tracking: ['awb', 'courier', 'trackingUrl'], cancel: ['reason'], refund: ['reason', 'manualReference'], returned: ['note'], rto: ['note'], receive_return: ['note'], replacement: ['note'] };
+const needs: Record<string, string[]> = { ship: ['awb', 'courier', 'trackingUrl'], update_tracking: ['awb', 'courier', 'trackingUrl'], cancel: ['reason'], refund: o?.payment_method === 'cod' ? ['reason', 'manualReference'] : ['reason'], returned: ['note'], rto: ['note'], receive_return: ['note'], replacement: ['note'] };
 ---
 
 <AdminLayout title={o ? `Order ${o.order_no}` : 'Order'} active="orders">
@@ -34,7 +34,7 @@ const needs: Record<string, string[]> = { ship: ['awb', 'courier', 'trackingUrl'
       <header style="display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;align-items:flex-end;">
         <div>
           <h1 style="font-size:1.75rem;font-weight:800;">{o.order_no}</h1>
-          <p class="muted">Placed {fmt(o.created_at)} · <strong>{o.status}</strong> · {o.payment_method === 'cod' ? 'COD' : 'Online'} ({o.payment_status.replace('_', ' ')})</p>
+          <p class="muted">Placed {fmt(o.created_at)} · <strong>{o.status}</strong> · {o.total_paise === 0 ? 'Free replacement' : <>{o.payment_method === 'cod' ? 'COD' : 'Online'} ({o.payment_status.replace('_', ' ')})</>}</p>
           {d.original && <p class="warn" style="margin-top:0.5rem;">Free replacement for <a href={`/admin/orders/${d.original.id}`}>{d.original.order_no}</a> — no invoice is issued (no consideration). Confirm document treatment with your CA.</p>}
           {awaitingCod && <p class="warn" style="margin-top:0.5rem;">Cash on delivery, <strong>not confirmed yet</strong> — it won't be sent to Shiprocket until the customer confirms (email / order page) or you confirm after calling {o.phone}.</p>}
           {d.replacements.length > 0 && <p class="muted">Replacements: {d.replacements.map((r) => r.order_no).join(', ')}</p>}

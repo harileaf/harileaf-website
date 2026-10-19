@@ -98,13 +98,13 @@ describe('purge', () => {
     ]);
   });
 
-  it('calls the Cloudflare purge API in batches of 30 with the zone token', async () => {
+  it('calls the Cloudflare purge API in batches of 100 with the zone token', async () => {
     const calls: Array<{ url: string; init: RequestInit }> = [];
     const fake = (async (url: string, init: RequestInit) => {
       calls.push({ url, init });
       return new Response(JSON.stringify({ success: true, errors: [], result: { id: 'x' } }), { status: 200 });
     }) as unknown as typeof fetch;
-    const urls = Array.from({ length: 65 }, (_, i) => `https://harileaf.org/p${i}`);
+    const urls = Array.from({ length: 205 }, (_, i) => `https://harileaf.org/p${i}`);
     const handler = makePurgeHandler(fake);
     await handler({ urls }, { env: { ...env, CF_ZONE_ID: 'zone1', CF_PURGE_API_TOKEN: 'tok' } as Env, row: { id: 1, order_id: null, kind: 'cache.purge', payload: {}, attempts: 1 } });
     expect(calls).toHaveLength(3);

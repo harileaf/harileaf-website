@@ -7,8 +7,10 @@ interface Props {
   title: string;
   docs: Array<{ doc_no: string; issued_at: string; snapshot: string }>;
   backHref: string;
+  /** Free replacement: its document is a delivery challan, not an invoice. */
+  replacement?: boolean;
 }
-const { title, docs, backHref } = Astro.props;
+const { title, docs, backHref, replacement = false } = Astro.props;
 ---
 
 <!doctype html>
@@ -26,11 +28,15 @@ const { title, docs, backHref } = Astro.props;
     </style>
   </head>
   <body>
-    <div class="bar"><a href={backHref}>← Back to order</a><button type="button" onclick="window.print()">Print / save as PDF</button></div>
+    <div class="bar"><a href={backHref}>← Back to order</a><button type="button" id="print-docs">Print / save as PDF</button></div>
     {docs.length === 0 ? (
-      <p class="bar">The invoice is issued when your order is packed for dispatch.</p>
+      <p class="bar">{replacement ? 'The delivery challan is issued when your replacement is packed for dispatch.' : 'The invoice is issued when your order is packed for dispatch.'}</p>
     ) : (
       docs.map((d) => <InvoiceDoc snapshot={JSON.parse(d.snapshot) as DocSnapshot} docNo={d.doc_no} issuedAt={d.issued_at} />)
     )}
   </body>
 </html>
+
+<script>
+  document.getElementById('print-docs')?.addEventListener('click', () => window.print());
+</script>

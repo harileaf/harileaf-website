@@ -17,4 +17,4 @@ if (!allowed) return Astro.rewrite('/order/find'); // same page (404) whether or
 const docs = await orderDocs(env.STORE_DB, view!.order.id);
 ---
 
-<InvoicePage title={`Invoice — order ${view!.order.order_no} | HariLeaf`} docs={docs} backHref={`/order/${view!.order.order_no}?t=${encodeURIComponent(token)}`} />
+<InvoicePage title={`${view!.order.total_paise === 0 ? 'Delivery challan' : 'Invoice'} — order ${view!.order.order_no} | HariLeaf`} replacement={view!.order.total_paise === 0} docs={docs} backHref={`/order/${view!.order.order_no}?t=${encodeURIComponent(token)}`} />

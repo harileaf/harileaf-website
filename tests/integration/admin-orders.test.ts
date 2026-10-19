@@ -32,6 +32,9 @@ describe('admin order actions', () => {
     expect(await runAdminAction(db, o.orderId, { action: 'ship', awb: 'A1', courier: 'Delhivery', trackingUrl: 'https://track.example/A1' }, ctx)).toEqual({ ok: true });
     expect(await runAdminAction(db, o.orderId, { action: 'deliver' }, ctx)).toEqual({ ok: true });
     expect(availableActions((await detail()).order)).toEqual(['update_tracking', 'returned', 'refund', 'replacement']);
+    // Once a return is received the button goes (the status stays returned/rto).
+    expect(availableActions({ ...(await detail()).order, status: 'returned' })).toContain('receive_return');
+    expect(availableActions({ ...(await detail()).order, status: 'returned' }, { returnReceived: true })).not.toContain('receive_return');
     expect(await runAdminAction(db, o.orderId, { action: 'note', note: 'Called customer' }, ctx)).toEqual({ ok: true });
     // Correct a mistyped AWB (markShipped never overwrites with blanks; this action can clear too).
     expect(await runAdminAction(db, o.orderId, { action: 'update_tracking', awb: 'A1-FIXED', courier: '', trackingUrl: '' }, ctx)).toEqual({ ok: true });

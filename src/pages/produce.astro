@@ -470,6 +470,8 @@ const mangoVarieties = ['Alphonso', 'Kesar Gir', 'Payri', 'Langda', 'Rajapuri', 
 </section>
 
 <script>
+  import { onEveryPage } from '../scripts/page-load';
+
   async function hydrateBento() {
     const res = await fetch('/api/produce');
     if (!res.ok) return;
@@ -505,7 +507,7 @@ const mangoVarieties = ['Alphonso', 'Kesar Gir', 'Payri', 'Langda', 'Rajapuri', 
       .join('');
   }
 
-  hydrateBento();
+  onEveryPage(() => void hydrateBento());
 </script>
 
 </SiteLayout>
