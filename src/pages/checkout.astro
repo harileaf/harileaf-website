@@ -335,7 +335,10 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
       try {
         type Reply = { error?: string; code?: string; errors?: Record<string, string>; quote?: Quote; orderNo?: string; viewUrl?: string; payment?: Record<string, unknown> | null };
         const key = idempotencyKey(forceNewKey);
-        const body = JSON.stringify(payload());
+        // An autofilled form can be submitted before the challenge finishes: wait for its token.
+        const w = await widget;
+        const p = payload();
+        const body = JSON.stringify(w ? { ...p, turnstileToken: (await w.token()) ?? p.turnstileToken } : p);
         let res: Response;
         let data: Reply;
         // A duplicate submit can arrive while the first is still starting the Razorpay order (409 in_progress): wait and ask again.
