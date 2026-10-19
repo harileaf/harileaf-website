@@ -136,7 +136,7 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
   import { payForOrder } from '../scripts/store/razorpay-checkout';
   import { mountTurnstile } from '../scripts/store/turnstile';
 
-  type Quote = { ok: boolean; zones?: Array<{ id: string; name: string; maxTransitDays: number }>; total: number; subtotal: number; discount: number; coupon: QuoteCoupon | null; weightG?: number; minOrder: number; meetsMinimum: boolean; cod: { eligible: boolean; reason: string | null }; lines: Array<{ variantId: number; name: string; label: string; qty: number; grossTotal: number; lineTotal: number; problem: string | null; available: number; preorderDate?: string | null }> };
+  type Quote = { ok: boolean; mixed?: boolean; zones?: Array<{ id: string; name: string; maxTransitDays: number }>; total: number; subtotal: number; discount: number; coupon: QuoteCoupon | null; weightG?: number; minOrder: number; meetsMinimum: boolean; cod: { eligible: boolean; reason: string | null }; lines: Array<{ variantId: number; name: string; label: string; qty: number; grossTotal: number; lineTotal: number; problem: string | null; available: number; preorderDate?: string | null }> };
 
   // With view transitions this script runs once per visit, so set the page up on every page load.
   function initCheckout() {
@@ -229,7 +229,7 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
       document.getElementById('summary-total')!.textContent = formatINR(q.total);
       updateCod();
       updatePlaceButton();
-      if (!q.ok) showAlert(!q.lines.length ? 'Your cart is empty.' : !q.meetsMinimum ? `The minimum order is ${formatINR(q.minOrder)}.` : 'Some items changed — please review your cart.');
+      if (!q.ok) showAlert(!q.lines.length ? 'Your cart is empty.' : q.mixed ? 'Pre-orders (one dispatch date at a time) and fresh produce are checked out on their own — go back to your cart to split it.' : !q.meetsMinimum ? `The minimum order is ${formatINR(q.minOrder)}.` : 'Some items changed — please review your cart.');
     }
 
     function updateCod() {
@@ -282,6 +282,9 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
         if (stateCode) form.querySelector<HTMLSelectElement>('[name="ship.stateCode"]')!.value = stateCode;
       };
       const zones = quote?.zones ?? [];
+      // A pre-order leaves on its dispatch date, prepaid: this week's dates and COD don't apply to it.
+      const preorderDate = quote?.lines.find((l) => l.preorderDate)?.preorderDate;
+      const preorderOk = preorderDate ? `✓ We deliver here · dispatches from ${new Date(`${preorderDate}T00:00:00+05:30`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })}` : null;
       if (!zones.length) {
         const res = await fetch(`/api/store/pincode?pin=${v}&grams=${grams}&value=${quote?.total ?? 10000}`);
         const d = (await res.json().catch(() => ({}))) as { serviceable: boolean | null; cod: boolean | null; etaDays: number | null; city: string | null; stateCode: string | null; checked: boolean };
@@ -289,7 +292,7 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
         fillPlace(d.city, d.stateCode);
         if (!d.checked) pinStatus.textContent = 'We’ll confirm delivery after you order.';
         else if (!d.serviceable) pinStatus.textContent = 'Sorry — we can’t deliver to this pincode yet.';
-        else pinStatus.textContent = `✓ Delivers${d.etaDays ? ` in about ${d.etaDays} day${d.etaDays === 1 ? '' : 's'}` : ''}${d.cod ? ' · COD available' : ''}`;
+        else pinStatus.textContent = preorderOk ?? `✓ Delivers${d.etaDays ? ` in about ${d.etaDays} day${d.etaDays === 1 ? '' : 's'}` : ''}${d.cod ? ' · COD available' : ''}`;
         pinStatus.style.color = d.checked && !d.serviceable ? '#b3261e' : '#1d7a3a';
         pinCod = d.checked ? Boolean(d.cod) : null;
         pinBlocked = d.checked && !d.serviceable;
@@ -307,6 +310,8 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
         } else if (zd?.courier === false) {
           pinBlocked = true;
           pinStatus.textContent = `Sorry — no courier can reach ${v} within ${z.maxTransitDays} days, so we can’t send fresh produce there.`;
+        } else if (preorderOk && zd?.inZone) {
+          pinStatus.textContent = preorderOk;
         } else if (zd?.dispatch && zd.window) {
           pinStatus.textContent = `✓ Dispatched ${day(zd.dispatch)}, arrives ${zd.window.from === zd.window.to ? day(zd.window.to) : `${day(zd.window.from)} – ${day(zd.window.to)}`}`;
         } else if (!pinBlocked) {
@@ -368,7 +373,10 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
       try {
         type Reply = { error?: string; code?: string; errors?: Record<string, string>; quote?: Quote; orderNo?: string; viewUrl?: string; payment?: Record<string, unknown> | null };
         const key = idempotencyKey(forceNewKey);
-        const body = JSON.stringify(payload());
+        // An autofilled form can be submitted before the challenge finishes: wait for its token.
+        const w = await widget;
+        const p = payload();
+        const body = JSON.stringify(w ? { ...p, turnstileToken: (await w.token()) ?? p.turnstileToken } : p);
         let res: Response;
         let data: Reply;
         // A duplicate submit can arrive while the first is still starting the Razorpay order (409 in_progress): wait and ask again.

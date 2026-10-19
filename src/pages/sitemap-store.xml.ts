@@ -9,6 +9,6 @@ export const prerender = false;
 
 export const GET: APIRoute = async () => {
   const entries = await listActiveProductsWithVariants(env.STORE_DB, new Date());
-  const xml = storeSitemapXml(entries, [{ path: '/our-process/' }, { path: '/recipes/' }, ...RECIPES.map((r) => ({ path: `/recipes/${r.slug}/` }))]);
+  const xml = storeSitemapXml(entries, [{ path: '/produce/' }, { path: '/our-process/' }, { path: '/recipes/' }, ...RECIPES.map((r) => ({ path: `/recipes/${r.slug}/` }))]);
   return new Response(xml, { headers: { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': PAGE_CACHE_CONTROL } });
 };

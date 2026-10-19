@@ -42,7 +42,12 @@ export const GET: APIRoute = async ({ url, request }) => {
     const base = { name: zone.name, maxTransitDays: zone.maxTransitDays, inZone: pincodeInZone(pin, zone), courier: null as boolean | null, etaDays: null as number | null, dispatch: null as string | null, window: null as { from: string; to: string } | null, city: null as string | null, stateCode: null as string | null };
     if (!base.inZone || !cfg || !settings.pickup_pincode) return json({ zone: base });
     try {
-      const list = await couriers(cfg, { pickup: settings.pickup_pincode, delivery: pin, weightKg: grams / 1000, cod: false, declaredValue: value / 100 });
+      // The courier list is cached briefly (a shopper re-checking a pincode, or many checking the same one);
+      // checkout itself always asks Shiprocket afresh, so a stale answer only affects this preview.
+      const listKey = `zcour:${settings.pickup_pincode}:${pin}:${Math.ceil(grams / 500)}:${valueBucket}`;
+      const hit = await env.HARILEAF_CMS.get(listKey);
+      const list: Awaited<ReturnType<typeof couriers>> = hit ? JSON.parse(hit) : await couriers(cfg, { pickup: settings.pickup_pincode, delivery: pin, weightKg: grams / 1000, cod: false, declaredValue: value / 100 });
+      if (!hit && list.length) await env.HARILEAF_CMS.put(listKey, JSON.stringify(list), { expirationTtl: 3600 });
       const pick = pickCourier(list, zone);
       const dispatch = pick ? nextDispatch(new Date(), parseCalendar(settings)) : null;
       const place = list.find((c) => c.city && c.state);

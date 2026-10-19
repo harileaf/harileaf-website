@@ -36,3 +36,8 @@ it('validates the COD confirmation window (0 = never, otherwise after the 24 h r
   expect(validateSettings({ cod_confirm_window_hours: '12' }, cur).ok).toBe(false);
   expect(validateSettings({ cod_confirm_window_hours: 'x' }, cur).ok).toBe(false);
 });
+
+it('needs at least one dispatch day', () => {
+  expect(validateSettings({ dispatch_days: '4, 1 ,2' }, current)).toMatchObject({ ok: true, value: { dispatch_days: '1,2,4' } });
+  expect(validateSettings({ dispatch_days: '' }, current)).toMatchObject({ ok: false, errors: { dispatch_days: 'Choose at least one dispatch day' } });
+});

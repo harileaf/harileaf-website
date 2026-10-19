@@ -48,6 +48,7 @@ const day = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'n
       {summary.count > items.length && (
         <button id="more-reviews" type="button" class="mt-4 rounded-full border-2 border-primary px-6 py-2.5 font-extrabold text-primary" data-page={REVIEWS_PAGE}>Show more reviews</button>
       )}
+      <p id="reviews-status" class="sr-only" role="status" aria-live="polite"></p>
       <p class="mt-4 text-xs text-on-surface-variant max-w-2xl">Only buyers of a delivered order can review, once per product. We publish every review, positive or negative, unless it breaks our review rules (abusive language, personal details, not about the product, advertising, health or disease claims). We never pay for or reward reviews.</p>
     </div>
   </div>
@@ -56,13 +57,21 @@ const day = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'n
 <script>
   import { onEveryPage } from '../../scripts/page-load';
   import { h } from '../../scripts/store/dom';
+  import { starsHtml } from '../../scripts/store/stars';
 
   interface R { rating: number; title: string; body: string; displayName: string; publishedAt: string }
   const day = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
 
+  function stars(value: number) {
+    const span = document.createElement('span');
+    span.innerHTML = starsHtml(value); // our own markup, no review text
+    return span.firstElementChild!;
+  }
+
   function initMoreReviews() {
     const btn = document.getElementById('more-reviews') as HTMLButtonElement | null;
     const list = document.getElementById('review-list');
+    const live = document.getElementById('reviews-status');
     if (!btn || !list) return;
     const label = btn.textContent ?? '';
     btn.addEventListener('click', async () => {
@@ -73,18 +82,20 @@ const day = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'n
       btn.disabled = false;
       if (!data) {
         btn.textContent = 'Couldn’t load more reviews — try again';
+        if (live) live.textContent = 'Couldn’t load more reviews.';
         return; // keep the button so the shopper can retry
       }
       for (const r of data.reviews) {
         list.append(
           h('li', { class: 'rounded-2xl bg-white border border-black/5 p-5' },
-            h('p', { class: 'flex flex-wrap items-center gap-x-2 gap-y-1' }, h('span', { class: 'font-extrabold', style: 'color:#b8860b' }, `${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}`), h('span', { class: 'sr-only' }, `Rated ${r.rating} out of 5.`), h('strong', {}, r.title)),
+            h('p', { class: 'flex flex-wrap items-center gap-x-2 gap-y-1' }, stars(r.rating), h('span', { class: 'sr-only' }, `Rated ${r.rating} out of 5.`), h('strong', {}, r.title)),
             h('p', { class: 'mt-2 text-on-surface-variant leading-relaxed whitespace-pre-line' }, r.body),
             h('p', { class: 'mt-3 text-xs text-on-surface-variant' }, `${r.displayName} · Verified buyer · ${day(r.publishedAt)}`),
           ),
         );
       }
       list.dataset.loaded = String(offset + data.reviews.length);
+      if (live) live.textContent = `${data.reviews.length} more review${data.reviews.length === 1 ? '' : 's'} loaded.`;
       btn.textContent = label;
       if (!data.reviews.length || Number(list.dataset.loaded) >= Number(list.dataset.total)) btn.remove();
     });

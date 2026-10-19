@@ -38,7 +38,11 @@ const STATUS: Record<string, { title: string; body: string }> = {
   rto: { title: 'Returning to us', body: 'The courier couldn’t deliver this order and it is coming back to us. We’ll be in touch.' },
   returned: { title: 'Returned', body: 'This order was returned.' },
 };
-const s = STATUS[o.status] ?? { title: o.status, body: '' };
+// A pre-order isn't packed within days: it waits for its dispatch date (shown in the banner below).
+const s =
+  o.is_preorder === 1 && o.status === 'placed'
+    ? { title: 'Pre-order confirmed', body: 'Thank you! Your pre-order is reserved. We’ll email you when it’s ready to dispatch, and again with a tracking link.' }
+    : STATUS[o.status] ?? { title: o.status, body: '' };
 // v2 partial refunds: what has gone back, and what is on its way.
 const { refunded: refundedPaise, pending: pendingPaise } = ['partially_refunded', 'refunded', 'refund_pending'].includes(o.payment_status)
   ? ((await env.STORE_DB.prepare(
@@ -90,7 +94,7 @@ const paymentLine =
     <p class="mt-2 text-on-surface-variant max-w-2xl">{heading.body}</p>
     {o.is_preorder === 1 && o.expected_dispatch_date && ['placed', 'packed'].includes(o.status) && (
       <p class="mt-4 rounded-2xl px-5 py-4 max-w-2xl" style="background:#efeafc;border:1px solid #cdbff2;color:#3a2470">
-        <strong>Pre-order</strong> · {o.status === 'packed' ? 'packed and ready to leave the farm' : <>expected to dispatch from <strong>{new Date(`${o.expected_dispatch_date}T00:00:00+05:30`).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' })}</strong>. We’ll email you when it’s ready. You can cancel for a full refund until then.</>}
+        <strong>Pre-order</strong> · {o.status === 'packed' ? 'packed and ready to leave the farm' : <>expected to dispatch from <strong>{new Date(`${o.expected_dispatch_date}T00:00:00+05:30`).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' })}</strong>. You can cancel for a full refund until we pack it.</>}
       </p>
     )}
 

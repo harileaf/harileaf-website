@@ -116,7 +116,8 @@ export function validateSettings(input: Record<string, unknown>, current: StoreS
   if (!zones.ok) fail('delivery_zones', zones.error);
   else set('delivery_zones', JSON.stringify(zones.value));
   const days = value.dispatch_days.split(/[\s,]+/).filter(Boolean);
-  if (days.some((d) => !/^[1-7]$/.test(d))) fail('dispatch_days', 'Choose dispatch days');
+  // At least one: with none, fresh produce could never be dispatched and the shipping policy would list no days.
+  if (!days.length || days.some((d) => !/^[1-7]$/.test(d))) fail('dispatch_days', 'Choose at least one dispatch day');
   else set('dispatch_days', [...new Set(days.map(Number))].sort().join(','));
   const blackouts = value.dispatch_blackouts.split(/[\s,]+/).filter(Boolean);
   if (blackouts.some((d) => !/^\d{4}-\d{2}-\d{2}$/.test(d) || Number.isNaN(Date.parse(d)))) fail('dispatch_blackouts', 'Dates as YYYY-MM-DD, separated by commas');

@@ -141,7 +141,7 @@ const fmtDate = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateS
     </button>
   </div>
   <p class="text-sm font-bold min-h-[1.25rem]" style="color:#1d7a3a" aria-live="polite" data-add-status></p>
-  {zone && settings && variants.some(sellable) && <ZoneCheck productName={p.name} zone={zone} settings={settings} />}
+  {zone && settings && variants.some(sellable) && <ZoneCheck productName={p.name} zone={zone} settings={settings} preorderDate={variants.some((v) => v.availability === 'buy') ? null : preorderDate} />}
   {!variants.some((v) => v.availability === 'buy' || v.availability === 'preorder') && (
     <NotifyForm productId={p.id} productName={p.name} heading={zoneClosed ? 'Tell me when you deliver it' : variants.every((v) => v.availability === 'notify') ? 'Tell me when it’s in season' : 'Tell me when it’s back'} />
   )}

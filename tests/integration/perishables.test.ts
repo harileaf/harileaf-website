@@ -1,8 +1,10 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { POST as checkout } from '../../src/pages/api/store/checkout/index';
+import { GET as pincode } from '../../src/pages/api/store/pincode';
+import { listProducts } from '../../src/lib/store/catalog';
 import { quoteCart } from '../../src/lib/store/quote';
 import { SETTING_DEFAULTS, putSettings } from '../../src/lib/store/settings';
-import { db, insertProduct, insertVariant } from '../helpers/fixtures';
+import { db, insertProduct, insertVariant, scalar } from '../helpers/fixtures';
 
 const NOW = new Date('2026-11-18T06:30:00Z');
 const zones = (enabled: boolean) => JSON.stringify([{ id: 'mmr', name: 'Mumbai MMR', pincodes: ['400', '401'], expressOnly: true, maxTransitDays: 2, enabled }]);
@@ -52,11 +54,22 @@ describe('perishables', () => {
     const rice = await insertVariant(await insertProduct(), { price_paise: 69900, mrp_paise: 79900 });
     const closed = await quoteCart(db, [{ variantId: m, qty: 1 }], { today: NOW, settings: { ...settings, delivery_zones: zones(false) } });
     expect(closed.lines[0].problem).toBe('unavailable');
+    // In season but the zone isn't selling: the card says so rather than "out of season".
+    await putSettings(db, { ...settings, delivery_zones: zones(false) });
+    const pid = await scalar('SELECT product_id FROM variants WHERE id = ?', m);
+    expect((await listProducts(db, { categorySlug: 'produce', today: NOW })).find((c) => c.id === pid)).toMatchObject({ availability: 'notify', zoneClosed: true });
+    await putSettings(db, settings);
     const open = await quoteCart(db, [{ variantId: m, qty: 1 }], { today: NOW, settings });
     expect(open).toMatchObject({ ok: true, mixed: false, groups: ['perishable'], cod: { eligible: false } });
     const both = await quoteCart(db, [{ variantId: m, qty: 1 }, { variantId: rice, qty: 1 }], { today: NOW, settings });
     expect(both).toMatchObject({ ok: false, mixed: true, groups: ['perishable', 'regular'] });
     expect((await submit([{ variantId: m, qty: 1 }, { variantId: rice, qty: 1 }], '400092')).status).toBe(409);
+    // Fresh produce for two zones: no pincode is in both, so the cart splits by zone.
+    const twoZones = JSON.stringify([...JSON.parse(zones(true)), { id: 'pune', name: 'Pune', pincodes: ['411'], expressOnly: true, maxTransitDays: 2, enabled: true }]);
+    const fig = await insertVariant(await insertProduct({ perishable: 1, cod_allowed: 0, category_id: 3, gst_rate_bp: 0, hsn_code: '0804', delivery_zone: '{"zone":"pune"}' }), { stock_qty: 5, price_paise: 50000, mrp_paise: 50000 });
+    const split = await quoteCart(db, [{ variantId: m, qty: 1 }, { variantId: fig, qty: 1 }], { today: NOW, settings: { ...settings, delivery_zones: twoZones } });
+    expect(split).toMatchObject({ ok: false, mixed: true, groups: ['perishable'] });
+    expect(split.lines.map((l) => l.zone?.id)).toEqual(['mmr', 'pune']);
   });
 
   it('checkout needs a pincode in the zone, an express courier within the limit, prepaid only, and fails closed', async () => {
@@ -73,5 +86,22 @@ describe('perishables', () => {
     const ok = await submit(lines, '400092');
     expect(ok.status).toBe(201);
     expect(ok.body.payment).toMatchObject({ amount: 120000 });
+  });
+
+  it('the zone pincode check asks Shiprocket once per pincode and parcel size, not on every check', async () => {
+    let asked = 0;
+    stubCouriers([air]);
+    const stubbed = globalThis.fetch;
+    vi.stubGlobal('fetch', (url: string, init?: RequestInit) => (url.includes('/courier/serviceability/') && ++asked, stubbed(url, init)));
+    const check = async (pin: string) => {
+      const u = new URL(`https://harileaf.org/api/store/pincode?pin=${pin}&zone=mmr&grams=1200&value=120000`);
+      const r = (await pincode({ url: u, request: new Request(u) } as never)) as Response;
+      return ((await r.json()) as any).zone;
+    };
+    expect(await check('400093')).toMatchObject({ inZone: true, courier: true, etaDays: 1, city: 'Mumbai', stateCode: '27' });
+    expect(await check('400093')).toMatchObject({ courier: true, etaDays: 1 });
+    expect(asked).toBe(1);
+    await check('400094');
+    expect(asked).toBe(2);
   });
 });

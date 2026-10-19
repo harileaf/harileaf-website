@@ -104,7 +104,7 @@ describe('coupons at checkout', () => {
     expect((await place([{ variantId: v, qty: 1 }], { coupon: code })).res.ok).toBe(true);
   });
 
-  it('gives the use back exactly once when the payment fails, never on cancel, and retakes it for a late payment', async () => {
+  it('gives the use back exactly once when the payment fails or the order is cancelled, and retakes it for a late payment', async () => {
     const code = await insertCoupon({ usage_limit: 5 });
     const v = await insertVariant(await insertProduct(), { stock_qty: 10 });
     const prepaid = await place([{ variantId: v, qty: 1 }], { coupon: code, paymentMethod: 'razorpay' });
@@ -123,7 +123,22 @@ describe('coupons at checkout', () => {
 
     const cod = await place([{ variantId: v, qty: 1 }], { coupon: code });
     if (!cod.res.ok) throw new Error(cod.res.message);
-    await cancelOrder(db, cod.res.orderId, { now: later, actor: 'customer', reason: 'changed my mind' });
     expect(await scalar('SELECT used_count FROM coupons WHERE code = ?', code)).toBe(2);
+    await Promise.all([
+      cancelOrder(db, cod.res.orderId, { now: later, actor: 'customer', reason: 'changed my mind' }),
+      cancelOrder(db, cod.res.orderId, { now: later, actor: 'admin', reason: 'fake order' }),
+    ]);
+    expect(await scalar('SELECT used_count FROM coupons WHERE code = ?', code)).toBe(1);
+  });
+
+  it('a cancelled order frees a one-per-phone code for that phone', async () => {
+    const code = await insertCoupon({ one_per_phone: 1, usage_limit: 1 });
+    const v = await insertVariant(await insertProduct(), { stock_qty: 10 });
+    const phone = '9876500001';
+    const first = await place([{ variantId: v, qty: 1 }], { coupon: code, phone });
+    if (!first.res.ok) throw new Error(first.res.message);
+    expect(await scalar('SELECT phone FROM coupon_redemptions WHERE order_id = ?', first.res.orderId)).toBe(phone);
+    await cancelOrder(db, first.res.orderId, { now: NOW, actor: 'customer', reason: 'wrong address' });
+    expect((await place([{ variantId: v, qty: 1 }], { coupon: code, phone })).res.ok).toBe(true);
   });
 });

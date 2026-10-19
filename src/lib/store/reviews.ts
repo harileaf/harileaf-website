@@ -40,7 +40,7 @@ export interface ReviewableItem {
 }
 
 export interface ReviewLink {
-  order: { id: number; orderNo: string; status: string; firstName: string; city: string; delivered: boolean };
+  order: { id: number; orderNo: string; status: string; firstName: string; delivered: boolean };
   items: ReviewableItem[];
 }
 
@@ -48,9 +48,9 @@ export interface ReviewLink {
 export async function openReviewLink(db: D1Database, secret: string, orderNo: string, token: string): Promise<ReviewLink | null> {
   if (!/^HL-\d{4}-\d{4,}$/.test(orderNo) || !/^[0-9a-f]{32}$/.test(token)) return null;
   const o = await db
-    .prepare('SELECT id, order_no, status, customer_name, ship_city, idempotency_key, replacement_for_order_id FROM orders WHERE order_no = ?')
+    .prepare('SELECT id, order_no, status, customer_name, idempotency_key, replacement_for_order_id FROM orders WHERE order_no = ?')
     .bind(orderNo)
-    .first<{ id: number; order_no: string; status: string; customer_name: string; ship_city: string; idempotency_key: string | null; replacement_for_order_id: number | null }>();
+    .first<{ id: number; order_no: string; status: string; customer_name: string; idempotency_key: string | null; replacement_for_order_id: number | null }>();
   if (!o?.idempotency_key || !constantTimeEqual(await reviewTokenFor(secret, o.idempotency_key), token)) return null;
   const { results } = await db
     .prepare(
@@ -70,7 +70,6 @@ export async function openReviewLink(db: D1Database, secret: string, orderNo: st
       orderNo: o.order_no,
       status: o.status,
       firstName: o.customer_name.split(/\s+/)[0] ?? '',
-      city: o.ship_city,
       delivered: o.status === 'delivered' && o.replacement_for_order_id === null,
     },
     items: results.map((r) => ({
@@ -83,8 +82,8 @@ export async function openReviewLink(db: D1Database, secret: string, orderNo: st
   };
 }
 
-/** "Asha, Mumbai": first name and city, the spec's default display name. */
-export const defaultDisplayName = (firstName: string, city: string) => [firstName, city].filter(Boolean).join(', ').slice(0, 40);
+/** The first name only: the reviewer may add a city, but we never publish where they live unasked. */
+export const defaultDisplayName = (firstName: string) => firstName.slice(0, 40);
 
 export interface ReviewInput {
   productId: number;

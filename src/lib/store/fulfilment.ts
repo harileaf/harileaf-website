@@ -16,7 +16,7 @@ import { findByIdempotencyKey, viewTokenFor, type OrderItemRow, type OrderRow } 
 import { needsCodConfirmation } from './cod';
 import { getSettings } from './settings';
 import { hashViewToken } from './tokens';
-import { istParts } from './fy';
+import { istParts, istYmd } from './fy';
 
 export type Actor = 'customer' | 'admin' | 'shiprocket' | 'system';
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -158,8 +158,10 @@ export async function delayPreorder(
   if (!/^\d{4}-\d{2}-\d{2}$/.test(d.date) || Number.isNaN(Date.parse(d.date))) return FAIL('Pick the new dispatch date');
   const reason = d.reason.trim().slice(0, 300);
   if (reason.length < 3) return FAIL('Say why (it goes in the email to the customer)');
+  if (d.date <= istYmd(ctx.now)) return FAIL('The new dispatch date must be after today');
   const at = nowIso(ctx.now);
   const before = await db.prepare('SELECT expected_dispatch_date FROM orders WHERE id = ?').bind(orderId).first<{ expected_dispatch_date: string | null }>();
+  if (before?.expected_dispatch_date && d.date <= before.expected_dispatch_date) return FAIL(`Pick a date after the current one (${before.expected_dispatch_date}) — a pre-order can only be pushed back`);
   const claim = claimStmt(
     db,
     orderId,
@@ -230,7 +232,7 @@ export async function markReturned(db: D1Database, orderId: number, ctx: { now: 
 
 /**
  * Cancels before dispatch. Customers may cancel while `placed`; admins also
- * while `packed`. Stock goes back; an issued invoice gets a credit note; a
+ * while `packed`. Stock and any coupon use go back; an issued invoice gets a credit note; a
  * captured payment is refunded and an authorised one is simply not captured.
  */
 export async function cancelOrder(
@@ -266,6 +268,8 @@ async function cancelOnce(
       .prepare(`UPDATE orders SET status = 'cancelled', cancelled_by = ?, cancel_reason = ?, payment_status = ?, updated_at = ? WHERE id = ?`)
       .bind(ctx.actor, reason, refundNeeded ? 'refund_pending' : order.payment_status, at, orderId),
     ...restockStmts(db, items, false), // the goods never left
+    // The coupon use goes back (trigger decrements used_count), so unconfirmed or fake COD orders can't use up a limited code.
+    db.prepare('DELETE FROM coupon_redemptions WHERE order_id = ?').bind(orderId),
     ...(await creditNoteStmts(db, orderId, ctx.now, reason)),
     ...(refundNeeded
       ? [
