@@ -40,7 +40,8 @@ export interface DocSnapshot {
   placeOfSupply: { stateCode: string; state: string };
   intraState: boolean;
   reverseCharge: false;
-  order: { orderNo: string; orderDate: string; paymentMethod: 'razorpay' | 'cod' };
+  /** couponCode: added in v2 (optional, so older snapshots render unchanged). */
+  order: { orderNo: string; orderDate: string; paymentMethod: 'razorpay' | 'cod'; couponCode?: string };
   lines: DocLine[];
   totals: { taxable: number; cgst: number; sgst: number; igst: number; total: number; inWords: string };
   reference?: { docNo: string; issuedAt: string };
@@ -113,7 +114,7 @@ export function invoiceSnapshot(o: OrderRow, items: OrderItemRow[], s: StoreSett
     // Follow the tax actually charged at checkout (same place-of-supply rule).
     intraState: lines.some((l) => l.igst > 0) ? false : lines.some((l) => l.cgst > 0) ? true : placeOfSupply(o).stateCode === s.state_code,
     reverseCharge: false,
-    order: { orderNo: o.order_no, orderDate: o.created_at, paymentMethod: o.payment_method },
+    order: { orderNo: o.order_no, orderDate: o.created_at, paymentMethod: o.payment_method, ...(o.coupon_code ? { couponCode: o.coupon_code } : {}) },
     lines,
     totals: totals(lines),
   };

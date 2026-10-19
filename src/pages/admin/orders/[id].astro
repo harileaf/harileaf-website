@@ -76,9 +76,10 @@ const needs: Record<string, string[]> = { ship: ['awb', 'courier', 'trackingUrl'
           <h2>Items</h2>
           <table class="mini">
             {d.items.map((i) => (
-              <tr><td>{i.product_name} · {i.variant_label} × {i.qty}<br /><span class="muted">{i.sku} · HSN {i.hsn_code} · GST {i.gst_rate_bp / 100}%{i.perishable ? ' · perishable' : ''}</span></td><td style="text-align:right;">{formatINR(i.line_total_paise)}</td></tr>
+              <tr><td>{i.product_name} · {i.variant_label} × {i.qty}<br /><span class="muted">{i.sku} · HSN {i.hsn_code} · GST {i.gst_rate_bp / 100}%{i.perishable ? ' · perishable' : ''}</span></td><td style="text-align:right;">{formatINR(i.line_total_paise)}{i.discount_paise > 0 && <><br /><span class="muted">−{formatINR(i.discount_paise)} discount</span></>}</td></tr>
             ))}
           </table>
+          {o.coupon_code && <p style="margin-top:0.5rem;">Discount code <a href={`/admin/coupons?code=${encodeURIComponent(o.coupon_code)}`} style="color:#196a5e;font-weight:700;">{o.coupon_code}</a>: −{formatINR(o.discount_paise)} (subtotal {formatINR(o.subtotal_paise)})</p>}
         </section>
         <section class="box">
           <h2>Customer</h2>

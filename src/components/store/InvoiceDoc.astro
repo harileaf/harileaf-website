@@ -61,6 +61,7 @@ const sameAddress = JSON.stringify(d.buyer.billing) === JSON.stringify(d.buyer.s
       <p>{d.placeOfSupply.state} ({d.placeOfSupply.stateCode})</p>
       <p>Reverse charge: No</p>
       {!isChallan && <p>Payment: {d.order.paymentMethod === 'cod' ? 'Cash on delivery' : 'Online (Razorpay)'}</p>}
+      {d.order.couponCode && <p>Discount code {d.order.couponCode} (discount shown per line, before GST)</p>}
       {isChallan && <p>Purpose: free replacement (not a supply)</p>}
     </div>
   </section>

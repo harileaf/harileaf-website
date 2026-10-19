@@ -26,6 +26,11 @@
       "body": "All software, algorithms, AI models, visual design, and content on the HariLeaf platform are the exclusive property of HariLeaf Agritech or its licensors and are protected by intellectual property law. Your operational data remains yours — we do not claim ownership over field data, sensor readings, or crop records you upload to the platform. We may use anonymised, aggregated derivatives of operational data to improve our models, as described in our Privacy Policy."
     },
     {
+      "id": "shop-orders",
+      "title": "Shop Orders",
+      "body": "Orders placed in the HariLeaf shop are also governed by our Shipping Policy and Refund Policy. Discount codes: one code per order; a code has no cash value and can't be exchanged or combined; its discount is shared across the eligible items before GST is calculated, so your invoice shows it per item; if an online payment isn't completed, the code's use is returned, but it isn't returned when an order is cancelled or refunded. We may pause a code at any time, but an order already placed keeps its discount."
+    },
+    {
       "id": "limitation-of-liability",
       "title": "Limitation of Liability",
       "body": "HariLeaf's platform is provided on an 'as-is' basis. To the maximum extent permitted by law, HariLeaf Agritech shall not be liable for any indirect, incidental, consequential, or punitive damages arising from your use of the platform, including crop losses, yield shortfalls, or decisions made in reliance on platform outputs. Our total aggregate liability shall not exceed the fees paid by you in the 12 months preceding the claim. Some jurisdictions do not permit limitation of implied warranties — in those cases, the above may not apply to you."

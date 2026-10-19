@@ -106,11 +106,17 @@ const paymentLine =
           {items.map((i) => (
             <li class="flex justify-between gap-4 text-sm">
               <span><strong>{i.product_name}</strong> · {i.variant_label} × {i.qty}<span class="block text-xs text-on-surface-variant">{formatINR(i.unit_price_paise)} each · GST {i.gst_rate_bp / 100}%</span></span>
-              <span class="font-bold whitespace-nowrap">{formatINR(i.line_total_paise)}</span>
+              <span class="font-bold whitespace-nowrap">{formatINR(isReplacement ? i.line_total_paise : i.unit_price_paise * i.qty)}</span>
             </li>
           ))}
         </ul>
         <div class="border-t border-black/10 mt-4 pt-3 text-sm flex flex-col gap-1">
+          {o.coupon_code && o.discount_paise > 0 && (
+            <>
+              <p class="flex justify-between"><span>Subtotal</span><span>{formatINR(o.subtotal_paise)}</span></p>
+              <p class="flex justify-between" style="color:#1d6b3a"><span>Discount ({o.coupon_code})</span><span class="font-bold">−{formatINR(o.discount_paise)}</span></p>
+            </>
+          )}
           <p class="flex justify-between"><span>Delivery</span><span>Free</span></p>
           {tax.igst > 0 ? <p class="flex justify-between text-on-surface-variant"><span>includes IGST</span><span>{formatINR(tax.igst)}</span></p> : <p class="flex justify-between text-on-surface-variant"><span>includes CGST + SGST</span><span>{formatINR(tax.cgst)} + {formatINR(tax.sgst)}</span></p>}
           <p class="flex justify-between text-lg font-extrabold mt-1"><span>Total</span><span>{formatINR(o.total_paise)}</span></p>

@@ -96,6 +96,25 @@ test('the cart blocks checkout below the minimum order', async ({ page }) => {
 });
 
 
+test('a discount code shows as its own line and the total is what the shopper pays', async ({ page }) => {
+  await page.goto('/rice/karjat-3');
+  await page.getByRole('radio', { name: /^5 kg/ }).check();
+  await page.getByRole('button', { name: 'Add to cart' }).first().click();
+  await page.goto('/cart/');
+  await page.getByText('Have a discount code?').click();
+  await page.getByLabel('Discount code').fill('nope1234');
+  await page.getByRole('button', { name: 'Apply' }).click();
+  await expect(page.getByRole('alert')).toHaveText('This code isn’t valid.');
+  await page.getByLabel('Discount code').fill('e2eten');
+  await page.getByRole('button', { name: 'Apply' }).click();
+  const summary = page.getByRole('complementary', { name: 'Order summary' });
+  await expect(summary).toContainText('Discount (E2ETEN)');
+  const money = async (label: string) => Number(/₹([\d,.]+)/.exec(await summary.locator('p', { hasText: new RegExp(`^${label}`) }).first().innerText())![1].replace(/,/g, ''));
+  expect(await money('Total')).toBeCloseTo((await money('Subtotal')) - (await money('Discount')), 2);
+  await page.getByRole('link', { name: 'Proceed to checkout' }).click();
+  await expect(page.locator('#summary-adjust')).toContainText('Discount (E2ETEN)');
+});
+
 test('keyboard only: choose a pack size and add it to the cart', async ({ page, isMobile }) => {
   test.skip(isMobile, 'keyboard flow is a desktop concern');
   await page.goto('/rice/karjat-3');

@@ -22,10 +22,11 @@ Astro.response.headers.set('X-Robots-Tag', 'noindex');
   import { onEveryPage } from '../scripts/page-load';
   import { formatINR } from '../lib/store/money';
   import { readCart, removeFromCart, setCartQty } from '../scripts/store/cart';
+  import { couponBox, discountRow, focusCouponBox, isDeadCoupon, readCoupon, setCoupon, type QuoteCoupon } from '../scripts/store/coupon';
   import { h } from '../scripts/store/dom';
 
-  interface Line { variantId: number; name: string; label: string; path: string; image: { url: string; alt: string } | null; qty: number; requestedQty: number; unitPrice: number; mrp: number; lineTotal: number; problem: string | null; available: number }
-  interface Quote { ok: boolean; total: number; subtotal: number; itemCount: number; minOrder: number; meetsMinimum: boolean; cod: { eligible: boolean; reason: string | null }; lines: Line[] }
+  interface Line { variantId: number; name: string; label: string; path: string; image: { url: string; alt: string } | null; qty: number; requestedQty: number; unitPrice: number; mrp: number; grossTotal: number; lineTotal: number; problem: string | null; available: number }
+  interface Quote { ok: boolean; total: number; subtotal: number; discount: number; coupon: QuoteCoupon | null; itemCount: number; minOrder: number; meetsMinimum: boolean; cod: { eligible: boolean; reason: string | null }; lines: Line[] }
 
   // With view transitions this script runs once per visit, so set the page up on every page load.
   function initCart() {
@@ -35,13 +36,22 @@ Astro.response.headers.set('X-Robots-Tag', 'noindex');
 
     // Only the newest quote may render: rapid +/− clicks can make responses arrive out of order.
     let latest = 0;
+    // A code the server refused for good (shown under the box until the shopper acts).
+    let rejected: { code: string; message: string } | null = null;
+    let focusCoupon = false;
     async function load() {
       const seq = ++latest;
       root.setAttribute('aria-busy', 'true');
       const lines = readCart();
       if (!lines.length) return renderEmpty();
-      const res = await fetch('/api/store/cart/quote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lines }) });
+      const coupon = readCoupon();
+      const res = await fetch('/api/store/cart/quote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lines, coupon }) });
       if (seq !== latest) return;
+      if (res.status === 429 && coupon) {
+        rejected = { code: coupon, message: 'Too many tries — please wait a minute and try again.' };
+        setCoupon(null);
+        return load();
+      }
       if (!res.ok) {
         root.replaceChildren(h('p', { class: 'text-on-surface-variant' }, 'We couldn’t load your cart. Please refresh the page.'));
         return;
@@ -68,6 +78,11 @@ Astro.response.headers.set('X-Robots-Tag', 'noindex');
     function render(q: Quote) {
       root.setAttribute('aria-busy', 'false');
       if (!q.lines.length) return renderEmpty();
+      if (isDeadCoupon(q.coupon)) {
+        rejected = { code: q.coupon!.code, message: q.coupon!.message ?? 'This code can’t be used.' };
+        setCoupon(null);
+        q.coupon = null;
+      }
       // Quietly correct quantities the server limited.
       for (const l of q.lines) if (l.problem === 'limited' && l.available > 0) setCartQty(l.variantId, l.available);
 
@@ -93,7 +108,7 @@ Astro.response.headers.set('X-Robots-Tag', 'noindex');
                 linkBtn('Remove', `Remove ${l.name} ${l.label} from cart`, () => { removeFromCart(l.variantId); load(); }),
               ),
             ),
-            h('p', { class: 'font-extrabold whitespace-nowrap' }, formatINR(l.lineTotal)),
+            h('p', { class: 'font-extrabold whitespace-nowrap' }, formatINR(l.grossTotal)),
           ),
         );
       }
@@ -101,6 +116,7 @@ Astro.response.headers.set('X-Robots-Tag', 'noindex');
       const blocked = !q.ok;
       const summary = h('aside', { class: 'rounded-2xl bg-surface-container-low p-6 flex flex-col gap-3', 'aria-label': 'Order summary' },
         row('Subtotal', formatINR(q.subtotal)),
+        discountRow(q.coupon, q.discount),
         row('Delivery', 'Free'),
         h('div', { class: 'border-t border-black/10 pt-3' }, row('Total', formatINR(q.total), true)),
         h('p', { class: 'text-xs text-on-surface-variant' }, 'Inclusive of all taxes.'),
@@ -113,12 +129,22 @@ Astro.response.headers.set('X-Robots-Tag', 'noindex');
           style: 'background:linear-gradient(135deg,#196a5e,#2d7a4f)',
         }, 'Proceed to checkout'),
         h('p', { class: 'text-xs text-on-surface-variant' }, q.cod.eligible ? 'Cash on delivery available.' : (q.cod.reason ?? '')),
+        couponBox({
+          applied: q.coupon,
+          rejected,
+          open: focusCoupon,
+          onApply: (code) => { rejected = null; focusCoupon = true; setCoupon(code.replace(/[\s-]/g, '').toUpperCase()); load(); },
+          onRemove: () => { rejected = null; focusCoupon = true; setCoupon(null); load(); },
+        }),
       );
       // Re-rendering replaces the controls; keep keyboard focus on the one in use.
       const active = document.activeElement;
       const refocus = active && root.contains(active) ? active.getAttribute('aria-label') : null;
       root.replaceChildren(h('div', { class: 'grid grid-cols-1 md:grid-cols-[1.6fr_1fr] gap-8 items-start' }, list, summary));
-      if (refocus) root.querySelector<HTMLElement>(`[aria-label="${CSS.escape(refocus)}"]`)?.focus();
+      if (focusCoupon) {
+        focusCouponBox(root);
+        focusCoupon = false;
+      } else if (refocus) root.querySelector<HTMLElement>(`[aria-label="${CSS.escape(refocus)}"]`)?.focus();
     }
 
     function row(label: string, value: string, strong = false) {

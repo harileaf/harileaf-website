@@ -57,20 +57,27 @@ function layout(title: string, bodyHtml: string, settings: StoreSettings): strin
 </table></td></tr></table></body></html>`;
 }
 
-function itemsTable(items: OrderItemRow[]): { html: string; text: string } {
+/** Lines at their price before any coupon; the discount follows as its own row. */
+function itemsTable(items: OrderItemRow[], o?: Pick<OrderRow, 'coupon_code' | 'discount_paise'>): { html: string; text: string } {
+  const gross = (i: OrderItemRow) => i.unit_price_paise * i.qty;
+  const discount = o?.coupon_code && o.discount_paise > 0 ? o : null;
   const rows = items
-    .map((i) => `<tr><td style="padding:6px 0">${esc(i.product_name)} · ${esc(i.variant_label)} × ${i.qty}</td><td align="right" style="padding:6px 0">${formatINR(i.line_total_paise)}</td></tr>`)
+    .map((i) => `<tr><td style="padding:6px 0">${esc(i.product_name)} · ${esc(i.variant_label)} × ${i.qty}</td><td align="right" style="padding:6px 0">${formatINR(gross(i))}</td></tr>`)
     .join('');
+  const discountRow = discount ? `<tr><td style="padding:6px 0;color:#1d6b3a">Discount (${esc(discount.coupon_code!)})</td><td align="right" style="padding:6px 0;color:#1d6b3a">−${formatINR(discount.discount_paise)}</td></tr>` : '';
   return {
-    html: `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">${rows}</table>`,
-    text: items.map((i) => `- ${i.product_name} · ${i.variant_label} × ${i.qty}: ${formatINR(i.line_total_paise)}`).join('\n'),
+    html: `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">${rows}${discountRow}</table>`,
+    text: [
+      ...items.map((i) => `- ${i.product_name} · ${i.variant_label} × ${i.qty}: ${formatINR(gross(i))}`),
+      ...(discount ? [`- Discount (${discount.coupon_code}): −${formatINR(discount.discount_paise)}`] : []),
+    ].join('\n'),
   };
 }
 
 const address = (o: OrderRow) => [o.customer_name, o.ship_line1, o.ship_line2, `${o.ship_city}, ${o.ship_state} ${o.ship_pincode}`].filter(Boolean).join(', ');
 
 export function orderPlacedEmail(o: OrderRow, items: OrderItemRow[], viewUrl: string, settings: StoreSettings): Email {
-  const t = itemsTable(items);
+  const t = itemsTable(items, o);
   const pay =
     o.payment_method === 'cod'
       ? `Cash on delivery — please keep ${formatINR(o.total_paise)} ready.`
@@ -94,7 +101,7 @@ ${t.html}
 
 export function ownerNewOrderEmail(o: OrderRow, items: OrderItemRow[], settings: StoreSettings): Email | null {
   if (!settings.notify_email) return null;
-  const t = itemsTable(items);
+  const t = itemsTable(items, o);
   const html = `<p><strong>${esc(o.order_no)}</strong> · ${o.payment_method === 'cod' ? 'COD' : 'Prepaid'} · ${formatINR(o.total_paise)}</p>${t.html}<p>${esc(address(o))}<br>${esc(o.phone)} · ${esc(o.email)}</p><p><a href="${absolute('/admin/')}">Open admin</a></p>`;
   return {
     to: settings.notify_email,

@@ -107,7 +107,9 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
       <aside class="lg:sticky lg:top-28 rounded-2xl bg-surface-container-low p-6 flex flex-col gap-3" aria-label="Order summary">
         <h2 class="text-xl font-extrabold">Your order</h2>
         <ul id="summary-lines" class="flex flex-col gap-2 text-sm" aria-live="polite"><li class="text-on-surface-variant">Loading…</li></ul>
+        <div id="coupon-slot"></div>
         <div class="border-t border-black/10 pt-3 flex flex-col gap-1.5 text-sm">
+          <div id="summary-adjust" class="flex flex-col gap-1.5" aria-live="polite"></div>
           <p class="flex justify-between"><span>Delivery</span><span>Free</span></p>
           <p class="flex justify-between text-lg font-extrabold"><span>Total</span><span id="summary-total">—</span></p>
           <p class="text-xs text-on-surface-variant">Inclusive of all taxes. Your GST invoice is issued when the order ships.</p>
@@ -129,11 +131,12 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
   import { onEveryPage } from '../scripts/page-load';
   import { formatINR } from '../lib/store/money';
   import { clearCart, readCart } from '../scripts/store/cart';
+  import { couponBox, discountRow, focusCouponBox, isDeadCoupon, readCoupon, setCoupon, type QuoteCoupon } from '../scripts/store/coupon';
   import { h } from '../scripts/store/dom';
   import { payForOrder } from '../scripts/store/razorpay-checkout';
   import { mountTurnstile } from '../scripts/store/turnstile';
 
-  type Quote = { ok: boolean; total: number; weightG?: number; minOrder: number; meetsMinimum: boolean; cod: { eligible: boolean; reason: string | null }; lines: Array<{ variantId: number; name: string; label: string; qty: number; lineTotal: number; problem: string | null; available: number }> };
+  type Quote = { ok: boolean; total: number; subtotal: number; discount: number; coupon: QuoteCoupon | null; weightG?: number; minOrder: number; meetsMinimum: boolean; cod: { eligible: boolean; reason: string | null }; lines: Array<{ variantId: number; name: string; label: string; qty: number; grossTotal: number; lineTotal: number; problem: string | null; available: number }> };
 
   // With view transitions this script runs once per visit, so set the page up on every page load.
   function initCheckout() {
@@ -149,11 +152,15 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
     let pinCod: boolean | null = null;
     let pinBlocked = false; // the courier confirmed it can't deliver to this pincode
     const placeHint = document.getElementById('place-hint')!;
+    // An applied code the server won't accept blocks the order: the shopper removes it or fixes the cart.
+    const couponBlocked = () => Boolean(quote?.coupon && !quote.coupon.ok);
     const updatePlaceButton = () => {
-      placeBtn.disabled = !quote?.ok || pinBlocked;
+      placeBtn.disabled = !quote?.ok || pinBlocked || couponBlocked();
       // Next to the button too: on phones the pincode message is far above the summary.
-      placeHint.textContent = pinBlocked ? 'We can’t deliver to this pincode yet.' : '';
+      placeHint.textContent = pinBlocked ? 'We can’t deliver to this pincode yet.' : couponBlocked() ? 'Remove the discount code to continue without it.' : '';
     };
+    let rejected: { code: string; message: string } | null = null;
+    let focusCoupon = false;
     let forceNewKey = false;
 
     // Rendered explicitly (not by api.js scanning the page on load), so it also appears after a
@@ -184,16 +191,39 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
     }
 
     function renderSummary(q: Quote) {
+      if (isDeadCoupon(q.coupon)) {
+        rejected = { code: q.coupon!.code, message: q.coupon!.message ?? 'This code can’t be used.' };
+        setCoupon(null);
+        q = { ...q, coupon: null };
+      }
       quote = q;
       const ul = document.getElementById('summary-lines')!;
       ul.replaceChildren(
         ...q.lines.map((l) =>
           h('li', { class: 'flex justify-between gap-3' },
             h('span', {}, `${l.name} · ${l.label} × ${l.qty}`, l.problem ? h('span', { class: 'block text-xs font-bold', style: 'color:#8a4b00' }, l.problem === 'limited' ? `Only ${l.available} left` : 'No longer available') : null),
-            h('span', { class: 'font-bold whitespace-nowrap' }, formatINR(l.lineTotal)),
+            h('span', { class: 'font-bold whitespace-nowrap' }, formatINR(l.grossTotal)),
           ),
         ),
       );
+      const discount = discountRow(q.coupon, q.discount);
+      document.getElementById('summary-adjust')!.replaceChildren(
+        ...(discount ? [h('p', { class: 'flex justify-between' }, h('span', {}, 'Subtotal'), h('span', {}, formatINR(q.subtotal))), discount] : []),
+      );
+      const slot = document.getElementById('coupon-slot')!;
+      slot.replaceChildren(
+        couponBox({
+          applied: q.coupon,
+          rejected,
+          open: focusCoupon,
+          onApply: (code) => { rejected = null; focusCoupon = true; setCoupon(code.replace(/[\s-]/g, '').toUpperCase()); loadQuote(); },
+          onRemove: () => { rejected = null; focusCoupon = true; setCoupon(null); loadQuote(); },
+        }),
+      );
+      if (focusCoupon) {
+        focusCouponBox(slot);
+        focusCoupon = false;
+      }
       document.getElementById('summary-total')!.textContent = formatINR(q.total);
       updateCod();
       updatePlaceButton();
@@ -213,10 +243,28 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
         location.href = '/cart';
         return;
       }
-      const res = await fetch('/api/store/cart/quote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lines }) });
+      const coupon = readCoupon();
+      const res = await fetch('/api/store/cart/quote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lines, coupon, phone: phoneDigits() }) });
+      if (res.status === 429 && coupon) {
+        rejected = { code: coupon, message: 'Too many tries — please wait a minute and try again.' };
+        setCoupon(null);
+        return loadQuote();
+      }
       if (res.ok) renderSummary((await res.json()) as Quote);
       else showAlert('We couldn’t load your order. Please refresh the page.');
     }
+
+    // A one-per-phone code can only be judged once we know the mobile number.
+    const phoneInput = form.querySelector<HTMLInputElement>('[name="contact.phone"]')!;
+    function phoneDigits(): string | null {
+      let p = phoneInput.value.replace(/\D/g, '');
+      if (p.length === 12 && p.startsWith('91')) p = p.slice(2);
+      if (p.length === 11 && p.startsWith('0')) p = p.slice(1);
+      return /^[6-9]\d{9}$/.test(p) ? p : null;
+    }
+    phoneInput.addEventListener('change', () => {
+      if (readCoupon()) loadQuote();
+    });
 
     // Pincode → city, state, delivery estimate, COD availability.
     const pin = form.querySelector<HTMLInputElement>('[name="ship.pincode"]')!;
@@ -264,6 +312,7 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
         buyerGstin: get('buyerGstin'),
         buyerLegalName: get('buyerLegalName'),
         paymentMethod: get('paymentMethod'),
+        coupon: readCoupon(),
         turnstileToken: fd.get('cf-turnstile-response') ? String(fd.get('cf-turnstile-response')) : null,
         expectedTotal: quote?.total,
       };
