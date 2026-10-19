@@ -28,3 +28,12 @@ it('store sitemap lists product, category, shop and content URLs with lastmod', 
   expect(xml).toContain('<url><loc>https://harileaf.org/rice/karjat-3</loc><lastmod>2026-10-18</lastmod></url>');
   for (const loc of ['/rice/', '/shop/', '/our-process/']) expect(xml).toContain(`<loc>https://harileaf.org${loc}</loc>`);
 });
+
+it('zone-limited perishables ship only to their zone pincodes (Merchant Center postal codes for India)', () => {
+  const zone = { id: 'mmr', name: 'Mumbai MMR', pincodes: ['400', '401', '410206'], expressOnly: true, maxTransitDays: 2, enabled: true };
+  const { xml } = googleFeedXml([{ product: product({ perishable: true, deliveryZoneId: 'mmr' }), variants: [variant()], images, shippingZone: zone }]);
+  expect(xml).toContain('<g:shipping><g:country>IN</g:country><g:postal_code>400*</g:postal_code><g:price>0.00 INR</g:price><g:min_transit_time>1</g:min_transit_time><g:max_transit_time>2</g:max_transit_time></g:shipping>');
+  expect(xml).toContain('<g:postal_code>410206</g:postal_code>');
+  expect(xml).toContain('<g:shipping_label>zone-mmr</g:shipping_label>');
+  expect(xml).not.toContain('<g:shipping><g:country>IN</g:country><g:price>');
+});

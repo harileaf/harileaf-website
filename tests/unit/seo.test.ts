@@ -49,6 +49,12 @@ describe('seo', () => {
     expect(none).not.toHaveProperty('review');
   });
 
+  it('perishables: returns not permitted, and no all-India shipping claim (their zone is set in Merchant Center)', () => {
+    const ld = productGroupJsonLd({ product: product({ perishable: true, deliveryZoneId: 'mmr' }), variants: [variant()], images }) as any;
+    expect(ld.hasVariant[0].offers.hasMerchantReturnPolicy.returnPolicyCategory).toBe('https://schema.org/MerchantReturnNotPermitted');
+    expect(ld.hasVariant[0].offers).not.toHaveProperty('shippingDetails');
+  });
+
   it('escapes "<" so content cannot close the JSON-LD script tag', () => {
     expect(jsonLdString({ name: '</script><script>alert(1)</script>' })).not.toContain('</script>');
   });

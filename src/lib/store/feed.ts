@@ -7,6 +7,7 @@ import type { Availability } from './availability';
 import type { Image, Product, Variant } from './catalog';
 import { productDescription } from './seo';
 import { absolute, categoryPath, productPath, variantPath } from './urls';
+import type { Zone } from './zones';
 
 export const xmlEscape = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;')
@@ -27,12 +28,32 @@ export interface FeedEntry {
   product: Product;
   variants: Variant[];
   images: Image[];
+  /** Perishables: the zone they ship to (even while it's not selling), so they're never offered outside it. */
+  shippingZone?: Zone | null;
+}
+
+/**
+ * Free shipping across India, or for a zone-limited perishable one `g:shipping`
+ * per pincode/prefix (`400*`; Merchant Center supports postal codes for India)
+ * with its transit time, plus a `shipping_label` for account-level services.
+ */
+function shippingTags(p: Product, zone: Zone | null | undefined): string[] {
+  if (!p.perishable) return ['<g:shipping><g:country>IN</g:country><g:price>0.00 INR</g:price></g:shipping>'];
+  if (!zone) return []; // no zone set yet: never claim delivery anywhere
+  return [
+    ...zone.pincodes.map(
+      (pin) =>
+        `<g:shipping><g:country>IN</g:country><g:postal_code>${pin.length === 6 ? pin : `${pin}*`}</g:postal_code><g:price>0.00 INR</g:price>` +
+        `<g:min_transit_time>1</g:min_transit_time><g:max_transit_time>${zone.maxTransitDays}</g:max_transit_time></g:shipping>`,
+    ),
+    `<g:shipping_label>zone-${xmlEscape(zone.id)}</g:shipping_label>`,
+  ];
 }
 
 export function googleFeedXml(entries: FeedEntry[], opts: { title?: string } = {}): { xml: string; skipped: string[] } {
   const items: string[] = [];
   const skipped: string[] = [];
-  for (const { product: p, variants, images } of entries) {
+  for (const { product: p, variants, images, shippingZone } of entries) {
     if (!images.length) {
       skipped.push(`${p.slug}: no image`);
       continue;
@@ -61,7 +82,7 @@ export function googleFeedXml(entries: FeedEntry[], opts: { title?: string } = {
         ...(p.category.googleCategory ? [tag('google_product_category', p.category.googleCategory)] : []),
         tag('product_type', p.category.name),
         tag('size', v.label),
-        `<g:shipping><g:country>IN</g:country><g:price>0.00 INR</g:price></g:shipping>`,
+        ...shippingTags(p, shippingZone),
       ];
       items.push(`<item>${parts.join('')}</item>`);
     }

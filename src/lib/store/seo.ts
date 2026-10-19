@@ -69,7 +69,8 @@ export function shippingDetails() {
 
 /**
  * Food packs aren't returnable except when damaged or wrong (refund policy),
- * which Google models as "returns not permitted".
+ * which Google models as "returns not permitted". Perishables likewise: no
+ * returns, replacement or refund for damage on arrival (photo within 24 h).
  */
 export function returnPolicy() {
   return {
@@ -141,7 +142,9 @@ export function productGroupJsonLd(input: {
         ...(v.availability === 'preorder' && p.season.preorderDispatchDate ? { availabilityStarts: p.season.preorderDispatchDate } : {}),
         itemCondition: 'https://schema.org/NewCondition',
         seller: { '@type': 'Organization', name: BRAND },
-        shippingDetails: shippingDetails(),
+        // Zone-limited perishables: Search supports postal-code regions only for AU/CA/US, so
+        // "free shipping in IN" would be false; their zone lives in Merchant Center (feed g:shipping).
+        ...(p.perishable ? {} : { shippingDetails: shippingDetails() }),
         hasMerchantReturnPolicy: returnPolicy(),
       },
     })),

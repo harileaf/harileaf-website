@@ -375,7 +375,7 @@ export async function listProducts(db: D1Database, opts: { categorySlug?: string
 export async function listActiveProductsWithVariants(
   db: D1Database,
   today: Date,
-): Promise<Array<{ product: Product; variants: Variant[]; images: Image[] }>> {
+): Promise<Array<{ product: Product; variants: Variant[]; images: Image[]; shippingZone: Zone | null }>> {
   const { results } = await db.prepare(`${PRODUCT_SELECT} WHERE p.status = 'active' ORDER BY c.sort, p.name`).all<ProductRow>();
   const products = results.map(mapProduct);
   const ids = products.map((p) => p.id);
@@ -385,6 +385,8 @@ export async function listActiveProductsWithVariants(
       product,
       variants: (variants.get(product.id) ?? []).map((v) => mapVariant(v, product, today, zones)).filter((v): v is Variant => v !== null),
       images: images.get(product.id) ?? [],
+      // The zone a perishable ships to, enabled or not (the feed must never offer it elsewhere).
+      shippingZone: product.perishable ? (zones.find((z) => z.id === product.deliveryZoneId) ?? null) : null,
     }))
     .filter((x) => x.variants.length > 0);
 }

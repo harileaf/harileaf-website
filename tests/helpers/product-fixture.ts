@@ -21,6 +21,7 @@ export function product(over: Partial<Product> = {}): Product {
     hsnCode: '1006',
     gstRateBp: 500,
     perishable: false,
+    deliveryZoneId: null,
     codAllowed: true,
     season: { startMd: null, endMd: null, offSeasonMode: null, preorderDispatchDate: null },
     seoTitle: null,
