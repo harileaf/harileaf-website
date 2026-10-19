@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { amountInWords, assertPaise, formatINR, unitPricePerKg } from '../../src/lib/store/money';
+import { amountInWords, assertPaise, formatINR, formatUnitPrice, unitPricePerKg, unitSalePrice } from '../../src/lib/store/money';
 
 describe('assertPaise', () => {
   it('accepts non-negative integers and rejects everything else', () => {
@@ -52,5 +52,21 @@ describe('unitPricePerKg', () => {
   });
   it('rejects a non-positive pack size', () => {
     expect(() => unitPricePerKg(100, 0)).toThrow();
+  });
+});
+
+describe('unitSalePrice', () => {
+  it('is per gram under 1 kg and per kg from 1 kg, to the paisa', () => {
+    expect(unitSalePrice(6000, 50)).toEqual({ paise: 120, per: 'g' });
+    expect(unitSalePrice(9500, 500)).toEqual({ paise: 19, per: 'g' });
+    expect(unitSalePrice(12900, 999)).toEqual({ paise: 13, per: 'g' });
+    expect(unitSalePrice(14900, 1000)).toEqual({ paise: 14900, per: 'kg' });
+    expect(unitSalePrice(69900, 5000)).toEqual({ paise: 13980, per: 'kg' });
+    expect(() => unitSalePrice(100, 0)).toThrow();
+  });
+  it('formats with the unit', () => {
+    expect(formatUnitPrice(6000, 50)).toBe('₹1.20/g');
+    expect(formatUnitPrice(9500, 500)).toBe('₹0.19/g');
+    expect(formatUnitPrice(69900, 5000)).toBe('₹139.80/kg');
   });
 });

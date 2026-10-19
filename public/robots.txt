@@ -1,7 +1,7 @@
 User-agent: *
 Allow: /
-Disallow: /admin/
-Disallow: /keystatic/
+Disallow: /admin
+Disallow: /keystatic
 Disallow: /api/
 
 Sitemap: https://harileaf.org/sitemap-index.xml

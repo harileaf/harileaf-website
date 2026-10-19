@@ -105,27 +105,8 @@ const pageDesc     = seo?.metaDescription ?? '';
 </SiteLayout>
 
 <script>
-  // Highlight active TOC link on scroll
-  const links = document.querySelectorAll<HTMLAnchorElement>('.toc-link');
-  const sections = Array.from(document.querySelectorAll<HTMLElement>('section[id]'));
+  import { onEveryPage } from '../scripts/page-load';
+  import { initToc } from '../scripts/toc';
 
-  const observer = new IntersectionObserver(
-    (entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting) {
-          links.forEach((l) => {
-            const active = l.dataset.section === entry.target.id;
-            l.classList.toggle('text-primary',        active);
-            l.classList.toggle('font-bold',           active);
-            l.classList.toggle('border-primary',      active);
-            l.classList.toggle('text-on-surface-variant', !active);
-            l.classList.toggle('border-transparent',  !active);
-          });
-        }
-      }
-    },
-    { rootMargin: '-30% 0px -60% 0px' }
-  );
-
-  sections.forEach((s) => observer.observe(s));
+  onEveryPage(initToc);
 </script>

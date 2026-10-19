@@ -60,8 +60,10 @@ export async function drainOutbox(
   const leaseMs = opts.leaseMs ?? DEFAULT_LEASE_MS;
   const tally = { done: 0, failed: 0, dead: 0 };
 
-  const idFilter = opts.ids ? ` AND id IN (${opts.ids.map(() => '?').join(', ') || 'NULL'})` : '';
+  // Numbered placeholders throughout: ?1 is "now", ids follow from ?2 (SQLite gives a bare ? the next
+  // number after the highest used so far, which is easy to break when editing these queries).
   const ids = opts.ids ?? [];
+  const idFilter = opts.ids ? ` AND id IN (${ids.map((_, i) => `?${i + 2}`).join(', ') || 'NULL'})` : '';
 
   // Final attempts that never reported back (isolate crash / timeout).
   const swept = await db
@@ -75,7 +77,7 @@ export async function drainOutbox(
   tally.dead += swept.meta.changes ?? 0;
 
   const { results: due } = await db
-    .prepare(`SELECT id FROM outbox WHERE ${CLAIMABLE}${idFilter} ORDER BY id LIMIT ?`)
+    .prepare(`SELECT id FROM outbox WHERE ${CLAIMABLE}${idFilter} ORDER BY id LIMIT ?${ids.length + 2}`)
     .bind(opts.now.toISOString(), ...ids, opts.limit ?? 25)
     .all<{ id: number }>();
 
@@ -132,11 +134,11 @@ export async function drainOutbox(
   return tally;
 }
 
-/** Completes a row only if this drain still owns it (same attempt number). */
+/** Completes a row only if this drain still owns it (same attempt number). A done row clears the error of an earlier failed attempt. */
 async function finish(db: D1Database, row: OutboxRow, state: 'done' | 'dead', now: string, error: string | null) {
   await db
     .prepare(
-      `UPDATE outbox SET state = ?, lease_until = NULL, last_error = COALESCE(?, last_error), updated_at = ?
+      `UPDATE outbox SET state = ?, lease_until = NULL, last_error = ?, updated_at = ?
        WHERE id = ? AND state = 'running' AND attempts = ?`,
     )
     .bind(state, error?.slice(0, 1000) ?? null, now, row.id, row.attempts)
