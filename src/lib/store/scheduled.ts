@@ -10,6 +10,7 @@ import { expireReservations, reconcilePending, requeueStuckCaptures } from './pa
 import { razorpayConfig } from './razorpay';
 
 export async function runScheduled(env: Env, now: Date): Promise<void> {
+  const failed: string[] = [];
   try {
     const report: Record<string, unknown> = { at: now.toISOString() };
     const step = async (name: string, fn: () => Promise<unknown>) => {
@@ -17,6 +18,7 @@ export async function runScheduled(env: Env, now: Date): Promise<void> {
         report[name] = await fn();
       } catch (err) {
         report[name] = `error: ${String(err)}`;
+        failed.push(`${name} (${String(err)})`);
       }
     };
     const rzp = razorpayConfig(env);
@@ -30,4 +32,6 @@ export async function runScheduled(env: Env, now: Date): Promise<void> {
     console.error(JSON.stringify({ msg: 'scheduled run failed', at: now.toISOString(), error: err instanceof Error ? `${err.name}: ${err.message}` : String(err) }));
     throw err;
   }
+  // The other jobs still ran; fail the invocation so Cron Events shows the run as failed.
+  if (failed.length) throw new Error(`scheduled jobs failed: ${failed.join('; ')}`);
 }
