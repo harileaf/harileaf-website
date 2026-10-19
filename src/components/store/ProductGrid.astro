@@ -12,6 +12,6 @@ const { cards, tone = 'light', headingLevel = 'h3' } = Astro.props;
 
 <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5" role="list">
   {cards.map((card) => (
-    <li class="flex"><ProductCard card={card} tone={tone} headingLevel={headingLevel} /></li>
+    <li class="flex [&[hidden]]:hidden"><ProductCard card={card} tone={tone} headingLevel={headingLevel} /></li>
   ))}
 </ul>
