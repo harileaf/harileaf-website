@@ -9,7 +9,7 @@
 import { env } from 'cloudflare:workers';
 import { validateSession } from '../lib/auth';
 
-export type AdminSection = 'dashboard' | 'orders' | 'products' | 'coupons' | 'remittance' | 'photos' | 'produce' | 'content' | 'settings';
+export type AdminSection = 'dashboard' | 'orders' | 'products' | 'coupons' | 'reviews' | 'remittance' | 'photos' | 'produce' | 'content' | 'settings';
 
 interface Props {
   title: string;
@@ -25,6 +25,7 @@ const nav: Array<{ key: AdminSection; label: string; href: string }> = [
   { key: 'orders', label: 'Orders', href: '/admin/orders' },
   { key: 'products', label: 'Products', href: '/admin/products' },
   { key: 'coupons', label: 'Coupons', href: '/admin/coupons' },
+  { key: 'reviews', label: 'Reviews', href: '/admin/reviews' },
   { key: 'remittance', label: 'COD remittance', href: '/admin/remittance' },
   { key: 'photos', label: 'Photos', href: '/admin/photos' },
   { key: 'produce', label: 'Produce', href: '/admin/produce' },
@@ -58,6 +59,7 @@ const nav: Array<{ key: AdminSection; label: string; href: string }> = [
     .admin-nav a { flex: none; white-space: nowrap; border-bottom: 2px solid transparent; padding: 0.75rem 1.25rem; font-size: 0.875rem; font-weight: 700; color: #666; text-decoration: none; transition: color .15s, border-color .15s; }
     .admin-nav a[aria-current="page"] { border-bottom-color: #196a5e; color: #196a5e; }
     .hidden { display: none !important; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
     .error { color: #c00; font-size: 0.875rem; }
     .muted { color: #666; font-size: 0.875rem; }
     label { display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #666; margin-bottom: 0.5rem; }

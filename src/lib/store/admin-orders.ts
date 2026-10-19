@@ -190,7 +190,8 @@ export async function dashboardMetrics(db: D1Database, now: Date) {
             AND NOT EXISTS (SELECT 1 FROM cod_remittances r WHERE r.order_id = o.id)) AS cod_unremitted,
          (SELECT count(*) FROM order_events WHERE type = 'extra_payment' AND at >= ?2) AS extra_payments,
          (SELECT count(DISTINCT order_id) FROM order_events WHERE type IN ('courier_unapplied', 'courier_lost') AND at >= ?2) AS courier_problems,
-         (SELECT count(*) FROM orders WHERE payment_method = 'cod' AND status = 'placed' AND cod_confirmed_at IS NULL AND total_paise > 0 AND created_at < ?4) AS cod_unconfirmed_old`,
+         (SELECT count(*) FROM orders WHERE payment_method = 'cod' AND status = 'placed' AND cod_confirmed_at IS NULL AND total_paise > 0 AND created_at < ?4) AS cod_unconfirmed_old,
+         (SELECT count(*) FROM reviews WHERE status = 'pending') AS reviews_pending`,
     )
     .bind(since(1), since(7), since(14), since(2))
     .first<Record<string, number>>();
