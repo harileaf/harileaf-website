@@ -7,7 +7,6 @@ import contactJson from '../content/contact-page.json';
 import PhotoStrip from '../components/produce/PhotoStrip.astro';
 
 const web3formsKey = contactJson.form.web3formsKey;
-const success = Astro.url.searchParams.get('success') === 'true';
 // One canonical for /produce and /produce/ (same form as the sitemap and navigation).
 const canonicalURL = new URL('/produce/', Astro.site ?? 'https://harileaf.org');
 const pageTitle = 'Fresh Produce from HariLeaf Farm — Fruits, Vegetables & Flowers';
@@ -340,15 +339,13 @@ const mangoVarieties = ['Alphonso', 'Kesar Gir', 'Payri', 'Langda', 'Rajapuri', 
       </FadeIn>
 
       <!-- Success banner -->
-      {success && (
-        <div class="mb-8 flex items-start gap-4 bg-primary-fixed/60 border border-primary/20 rounded-lg px-5 py-4">
-          <span class="material-symbols-outlined text-primary mt-0.5" style="font-variation-settings:'FILL' 1">check_circle</span>
-          <div>
-            <p class="font-bold text-on-surface">Thanks! We'll reach out within 24 hours.</p>
-            <p class="text-on-surface-variant text-sm mt-0.5">We'll contact you on WhatsApp or by email shortly.</p>
-          </div>
+      <div data-form-sent hidden class="[&[hidden]]:hidden mb-8 flex items-start gap-4 bg-primary-fixed/60 border border-primary/20 rounded-lg px-5 py-4">
+        <span class="material-symbols-outlined text-primary mt-0.5" style="font-variation-settings:'FILL' 1">check_circle</span>
+        <div>
+          <p class="font-bold text-on-surface">Thanks! We'll reach out within 24 hours.</p>
+          <p class="text-on-surface-variant text-sm mt-0.5">We'll contact you on WhatsApp or by email shortly.</p>
         </div>
-      )}
+      </div>
 
       <FadeIn delay={100}>
         <form
@@ -471,6 +468,7 @@ const mangoVarieties = ['Alphonso', 'Kesar Gir', 'Payri', 'Langda', 'Rajapuri', 
 
 <script>
   import { onEveryPage } from '../scripts/page-load';
+  import '../scripts/form-sent';
 
   async function hydrateBento() {
     const res = await fetch('/api/produce');
