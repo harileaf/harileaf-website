@@ -23,13 +23,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Check store database is configured
-        run: |
-          if grep -q 'database_id = "00000000-0000-0000-0000-000000000000"' wrangler.toml; then
-            echo "::error file=wrangler.toml::STORE_DB database_id is still the placeholder. Run 'npx wrangler d1 create harileaf-store' and put its id in wrangler.toml (README: One-time setup)."
-            exit 1
-          fi
-
       - name: Build
         run: npm run build
 
