@@ -16,7 +16,6 @@ const turnstileKey = env.PUBLIC_TURNSTILE_SITE_KEY ?? '';
 <SiteLayout title={title} description="Get a fresh link to your HariLeaf order" noIndex>
   <slot name="head" slot="head">
     <SEO title={title} description="Get a fresh link to your HariLeaf order" noIndex />
-    {turnstileKey && <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer is:inline></script>}
   </slot>
   <div class="max-w-xl mx-auto px-6 pt-32 pb-24">
     <h1 class="text-4xl font-extrabold tracking-tight">Find your order</h1>
@@ -30,7 +29,7 @@ const turnstileKey = env.PUBLIC_TURNSTILE_SITE_KEY ?? '';
         <label class="block text-sm font-bold mb-1" for="f-email">Email</label>
         <input id="f-email" name="email" type="email" required autocomplete="email" class="w-full rounded-xl border border-black/15 px-4 py-3" />
       </div>
-      {turnstileKey && <div class="cf-turnstile" data-sitekey={turnstileKey}></div>}
+      {turnstileKey && <div data-turnstile data-sitekey={turnstileKey}></div>}
       <button class="rounded-full px-7 py-3 font-extrabold text-white self-start disabled:opacity-60" style="background:linear-gradient(135deg,#196a5e,#2d7a4f)">Email me the link</button>
       <p id="find-status" role="status" aria-live="polite" class="font-bold"></p>
       <button type="button" id="find-again" class="hidden self-start text-sm font-bold text-primary underline">Use a different order number or email</button>
@@ -39,7 +38,11 @@ const turnstileKey = env.PUBLIC_TURNSTILE_SITE_KEY ?? '';
 </SiteLayout>
 
 <script>
+  import { mountTurnstile } from '../../scripts/store/turnstile';
+
   const form = document.getElementById('find-form') as HTMLFormElement;
+  const widget = mountTurnstile(form.querySelector<HTMLElement>('[data-turnstile]'));
+  const resetTurnstile = () => void widget.then((w) => w?.reset());
   const out = document.getElementById('find-status')!;
   const say = (text: string, kind: 'ok' | 'error') => {
     out.textContent = text;
@@ -64,7 +67,7 @@ const turnstileKey = env.PUBLIC_TURNSTILE_SITE_KEY ?? '';
         return;
       }
       say(data.error ?? 'Something went wrong — please try again.', 'error');
-      (window as unknown as { turnstile?: { reset(): void } }).turnstile?.reset();
+      resetTurnstile();
     } catch {
       say('Network error — please try again.', 'error');
     }
@@ -77,7 +80,7 @@ const turnstileKey = env.PUBLIC_TURNSTILE_SITE_KEY ?? '';
     form.querySelectorAll<HTMLInputElement | HTMLButtonElement>('input, button').forEach((el) => (el.disabled = false));
     again.classList.add('hidden');
     out.textContent = '';
-    (window as unknown as { turnstile?: { reset(): void } }).turnstile?.reset();
+    resetTurnstile();
     form.querySelector<HTMLInputElement>('#f-email')?.focus();
   });
 </script>
