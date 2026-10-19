@@ -45,6 +45,24 @@ const needs: Record<string, string[]> = { delay_preorder: ['date', 'reason'], sh
         <p style="font-size:1.5rem;font-weight:800;">{formatINR(o.total_paise)}</p>
       </header>
 
+      {['packed', 'shipped'].includes(o.status) && o.total_paise >= 0 && (
+        <section class="box" id="courier" data-order={o.id} aria-labelledby="courier-h">
+          <h2 id="courier-h">Courier</h2>
+          {o.awb ? (
+            <p>Booked: <strong>{o.courier ?? 'Courier'}</strong> · AWB <strong>{o.awb}</strong></p>
+          ) : (
+            <p class="muted">Not booked yet. Pick a courier from Shiprocket’s live rates{d.items.some((i) => i.perishable) ? ' (fresh produce: only express couriers within the delivery zone’s days — ship within 24 hours)' : ''}.</p>
+          )}
+          <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.5rem;">
+            {!o.awb && o.status === 'packed' && <button type="button" class="brand-btn" data-courier="find" style="padding:0.4rem 1rem;">Find couriers</button>}
+            {o.awb && <button type="button" class="brand-btn" data-courier="label" style="padding:0.4rem 1rem;">Print label</button>}
+            {o.awb && <button type="button" class="brand-btn" data-courier="manifest" style="padding:0.4rem 1rem;">Print manifest</button>}
+          </div>
+          <div data-courier-list style="margin-top:0.75rem;"></div>
+          <p data-courier-status role="status" aria-live="polite" class="muted" style="margin-top:0.5rem;"></p>
+        </section>
+      )}
+
       <section class="box">
         <h2>Actions</h2>
         {actions.length === 0 ? <p class="muted">No actions for this status.</p> : (
@@ -180,6 +198,73 @@ const needs: Record<string, string[]> = { delay_preorder: ['date', 'reason'], sh
   // One key per page load: a double click or retry can't create two replacements.
   const requestKey = crypto.randomUUID();
   let busy = false;
+
+  // Courier booking: live Shiprocket rates → choose → AWB + pickup; then label / manifest.
+  const courierBox = document.getElementById('courier');
+  if (courierBox) {
+    const status = courierBox.querySelector<HTMLElement>('[data-courier-status]')!;
+    const list = courierBox.querySelector<HTMLElement>('[data-courier-list]')!;
+    const url = `/api/admin/orders/${courierBox.dataset.order}/courier`;
+    const post = async (body: Record<string, unknown>) => {
+      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const data = (await res.json().catch(() => ({}))) as { error?: string; value?: unknown };
+      if (!res.ok) throw new Error(data.error ?? 'Failed');
+      return data.value;
+    };
+    courierBox.querySelectorAll<HTMLButtonElement>('[data-courier]').forEach((b) =>
+      b.addEventListener('click', async () => {
+        b.disabled = true;
+        status.textContent = 'Asking Shiprocket…';
+        try {
+          if (b.dataset.courier === 'find') {
+            const res = await fetch(url);
+            const data = (await res.json().catch(() => ({}))) as { error?: string; options?: Array<{ id: number; name: string; rate: number | null; etaDays: number | null; air: boolean }>; perishable?: boolean };
+            if (!res.ok) throw new Error(data.error ?? 'Failed');
+            list.replaceChildren();
+            if (!data.options?.length) {
+              status.textContent = data.perishable ? 'No express courier can deliver within the zone’s days — don’t ship this parcel.' : 'No courier serves this pincode for this parcel.';
+              return;
+            }
+            const form = document.createElement('form');
+            form.style.cssText = 'display:flex;flex-direction:column;gap:0.35rem;';
+            for (const [i, opt] of data.options.entries()) {
+              const label = document.createElement('label');
+              label.className = 'act';
+              const radio = Object.assign(document.createElement('input'), { type: 'radio', name: 'courierId', value: String(opt.id), checked: i === 0 });
+              label.append(radio, ` ${opt.name} · ${opt.rate !== null ? `₹${(opt.rate / 100).toFixed(2)}` : 'rate n/a'} · ${opt.etaDays ? `${opt.etaDays} day${opt.etaDays === 1 ? '' : 's'}` : 'ETA n/a'} · ${opt.air ? 'air' : 'surface'}`);
+              form.append(label);
+            }
+            const book = Object.assign(document.createElement('button'), { type: 'submit', className: 'brand-btn', textContent: 'Book this courier' });
+            book.style.cssText = 'padding:0.4rem 1rem;align-self:flex-start;';
+            form.append(book);
+            form.addEventListener('submit', async (e) => {
+              e.preventDefault();
+              book.disabled = true;
+              status.textContent = 'Booking…';
+              try {
+                const v = (await post({ action: 'book', courierId: Number(new FormData(form).get('courierId')) })) as { awb: string; courier: string; pickup: string | null };
+                status.textContent = `Booked ${v.courier} · AWB ${v.awb}${v.pickup ? ` · pickup ${v.pickup}` : ' · request the pickup in Shiprocket'}`;
+                setTimeout(() => location.reload(), 1200);
+              } catch (err) {
+                status.textContent = String(err instanceof Error ? err.message : err);
+                book.disabled = false;
+              }
+            });
+            list.append(form);
+            status.textContent = `${data.options.length} courier${data.options.length === 1 ? '' : 's'} available`;
+          } else {
+            const link = (await post({ action: b.dataset.courier })) as string;
+            status.textContent = '';
+            window.open(link, '_blank', 'noopener');
+          }
+        } catch (err) {
+          status.textContent = String(err instanceof Error ? err.message : err);
+        } finally {
+          b.disabled = false;
+        }
+      }),
+    );
+  }
 
   async function send(body: Record<string, unknown>) {
     if (busy) return;

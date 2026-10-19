@@ -63,6 +63,7 @@ const groups: Array<{ title: string; note?: string; fields: Field[] }> = [
     fields: [
       { key: 'pickup_pincode', label: 'Pickup pincode', hint: 'Where couriers collect from' },
       { key: 'shiprocket_pickup_location', label: 'Shiprocket pickup location name', hint: 'Exactly as named in Shiprocket → Settings → Pickup addresses' },
+      { key: 'shiprocket_auto_push', label: 'Send orders to Shiprocket automatically', type: 'select', options: [['on', 'On — every confirmed order is created in Shiprocket; assign AWBs there or from the order page'], ['off', 'Off — book each courier from the order page (Book courier)']], hint: 'Either way you can book the courier, print the label and the manifest from the order page.' },
     ],
   },
   {

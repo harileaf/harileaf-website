@@ -11,7 +11,7 @@ export const SETTING_KEYS = [
   'grievance_officer_name', 'grievance_officer_email', 'grievance_officer_phone',
   'min_order_paise', 'cod_max_order_paise', 'notify_email', 'low_stock_email',
   'pickup_pincode', 'shiprocket_pickup_location', 'cod_confirmation', 'cod_confirm_window_hours',
-  'delivery_zones', 'dispatch_days', 'dispatch_blackouts', 'dispatch_cutoff_hour',
+  'delivery_zones', 'dispatch_days', 'dispatch_blackouts', 'dispatch_cutoff_hour', 'shiprocket_auto_push',
 ] as const;
 export type SettingKey = (typeof SETTING_KEYS)[number];
 export type StoreSettings = Record<SettingKey, string>;
@@ -48,6 +48,8 @@ export const SETTING_DEFAULTS: StoreSettings = {
   dispatch_days: '1,2,3,4',
   dispatch_blackouts: '',
   dispatch_cutoff_hour: '11',
+  /** 'on' (v1): orders go to Shiprocket automatically. 'off': the admin books each courier from the order page. */
+  shiprocket_auto_push: 'on',
 };
 
 /** Required before Razorpay KYC / launch (E-Commerce Rules, Legal Metrology, FSSAI). */
@@ -144,6 +146,7 @@ export function validateSettings(input: Record<string, unknown>, current: StoreS
 
   if (value.pickup_pincode && !/^[1-9]\d{5}$/.test(value.pickup_pincode)) fail('pickup_pincode', 'Enter the 6-digit pincode you ship from');
   if (!['on', 'off'].includes(value.cod_confirmation)) fail('cod_confirmation', 'Choose on or off');
+  if (!['on', 'off'].includes(value.shiprocket_auto_push)) fail('shiprocket_auto_push', 'Choose on or off');
   if (!/^\d{1,3}$/.test(value.cod_confirm_window_hours) || (Number(value.cod_confirm_window_hours) > 0 && Number(value.cod_confirm_window_hours) < 25))
     fail('cod_confirm_window_hours', 'Enter hours (at least 25, after the 24-hour reminder), or 0 to never cancel');
   if (!/^\d+$/.test(value.min_order_paise)) fail('min_order_paise', 'Enter an amount in rupees');

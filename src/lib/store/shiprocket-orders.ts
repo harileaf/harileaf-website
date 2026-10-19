@@ -102,6 +102,35 @@ async function findExisting(cfg: ShiprocketConfig, orderNo: string): Promise<{ i
   return hit ? { id: hit.id, shipmentId: hit.shipments?.[0]?.id ?? null } : null;
 }
 
+/**
+ * The Shiprocket order for one of ours, created if it doesn't exist yet (looked
+ * up by our order number first, so a retry never makes a second shipment).
+ * Used by the `shiprocket.create` push and by in-admin courier booking.
+ */
+export async function ensureShiprocketOrder(db: D1Database, cfg: ShiprocketConfig, o: OrderRow, pickupLocation: string): Promise<{ orderId: string; shipmentId: string | null }> {
+  if (o.shiprocket_order_id) return { orderId: o.shiprocket_order_id, shipmentId: o.shiprocket_shipment_id };
+  if (!pickupLocation) throw new Error('Set the Shiprocket pickup location name in Store settings');
+  const save = async (id: number, shipmentId: number | null) => {
+    await db.batch([
+      db.prepare('UPDATE orders SET shiprocket_order_id = ?, shiprocket_shipment_id = ?, updated_at = ? WHERE id = ? AND shiprocket_order_id IS NULL').bind(String(id), shipmentId === null ? null : String(shipmentId), new Date().toISOString(), o.id),
+      db.prepare("INSERT INTO order_events (order_id, at, type, actor, note) VALUES (?, ?, 'shiprocket_created', 'system', ?)").bind(o.id, new Date().toISOString(), `Shiprocket order ${id}`),
+    ]);
+    // Cancelled while we were creating it (cancelOrder saw no shiprocket id yet).
+    const now = await db.prepare('SELECT status FROM orders WHERE id = ?').bind(o.id).first<{ status: string }>();
+    if (now?.status === 'cancelled') await srCall(cfg, 'POST', '/orders/cancel', { ids: [id] });
+    return { orderId: String(id), shipmentId: shipmentId === null ? null : String(shipmentId) };
+  };
+  const existing = await findExisting(cfg, o.order_no);
+  if (existing) return save(existing.id, existing.shipmentId);
+  const { results: items } = await db
+    .prepare('SELECT i.*, v.weight_g, v.length_cm, v.breadth_cm, v.height_cm FROM order_items i JOIN variants v ON v.id = i.variant_id WHERE i.order_id = ? ORDER BY i.id')
+    .bind(o.id)
+    .all<OrderItemRow & VariantDims>();
+  const { status, data } = await srCall<{ order_id?: number; shipment_id?: number; message?: string; errors?: unknown }>(cfg, 'POST', '/orders/create/adhoc', shiprocketOrderPayload(o, items, pickupLocation));
+  if (status !== 200 || !data.order_id) throw new ShiprocketError(status, `Shiprocket create failed: ${data.message ?? ''} ${JSON.stringify(data.errors ?? '')}`.slice(0, 400));
+  return save(data.order_id, data.shipment_id ?? null);
+}
+
 export function makeShiprocketHandlers(fetchImpl?: typeof fetch): Record<string, OutboxHandler> {
   return {
     'shiprocket.create': async (_payload, { env, row }) => {
@@ -112,31 +141,11 @@ export function makeShiprocketHandlers(fetchImpl?: typeof fetch): Record<string,
       if (needsCodConfirmation(o)) return; // confirmCod queues a new push
       if (o.is_preorder === 1 && !(o as OrderRow & { ready_to_dispatch?: number }).ready_to_dispatch) return; // "Ready to dispatch" queues a new push
       const settings = await getSettings(db);
+      // v2: with auto-push off, the admin books the courier from the order page instead.
+      if (settings.shiprocket_auto_push === 'off') return;
       const cfg = shiprocketConfig(env, fetchImpl);
       if (!cfg) throw new Error('Shiprocket is not configured (SHIPROCKET_EMAIL / SHIPROCKET_PASSWORD)');
-      if (!settings.shiprocket_pickup_location) throw new Error('Set the Shiprocket pickup location name in Store settings');
-      const save = async (id: number, shipmentId: number | null) => {
-        await db.batch([
-          db.prepare('UPDATE orders SET shiprocket_order_id = ?, shiprocket_shipment_id = ?, updated_at = ? WHERE id = ? AND shiprocket_order_id IS NULL').bind(String(id), shipmentId === null ? null : String(shipmentId), new Date().toISOString(), o.id),
-          db.prepare("INSERT INTO order_events (order_id, at, type, actor, note) VALUES (?, ?, 'shiprocket_created', 'system', ?)").bind(o.id, new Date().toISOString(), `Shiprocket order ${id}`),
-        ]);
-        // Cancelled while we were creating it (cancelOrder saw no shiprocket id yet).
-        const now = await db.prepare('SELECT status FROM orders WHERE id = ?').bind(o.id).first<{ status: string }>();
-        if (now?.status === 'cancelled') await srCall(cfg, 'POST', '/orders/cancel', { ids: [id] });
-      };
-
-      const existing = await findExisting(cfg, o.order_no);
-      if (existing) {
-        await save(existing.id, existing.shipmentId);
-        return;
-      }
-      const { results: items } = await db
-        .prepare('SELECT i.*, v.weight_g, v.length_cm, v.breadth_cm, v.height_cm FROM order_items i JOIN variants v ON v.id = i.variant_id WHERE i.order_id = ? ORDER BY i.id')
-        .bind(o.id)
-        .all<OrderItemRow & VariantDims>();
-      const { status, data } = await srCall<{ order_id?: number; shipment_id?: number; message?: string; errors?: unknown }>(cfg, 'POST', '/orders/create/adhoc', shiprocketOrderPayload(o, items, settings.shiprocket_pickup_location));
-      if (status !== 200 || !data.order_id) throw new ShiprocketError(status, `Shiprocket create failed: ${data.message ?? ''} ${JSON.stringify(data.errors ?? '')}`.slice(0, 400));
-      await save(data.order_id, data.shipment_id ?? null);
+      await ensureShiprocketOrder(db, cfg, o, settings.shiprocket_pickup_location);
     },
 
     // Resolves the Shiprocket order when it runs (it may have been created after the cancel was queued).
