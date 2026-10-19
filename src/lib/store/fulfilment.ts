@@ -8,6 +8,7 @@ import { nowIso } from './db';
 import { issueDocStmts } from './docnumbers';
 import { fyOf } from './fy';
 import { allocateDiscount, type DocumentType } from './gst';
+import { formatINR } from './money';
 import { challanSnapshot, creditNoteSnapshot, invoiceSnapshot, partialCreditNoteSnapshot, type DocSnapshot } from './invoices';
 import { claimStmt, runClaim, type ClaimResult } from './ops';
 import { enqueueStmt } from './outbox';
@@ -372,7 +373,7 @@ export async function refundOrder(db: D1Database, orderId: number, ctx: RefundRe
   } else if (ctx.amount !== undefined) {
     const total = left.reduce((a, l) => a + l.leftPaise, 0);
     if (!Number.isInteger(ctx.amount) || ctx.amount < 1) return FAIL('Enter the amount to refund');
-    if (ctx.amount > total) return FAIL(`At most ${(total / 100).toFixed(2)} can still be refunded`);
+    if (ctx.amount > total) return FAIL(`At most ${formatINR(total)} can still be refunded`);
     const shares = allocateDiscount(left.map((l) => l.leftPaise), ctx.amount);
     lines = left.map((l, i) => ({ item: l.item, qty: 0, amount: shares[i] })).filter((l) => l.amount > 0);
   } else {
@@ -412,7 +413,7 @@ export async function refundOrder(db: D1Database, orderId: number, ctx: RefundRe
     online
       ? db.prepare(`INSERT INTO outbox (order_id, kind, payload, state, attempts, next_attempt_at, created_at, updated_at) VALUES (?1, 'razorpay.refund', json_object('refundId', ${refundId.replace('?', '?1')}), 'pending', 0, ?2, ?2, ?2)`).bind(orderId, at)
       : db.prepare(`INSERT INTO outbox (order_id, kind, payload, state, attempts, next_attempt_at, created_at, updated_at) VALUES (?1, 'email.refunded', json_object('refundId', ${refundId.replace('?', '?1')}), 'pending', 0, ?2, ?2, ?2)`).bind(orderId, at),
-    event(db, orderId, at, 'refund', 'admin', `${(amount / 100).toFixed(2)} — ${online ? reason : `${reason} · manual ref ${ref}`}`, ctx.actorEmail),
+    event(db, orderId, at, 'refund', 'admin', `${formatINR(amount)} — ${online ? reason : `${reason} · manual ref ${ref}`}`, ctx.actorEmail),
   ]);
   if (!res.ok && res.reason === 'other' && /refund exceeds/.test(String(res.error))) return FAIL('That is more than is still refundable — reload the page');
   return settle(res, 'This refund was already recorded');

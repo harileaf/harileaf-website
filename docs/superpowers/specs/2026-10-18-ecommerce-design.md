@@ -939,3 +939,20 @@ Owner decisions taken before the v2 build (2026-10-19): perishables launch with 
 - **Pages**: the buy box shows "Pre-order" and "dispatches from {date} · prepaid only · cancel for a full refund until dispatch" next to the price (E-Commerce Rules: delivery and shipment information before purchase). Checkout lines carry the date; the order page shows a pre-order banner; the placed email gives the date. The admin list tags "pre-order · MM-DD".
 - **SEO**: `PreOrder` + `availabilityStarts` (date) in JSON-LD; feed `preorder` + `g:availability_date` (`…T00:00:00+05:30`; Merchant Center allows up to a year ahead). Notify-me sign-ups are emailed when a pre-order opens.
 - ⚠️ **Merchant Center guidance**: "preorder should only be used for new products that haven't been released yet; existing products … out of stock … should use backorder" (support.google.com/merchants/answer/6324448, checked 2026-10-19). A Kesar mango returning each season may count as the latter. We follow the build prompt (`preorder`); switching the feed value to `backorder` is a one-line change if Merchant Center disapproves.
+
+### V2-5 Partial refunds, in-admin courier booking (PDF invoices deferred)
+
+- **Partial refunds** (migration 0007, `refund_lines`): after dispatch the admin can refund everything left (v1's full refund), chosen units of chosen lines, or an amount spread over what's left on each line (largest remainder).
+  - The database caps each line (amount and units) and the order (amount paid), so two racing refunds can't exceed it (tested).
+  - Each refund issues a credit note listing exactly its lines, with tax backed out per line at the invoice's intra/inter-state split.
+  - `payment_status` is recomputed in SQL after every refund change: `refund_pending` while one is pending, then `refunded` / `partially_refunded` / `paid`.
+  - **A failed refund still counts** (its credit note stands: the money is owed) until it is retried. The retry (`retry_of`) replaces it with the same amount, lines and credit note, so no second credit note is ever issued for the same money.
+  - `razorpay.refund` rows name their refund (several per order); older rows fall back to the latest pending one. The refund email states the amount refunded.
+- **Courier booking** (`shiprocket-booking.ts`, "Courier" panel on packed orders):
+  - live Shiprocket serviceability rates, cheapest first; fresh produce only sees express couriers within its zone's days;
+  - booking creates the Shiprocket order if needed (shared with the outbox push, looked up before creating), assigns the AWB (`/courier/assign/awb`) and requests the pickup (`/courier/generate/pickup`);
+  - "Print label" and "Print manifest" open Shiprocket's PDFs (`/courier/generate/label`, `/manifests/generate`, then `/manifests/print` once a manifest exists).
+  - Endpoints are as listed in Shiprocket's API helpsheet (shiprocket.in/knowledgebase/shiprocket-api-document-helpsheet, checked 2026-10-19); response shapes are to be confirmed against the live API at launch.
+  - A booking is refused once an AWB exists; Shiprocket also refuses a second assignment.
+- **Setting `shiprocket_auto_push`** (default `on`, as v1). With `off`, the outbox never creates Shiprocket orders and the admin books each courier.
+- **PDF invoices: not built** (owner decision, 2026-10-19). The HTML invoice, challan and credit note pages print to PDF from the browser and are rendered only from the immutable snapshot. `invoices.pdf_r2_key` stays unused.

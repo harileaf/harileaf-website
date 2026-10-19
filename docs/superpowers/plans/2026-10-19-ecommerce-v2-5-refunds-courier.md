@@ -28,8 +28,8 @@
 **Base branch:** `feat/ecommerce-v2-4-preorders`. Branch: `feat/ecommerce-v2-5-refunds-courier`.
 
 ## Tasks
-- [ ] 1. Migration 0007 + schema test (line cap, order cap; failed refunds don't count).
-- [ ] 2. `refundPartial` + payment-status recompute + credit note from lines; the full refund via the same path; handler payload; retry copies lines. Integration: per-line then per-amount then the rest → `refunded` with three credit notes summing to the invoice; **race: two partial refunds that together exceed the total → exactly one succeeds**; COD manual refund; a failed refund returns to the right status.
-- [ ] 3. Admin refund UI (lines with qty, or an amount; refundable remaining shown); order page and emails show refunded amounts.
-- [ ] 4. Courier booking module + setting + admin panel; integration with stubbed Shiprocket (options filtered for perishables, booking saves the AWB, a second booking refused, auto-push off skips create).
-- [ ] 5. Gates + browser pass. Spec notes (incl. PDF deferral). PR.
+- [x] 1. Migration 0007 + schema test (line cap, order cap; failed refunds don't count).
+- [x] 2. `refundPartial` + payment-status recompute + credit note from lines; the full refund via the same path; handler payload; retry copies lines. Integration: per-line then per-amount then the rest → `refunded` with three credit notes summing to the invoice; **race: two partial refunds that together exceed the total → exactly one succeeds**; COD manual refund; a failed refund returns to the right status.
+- [x] 3. Admin refund UI (lines with qty, or an amount; refundable remaining shown); order page and emails show refunded amounts.
+- [x] 4. Courier booking module + setting + admin panel; integration with stubbed Shiprocket (options filtered for perishables, booking saves the AWB, a second booking refused, auto-push off skips create).
+- [x] 5. Gates + browser pass. Spec notes (incl. PDF deferral). PR.
