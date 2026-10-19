@@ -28,8 +28,7 @@ bucket_name = "harileaf-media"
 [[d1_databases]]
 binding = "STORE_DB"
 database_name = "harileaf-store"
-# Replace after `npx wrangler d1 create harileaf-store` (see README "Store development").
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "59357a9b-49d8-4e55-a4a4-ce2b457dbf0c"
 migrations_dir = "migrations"
 
 [triggers]

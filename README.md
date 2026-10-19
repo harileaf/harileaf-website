@@ -24,9 +24,8 @@ Store logic lives in `src/lib/store/` as plain TypeScript modules that take a `D
 ### One-time setup (production)
 
 1. Upgrade to the **Workers Paid** plan (the free plan's 10 ms CPU limit is too tight for SSR + crypto).
-2. Create the database and put its id into `wrangler.toml` (`database_id` under `STORE_DB`) **before merging to `main`**: the deploy workflow stops while the id is still the all-zero placeholder. It applies pending migrations before each deploy, so the `CLOUDFLARE_API_TOKEN` secret needs **D1 Edit** permission:
+2. The `harileaf-store` database (APAC) exists and its id is in `wrangler.toml`. The deploy workflow applies pending migrations before each deploy, so the `CLOUDFLARE_API_TOKEN` secret needs **D1 Edit** permission. To apply them by hand:
    ```sh
-   npx wrangler d1 create harileaf-store
    npx wrangler d1 migrations apply harileaf-store --remote
    ```
 3. Create a **Cloudflare Access** application covering `harileaf.org/admin*`, `/api/admin*`, `/api/auth`, `/keystatic*`, `/api/keystatic*`, `/api/photos*`, `/api/produce` and `/api/content` (the Worker only requires the Access token for writes to the last three, so public pages keep reading them — add a bypass policy for GET on those paths), allow the admin emails, then set its team domain and AUD tag as secrets:
