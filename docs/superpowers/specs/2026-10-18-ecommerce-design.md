@@ -956,3 +956,22 @@ Owner decisions taken before the v2 build (2026-10-19): perishables launch with 
   - A booking is refused once an AWB exists; Shiprocket also refuses a second assignment.
 - **Setting `shiprocket_auto_push`** (default `on`, as v1). With `off`, the outbox never creates Shiprocket orders and the admin books each courier.
 - **PDF invoices: not built** (owner decision, 2026-10-19). The HTML invoice, challan and credit note pages print to PDF from the browser and are rendered only from the immutable snapshot. `invoices.pdf_r2_key` stays unused.
+
+### V2-6 Content: Keystatic recipes and articles
+
+- **Recipes** are a Keystatic collection (`src/content/recipes/*.json`, photos in `src/assets/recipes`). Prerendered pages read them with `import.meta.glob` (the JSON-import pattern). The three v1 recipes moved over with the same slugs, so URLs are unchanged.
+  - `productsUsed` holds `category/slug` or a bare category. The page renders plain links; a script adds "from ₹X · In stock" from `GET /api/store/products?slugs=…` (active products only).
+  - **Owner to check** that the product slugs (`rice/karjat-3`, `spices/turmeric-powder`) match the live catalogue; an unknown slug stays a plain link.
+- **Recipe markup**: the build crops the photo to 16:9, 4:3 and 1:1, as large as it allows up to 1200 px; Astro never upscales, so a 1200×900 photo gives a 900×900 square, still above Google's 50K-pixel minimum. Also ISO 8601 times (`PT1H15M` form), `HowToStep`s, `recipeYield` as `["4", "4 servings"]`, and HariLeaf (Organization) as the author. Checked against developers.google.com/search/docs/appearance/structured-data/recipe on 2026-10-19.
+- **Images**: the adapter's `imageService` is now `compile` (optimised at build for prerendered pages, passed through at runtime). This drops the auto-provisioned Cloudflare Images binding, so there are no per-request transforms. Product photos (R2, SSR) are unchanged.
+- **Articles**: a Keystatic collection rendered at `/learn/<slug>/` with `Article` markup.
+  - "Polished vs unpolished rice" and "Stone ground vs machine ground spices" use only process facts already published on `/our-process`. They contain no nutrition numbers, temperatures or health claims, and the claims-policy test checks them along with the recipes.
+  - The body uses a small Markdown subset (`## ` headings; links only to site paths or https).
+- **Internal links**:
+  - product page → "Cook it" (recipes using the product) and "Read more" (the category's guide);
+  - `/rice`, `/spices` → guide, recipes, `/our-process`;
+  - `/our-process` and `/recipes` → `/learn`;
+  - guides → categories, recipes, `/our-process`.
+  - The sitemap lists recipes and guides with `lastmod` from their dates.
+- **Not fixed (pre-existing)**: the Keystatic admin UI doesn't hydrate under `astro dev` (on v1 too): with `@keystatic/*` excluded from Vite's pre-bundling, its CommonJS dependencies (`lodash/debounce`, `direction`, …) fail to import; pre-bundling Keystatic instead breaks its server routes in workerd. Until that's fixed, recipes and articles are edited as JSON files.
+- **Gaps against SEO §3.4**: product photos aren't resized responsively (no Cloudflare image resizing for R2 media), and the "≥ 3 real photos per product" rule is owner content.

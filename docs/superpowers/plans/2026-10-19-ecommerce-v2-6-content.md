@@ -22,8 +22,8 @@
 **Base branch:** `feat/ecommerce-v2-5-refunds-courier`. Branch: `feat/ecommerce-v2-6-content`.
 
 ## Tasks
-- [ ] 1. Keystatic collections; migrate the 3 v1 recipes to JSON with images in `src/assets/recipes` (same slugs); loader; recipe page + image variants. Unit test: `Recipe` JSON-LD shape (image ratios, durations, steps, author).
-- [ ] 2. `GET /api/store/products?slugs=` + enhancement script; product-page "Cook it" / "Read more" sections.
-- [ ] 3. Articles collection + `/learn` pages + `Article` JSON-LD; the two articles drafted only from published process facts (owner to confirm). Content checked by the claims test.
-- [ ] 4. Internal links (categories, `/our-process`, footer if needed) and sitemap entries with `lastmod`; e2e not needed (static pages). Lighthouse: add a recipe page.
-- [ ] 5. Gates + browser pass; Keystatic admin loads both collections in dev. Spec notes, PR.
+- [x] 1. Keystatic collections; migrate the 3 v1 recipes to JSON with images in `src/assets/recipes` (same slugs); loader; recipe page + image variants. Unit test: `Recipe` JSON-LD shape (image ratios, durations, steps, author).
+- [x] 2. `GET /api/store/products?slugs=` + enhancement script; product-page "Cook it" / "Read more" sections.
+- [x] 3. Articles collection + `/learn` pages + `Article` JSON-LD; the two articles drafted only from published process facts (owner to confirm). Content checked by the claims test.
+- [x] 4. Internal links (categories, `/our-process`, footer if needed) and sitemap entries with `lastmod`; e2e not needed (static pages). Lighthouse: add a recipe page.
+- [x] 5. Gates + browser pass; Keystatic admin loads both collections in dev. Spec notes, PR.
