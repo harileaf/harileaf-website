@@ -24,6 +24,7 @@ export function initBuyBox(signal?: AbortSignal): void {
   const sticky = document.querySelector<HTMLElement>('[data-sticky-bar]');
   const stickyBtn = document.querySelector<HTMLButtonElement>('[data-add-sticky]');
   let current = radios.find((r) => r.getAttribute('aria-checked') === 'true') ?? radios[0];
+  let addedTimer: ReturnType<typeof setTimeout> | undefined; // see confirmAdded
 
   const set = (sel: string, text: string) => document.querySelectorAll<HTMLElement>(sel).forEach((el) => (el.textContent = text));
 
@@ -48,6 +49,7 @@ export function initBuyBox(signal?: AbortSignal): void {
     set('[data-bb-sticky-price]', formatINR(price));
     set('[data-bb-sticky-meta]', `${r.dataset.label} · ${r.dataset.unit ?? ''}`);
     const available = r.dataset.availability === 'buy';
+    clearTimeout(addedTimer);
     for (const b of [addBtn, stickyBtn]) {
       if (!b) continue;
       b.disabled = !available;
@@ -83,6 +85,16 @@ export function initBuyBox(signal?: AbortSignal): void {
   box.querySelector('[data-qty-inc]')?.addEventListener('click', () => setQty(Number(qty.value) + 1));
   qty.addEventListener('change', () => setQty(Number(qty.value)));
 
+  // The status line sits above the fold, out of sight when adding from the sticky bar,
+  // so the buttons confirm too. The status line stays the screen-reader announcement.
+  function confirmAdded(text: string) {
+    clearTimeout(addedTimer);
+    for (const b of [addBtn, stickyBtn]) if (b) b.textContent = text;
+    addedTimer = setTimeout(() => {
+      for (const b of [addBtn, stickyBtn]) if (b) b.textContent = LABEL[current.dataset.availability ?? 'notify'];
+    }, 2000);
+  }
+
   function add() {
     if (current.dataset.availability !== 'buy') return;
     const id = Number(current.dataset.id);
@@ -99,6 +111,7 @@ export function initBuyBox(signal?: AbortSignal): void {
     link.className = 'underline';
     link.textContent = 'View cart';
     status.append(link);
+    confirmAdded(added > 0 ? 'Added to cart ✓' : 'Already at 20');
   }
   addBtn.addEventListener('click', add);
   stickyBtn?.addEventListener('click', add);

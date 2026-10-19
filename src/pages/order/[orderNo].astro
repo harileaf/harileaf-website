@@ -120,56 +120,60 @@ const paymentLine =
 </SiteLayout>
 
 <script>
+  import { onEveryPage } from '../../scripts/page-load';
   import { payForOrder } from '../../scripts/store/razorpay-checkout';
 
-  // Keep the view token out of the address bar (and away from third-party scripts / screenshots).
-  // The ?t= token stays in the address bar so refresh, bookmarks and Back keep working; the page
-  // is no-referrer, noindex and no-store, so the link isn't leaked to other sites or caches.
-  const reloadOrder = () => location.reload();
+  // With view transitions this script runs once per visit, so set the page up on every page load.
+  function initOrderPage() {
+    // The ?t= token stays in the address bar so refresh, bookmarks and Back keep working; the page
+    // is no-referrer, noindex and no-store, so the link isn't leaked to other sites or caches.
+    const reloadOrder = () => location.reload();
 
-  const cancelBtn = document.getElementById('cancel-order') as HTMLButtonElement | null;
-  cancelBtn?.addEventListener('click', async () => {
-    if (!confirm('Cancel this order?')) return;
-    const out = document.getElementById('cancel-status');
-    cancelBtn.disabled = true;
-    try {
-      const res = await fetch('/api/store/order/cancel', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderNo: cancelBtn.dataset.order, token: cancelBtn.dataset.token, reason: (document.getElementById('cancel-reason') as HTMLInputElement | null)?.value ?? '' }),
-      });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      if (res.ok) return reloadOrder();
-      if (out) out.textContent = data.error ?? 'Couldn’t cancel right now. Please contact customer care.';
-    } catch {
-      if (out) out.textContent = 'Network error — please try again.';
-    }
-    cancelBtn.disabled = false;
-  });
+    const cancelBtn = document.getElementById('cancel-order') as HTMLButtonElement | null;
+    cancelBtn?.addEventListener('click', async () => {
+      if (!confirm('Cancel this order?')) return;
+      const out = document.getElementById('cancel-status');
+      cancelBtn.disabled = true;
+      try {
+        const res = await fetch('/api/store/order/cancel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderNo: cancelBtn.dataset.order, token: cancelBtn.dataset.token, reason: (document.getElementById('cancel-reason') as HTMLInputElement | null)?.value ?? '' }),
+        });
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        if (res.ok) return reloadOrder();
+        if (out) out.textContent = data.error ?? 'Couldn’t cancel right now. Please contact customer care.';
+      } catch {
+        if (out) out.textContent = 'Network error — please try again.';
+      }
+      cancelBtn.disabled = false;
+    });
 
-  const btn = document.getElementById('pay-now') as HTMLButtonElement | null;
-  const status = document.getElementById('pay-status');
-  btn?.addEventListener('click', async () => {
-    btn.disabled = true;
-    if (status) status.textContent = 'Opening payment…';
-    const res = await fetch('/api/store/order/retry', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderNo: btn.dataset.order, token: btn.dataset.token }) });
-    const data = (await res.json().catch(() => ({}))) as { payment?: Record<string, unknown>; error?: string; status?: string };
-    if (res.ok && data.status === 'placed') {
-      reloadOrder(); // a payment had already gone through
-      return;
-    }
-    if (!res.ok || !data.payment) {
-      if (status) status.textContent = data.error ?? 'Payment can’t be opened right now.';
+    const btn = document.getElementById('pay-now') as HTMLButtonElement | null;
+    const status = document.getElementById('pay-status');
+    btn?.addEventListener('click', async () => {
+      btn.disabled = true;
+      if (status) status.textContent = 'Opening payment…';
+      const res = await fetch('/api/store/order/retry', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderNo: btn.dataset.order, token: btn.dataset.token }) });
+      const data = (await res.json().catch(() => ({}))) as { payment?: Record<string, unknown>; error?: string; status?: string };
+      if (res.ok && data.status === 'placed') {
+        reloadOrder(); // a payment had already gone through
+        return;
+      }
+      if (!res.ok || !data.payment) {
+        if (status) status.textContent = data.error ?? 'Payment can’t be opened right now.';
+        btn.disabled = false;
+        return;
+      }
+      try {
+        const outcome = await payForOrder(data.payment, { orderNo: btn.dataset.order!, token: btn.dataset.token! });
+        if (outcome.kind === 'paid') reloadOrder();
+        else if (status) status.textContent = outcome.kind === 'dismissed' ? 'Payment not completed.' : outcome.message;
+      } catch (err) {
+        if (status) status.textContent = err instanceof Error ? err.message : 'Payment can’t be opened right now.';
+      }
       btn.disabled = false;
-      return;
-    }
-    try {
-      const outcome = await payForOrder(data.payment, { orderNo: btn.dataset.order!, token: btn.dataset.token! });
-      if (outcome.kind === 'paid') reloadOrder();
-      else if (status) status.textContent = outcome.kind === 'dismissed' ? 'Payment not completed.' : outcome.message;
-    } catch (err) {
-      if (status) status.textContent = err instanceof Error ? err.message : 'Payment can’t be opened right now.';
-    }
-    btn.disabled = false;
-  });
+    });
+  }
+  onEveryPage(initOrderPage);
 </script>

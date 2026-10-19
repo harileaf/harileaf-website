@@ -19,6 +19,7 @@ Astro.response.headers.set('X-Robots-Tag', 'noindex');
 </SiteLayout>
 
 <script>
+  import { onEveryPage } from '../scripts/page-load';
   import { formatINR } from '../lib/store/money';
   import { readCart, removeFromCart, setCartQty } from '../scripts/store/cart';
   import { h } from '../scripts/store/dom';
@@ -26,117 +27,148 @@ Astro.response.headers.set('X-Robots-Tag', 'noindex');
   interface Line { variantId: number; name: string; label: string; path: string; image: { url: string; alt: string } | null; qty: number; requestedQty: number; unitPrice: number; mrp: number; lineTotal: number; problem: string | null; available: number }
   interface Quote { ok: boolean; total: number; subtotal: number; itemCount: number; minOrder: number; meetsMinimum: boolean; cod: { eligible: boolean; reason: string | null }; lines: Line[] }
 
-  const root = document.getElementById('cart-root')!;
+  // With view transitions this script runs once per visit, so set the page up on every page load.
+  function initCart() {
+    const found = document.getElementById('cart-root');
+    if (!found) return;
+    const root = found;
 
-  // Only the newest quote may render: rapid +/− clicks can make responses arrive out of order.
-  let latest = 0;
-  async function load() {
-    const seq = ++latest;
-    root.setAttribute('aria-busy', 'true');
-    const lines = readCart();
-    if (!lines.length) return renderEmpty();
-    const res = await fetch('/api/store/cart/quote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lines }) });
-    if (seq !== latest) return;
-    if (!res.ok) {
-      root.replaceChildren(h('p', { class: 'text-on-surface-variant' }, 'We couldn’t load your cart. Please refresh the page.'));
-      return;
+    // Only the newest quote may render: rapid +/− clicks can make responses arrive out of order.
+    let latest = 0;
+    async function load() {
+      const seq = ++latest;
+      root.setAttribute('aria-busy', 'true');
+      const lines = readCart();
+      if (!lines.length) return renderEmpty();
+      const res = await fetch('/api/store/cart/quote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lines }) });
+      if (seq !== latest) return;
+      if (!res.ok) {
+        root.replaceChildren(h('p', { class: 'text-on-surface-variant' }, 'We couldn’t load your cart. Please refresh the page.'));
+        return;
+      }
+      const q = (await res.json()) as Quote;
+      if (seq === latest) render(q);
     }
-    const q = (await res.json()) as Quote;
-    if (seq === latest) render(q);
-  }
 
-  function renderEmpty() {
-    root.setAttribute('aria-busy', 'false');
-    root.replaceChildren(
-      h('p', { class: 'text-on-surface-variant text-lg' }, 'Your cart is empty.'),
-      h('a', { href: '/shop/', class: 'inline-block mt-6 rounded-full px-7 py-3.5 font-extrabold text-white', style: 'background:linear-gradient(135deg,#196a5e,#2d7a4f)' }, 'Shop the farm'),
-    );
-  }
-
-  function problemText(l: Line): string | null {
-    if (l.problem === 'limited') return `Only ${l.available} left — we've set the quantity to ${l.available}.`;
-    if (l.problem === 'out_of_stock') return 'Sold out — please remove it.';
-    if (l.problem === 'unavailable') return 'No longer available — please remove it.';
-    return null;
-  }
-
-  function render(q: Quote) {
-    root.setAttribute('aria-busy', 'false');
-    if (!q.lines.length) return renderEmpty();
-    // Quietly correct quantities the server limited.
-    for (const l of q.lines) if (l.problem === 'limited' && l.available > 0) setCartQty(l.variantId, l.available);
-
-    const list = h('ul', { class: 'flex flex-col divide-y divide-black/5 rounded-2xl bg-white border border-black/5' });
-    for (const l of q.lines) {
-      const problem = problemText(l);
-      const qtyLabel = `Quantity for ${l.name} ${l.label}`;
-      list.append(
-        h('li', { class: 'flex gap-4 p-4' },
-          l.image ? h('img', { src: l.image.url, alt: '', width: 88, height: 88, class: 'w-[88px] h-[88px] rounded-xl object-cover bg-surface-container' }) : h('div', { class: 'w-[88px] h-[88px] rounded-xl bg-surface-container' }),
-          h('div', { class: 'flex-1 min-w-0' },
-            h('a', { href: l.path, class: 'font-extrabold hover:underline' }, l.name),
-            h('p', { class: 'text-sm text-on-surface-variant' }, `${l.label} · ${formatINR(l.unitPrice)} each`),
-            problem ? h('p', { class: 'text-sm font-bold mt-1', style: 'color:#8a4b00', role: 'status' }, problem) : null,
-            h('div', { class: 'mt-3 flex items-center gap-3' },
-              l.qty > 0
-                ? h('div', { class: 'inline-flex items-center rounded-full border-2 border-surface-container-high' },
-                    btn('−', `Decrease ${qtyLabel}`, () => step(l.variantId, -1, l.available)),
-                    h('span', { class: 'w-8 text-center font-extrabold', 'aria-label': qtyLabel, 'data-qty-for': String(l.variantId) }, String(l.qty)),
-                    btn('+', `Increase ${qtyLabel}`, () => step(l.variantId, 1, l.available), l.qty >= Math.min(20, l.available)),
-                  )
-                : null,
-              linkBtn('Remove', () => { removeFromCart(l.variantId); load(); }),
-            ),
-          ),
-          h('p', { class: 'font-extrabold whitespace-nowrap' }, formatINR(l.lineTotal)),
-        ),
+    function renderEmpty() {
+      root.setAttribute('aria-busy', 'false');
+      root.replaceChildren(
+        h('p', { class: 'text-on-surface-variant text-lg' }, 'Your cart is empty.'),
+        h('a', { href: '/shop/', class: 'inline-block mt-6 rounded-full px-7 py-3.5 font-extrabold text-white', style: 'background:linear-gradient(135deg,#196a5e,#2d7a4f)' }, 'Shop the farm'),
       );
     }
 
-    const blocked = !q.ok;
-    const summary = h('aside', { class: 'rounded-2xl bg-surface-container-low p-6 flex flex-col gap-3', 'aria-label': 'Order summary' },
-      row('Subtotal', formatINR(q.subtotal)),
-      row('Delivery', 'Free'),
-      h('div', { class: 'border-t border-black/10 pt-3' }, row('Total', formatINR(q.total), true)),
-      h('p', { class: 'text-xs text-on-surface-variant' }, 'Inclusive of all taxes.'),
-      !q.meetsMinimum ? h('p', { class: 'text-sm font-bold', style: 'color:#8a4b00' }, `Add ${formatINR(q.minOrder - q.total)} more to reach the minimum order of ${formatINR(q.minOrder)}.`) : null,
-      h('a', {
-        href: blocked ? undefined : '/checkout',
-        role: blocked ? 'link' : undefined,
-        'aria-disabled': blocked ? 'true' : undefined,
-        class: `mt-2 text-center rounded-full py-3.5 font-extrabold text-white ${blocked ? 'opacity-50 pointer-events-none' : ''}`,
-        style: 'background:linear-gradient(135deg,#196a5e,#2d7a4f)',
-      }, 'Proceed to checkout'),
-      h('p', { class: 'text-xs text-on-surface-variant' }, q.cod.eligible ? 'Cash on delivery available.' : (q.cod.reason ?? '')),
-    );
-    root.replaceChildren(h('div', { class: 'grid md:grid-cols-[1.6fr_1fr] gap-8 items-start' }, list, summary));
-  }
+    function problemText(l: Line): string | null {
+      if (l.problem === 'limited') return `Only ${l.available} left — we've set the quantity to ${l.available}.`;
+      if (l.problem === 'out_of_stock') return 'Sold out — please remove it.';
+      if (l.problem === 'unavailable') return 'No longer available — please remove it.';
+      return null;
+    }
 
-  function row(label: string, value: string, strong = false) {
-    return h('p', { class: `flex justify-between ${strong ? 'text-lg font-extrabold' : ''}` }, h('span', {}, label), h('span', {}, value));
-  }
-  function btn(text: string, label: string, onClick: () => void, disabled = false) {
-    const b = h('button', { type: 'button', class: 'w-9 h-10 font-extrabold text-lg disabled:opacity-40', 'aria-label': label, disabled }, text);
-    b.addEventListener('click', onClick);
-    return b;
-  }
-  function linkBtn(text: string, onClick: () => void) {
-    const b = h('button', { type: 'button', class: 'text-sm font-bold text-primary underline' }, text);
-    b.addEventListener('click', onClick);
-    return b;
-  }
-  // Each click adjusts the cart's current quantity (so quick clicks add up), shows it at once,
-  // and re-quotes once the clicking stops.
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  function step(id: number, delta: number, available: number) {
-    const current = readCart().find((x) => x.variantId === id)?.qty ?? 0;
-    const qty = Math.max(0, Math.min(current + delta, 20, Math.max(available, 0)));
-    setCartQty(id, qty);
-    const shown = root.querySelector<HTMLElement>(`[data-qty-for="${id}"]`);
-    if (shown) shown.textContent = String(qty);
-    clearTimeout(timer);
-    timer = setTimeout(load, 250);
-  }
+    function render(q: Quote) {
+      root.setAttribute('aria-busy', 'false');
+      if (!q.lines.length) return renderEmpty();
+      // Quietly correct quantities the server limited.
+      for (const l of q.lines) if (l.problem === 'limited' && l.available > 0) setCartQty(l.variantId, l.available);
 
-  load();
+      const list = h('ul', { class: 'flex flex-col divide-y divide-black/5 rounded-2xl bg-white border border-black/5' });
+      for (const l of q.lines) {
+        const problem = problemText(l);
+        const qtyLabel = `Quantity for ${l.name} ${l.label}`;
+        list.append(
+          h('li', { class: 'flex gap-4 p-4' },
+            l.image ? h('img', { src: l.image.url, alt: '', width: 88, height: 88, class: 'w-[88px] h-[88px] rounded-xl object-cover bg-surface-container' }) : h('div', { class: 'w-[88px] h-[88px] rounded-xl bg-surface-container' }),
+            h('div', { class: 'flex-1 min-w-0' },
+              h('a', { href: l.path, class: 'font-extrabold hover:underline' }, l.name),
+              h('p', { class: 'text-sm text-on-surface-variant' }, `${l.label} · ${formatINR(l.unitPrice)} each`),
+              problem ? h('p', { class: 'text-sm font-bold mt-1', style: 'color:#8a4b00', role: 'status' }, problem) : null,
+              h('div', { class: 'mt-3 flex items-center gap-3' },
+                l.qty > 0
+                  ? h('div', { class: 'inline-flex items-center rounded-full border-2 border-surface-container-high' },
+                      btn('−', `Decrease ${qtyLabel}`, () => step(l.variantId, -1, l.available)),
+                      qtySpin(l, qtyLabel),
+                      btn('+', `Increase ${qtyLabel}`, () => step(l.variantId, 1, l.available), l.qty >= Math.min(20, l.available)),
+                    )
+                  : null,
+                linkBtn('Remove', `Remove ${l.name} ${l.label} from cart`, () => { removeFromCart(l.variantId); load(); }),
+              ),
+            ),
+            h('p', { class: 'font-extrabold whitespace-nowrap' }, formatINR(l.lineTotal)),
+          ),
+        );
+      }
+
+      const blocked = !q.ok;
+      const summary = h('aside', { class: 'rounded-2xl bg-surface-container-low p-6 flex flex-col gap-3', 'aria-label': 'Order summary' },
+        row('Subtotal', formatINR(q.subtotal)),
+        row('Delivery', 'Free'),
+        h('div', { class: 'border-t border-black/10 pt-3' }, row('Total', formatINR(q.total), true)),
+        h('p', { class: 'text-xs text-on-surface-variant' }, 'Inclusive of all taxes.'),
+        !q.meetsMinimum ? h('p', { class: 'text-sm font-bold', style: 'color:#8a4b00' }, `Add ${formatINR(q.minOrder - q.total)} more to reach the minimum order of ${formatINR(q.minOrder)}.`) : null,
+        h('a', {
+          href: blocked ? undefined : '/checkout',
+          role: blocked ? 'link' : undefined,
+          'aria-disabled': blocked ? 'true' : undefined,
+          class: `mt-2 text-center rounded-full py-3.5 font-extrabold text-white ${blocked ? 'opacity-50 pointer-events-none' : ''}`,
+          style: 'background:linear-gradient(135deg,#196a5e,#2d7a4f)',
+        }, 'Proceed to checkout'),
+        h('p', { class: 'text-xs text-on-surface-variant' }, q.cod.eligible ? 'Cash on delivery available.' : (q.cod.reason ?? '')),
+      );
+      // Re-rendering replaces the controls; keep keyboard focus on the one in use.
+      const active = document.activeElement;
+      const refocus = active && root.contains(active) ? active.getAttribute('aria-label') : null;
+      root.replaceChildren(h('div', { class: 'grid md:grid-cols-[1.6fr_1fr] gap-8 items-start' }, list, summary));
+      if (refocus) root.querySelector<HTMLElement>(`[aria-label="${CSS.escape(refocus)}"]`)?.focus();
+    }
+
+    function row(label: string, value: string, strong = false) {
+      return h('p', { class: `flex justify-between ${strong ? 'text-lg font-extrabold' : ''}` }, h('span', {}, label), h('span', {}, value));
+    }
+    function btn(text: string, label: string, onClick: () => void, disabled = false) {
+      const b = h('button', { type: 'button', class: 'w-9 h-10 font-extrabold text-lg disabled:opacity-40', 'aria-label': label, disabled }, text);
+      b.addEventListener('click', onClick);
+      return b;
+    }
+    function linkBtn(text: string, label: string, onClick: () => void) {
+      const b = h('button', { type: 'button', class: 'text-sm font-bold text-primary underline', 'aria-label': label }, text);
+      b.addEventListener('click', onClick);
+      return b;
+    }
+    // The quantity is a spinbutton, so screen readers announce it as adjustable (arrow keys step it).
+    function qtySpin(l: Line, label: string) {
+      const max = Math.max(1, Math.min(20, l.available));
+      const el = h('span', {
+        class: 'w-8 text-center font-extrabold rounded focus-visible:outline-2 focus-visible:outline-primary',
+        role: 'spinbutton', tabindex: '0', 'aria-label': label,
+        'aria-valuenow': String(l.qty), 'aria-valuemin': '1', 'aria-valuemax': String(max),
+        'data-qty-for': String(l.variantId),
+      }, String(l.qty));
+      el.addEventListener('keydown', (e) => {
+        const delta = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1 }[e.key];
+        if (delta === undefined) return;
+        e.preventDefault();
+        const now = Number(el.getAttribute('aria-valuenow'));
+        if (now + delta >= 1 && now + delta <= max) step(l.variantId, delta, l.available);
+      });
+      return el;
+    }
+    // Each click adjusts the cart's current quantity (so quick clicks add up), shows it at once,
+    // and re-quotes once the clicking stops.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    function step(id: number, delta: number, available: number) {
+      const current = readCart().find((x) => x.variantId === id)?.qty ?? 0;
+      const qty = Math.max(0, Math.min(current + delta, 20, Math.max(available, 0)));
+      setCartQty(id, qty);
+      const shown = root.querySelector<HTMLElement>(`[data-qty-for="${id}"]`);
+      if (shown) {
+        shown.textContent = String(qty);
+        shown.setAttribute('aria-valuenow', String(qty));
+      }
+      clearTimeout(timer);
+      timer = setTimeout(load, 250);
+    }
+
+    load();
+  }
+  onEveryPage(initCart);
 </script>
