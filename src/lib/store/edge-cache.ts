@@ -94,7 +94,8 @@ export function productPurgePaths(categorySlug: string, productSlug: string | nu
   ];
 }
 
-const PURGE_BATCH = 30;
+/** Cloudflare's per-request URL limit on Free, Pro and Business plans. */
+const PURGE_BATCH = 100;
 
 /**
  * Outbox handler for `cache.purge` ({ urls: string[] }). Without CF_ZONE_ID /

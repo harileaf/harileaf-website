@@ -38,9 +38,13 @@ const filtersJson = JSON.stringify(filters);
 </div>
 
 <script>
+  import { onEveryPage } from '../../scripts/page-load';
+
   interface Photo { key: string; label: string; url: string; category?: string; }
-  const root = document.getElementById('hari-gallery');
-  if (root) {
+  // Per page, not once per visit: with view transitions this script runs only on the first page load.
+  function initGallery(signal: AbortSignal) {
+    const root = document.getElementById('hari-gallery');
+    if (!root) return;
     const prefix = root.dataset.prefix!;
     const activeColor = root.dataset.active!;
     const filters: Array<{ key: string; label: string }> = JSON.parse(root.dataset.filters!);
@@ -143,6 +147,7 @@ const filtersJson = JSON.stringify(filters);
 
     document.getElementById('hg-close')!.addEventListener('click', close);
     root.addEventListener('click', (e) => { if (e.target === root) close(); });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); }, { signal });
   }
+  onEveryPage(initGallery);
 </script>
