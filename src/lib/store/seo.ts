@@ -86,14 +86,15 @@ function reviewMarkup(reviews?: { summary: ReviewSummary | null; items: PublicRe
   if (!reviews?.summary || reviews.summary.count === 0) return {};
   return {
     aggregateRating: { '@type': 'AggregateRating', ratingValue: reviews.summary.average, reviewCount: reviews.summary.count, bestRating: 5, worstRating: 1 },
-    review: reviews.items.map((r) => ({
+    // Only reviews the page shows; none rendered means no `review` at all (an empty array is invalid markup).
+    ...(reviews.items.length ? { review: reviews.items.map((r) => ({
       '@type': 'Review',
       name: r.title,
       reviewBody: r.body,
       datePublished: istDate(r.publishedAt),
       author: { '@type': 'Person', name: r.displayName },
       reviewRating: { '@type': 'Rating', ratingValue: r.rating, bestRating: 5, worstRating: 1 },
-    })),
+    })) } : {}),
   };
 }
 

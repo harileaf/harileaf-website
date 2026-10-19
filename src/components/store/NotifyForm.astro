@@ -23,7 +23,7 @@ const id = `notify-${productId}`;
     <label for={`${id}-email`} class="sr-only">Email address</label>
     <input id={`${id}-email`} name="email" type="email" autocomplete="email" required placeholder="you@example.com" aria-describedby={`${id}-note`}
       class="min-w-0 flex-1 rounded-xl border border-black/15 bg-white px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-primary" />
-    <button type="submit" class="rounded-full px-6 py-3 font-extrabold text-white cta-gradient disabled:opacity-50">Notify me</button>
+    <button type="submit" class="rounded-full px-6 py-3 font-extrabold text-white disabled:opacity-50" style="background:linear-gradient(135deg,#196a5e,#2d7a4f)">Notify me</button>
   </div>
   {siteKey && <div data-turnstile data-sitekey={siteKey}></div>}
   <p id={`${id}-note`} class="text-xs text-on-surface-variant">
@@ -34,13 +34,13 @@ const id = `notify-${productId}`;
 
 <script>
   import { onEveryPage } from '../../scripts/page-load';
-  import { mountTurnstile } from '../../scripts/store/turnstile';
+  import { mountTurnstile, type TurnstileWidget } from '../../scripts/store/turnstile';
 
   function initNotify() {
     document.querySelectorAll<HTMLFormElement>('form[data-notify]').forEach((form) => {
       const status = form.querySelector<HTMLElement>('[data-notify-status]')!;
       const email = form.querySelector<HTMLInputElement>('input[name=email]')!;
-      let widget: Promise<{ reset(): void } | null> | null = null;
+      let widget: Promise<TurnstileWidget | null> | null = null;
       const ensureWidget = () => (widget ??= mountTurnstile(form.querySelector<HTMLElement>('[data-turnstile]')));
       email.addEventListener('focus', ensureWidget, { once: true });
       form.addEventListener('submit', async (e) => {
@@ -51,14 +51,16 @@ const id = `notify-${productId}`;
           email.focus();
           return;
         }
-        const w = await ensureWidget();
         const btn = form.querySelector<HTMLButtonElement>('button[type=submit]')!;
         btn.disabled = true;
-        const token = new FormData(form).get('cf-turnstile-response');
+        status.textContent = '';
+        // An autofilled address can be submitted before the challenge has even loaded: wait for its token.
+        const w = await ensureWidget();
+        const token = w ? await w.token() : null;
         const res = await fetch('/api/store/notify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ productId: Number(form.dataset.notify), email: email.value, turnstileToken: token ? String(token) : null }),
+          body: JSON.stringify({ productId: Number(form.dataset.notify), email: email.value, turnstileToken: token }),
         }).catch(() => null);
         const data = (await res?.json().catch(() => ({}))) as { ok?: boolean; error?: string } | undefined;
         w?.reset();

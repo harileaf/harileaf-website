@@ -29,8 +29,7 @@ export function normaliseEmail(raw: unknown): string | null {
 
 /** Products that can't be bought now (every pack sold out or out of season) take sign-ups. */
 export async function acceptsNotify(db: D1Database, productId: number, today: Date): Promise<boolean> {
-  const all = await listActiveProductsWithVariants(db, today);
-  const hit = all.find((x) => x.product.id === productId);
+  const [hit] = await listActiveProductsWithVariants(db, today, [productId]);
   return Boolean(hit && !hit.variants.some((v) => v.availability === 'buy' || v.availability === 'preorder'));
 }
 
@@ -52,9 +51,8 @@ export async function signUp(db: D1Database, productId: number, email: string, n
 export async function queueBackInStock(db: D1Database, now: Date): Promise<number> {
   const { results: waiting } = await db.prepare('SELECT DISTINCT product_id FROM notify_requests WHERE queued_at IS NULL').all<{ product_id: number }>();
   if (!waiting.length) return 0;
-  const ids = new Set(waiting.map((w) => w.product_id));
-  const available = (await listActiveProductsWithVariants(db, now))
-    .filter((x) => ids.has(x.product.id) && x.variants.some((v) => v.availability === 'buy' || v.availability === 'preorder'))
+  const available = (await listActiveProductsWithVariants(db, now, waiting.map((w) => w.product_id)))
+    .filter((x) => x.variants.some((v) => v.availability === 'buy' || v.availability === 'preorder'))
     .map((x) => x.product.id);
   let queued = 0;
   const at = nowIso(now);
@@ -109,7 +107,7 @@ export function makeNotifyHandler(fetchImpl?: typeof fetch): OutboxHandler {
       .first<{ id: number; email: string; product_id: number; queued_at: string | null; notified_at: string | null; name: string; slug: string; category_slug: string }>();
     if (!r || r.notified_at || !r.queued_at) return;
     const now = new Date();
-    const hit = (await listActiveProductsWithVariants(db, now)).find((x) => x.product.id === r.product_id);
+    const [hit] = await listActiveProductsWithVariants(db, now, [r.product_id]);
     const buy = Boolean(hit?.variants.some((v) => v.availability === 'buy'));
     const preorder = !buy && Boolean(hit?.variants.some((v) => v.availability === 'preorder'));
     if (!buy && !preorder) {
