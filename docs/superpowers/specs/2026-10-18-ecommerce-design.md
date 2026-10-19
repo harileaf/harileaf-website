@@ -871,3 +871,31 @@ Owner decisions taken before the v2 build (2026-10-19): perishables launch with 
 - **Display**: lines at full price, then "Discount (CODE)", then the total payable (cart, checkout, order page, emails). Invoices keep the per-line discount column, and the snapshot names the code (`order.couponCode`, optional, so older snapshots render unchanged).
 - **SEO**: coupons never touch `Offer.price`, the feed or structured data. Google defines `Offer.price` as "the current, active offer price" (developers.google.com/search/docs/appearance/structured-data/merchant-listing, checked 2026-10-19), and a code the shopper has to enter isn't that. There are no `?coupon=` URLs. Merchant Center Promotions (which supports India) would be the way to show codes on Google; proposed, not built.
 - Not done: auto-cancelled unconfirmed COD orders keep their use, as the "cancel keeps the use" rule says. If fake COD orders burn limited codes, consider releasing the use on that system cancel.
+
+### V2-2 Reviews + Notify me
+
+- **Reviews** (migration 0006):
+  - One per (order, product). A trigger accepts only delivered, non-replacement orders that contain the product.
+  - Moderation moves forward only: `pending → approved | rejected | withdrawn`, and `approved → withdrawn`. Reviews are never edited or deleted.
+  - Rejection needs one of five policy reasons (abusive, personal information, off-topic, advertising, health/disease claims). A low rating is never a reason.
+  - `withdrawn` is the reviewer's own removal request (an erasure right): the text is blanked and the decision logged.
+- **Review links** use their own HMAC domain (`review-token:` + idempotency key), separate from the order link. Rotating the order link ("find your order") doesn't break review links, and a review link can't open the order page. `/review` is a token page (CSP, no-store, no-referrer, noindex, full loads).
+- **Product page**:
+  - The rating line, summary and first 10 approved reviews (newest first) are server-rendered; "Show more" loads further pages from `/api/store/reviews`.
+  - `aggregateRating` + `review` sit on the **ProductGroup** (Google's variants guide recommends `aggregateRating` there as representative of all variants; checked 2026-10-19 at developers.google.com/search/docs/appearance/structured-data/product-variants), and appear only when ≥ 1 approved review exists.
+  - Only reviews rendered in the HTML are marked up. `reviewBody` is kept for schema.org completeness, although Google doesn't list it.
+  - Google's self-serving-review restriction applies to LocalBusiness/Organization, not to a merchant's own product reviews.
+- **IS 19000:2022** remains voluntary (Lok Sabha unstarred Q 5415, 25.03.2026). We follow its practice: verified buyers only, no incentives, negative reviews published like any other. The standard's full text is paywalled and wasn't reviewed.
+- **Notify me**:
+  - Offered only when no pack of the product can be bought. Requests are per product, so a sign-up while another pack is buyable would be emailed at once.
+  - Turnstile loads on the email field's first focus, to protect product-page performance.
+  - Duplicates get the same answer. Re-signing after a notification starts a fresh request.
+  - `queueBackInStock` inserts the outbox rows and stamps `queued_at` in one transaction, selecting only un-queued rows, so overlapping runs queue each request once (tested). It runs every cron (seasons open on a date, not on a write) and after every admin write.
+  - Notified addresses are deleted on the next cron; un-notified ones after 12 months. There is no confirmation email; Turnstile and the rate limit stand in for it.
+- **Pre-orders** still behave as "notify" (v1 mapping in `mapVariant`) until V2-4.
+- **Research, 2026-10-19** (affects later milestones):
+  - Google retired the FAQ rich result on 7 May 2026. FAQPage markup stays for users and answer engines.
+  - Search markup supports postal-code shipping regions only for AU/CA/US, so zone-limited shipping for India goes in Merchant Center (where India postal codes are supported).
+  - Merchant Center says returning out-of-stock products should use `backorder`, not `preorder`.
+  - The Consumer Protection (E-Commerce) (Amendment) Rules 2026 (G.S.R. 789(E), in force 1 Jan 2027) add: a yearly dark-pattern self-audit with a displayed certificate, "prior price" (lowest in 30 days) on price cuts, and grievance acknowledgement with a copy of the complaint. These are flagged for the owner.
+  - DPDP Rules 2025: the notice, consent and erasure provisions start around 13 May 2027.

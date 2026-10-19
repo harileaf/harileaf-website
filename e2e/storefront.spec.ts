@@ -25,6 +25,9 @@ test('a shopper buys rice with cash on delivery and can cancel before packing', 
   // Product JSON-LD is present and offers match the visible price.
   const ld = await page.locator('script[type="application/ld+json"]').allTextContents();
   expect(ld.some((t) => t.includes('"@type":"Product"'))).toBe(true);
+  // No approved reviews yet: no rating markup, rating line or reviews section.
+  expect(ld.some((t) => t.includes('aggregateRating') || t.includes('"@type":"Review"'))).toBe(false);
+  await expect(page.locator('[data-rating-line], #reviews')).toHaveCount(0);
 
   await page.getByRole('radio', { name: /^5 kg/ }).check();
   await page.getByRole('button', { name: 'Add to cart' }).first().click();
