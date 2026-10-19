@@ -14,11 +14,14 @@ describe('retention', () => {
     const sold = await insertOrder({ status: 'delivered', payment_status: 'paid', email: 'keep@example.com' });
     const refunded = await insertOrder({ status: 'cancelled', payment_status: 'refunded', email: 'keep2@example.com' });
     const recent = await insertOrder({ status: 'payment_failed', email: 'recent@example.com', created_at: '2027-05-30T00:00:00.000Z' });
+    await db.prepare("INSERT INTO coupons (code, kind, value, one_per_phone, created_at, updated_at) VALUES ('ONCE10', 'percent', 10, 1, '2026-10-01', '2026-10-01')").run();
+    await db.prepare("INSERT INTO coupon_redemptions (coupon_code, order_id, phone, created_at) VALUES ('ONCE10', ?, '9820000000', '2026-10-18')").bind(cancelledCod).run();
     await db.prepare("UPDATE orders SET bill_name = 'Gone Co', bill_line1 = '1 Rd', bill_city = 'Pune', bill_state = 'Maharashtra', bill_state_code = '27', bill_pincode = '411001' WHERE id = ?").bind(abandoned).run();
     expect(await anonymiseStaleOrders(db, NOW)).toBeGreaterThanOrEqual(2);
     expect(await scalar("SELECT COALESCE(bill_name, bill_line1, bill_city, bill_state, bill_state_code, bill_pincode, 'cleared') FROM orders WHERE id = ?", abandoned)).toBe('cleared');
     expect(await email(abandoned)).toBe(`removed-${abandoned}@invalid.harileaf.org`);
     expect(await email(cancelledCod)).toBe(`removed-${cancelledCod}@invalid.harileaf.org`);
+    expect(await scalar('SELECT COALESCE(phone, \'cleared\') FROM coupon_redemptions WHERE order_id = ?', cancelledCod)).toBe('cleared');
     expect(await scalar('SELECT customer_name || phone || ship_line1 FROM orders WHERE id = ?', abandoned)).toBe('Removed0000000000Removed');
     expect([await email(sold), await email(refunded), await email(recent)]).toEqual(['keep@example.com', 'keep2@example.com', 'recent@example.com']);
     expect(await scalar("SELECT count(*) FROM order_events WHERE order_id = ? AND type = 'anonymised'", abandoned)).toBe(1);

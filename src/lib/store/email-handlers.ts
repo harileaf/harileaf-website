@@ -31,9 +31,9 @@ export function makeEmailHandlers(fetchImpl?: typeof fetch): Record<string, Outb
       const owner = ownerNewOrderEmail(order, items, settings);
       if (owner) await sendEmail(env, owner, fetchImpl);
     },
-    'email.payment_released': async (_payload, { env, row }) => {
+    'email.payment_released': async (payload: { why?: 'stock' | 'coupon' }, { env, row }) => {
       const { order, settings } = await load(env, row.order_id);
-      await sendEmail(env, paymentReleasedEmail(order, settings), fetchImpl);
+      await sendEmail(env, paymentReleasedEmail(order, settings, payload.why === 'coupon' ? 'coupon' : 'stock'), fetchImpl);
     },
   };
 }

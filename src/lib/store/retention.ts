@@ -33,19 +33,23 @@ export async function anonymiseStaleOrders(db: D1Database, now: Date, limit = 10
   const ids = `SELECT o.id FROM orders o WHERE ${ERASABLE} AND o.created_at < ?2 LIMIT ${Math.trunc(limit)}`;
   const res = await db.batch([
     db.prepare(`INSERT INTO order_events (order_id, at, type, actor, note) SELECT id, ?1, 'anonymised', 'system', 'Personal data removed after ${ANONYMISE_AFTER_DAYS} days (never paid / cancelled before payment)' FROM (${ids})`).bind(at, before),
+    // A cancelled order keeps its coupon use, but not the phone it was tied to (before the
+    // orders update, which takes these rows out of ERASABLE).
+    db.prepare(`UPDATE coupon_redemptions SET phone = NULL WHERE order_id IN (${ids})`).bind(at, before),
     db.prepare(`UPDATE orders SET ${ANONYMISE_SET} WHERE id IN (${ids})`).bind(at, before),
   ]);
-  return res[1].meta.changes ?? 0;
+  return res[2].meta.changes ?? 0;
 }
 
 /** Erasure request for one order (admin). Refused for tax records, which the law requires us to keep. */
 export async function eraseOrderPersonalData(db: D1Database, orderId: number, ctx: { now: Date; actorEmail: string | null }): Promise<{ ok: true } | { ok: false; error: string }> {
   const at = nowIso(ctx.now);
   const res = await db.batch([
+    db.prepare(`UPDATE coupon_redemptions SET phone = NULL WHERE order_id = ?1 AND order_id IN (SELECT o.id FROM orders o WHERE ${ERASABLE})`).bind(orderId),
     db.prepare(`UPDATE orders SET ${ANONYMISE_SET} WHERE id = ?2 AND id IN (SELECT o.id FROM orders o WHERE ${ERASABLE})`).bind(at, orderId),
     db.prepare("INSERT INTO order_events (order_id, at, type, actor, actor_email, note) SELECT ?1, ?2, 'anonymised', 'admin', ?3, 'Personal data erased on request' WHERE changes() > 0").bind(orderId, at, ctx.actorEmail),
   ]);
-  return (res[0].meta.changes ?? 0) > 0
+  return (res[1].meta.changes ?? 0) > 0
     ? { ok: true }
     : { ok: false, error: 'This order is a tax record (invoice issued or money taken) — it must be kept; you can still stop marketing emails.' };
 }

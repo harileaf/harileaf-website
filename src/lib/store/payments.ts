@@ -112,6 +112,15 @@ export async function lateCapture(db: D1Database, order: PayableOrder, payment: 
     .bind(order.id)
     .all<{ variant_id: number; qty: number }>();
   const captured = payment.status === 'captured';
+  // The coupon use was given back when the order expired: take it again, judged at the
+  // original order time. If the code has run out meanwhile, the payment isn't captured.
+  const coupon = await db
+    .prepare(
+      `SELECT o.coupon_code, o.phone, o.created_at, c.one_per_phone FROM orders o JOIN coupons c ON c.code = o.coupon_code
+       WHERE o.id = ? AND NOT EXISTS (SELECT 1 FROM coupon_redemptions r WHERE r.order_id = o.id)`,
+    )
+    .bind(order.id)
+    .first<{ coupon_code: string; phone: string; created_at: string; one_per_phone: number }>();
   const claim = claimStmt(
     db,
     order.id,
@@ -123,6 +132,9 @@ export async function lateCapture(db: D1Database, order: PayableOrder, payment: 
     at,
   );
   const res = await runClaim(db, claim, [
+    ...(coupon
+      ? [db.prepare('INSERT INTO coupon_redemptions (coupon_code, order_id, phone, created_at) VALUES (?, ?, ?, ?)').bind(coupon.coupon_code, order.id, coupon.one_per_phone ? coupon.phone : null, coupon.created_at)]
+      : []),
     ...items.flatMap((it) => [
       db.prepare('UPDATE variants SET stock_qty = stock_qty - ? WHERE id = ?').bind(it.qty, it.variant_id),
       db
@@ -141,14 +153,15 @@ export async function lateCapture(db: D1Database, order: PayableOrder, payment: 
   ]);
   if (res.ok) return { result: 'late_placed' };
   if (res.reason === 'other') throw res.error;
-  if (res.reason === 'stock' || res.reason === 'inactive') {
+  if (res.reason === 'stock' || res.reason === 'inactive' || res.reason === 'coupon') {
     // Don't capture: the authorisation lapses on its own. Tell the customer once.
+    const why = res.reason === 'coupon' ? 'coupon' : 'stock';
     const once = claimStmt(db, order.id, 'late_release', "SELECT status = 'payment_failed' FROM orders WHERE id = ?", [order.id], at);
     await runClaim(db, once, [
       db
         .prepare("INSERT INTO order_events (order_id, at, type, actor, note) VALUES (?, ?, 'payment_released', 'system', ?)")
-        .bind(order.id, at, `Late payment ${payment.id} not captured: items no longer in stock`),
-      enqueueStmt(db, { orderId: order.id, kind: 'email.payment_released', payload: { paymentId: payment.id }, at }),
+        .bind(order.id, at, `Late payment ${payment.id} not captured: ${why === 'coupon' ? 'the discount code can no longer be used' : 'items no longer in stock'}`),
+      enqueueStmt(db, { orderId: order.id, kind: 'email.payment_released', payload: { paymentId: payment.id, why }, at }),
     ]);
     return { result: 'late_released' };
   }
@@ -171,6 +184,8 @@ async function releaseStatements(db: D1Database, orderId: number, at: string, no
         .bind(r.qty, r.variant_id, r.id),
     ),
     db.prepare("UPDATE stock_reservations SET state = 'released' WHERE order_id = ? AND state = 'held'").bind(orderId),
+    // The coupon use goes back (trigger decrements used_count); a no-op without a coupon or if already released.
+    db.prepare('DELETE FROM coupon_redemptions WHERE order_id = ?').bind(orderId),
     db.prepare("UPDATE orders SET status = 'payment_failed', updated_at = ? WHERE id = ?").bind(at, orderId),
     db.prepare("INSERT INTO order_events (order_id, at, type, actor, note) VALUES (?, ?, 'payment_failed', 'system', ?)").bind(orderId, at, note),
   ];

@@ -43,7 +43,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const body = await readJson(request);
   if (!body) return json({ error: 'Invalid request' }, 400);
   const contact = (body.contact && typeof body.contact === 'object' ? body.contact : {}) as Record<string, unknown>;
-  const fingerprint = await checkoutFingerprint(body.lines, contact.email);
+  const fingerprint = await checkoutFingerprint(body.lines, contact.email, body.coupon);
 
   // Idempotency first: a retried submit returns the order it already created.
   const existing = await findByIdempotencyKey(env.STORE_DB, key);
@@ -61,8 +61,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const c = input.value;
   const now = new Date();
   const settings = await getSettings(env.STORE_DB);
-  const quote = await quoteCart(env.STORE_DB, body.lines, { today: now, settings });
+  const quoteOpts = { today: now, settings, coupon: body.coupon, phone: c.contact.phone };
+  const quote = await quoteCart(env.STORE_DB, body.lines, quoteOpts);
   if (!quote.ok) return json({ error: 'Your cart changed — please review it', quote: publicQuote(quote) }, 409);
+  // Never place an order without the discount the shopper expects: they remove the code or fix the cart.
+  if (quote.coupon && !quote.coupon.ok) return json({ error: quote.coupon.message, code: 'coupon', errors: { coupon: quote.coupon.message }, quote: publicQuote(quote) }, 422);
   // The shopper must have seen this exact total (prices can change between page load and submit).
   if (typeof body.expectedTotal === 'number' && body.expectedTotal !== quote.total) {
     return json({ error: 'A price changed since you opened checkout — please check the new total.', code: 'price_changed', quote: publicQuote(quote) }, 409);
@@ -95,7 +98,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   const created = await createOrder(env.STORE_DB, { quote, checkout: c, idempotencyKey: key, sellerStateCode: settings.state_code, tokenSecret: env.ORDER_TOKEN_SECRET, now, fingerprint, codConfirmationRequired: settings.cod_confirmation !== 'off' });
   if (!created.ok) {
-    const fresh = await quoteCart(env.STORE_DB, body.lines, { today: new Date(), settings });
+    const fresh = await quoteCart(env.STORE_DB, body.lines, { ...quoteOpts, today: new Date() });
     return json({ error: created.message, quote: publicQuote(fresh) }, 409);
   }
   const viewUrl = `/order/${created.orderNo}?t=${created.viewToken}`;

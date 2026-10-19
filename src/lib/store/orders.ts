@@ -21,7 +21,7 @@ export const RESERVATION_MINUTES = 30;
 
 export type CreateOrderResult =
   | { ok: true; orderId: number; orderNo: string; viewToken: string; total: number; existing: boolean; status: string }
-  | { ok: false; reason: 'stock' | 'inactive' | 'invalid'; message: string };
+  | { ok: false; reason: 'stock' | 'inactive' | 'coupon' | 'invalid'; message: string };
 
 /** Rev 0 is the link from the order email; each "find your order" request bumps it (migration 0004). */
 export async function viewTokenFor(secret: string, idempotencyKey: string, rev = 0): Promise<string> {
@@ -66,6 +66,8 @@ export async function createOrder(
 
   const lines = quote.lines.filter((l) => l.qty > 0);
   if (!quote.ok || !lines.length) return { ok: false, reason: 'invalid', message: 'Cart has changed' };
+  if (quote.coupon && !quote.coupon.ok) return { ok: false, reason: 'coupon', message: quote.coupon.message };
+  const couponCode = quote.coupon?.ok ? quote.coupon.code : null;
 
   const at = nowIso(now);
   const intra = placeOfSupplyCode(c) === input.sellerStateCode;
@@ -87,20 +89,29 @@ export async function createOrder(
            customer_name, email, phone, marketing_opt_in,
            ship_line1, ship_line2, ship_city, ship_state, ship_state_code, ship_pincode,
            bill_same_as_ship, bill_name, bill_line1, bill_line2, bill_city, bill_state, bill_state_code, bill_pincode,
-           buyer_gstin, buyer_legal_name, subtotal_paise, discount_paise, gst_paise, total_paise, created_at, updated_at, checkout_fingerprint, cod_confirmed_at)
+           buyer_gstin, buyer_legal_name, subtotal_paise, discount_paise, gst_paise, total_paise, created_at, updated_at, checkout_fingerprint, cod_confirmed_at, coupon_code)
          VALUES ('HL-' || ?1 || '-' || printf('%04d', (SELECT last_no FROM order_counters WHERE yymm = ?1)),
            ?2, ?3, ?4, ?5, 'unpaid', ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15,
-           ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, 0, ?27, ?28, ?29, ?29, ?30, ?31)`,
+           ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?30, ?31, ?32, ?33)`,
       )
       .bind(
         ym, await hashViewToken(input.tokenSecret, viewToken), key, cod ? 'placed' : 'pending_payment', c.paymentMethod,
         c.contact.name, c.contact.email, c.contact.phone, c.contact.marketingOptIn ? 1 : 0,
         c.ship.line1, c.ship.line2, c.ship.city, c.ship.state, c.ship.stateCode, c.ship.pincode,
         b ? 0 : 1, b?.name ?? null, b?.line1 ?? null, b?.line2 ?? null, b?.city ?? null, b?.state ?? null, b?.stateCode ?? null, b?.pincode ?? null,
-        c.buyerGstin, c.buyerLegalName, quote.subtotal, gst, quote.total, at, input.fingerprint ?? null,
-        cod && !input.codConfirmationRequired ? at : null,
+        c.buyerGstin, c.buyerLegalName, quote.subtotal, quote.discount, gst, quote.total, at, input.fingerprint ?? null,
+        cod && !input.codConfirmationRequired ? at : null, couponCode,
       ),
   ];
+  if (couponCode) {
+    // Counted by trigger; the usage CHECK / one-per-phone UNIQUE abort the whole order if the code ran out.
+    const perPhone = await db.prepare('SELECT one_per_phone FROM coupons WHERE code = ?').bind(couponCode).first<{ one_per_phone: number }>();
+    stmts.push(
+      db
+        .prepare(`INSERT INTO coupon_redemptions (coupon_code, order_id, phone, created_at) VALUES (?, ${idQ}, ?, ?)`)
+        .bind(couponCode, key, perPhone?.one_per_phone ? c.contact.phone : null, at),
+    );
+  }
 
   lines.forEach((l, i) => {
     const t = taxes[i];
@@ -109,9 +120,9 @@ export async function createOrder(
         .prepare(
           `INSERT INTO order_items (order_id, variant_id, product_name, variant_label, sku, hsn_code, gst_rate_bp, unit_price_paise, mrp_paise,
              qty, discount_paise, taxable_paise, cgst_paise, sgst_paise, igst_paise, line_total_paise, perishable)
-           VALUES (${idQ}, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)`,
+           VALUES (${idQ}, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
-        .bind(key, l.variantId, l.name, l.label, l.sku, l.hsnCode, l.gstRateBp, l.unitPrice, l.mrp, l.qty, t.taxable, t.cgst, t.sgst, t.igst, l.lineTotal, l.perishable ? 1 : 0),
+        .bind(key, l.variantId, l.name, l.label, l.sku, l.hsnCode, l.gstRateBp, l.unitPrice, l.mrp, l.qty, l.discount, t.taxable, t.cgst, t.sgst, t.igst, l.lineTotal, l.perishable ? 1 : 0),
       db.prepare('UPDATE variants SET stock_qty = stock_qty - ? WHERE id = ?').bind(l.qty, l.variantId),
       db
         .prepare(`INSERT INTO stock_reservations (variant_id, order_id, qty, expires_at, state) VALUES (?, ${idQ}, ?, ?, ?)`)
@@ -150,6 +161,7 @@ export async function createOrder(
     }
     if (kind === 'stock') return { ok: false, reason: 'stock', message: 'Some items sold out while you were checking out' };
     if (kind === 'inactive') return { ok: false, reason: 'inactive', message: 'An item is no longer available' };
+    if (kind === 'coupon') return { ok: false, reason: 'coupon', message: 'Your discount code can no longer be used' };
     throw err;
   }
 }
@@ -162,7 +174,7 @@ export interface OrderRow {
   ship_line1: string; ship_line2: string | null; ship_city: string; ship_state: string; ship_state_code: string; ship_pincode: string;
   bill_same_as_ship: number; bill_name: string | null; bill_line1: string | null; bill_line2: string | null; bill_city: string | null;
   bill_state: string | null; bill_state_code: string | null; bill_pincode: string | null; buyer_gstin: string | null; buyer_legal_name: string | null;
-  subtotal_paise: number; discount_paise: number; gst_paise: number; total_paise: number;
+  subtotal_paise: number; discount_paise: number; gst_paise: number; total_paise: number; coupon_code?: string | null;
   razorpay_order_id: string | null; razorpay_payment_id: string | null; paid_at: string | null;
   shiprocket_order_id: string | null; shiprocket_shipment_id: string | null; awb: string | null; courier: string | null; tracking_url: string | null;
   invoice_id: number | null; cancel_reason: string | null; cancelled_by: string | null; created_at: string; updated_at: string;

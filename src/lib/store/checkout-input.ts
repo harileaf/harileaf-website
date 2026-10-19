@@ -101,12 +101,13 @@ export function placeOfSupplyCode(c: Pick<CheckoutInput, 'ship' | 'bill' | 'buye
   return c.buyerGstin && c.bill ? c.bill.stateCode : c.ship.stateCode;
 }
 
-/** What an idempotency key was used for: cart lines + email. */
-export async function checkoutFingerprint(lines: unknown, email: unknown): Promise<string> {
+/** What an idempotency key was used for: cart lines + email (+ discount code, when one is applied). */
+export async function checkoutFingerprint(lines: unknown, email: unknown, coupon?: unknown): Promise<string> {
   const norm = (Array.isArray(lines) ? lines : [])
     .map((l) => `${Number((l as { variantId?: unknown })?.variantId)}x${Math.trunc(Number((l as { qty?: unknown })?.qty))}`)
     .sort()
     .join(',');
-  const data = new TextEncoder().encode(`${norm}|${String(email ?? '').trim().toLowerCase()}`);
+  const code = typeof coupon === 'string' && coupon.trim() ? `|${coupon.replace(/[\s-]/g, '').toUpperCase()}` : '';
+  const data = new TextEncoder().encode(`${norm}|${String(email ?? '').trim().toLowerCase()}${code}`);
   return [...new Uint8Array(await crypto.subtle.digest('SHA-256', data))].map((b) => b.toString(16).padStart(2, '0')).join('');
 }

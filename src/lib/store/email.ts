@@ -105,15 +105,16 @@ export function ownerNewOrderEmail(o: OrderRow, items: OrderItemRow[], settings:
   };
 }
 
-export function paymentReleasedEmail(o: OrderRow, settings: StoreSettings): Email {
-  const html = `<p>Hi ${esc(o.customer_name.split(' ')[0])}, your payment for order <strong>${esc(o.order_no)}</strong> reached us after the time we could hold your items, and they have since sold out.</p>
+export function paymentReleasedEmail(o: OrderRow, settings: StoreSettings, why: 'stock' | 'coupon' = 'stock'): Email {
+  const lost = why === 'coupon' ? `the discount code ${esc(o.coupon_code ?? '')} has since been fully used` : 'they have since sold out';
+  const html = `<p>Hi ${esc(o.customer_name.split(' ')[0])}, your payment for order <strong>${esc(o.order_no)}</strong> reached us after the time we could hold your items, and ${lost}.</p>
 <p><strong>We have not charged you.</strong> The amount was only authorised, and your bank will release it automatically — usually within 5–7 days.</p>
 <p>We're sorry for the trouble. You're welcome to <a href="${absolute('/shop/')}">order again</a>.</p>`;
   return {
     to: o.email,
     subject: `Order ${o.order_no}: payment not taken — HariLeaf`,
     html: layout("We couldn't complete your order", html, settings),
-    text: `Your payment for order ${o.order_no} arrived after we could hold your items, and they sold out. We have not charged you; your bank will release the authorised amount automatically (usually within 5–7 days).`,
+    text: `Your payment for order ${o.order_no} arrived after we could hold your items, and ${why === 'coupon' ? `the discount code ${o.coupon_code ?? ''} has since been fully used` : 'they sold out'}. We have not charged you; your bank will release the authorised amount automatically (usually within 5–7 days).`,
     idempotencyKey: `email.payment_released/${o.order_no}`,
     replyTo: settings.customer_care_email || undefined,
   };
