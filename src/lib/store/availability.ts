@@ -3,7 +3,7 @@
  * Availability Rules"). Season windows are inclusive "MM-DD" pairs in IST and
  * may wrap the year end (e.g. 11-15 → 02-15).
  */
-import { istParts } from './fy';
+import { istParts, istYmd } from './fy';
 
 export type Availability = 'buy' | 'sold_out' | 'preorder' | 'notify';
 
@@ -29,8 +29,6 @@ export function availability(p: AvailabilityInput, today: Date): Availability | 
   if (p.status !== 'active' || !p.variantActive) return null;
   if (inSeason(p.seasonStartMd, p.seasonEndMd, today)) return p.stockQty > 0 ? 'buy' : 'sold_out';
   // A dispatch date that has come and gone (season not open yet) is no promise: back to notify-me.
-  const { year, month, day } = istParts(today);
-  const ymd = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-  if (p.offSeasonMode === 'preorder' && p.preorderDispatchDate && p.preorderDispatchDate > ymd && p.stockQty > 0) return 'preorder';
+  if (p.offSeasonMode === 'preorder' && p.preorderDispatchDate && p.preorderDispatchDate > istYmd(today) && p.stockQty > 0) return 'preorder';
   return 'notify';
 }

@@ -16,6 +16,12 @@ export function istParts(at: Date): { year: number; month: number; day: number; 
   return { year: ist.getUTCFullYear(), month: ist.getUTCMonth() + 1, day: ist.getUTCDate(), hour: ist.getUTCHours() };
 }
 
+/** Today's date in India as YYYY-MM-DD. */
+export function istYmd(at: Date): string {
+  const { year, month, day } = istParts(at);
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
 /** "2627" for FY 2026-27. */
 export function fyOf(at: Date): string {
   const { year, month } = istParts(at);

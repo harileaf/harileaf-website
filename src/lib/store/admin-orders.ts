@@ -22,7 +22,12 @@ export interface OrderListRow {
 export async function listOrders(db: D1Database, f: { status?: string; q?: string; limit?: number; offset?: number } = {}) {
   const where: string[] = [];
   const binds: unknown[] = [];
-  if (f.status && (ORDER_STATUSES as readonly string[]).includes(f.status)) {
+  if (f.status === 'placed') {
+    // "To pack": pre-orders wait for their dispatch date and have their own list.
+    where.push("status = 'placed' AND is_preorder = 0");
+  } else if (f.status === 'preorders') {
+    where.push("status = 'placed' AND is_preorder = 1");
+  } else if (f.status && (ORDER_STATUSES as readonly string[]).includes(f.status)) {
     where.push('status = ?');
     binds.push(f.status);
   } else if (f.status === 'open') {

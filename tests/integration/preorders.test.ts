@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { dashboardMetrics } from '../../src/lib/store/admin-orders';
+import { dashboardMetrics, listOrders } from '../../src/lib/store/admin-orders';
 import { validateCheckoutInput } from '../../src/lib/store/checkout-input';
 import { cancelOrder, delayPreorder, markPacked, readyToDispatch } from '../../src/lib/store/fulfilment';
 import { createOrder } from '../../src/lib/store/orders';
@@ -49,6 +49,8 @@ describe('pre-orders', () => {
     const id = await preorder(pre);
     const after = await dashboardMetrics(db, NOW);
     expect([after.to_pack - before.to_pack, after.preorders_open - before.preorders_open]).toEqual([0, 1]); // waiting for harvest isn't "to pack"
+    expect((await listOrders(db, { status: 'placed' })).some((o) => o.id === id)).toBe(false); // nor on the To-pack list
+    expect((await listOrders(db, { status: 'preorders' })).map((o) => o.id)).toContain(id);
     expect(await db.prepare('SELECT is_preorder, expected_dispatch_date, status, payment_status FROM orders WHERE id = ?').bind(id).first()).toEqual({ is_preorder: 1, expected_dispatch_date: '2027-04-10', status: 'placed', payment_status: 'paid' });
     expect(await scalar('SELECT stock_qty FROM variants WHERE id = ?', pre)).toBe(4);
   });
@@ -78,10 +80,16 @@ describe('pre-orders', () => {
   it('can be pushed back (never brought forward) with an email, and cancelled by the customer for a full refund', async () => {
     const id = await preorder(await preorderVariant());
     expect(await delayPreorder(db, id, { date: '2027-04-01', reason: 'x' }, ctx)).toMatchObject({ ok: false });
+    expect(await delayPreorder(db, id, { date: '2027-04-10', reason: 'Same day again' }, ctx)).toMatchObject({ ok: false, error: expect.stringContaining('after the current one') });
     expect(await delayPreorder(db, id, { date: '2027-04-24', reason: 'Late flowering after unseasonal rain' }, ctx)).toEqual({ ok: true });
     expect(await delayPreorder(db, id, { date: '2027-04-24', reason: 'again' }, ctx)).toMatchObject({ ok: false });
     expect(await scalar('SELECT expected_dispatch_date FROM orders WHERE id = ?', id)).toBe('2027-04-24');
     expect((await kinds(id)).filter((k) => k === 'email.preorder_delayed')).toHaveLength(1);
+    // A dispatch date that has passed can only move to a day still to come.
+    await db.prepare("UPDATE orders SET expected_dispatch_date = '2026-11-20' WHERE id = ?").bind(id).run();
+    expect(await delayPreorder(db, id, { date: '2026-11-25', reason: 'Still in the past' }, ctx)).toMatchObject({ ok: false, error: expect.stringContaining('after today') });
+    expect(await delayPreorder(db, id, { date: '2026-12-01', reason: 'Today is too soon' }, ctx)).toMatchObject({ ok: false });
+    await db.prepare("UPDATE orders SET expected_dispatch_date = '2027-04-24' WHERE id = ?").bind(id).run();
     expect(await cancelOrder(db, id, { now: NOW, actor: 'customer', reason: 'Dispatch pushed back' })).toMatchObject({ ok: true });
     expect(await db.prepare('SELECT status, payment_status FROM orders WHERE id = ?').bind(id).first()).toEqual({ status: 'cancelled', payment_status: 'refund_pending' });
     expect(await scalar('SELECT amount_paise FROM refunds WHERE order_id = ?', id)).toBe(90000);

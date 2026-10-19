@@ -15,7 +15,7 @@ import { findByIdempotencyKey, viewTokenFor, type OrderItemRow, type OrderRow } 
 import { needsCodConfirmation } from './cod';
 import { getSettings } from './settings';
 import { hashViewToken } from './tokens';
-import { istParts } from './fy';
+import { istParts, istYmd } from './fy';
 
 export type Actor = 'customer' | 'admin' | 'shiprocket' | 'system';
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -157,8 +157,10 @@ export async function delayPreorder(
   if (!/^\d{4}-\d{2}-\d{2}$/.test(d.date) || Number.isNaN(Date.parse(d.date))) return FAIL('Pick the new dispatch date');
   const reason = d.reason.trim().slice(0, 300);
   if (reason.length < 3) return FAIL('Say why (it goes in the email to the customer)');
+  if (d.date <= istYmd(ctx.now)) return FAIL('The new dispatch date must be after today');
   const at = nowIso(ctx.now);
   const before = await db.prepare('SELECT expected_dispatch_date FROM orders WHERE id = ?').bind(orderId).first<{ expected_dispatch_date: string | null }>();
+  if (before?.expected_dispatch_date && d.date <= before.expected_dispatch_date) return FAIL(`Pick a date after the current one (${before.expected_dispatch_date}) — a pre-order can only be pushed back`);
   const claim = claimStmt(
     db,
     orderId,
