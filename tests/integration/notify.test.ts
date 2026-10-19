@@ -21,8 +21,16 @@ describe('notify me', () => {
     expect(await acceptsNotify(db, p, NOW)).toBe(false);
     const runs = await Promise.all([queueBackInStock(db, NOW), queueBackInStock(db, NOW), queueBackInStock(db, NOW)]);
     expect(runs.reduce((a, b) => a + b, 0)).toBe(2);
-    const rows = (await db.prepare("SELECT * FROM outbox WHERE kind = 'email.notify' ORDER BY id").all<OutboxRow>()).results;
+    let rows = (await db.prepare("SELECT * FROM outbox WHERE kind = 'email.notify' ORDER BY id").all<OutboxRow>()).results;
     expect(rows.map((r) => JSON.parse(r.payload).requestId)).toHaveLength(2);
+
+    // Sold out again before the emails went: nothing is sent and both go back to waiting.
+    await db.prepare('UPDATE variants SET stock_qty = 0 WHERE id = ?').bind(v).run();
+    for (const row of rows) await makeNotifyHandler()(JSON.parse(row.payload), { env, row });
+    expect(await scalar('SELECT count(*) FROM notify_requests WHERE product_id = ? AND queued_at IS NULL AND notified_at IS NULL', p)).toBe(2);
+    await db.prepare('UPDATE variants SET stock_qty = 5 WHERE id = ?').bind(v).run();
+    expect(await queueBackInStock(db, NOW)).toBe(2);
+    rows = (await db.prepare("SELECT * FROM outbox WHERE kind = 'email.notify' ORDER BY id").all<OutboxRow>()).results.slice(-2);
 
     // The handler sends once per request (no RESEND_API_KEY in tests: logged and skipped) and marks it notified.
     const handler = makeNotifyHandler();
@@ -35,13 +43,15 @@ describe('notify me', () => {
     expect(await scalar('SELECT count(*) FROM notify_requests WHERE product_id = ?', p)).toBe(0);
   });
 
-  it('drops requests after 12 months even if never notified', async () => {
+  it('drops requests after 12 months even if never notified, but not one whose email is queued', async () => {
     const p = await insertProduct();
     await insertVariant(p, { stock_qty: 0 });
     await signUp(db, p, 'old@example.com', new Date('2025-10-01T00:00:00Z'));
+    await signUp(db, p, 'queued@example.com', new Date('2025-10-01T00:00:00Z'));
     await signUp(db, p, 'new@example.com', NOW);
+    await db.prepare("UPDATE notify_requests SET queued_at = ? WHERE email = 'queued@example.com'").bind(NOW.toISOString()).run();
     await purgeNotifyRequests(db, NOW);
-    expect((await db.prepare('SELECT email FROM notify_requests WHERE product_id = ?').bind(p).all<{ email: string }>()).results.map((r) => r.email)).toEqual(['new@example.com']);
+    expect((await db.prepare('SELECT email FROM notify_requests WHERE product_id = ? ORDER BY email').bind(p).all<{ email: string }>()).results.map((r) => r.email)).toEqual(['new@example.com', 'queued@example.com']);
   });
 
   it('treats a pre-order opening as available', async () => {
