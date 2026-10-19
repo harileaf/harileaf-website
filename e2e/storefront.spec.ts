@@ -111,7 +111,8 @@ test('mobile shows the sticky add-to-cart bar', async ({ page, isMobile }) => {
   test.skip(!isMobile, 'sticky bar is mobile only');
   await page.goto('/rice/karjat-3');
   const bar = page.locator('[data-sticky-bar]');
-  await expect(bar).toBeHidden(); // the main button is on screen
+  await page.locator('[data-add]').scrollIntoViewIfNeeded();
+  await expect(bar).toBeHidden(); // not while the main button is on screen
   await page.mouse.wheel(0, 1500);
   await expect(bar).toBeVisible();
   await bar.locator('[data-add-sticky]').click();
