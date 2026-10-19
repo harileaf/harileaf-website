@@ -116,11 +116,26 @@ export function initBuyBox(signal?: AbortSignal): void {
   addBtn.addEventListener('click', add);
   stickyBtn?.addEventListener('click', add);
 
-  // Hide the sticky bar while the on-screen keyboard is open.
-  if (sticky && window.visualViewport) {
-    const vv = window.visualViewport;
-    const onResize = () => sticky.classList.toggle('hidden', vv.height < window.innerHeight * 0.75);
-    vv.addEventListener('resize', onResize, { signal });
+  // The sticky bar stands in for the main button only once that has scrolled out of view
+  // (otherwise it duplicates it and covers the pack sizes), and hides while the keyboard is open.
+  if (sticky) {
+    let keyboardOpen = false;
+    let mainVisible = true;
+    const sync = () => sticky.classList.toggle('hidden', keyboardOpen || mainVisible);
+    const io = new IntersectionObserver(([e]) => {
+      mainVisible = e.isIntersecting;
+      sync();
+    });
+    io.observe(addBtn);
+    signal?.addEventListener('abort', () => io.disconnect());
+    if (window.visualViewport) {
+      const vv = window.visualViewport;
+      vv.addEventListener('resize', () => {
+        keyboardOpen = vv.height < window.innerHeight * 0.75;
+        sync();
+      }, { signal });
+    }
+    sync();
   }
 
   // Gallery thumbnails.
