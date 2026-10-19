@@ -39,6 +39,10 @@ const STATUS: Record<string, { title: string; body: string }> = {
   returned: { title: 'Returned', body: 'This order was returned.' },
 };
 const s = STATUS[o.status] ?? { title: o.status, body: '' };
+// v2 partial refunds: what has actually gone back.
+const refundedPaise = ['partially_refunded', 'refunded', 'refund_pending'].includes(o.payment_status)
+  ? ((await env.STORE_DB.prepare("SELECT COALESCE(SUM(amount_paise), 0) AS n FROM refunds WHERE order_id = ? AND status = 'processed'").bind(o.id).first<{ n: number }>())?.n ?? 0)
+  : 0;
 const canCancel = o.status === 'placed';
 const awaitingConfirm = needsCodConfirmation(o);
 const confirmHours = awaitingConfirm ? Number((await getSettings(env.STORE_DB)).cod_confirm_window_hours) : 0;
@@ -67,7 +71,9 @@ const paymentLine =
             : `Cash on delivery — ${formatINR(o.total_paise)} to pay on delivery`
     : o.payment_status === 'paid' || o.payment_status === 'authorized'
       ? `Paid online${o.paid_at ? ` on ${fmt(o.paid_at)}` : ''}`
-      : o.payment_status === 'refunded' ? 'Refunded' : 'Online payment';
+      : o.payment_status === 'refunded' ? 'Refunded'
+      : o.payment_status === 'partially_refunded' ? `Paid online · ${formatINR(refundedPaise)} refunded`
+      : o.payment_status === 'refund_pending' ? 'Refund on its way' : 'Online payment';
 ---
 
 <SiteLayout title={`Order ${o.order_no} | HariLeaf`} description="Your HariLeaf order" noIndex>

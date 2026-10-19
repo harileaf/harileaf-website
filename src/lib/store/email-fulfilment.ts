@@ -71,10 +71,13 @@ export function cancelledEmail(o: OrderRow, viewUrl: string, s: StoreSettings): 
   return { to: o.email, subject: `Order ${o.order_no} cancelled — HariLeaf`, html: wrap('Order cancelled', body, s), text: `Your order ${o.order_no} has been cancelled. ${money}\n${viewUrl}`, idempotencyKey: `email.cancelled/${o.order_no}`, replyTo: s.customer_care_email || undefined };
 }
 
-export function refundedEmail(o: OrderRow, viewUrl: string, s: StoreSettings): Email {
+/** `refund`: v2 partial refunds name the refund (amount, own idempotency key); older rows refund the whole order. */
+export function refundedEmail(o: OrderRow, viewUrl: string, s: StoreSettings, refund: { id: number; amount: number } | null = null): Email {
   const how = o.payment_method === 'cod' ? 'to the bank account / UPI you shared with us' : 'to your original payment method';
-  const body = `<p>Hi ${first(o)}, we've refunded <strong>${formatINR(o.total_paise)}</strong> for order <strong>${esc(o.order_no)}</strong> ${how}. Depending on your bank it can take up to 5–7 business days to appear.</p>${button(viewUrl, 'View your order')}`;
-  return { to: o.email, subject: `Refund for order ${o.order_no} — HariLeaf`, html: wrap('Your refund is on its way', body, s), text: `We've refunded ${formatINR(o.total_paise)} for order ${o.order_no} ${how}.\n${viewUrl}`, idempotencyKey: `email.refunded/${o.order_no}`, replyTo: s.customer_care_email || undefined };
+  const amount = refund?.amount ?? o.total_paise;
+  const part = refund && refund.amount < o.total_paise ? ` (part of your ${formatINR(o.total_paise)} order)` : '';
+  const body = `<p>Hi ${first(o)}, we've refunded <strong>${formatINR(amount)}</strong>${part} for order <strong>${esc(o.order_no)}</strong> ${how}. Depending on your bank it can take up to 5–7 business days to appear.</p>${button(viewUrl, 'View your order')}`;
+  return { to: o.email, subject: `Refund for order ${o.order_no} — HariLeaf`, html: wrap('Your refund is on its way', body, s), text: `We've refunded ${formatINR(amount)}${part} for order ${o.order_no} ${how}.\n${viewUrl}`, idempotencyKey: refund ? `email.refunded/${o.order_no}/${refund.id}` : `email.refunded/${o.order_no}`, replyTo: s.customer_care_email || undefined };
 }
 
 export function codReminderEmail(o: OrderRow, viewUrl: string, s: StoreSettings): Email {
@@ -119,7 +122,12 @@ export function makeFulfilmentEmailHandlers(fetchImpl?: typeof fetch): Record<st
       if (o.status !== 'placed' || !payload.to) return; // cancelled or dispatched meanwhile
       await sendEmail(env, preorderDelayedEmail(o, await orderViewUrl(env, o), await getSettings(env.STORE_DB), { from: payload.from ?? null, to: payload.to, reason: payload.reason ?? '' }), fetchImpl);
     },
-    'email.refunded': handler(refundedEmail),
+    'email.refunded': async (payload: { refundId?: number }, { env, row }) => {
+      const o = await env.STORE_DB.prepare('SELECT * FROM orders WHERE id = ?').bind(row.order_id).first<OrderRow>();
+      if (!o) throw new Error(`order ${row.order_id} not found`);
+      const r = payload?.refundId ? await env.STORE_DB.prepare('SELECT id, amount_paise FROM refunds WHERE id = ? AND order_id = ?').bind(payload.refundId, o.id).first<{ id: number; amount_paise: number }>() : null;
+      await sendEmail(env, refundedEmail(o, await orderViewUrl(env, o), await getSettings(env.STORE_DB), r ? { id: r.id, amount: r.amount_paise } : null), fetchImpl);
+    },
     'email.order_link': async (_p, { env, row }) => {
       const o = await env.STORE_DB.prepare('SELECT * FROM orders WHERE id = ?').bind(row.order_id).first<OrderRow>();
       if (!o) return;

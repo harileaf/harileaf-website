@@ -81,7 +81,7 @@ export function availableActions(
   if (['shipped', 'delivered', 'rto'].includes(o.status)) a.push('update_tracking');
   if (o.status === 'delivered') a.push('returned');
   if (o.status === 'placed' || o.status === 'packed') a.push('cancel');
-  if (['shipped', 'delivered', 'returned', 'rto'].includes(o.status) && o.payment_status === 'paid' && o.total_paise > 0) a.push('refund');
+  if (['shipped', 'delivered', 'returned', 'rto'].includes(o.status) && ['paid', 'partially_refunded'].includes(o.payment_status) && o.total_paise > 0) a.push('refund');
   // Receiving doesn't change the status, so a recorded return_received event hides the button.
   if ((o.status === 'rto' || o.status === 'returned') && !opts.returnReceived) a.push('receive_return');
   if (['shipped', 'delivered', 'returned'].includes(o.status)) a.push('replacement');
@@ -145,8 +145,18 @@ export async function runAdminAction(
     case 'cancel':
       if (!str(body, 'reason')) return { ok: false, error: 'Give a reason — it goes on the credit note and the customer email' };
       return cancelOrder(db, orderId, { ...base, actor: 'admin', reason: str(body, 'reason') });
-    case 'refund':
-      return refundOrder(db, orderId, { ...base, reason: str(body, 'reason'), manualReference: str(body, 'manualReference', 80) || null });
+    case 'refund': {
+      // Everything left (default), chosen units of chosen lines, or an amount in rupees spread over the lines.
+      const mode = str(body, 'refundMode', 10);
+      const lines = mode === 'lines' && Array.isArray(body.refundLines)
+        ? (body.refundLines as Array<{ itemId?: unknown; qty?: unknown }>).map((l) => ({ itemId: Number(l.itemId), qty: Number(l.qty) })).filter((l) => l.qty > 0)
+        : undefined;
+      if (mode === 'lines' && !lines?.length) return { ok: false, error: 'Choose how many of which item to refund' };
+      const rupees = str(body, 'refundAmount', 12);
+      const amount = mode === 'amount' ? (/^\d+(\.\d{1,2})?$/.test(rupees) ? Math.round(Number(rupees) * 100) : Number.NaN) : undefined;
+      if (mode === 'amount' && !Number.isInteger(amount)) return { ok: false, error: 'Enter the amount in rupees' };
+      return refundOrder(db, orderId, { ...base, reason: str(body, 'reason'), manualReference: str(body, 'manualReference', 80) || null, lines, amount, requestKey: str(body, 'requestKey', 64) || undefined });
+    }
     case 'receive_return':
       return receiveReturn(db, orderId, { ...base, note: str(body, 'note') || undefined });
     case 'replacement': {

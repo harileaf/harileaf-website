@@ -8,6 +8,7 @@ import { availableActions, orderDetail } from '../../../lib/store/admin-orders';
 import { needsCodConfirmation } from '../../../lib/store/cod';
 import { isErasable } from '../../../lib/store/retention';
 import { formatINR } from '../../../lib/store/money';
+import { refundableLines } from '../../../lib/store/fulfilment';
 import { safeHttpsUrl } from '../../../lib/store/urls';
 
 const authenticated = await validateSession(env.HARILEAF_CMS, Astro.cookies);
@@ -16,6 +17,7 @@ const d = authenticated && id ? await orderDetail(env.STORE_DB, id) : null;
 if (authenticated && !d) return Astro.rewrite('/404');
 const o = d?.order;
 const awaitingCod = o ? needsCodConfirmation(o) : false;
+const refundLeft = o && ['shipped', 'delivered', 'returned', 'rto'].includes(o.status) ? await refundableLines(env.STORE_DB, o.id) : [];
 const actions = o ? availableActions(o, { awaitingCodConfirmation: awaitingCod, returnReceived: d!.events.some((e) => e.type === 'return_received') }) : [];
 const fmt = (iso: string) => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' });
 const tracking = safeHttpsUrl(o?.tracking_url);
@@ -23,7 +25,7 @@ const LABELS: Record<string, string> = {
   pack: 'Mark packed (issues invoice)', ready_to_dispatch: 'Ready to dispatch (issues invoice, sends to Shiprocket, emails customer)', delay_preorder: 'Push back dispatch date (emails customer)', ship: 'Mark shipped', update_tracking: 'Update tracking', deliver: 'Mark delivered', rto: 'Mark RTO', returned: 'Mark returned',
   confirm_cod: 'Confirm COD order (after calling the customer)', cancel: 'Cancel order', refund: 'Refund', receive_return: 'Return received (restock)', replacement: 'Send replacement',
 };
-const needs: Record<string, string[]> = { delay_preorder: ['date', 'reason'], ship: ['awb', 'courier', 'trackingUrl'], update_tracking: ['awb', 'courier', 'trackingUrl'], cancel: ['reason'], refund: o?.payment_method === 'cod' ? ['reason', 'manualReference'] : ['reason'], returned: ['note'], rto: ['note'], receive_return: ['note'], replacement: ['note'] };
+const needs: Record<string, string[]> = { delay_preorder: ['date', 'reason'], ship: ['awb', 'courier', 'trackingUrl'], update_tracking: ['awb', 'courier', 'trackingUrl'], cancel: ['reason'], refund: o?.payment_method === 'cod' ? ['refundHow', 'reason', 'manualReference'] : ['refundHow', 'reason'], returned: ['note'], rto: ['note'], receive_return: ['note'], replacement: ['note'] };
 ---
 
 <AdminLayout title={o ? `Order ${o.order_no}` : 'Order'} active="orders">
@@ -56,6 +58,21 @@ const needs: Record<string, string[]> = { delay_preorder: ['date', 'reason'], sh
             <div data-field="courier"><label for="f-courier">Courier</label><input id="f-courier" name="courier" type="text" value={o.courier ?? ''} /></div>
             <div data-field="trackingUrl"><label for="f-tracking">Tracking link (https://…)</label><input id="f-tracking" name="trackingUrl" type="text" value={o.tracking_url ?? ''} /></div>
             <div data-field="date"><label for="f-date">New dispatch date</label><input id="f-date" name="date" type="date" min={o.expected_dispatch_date ?? undefined} /></div>
+            <fieldset data-field="refundHow" style="border:0;display:flex;flex-direction:column;gap:0.4rem;">
+              <legend class="muted">What to refund (still refundable: {formatINR(refundLeft.reduce((a, l) => a + l.leftPaise, 0))})</legend>
+              <label class="act"><input type="radio" name="refundMode" value="all" checked /> Everything still refundable</label>
+              <label class="act"><input type="radio" name="refundMode" value="lines" /> Some items</label>
+              <div data-refund-lines style="display:flex;flex-direction:column;gap:0.25rem;padding-left:1.5rem;">
+                {refundLeft.map((l) => (
+                  <p style="display:flex;gap:0.5rem;align-items:center;">
+                    <input type="number" min="0" max={l.leftQty} value="0" data-refund-item={l.item.id} aria-label={`Units of ${l.item.product_name} ${l.item.variant_label} to refund`} style="width:5rem;" disabled={l.leftQty === 0} />
+                    <span>{l.item.product_name} · {l.item.variant_label} — {l.leftQty} of {l.item.qty} left ({formatINR(l.leftPaise)})</span>
+                  </p>
+                ))}
+              </div>
+              <label class="act"><input type="radio" name="refundMode" value="amount" /> An amount (spread over the items, e.g. a goodwill refund)</label>
+              <div style="padding-left:1.5rem;"><label for="f-amount" class="sr-only">Amount in rupees</label><input id="f-amount" name="refundAmount" type="text" inputmode="decimal" placeholder="₹" style="width:9rem;" /></div>
+            </fieldset>
             <div data-field="reason"><label for="f-reason">Reason (emailed to the customer{o.is_preorder ? '' : '; printed on the credit note'})</label><input id="f-reason" name="reason" type="text" maxlength="300" /></div>
             <div data-field="manualReference"><label for="f-ref">COD refund — UPI / bank reference</label><input id="f-ref" name="manualReference" type="text" maxlength="80" /></div>
             <div data-field="note"><label for="f-note">Note</label><input id="f-note" name="note" type="text" maxlength="300" /></div>
@@ -197,8 +214,12 @@ const needs: Record<string, string[]> = { delay_preorder: ['date', 'reason'], sh
     e.preventDefault();
     const fd = new FormData(form);
     const action = String(fd.get('action'));
-    if (['cancel', 'refund'].includes(action) && !confirm(action === 'cancel' ? 'Cancel this order? Stock is restored and any payment refunded.' : 'Refund the full order amount?')) return;
+    if (['cancel', 'refund'].includes(action) && !confirm(action === 'cancel' ? 'Cancel this order? Stock is restored and any payment refunded.' : (fd.get('refundMode') === 'all' ? 'Refund everything still refundable on this order?' : 'Refund the selected items / amount?'))) return;
     const body: Record<string, unknown> = Object.fromEntries(fd.entries());
+    if (action === 'refund') {
+      body.requestKey = requestKey;
+      body.refundLines = Array.from(form.querySelectorAll<HTMLInputElement>('[data-refund-item]')).map((i) => ({ itemId: Number(i.dataset.refundItem), qty: Number(i.value) })).filter((l) => l.qty > 0);
+    }
     if (action === 'replacement') {
       body.requestKey = requestKey;
       body.lines = Array.from(form.querySelectorAll<HTMLInputElement>('[data-item]')).map((i) => ({ itemId: Number(i.dataset.item), qty: Number(i.value) })).filter((l) => l.qty > 0);

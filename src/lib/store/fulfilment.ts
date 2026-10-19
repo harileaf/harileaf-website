@@ -7,8 +7,8 @@
 import { nowIso } from './db';
 import { issueDocStmts } from './docnumbers';
 import { fyOf } from './fy';
-import type { DocumentType } from './gst';
-import { challanSnapshot, creditNoteSnapshot, invoiceSnapshot, type DocSnapshot } from './invoices';
+import { allocateDiscount, type DocumentType } from './gst';
+import { challanSnapshot, creditNoteSnapshot, invoiceSnapshot, partialCreditNoteSnapshot, type DocSnapshot } from './invoices';
 import { claimStmt, runClaim, type ClaimResult } from './ops';
 import { enqueueStmt } from './outbox';
 import { findByIdempotencyKey, viewTokenFor, type OrderItemRow, type OrderRow } from './orders';
@@ -289,11 +289,61 @@ async function cancelOnce(
  * payments are refunded through the API; COD money is returned by bank/UPI
  * and recorded here with its reference.
  */
-export async function refundOrder(
-  db: D1Database,
-  orderId: number,
-  ctx: { now: Date; reason: string; manualReference?: string | null; actorEmail?: string | null },
-): Promise<ActionResult> {
+export interface RefundRequest {
+  now: Date;
+  reason: string;
+  manualReference?: string | null;
+  actorEmail?: string | null;
+  /** Per line: units to give back. */
+  lines?: Array<{ itemId: number; qty: number }>;
+  /** A plain amount (paise), spread over what's left on each line. */
+  amount?: number;
+  /** One per admin action (page load), so a double click refunds once. */
+  requestKey?: string;
+}
+
+/** What is still refundable per order line (a failed refund counts until it is retried: its credit note stands). */
+/** SQL over `refunds r`: the refund still counts against what can be refunded (migration 0007). */
+const COUNTS = "NOT (r.status = 'failed' AND EXISTS (SELECT 1 FROM refunds x WHERE x.retry_of = r.id))";
+
+export async function refundableLines(db: D1Database, orderId: number) {
+  const { results } = await db
+    .prepare(
+      `SELECT i.*, COALESCE((SELECT SUM(l.amount_paise) FROM refund_lines l JOIN refunds r ON r.id = l.refund_id WHERE l.order_item_id = i.id AND ${COUNTS}), 0) AS refunded_paise,
+              COALESCE((SELECT SUM(l.qty) FROM refund_lines l JOIN refunds r ON r.id = l.refund_id WHERE l.order_item_id = i.id AND ${COUNTS}), 0) AS refunded_qty
+       FROM order_items i WHERE i.order_id = ? ORDER BY i.id`,
+    )
+    .bind(orderId)
+    .all<OrderItemRow & { refunded_paise: number; refunded_qty: number }>();
+  return results.map((i) => ({ item: i, leftPaise: i.line_total_paise - i.refunded_paise, leftQty: i.qty - i.refunded_qty }));
+}
+
+/**
+ * Payment status from the refunds an order has: pending → `refund_pending`;
+ * otherwise everything back → `refunded`, some → `partially_refunded`, none → `paid`.
+ * Only ever run on orders whose money was captured or collected.
+ */
+export function paymentStatusAfterRefundsStmt(db: D1Database, orderId: number, at: string): D1PreparedStatement {
+  return db
+    .prepare(
+      `UPDATE orders SET payment_status = CASE
+         WHEN EXISTS (SELECT 1 FROM refunds WHERE order_id = ?1 AND status = 'pending') THEN 'refund_pending'
+         WHEN (SELECT COALESCE(SUM(amount_paise), 0) FROM refunds WHERE order_id = ?1 AND status = 'processed') >= total_paise THEN 'refunded'
+         WHEN (SELECT COALESCE(SUM(amount_paise), 0) FROM refunds WHERE order_id = ?1 AND status = 'processed') > 0 THEN 'partially_refunded'
+         ELSE 'paid' END, updated_at = ?2
+       WHERE id = ?1`,
+    )
+    .bind(orderId, at);
+}
+
+/**
+ * Refund after dispatch — all that's left (v1's full refund), some units of
+ * some lines, or an amount spread over the lines (v2). The database caps
+ * every line and the order at what was paid, so racing refunds can't exceed
+ * it. The credit note lists exactly the refunded amounts. Prepaid refunds go
+ * to Razorpay through the outbox; COD ones were paid by hand (reference).
+ */
+export async function refundOrder(db: D1Database, orderId: number, ctx: RefundRequest): Promise<ActionResult> {
   const data = await load(db, orderId);
   if (!data) return FAIL('Order not found');
   const { order } = data;
@@ -302,31 +352,70 @@ export async function refundOrder(
   if (!['shipped', 'delivered', 'returned', 'rto'].includes(order.status)) return FAIL('Refund dispatched orders here; cancel orders that have not shipped');
   if (order.total_paise <= 0) return FAIL('Nothing to refund on a replacement order');
   const online = order.payment_method === 'razorpay';
-  if (online && order.payment_status !== 'paid') return FAIL(`Payment is ${order.payment_status}`);
+  const refundable = ['paid', 'partially_refunded', 'refund_pending'];
+  if (online && !refundable.includes(order.payment_status)) return FAIL(`Payment is ${order.payment_status}`);
   if (!online && !ctx.manualReference?.trim()) return FAIL('Enter the UPI / bank transfer reference for the COD refund');
-  if (!online && order.payment_status !== 'paid') return FAIL('COD payment has not been collected');
+  if (!online && !refundable.includes(order.payment_status)) return FAIL('COD payment has not been collected');
+
+  const left = await refundableLines(db, orderId);
+  let lines: Array<{ item: OrderItemRow; qty: number; amount: number }>;
+  if (ctx.lines?.length) {
+    lines = [];
+    for (const want of ctx.lines) {
+      const l = left.find((x) => x.item.id === want.itemId);
+      if (!l) return FAIL('That line isn’t in this order');
+      if (!Number.isInteger(want.qty) || want.qty < 1 || want.qty > l.leftQty) return FAIL(`Only ${l.leftQty} of ${l.item.product_name} ${l.item.variant_label} can still be refunded`);
+      // The last units take whatever is left, so rounding never strands a paisa.
+      const amount = want.qty === l.leftQty ? l.leftPaise : Math.min(l.leftPaise, Math.round((l.item.line_total_paise * want.qty) / l.item.qty));
+      if (amount > 0) lines.push({ item: l.item, qty: want.qty, amount });
+    }
+  } else if (ctx.amount !== undefined) {
+    const total = left.reduce((a, l) => a + l.leftPaise, 0);
+    if (!Number.isInteger(ctx.amount) || ctx.amount < 1) return FAIL('Enter the amount to refund');
+    if (ctx.amount > total) return FAIL(`At most ${(total / 100).toFixed(2)} can still be refunded`);
+    const shares = allocateDiscount(left.map((l) => l.leftPaise), ctx.amount);
+    lines = left.map((l, i) => ({ item: l.item, qty: 0, amount: shares[i] })).filter((l) => l.amount > 0);
+  } else {
+    lines = left.filter((l) => l.leftPaise > 0).map((l) => ({ item: l.item, qty: l.leftQty, amount: l.leftPaise }));
+  }
+  const amount = lines.reduce((a, l) => a + l.amount, 0);
+  if (amount <= 0) return FAIL('Nothing left to refund on this order');
+
   const at = nowIso(ctx.now);
+  const inv = await latestInvoice(db, orderId);
+  const creditNote = inv
+    ? issueDocStmts(db, {
+        series: 'CN', fy: fyOf(ctx.now), docType: 'credit_note', orderId, refInvoiceId: inv.id, issuedAt: at, reason,
+        snapshot: partialCreditNoteSnapshot(JSON.parse(inv.snapshot) as DocSnapshot, { docNo: inv.doc_no, issuedAt: inv.issued_at }, reason, lines),
+      })
+    : [];
+  const ref = ctx.manualReference?.trim();
+  const refundId = '(SELECT MAX(id) FROM refunds WHERE order_id = ?)';
   const claim = claimStmt(
     db,
     orderId,
-    'refund',
-    "SELECT status IN ('shipped', 'delivered', 'returned', 'rto') AND payment_status = 'paid' FROM orders WHERE id = ?",
+    `refund:${ctx.requestKey && /^[A-Za-z0-9-]{8,64}$/.test(ctx.requestKey) ? ctx.requestKey : crypto.randomUUID()}`,
+    `SELECT status IN ('shipped', 'delivered', 'returned', 'rto') AND payment_status IN ('paid', 'partially_refunded', 'refund_pending') FROM orders WHERE id = ?`,
     [orderId],
     at,
   );
   const res = await runClaim(db, claim, [
-    db.prepare('UPDATE orders SET payment_status = ?, updated_at = ? WHERE id = ?').bind(online ? 'refund_pending' : 'refunded', at, orderId),
-    ...(await creditNoteStmts(db, orderId, ctx.now, reason)),
+    ...creditNote,
     db
       .prepare(
         `INSERT INTO refunds (order_id, amount_paise, status, reason, razorpay_refund_id, created_at, updated_at, credit_note_id)
-         VALUES (?, ?, ?, ?, NULL, ?, ?, (SELECT MAX(id) FROM invoices WHERE order_id = ? AND series = 'CN'))`,
+         VALUES (?, ?, ?, ?, NULL, ?, ?, ${inv ? "(SELECT MAX(id) FROM invoices WHERE order_id = ? AND series = 'CN')" : 'NULL'})`,
       )
-      .bind(orderId, order.total_paise, online ? 'pending' : 'processed', online ? reason : `${reason} (ref ${ctx.manualReference!.trim()})`, at, at, orderId),
-    ...(online ? [enqueueStmt(db, { orderId, kind: 'razorpay.refund', payload: {}, at })] : [enqueueStmt(db, { orderId, kind: 'email.refunded', payload: {}, at })]),
-    event(db, orderId, at, 'refund', 'admin', online ? reason : `${reason} · manual ref ${ctx.manualReference!.trim()}`, ctx.actorEmail),
+      .bind(orderId, amount, online ? 'pending' : 'processed', online ? reason : `${reason} (ref ${ref})`, at, at, ...(inv ? [orderId] : [])),
+    ...lines.map((l) => db.prepare(`INSERT INTO refund_lines (refund_id, order_item_id, qty, amount_paise) VALUES (${refundId}, ?, ?, ?)`).bind(orderId, l.item.id, l.qty, l.amount)),
+    paymentStatusAfterRefundsStmt(db, orderId, at),
+    online
+      ? db.prepare(`INSERT INTO outbox (order_id, kind, payload, state, attempts, next_attempt_at, created_at, updated_at) VALUES (?1, 'razorpay.refund', json_object('refundId', ${refundId.replace('?', '?1')}), 'pending', 0, ?2, ?2, ?2)`).bind(orderId, at)
+      : db.prepare(`INSERT INTO outbox (order_id, kind, payload, state, attempts, next_attempt_at, created_at, updated_at) VALUES (?1, 'email.refunded', json_object('refundId', ${refundId.replace('?', '?1')}), 'pending', 0, ?2, ?2, ?2)`).bind(orderId, at),
+    event(db, orderId, at, 'refund', 'admin', `${(amount / 100).toFixed(2)} — ${online ? reason : `${reason} · manual ref ${ref}`}`, ctx.actorEmail),
   ]);
-  return settle(res, 'This order was already refunded');
+  if (!res.ok && res.reason === 'other' && /refund exceeds/.test(String(res.error))) return FAIL('That is more than is still refundable — reload the page');
+  return settle(res, 'This refund was already recorded');
 }
 
 /** The parcel is back and inspected: restock what can be resold (never perishables). */

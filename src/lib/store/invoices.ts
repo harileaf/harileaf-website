@@ -4,7 +4,7 @@
  * number/date the database assigned, so later edits never change an issued
  * document.
  */
-import { documentType, type DocumentType } from './gst';
+import { documentType, splitTax, type DocumentType } from './gst';
 import { stateName } from './india-states';
 import { amountInWords } from './money';
 import type { OrderItemRow, OrderRow } from './orders';
@@ -118,6 +118,34 @@ export function invoiceSnapshot(o: OrderRow, items: OrderItemRow[], s: StoreSett
     lines,
     totals: totals(lines),
   };
+}
+
+/**
+ * A credit note for part of an invoice (v2 partial refunds): exactly the
+ * refunded amounts per line, with the tax backed out of each at the line's
+ * rate and the invoice's intra/inter-state split.
+ */
+export function partialCreditNoteSnapshot(
+  invoice: DocSnapshot,
+  ref: { docNo: string; issuedAt: string },
+  reason: string,
+  lines: Array<{ item: Pick<OrderItemRow, 'product_name' | 'variant_label' | 'hsn_code' | 'unit_price_paise' | 'gst_rate_bp'>; qty: number; amount: number }>,
+): DocSnapshot {
+  const taxed = splitTax(lines.map((l) => ({ lineTotal: l.amount, rateBp: l.item.gst_rate_bp })), invoice.intraState);
+  const docLines: DocLine[] = lines.map((l, i) => ({
+    description: `${l.item.product_name} — ${l.item.variant_label}${l.qty === 0 ? ' (price adjustment)' : ''}`,
+    hsn: l.item.hsn_code,
+    qty: l.qty,
+    unitPrice: l.item.unit_price_paise,
+    discount: 0,
+    taxable: taxed[i].taxable,
+    rateBp: l.item.gst_rate_bp,
+    cgst: taxed[i].cgst,
+    sgst: taxed[i].sgst,
+    igst: taxed[i].igst,
+    total: l.amount,
+  }));
+  return { ...invoice, docType: 'credit_note', title: TITLES.credit_note, reference: ref, reason, lines: docLines, totals: totals(docLines) };
 }
 
 /** A credit note for the whole invoice (v1 refunds and cancellations are full). */

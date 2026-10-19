@@ -6,6 +6,7 @@
  * can't refund twice. A retry after a failure makes a new row (new receipt).
  */
 import { nowIso } from './db';
+import { paymentStatusAfterRefundsStmt } from './fulfilment';
 import { claimStmt, runClaim } from './ops';
 import { enqueueStmt, type OutboxHandler } from './outbox';
 import { fetchRefund, listPaymentRefunds, razorpayConfig, refundPayment, type RazorpayConfig, type RazorpayRefund } from './razorpay';
@@ -35,43 +36,55 @@ export async function applyRefundStatus(db: D1Database, refundId: number, r: Pic
     r.status === 'processed'
       ? [
           db.prepare("UPDATE refunds SET status = 'processed', updated_at = ? WHERE id = ?").bind(at, refundId),
-          db.prepare("UPDATE orders SET payment_status = 'refunded', updated_at = ? WHERE id = ? AND payment_status = 'refund_pending'").bind(at, row.order_id),
+          // refunded, or partially_refunded after a partial refund (v2)
+          paymentStatusAfterRefundsStmt(db, row.order_id, at),
           db.prepare("INSERT INTO order_events (order_id, at, type, actor, note) VALUES (?, ?, 'refunded', 'razorpay', ?)").bind(row.order_id, at, `Refund ${r.id} processed`),
-          enqueueStmt(db, { orderId: row.order_id, kind: 'email.refunded', payload: {}, at }),
+          enqueueStmt(db, { orderId: row.order_id, kind: 'email.refunded', payload: { refundId }, at }),
         ]
       : [
           db.prepare("UPDATE refunds SET status = 'failed', updated_at = ? WHERE id = ?").bind(at, refundId),
-          // Back to paid: the money is still with us; the admin retries (dashboard to-do).
-          db.prepare("UPDATE orders SET payment_status = 'paid', updated_at = ? WHERE id = ? AND payment_status = 'refund_pending'").bind(at, row.order_id),
+          // Back to paid (or partially refunded): the money is still with us; the admin retries (dashboard to-do).
+          paymentStatusAfterRefundsStmt(db, row.order_id, at),
           db.prepare("INSERT INTO order_events (order_id, at, type, actor, note) VALUES (?, ?, 'refund_failed', 'razorpay', ?)").bind(row.order_id, at, `Refund ${r.id} failed — retry from the order page`),
         ];
   const res = await runClaim(db, claim, [link, ...rest]);
   if (!res.ok && res.reason === 'other') throw res.error;
 }
 
-/** Admin retry after a failure: a fresh refunds row (new receipt) for the same amount. */
+/**
+ * Admin retry after a failure: a fresh refunds row (new receipt) replacing the
+ * latest failed refund that hasn't been retried, with its amount, lines and
+ * credit note (no second credit note is issued).
+ */
 export function retryRefundStmts(db: D1Database, orderId: number, at: string): D1PreparedStatement[] {
-  const failed = `FROM refunds f WHERE f.order_id = ?1 AND f.status = 'failed'
-    AND NOT EXISTS (SELECT 1 FROM refunds p WHERE p.order_id = ?1 AND p.status IN ('pending', 'processed'))
-    AND f.id = (SELECT MAX(id) FROM refunds WHERE order_id = ?1)`;
+  const failedId = `(SELECT MAX(id) FROM refunds f WHERE f.order_id = ?1 AND f.status = 'failed' AND NOT EXISTS (SELECT 1 FROM refunds x WHERE x.retry_of = f.id))`;
+  const retryId = `(SELECT MAX(id) FROM refunds WHERE order_id = ?1 AND retry_of IS NOT NULL AND status = 'pending')`;
   return [
-    db.prepare(`INSERT INTO outbox (order_id, kind, payload, state, attempts, next_attempt_at, created_at, updated_at) SELECT ?1, 'razorpay.refund', '{}', 'pending', 0, ?2, ?2, ?2 ${failed}`).bind(orderId, at),
-    db.prepare(`INSERT INTO refunds (order_id, credit_note_id, amount_paise, status, reason, created_at, updated_at) SELECT ?1, f.credit_note_id, f.amount_paise, 'pending', f.reason || ' (retry)', ?2, ?2 ${failed}`).bind(orderId, at),
-    db.prepare("UPDATE orders SET payment_status = 'refund_pending', updated_at = ?2 WHERE id = ?1 AND payment_status = 'paid' AND EXISTS (SELECT 1 FROM refunds WHERE order_id = ?1 AND status = 'pending')").bind(orderId, at),
+    db.prepare(`SELECT ${failedId} AS failed`).bind(orderId),
+    db
+      .prepare(
+        `INSERT INTO refunds (order_id, credit_note_id, amount_paise, status, reason, retry_of, created_at, updated_at)
+         SELECT ?1, f.credit_note_id, f.amount_paise, 'pending', f.reason || ' (retry)', f.id, ?2, ?2 FROM refunds f WHERE f.id = ${failedId}`,
+      )
+      .bind(orderId, at),
+    db.prepare(`INSERT INTO refund_lines (refund_id, order_item_id, qty, amount_paise) SELECT ${retryId}, l.order_item_id, l.qty, l.amount_paise FROM refund_lines l JOIN refunds r ON r.id = ${retryId} WHERE l.refund_id = r.retry_of`).bind(orderId),
+    db.prepare(`INSERT INTO outbox (order_id, kind, payload, state, attempts, next_attempt_at, created_at, updated_at) SELECT ?1, 'razorpay.refund', json_object('refundId', ${retryId}), 'pending', 0, ?2, ?2, ?2 WHERE EXISTS (SELECT 1 FROM refunds WHERE id = ${retryId} AND created_at = ?2)`).bind(orderId, at),
+    paymentStatusAfterRefundsStmt(db, orderId, at),
   ];
 }
 
 export function makeRefundHandler(fetchImpl?: typeof fetch): OutboxHandler {
-  return async (_payload, { env, row }) => {
+  return async (payload: { refundId?: number }, { env, row }) => {
     const cfg = razorpayConfig(env, fetchImpl);
     if (!cfg) throw new Error('Razorpay keys are not configured');
     const db = env.STORE_DB;
+    // v2 rows name their refund (an order can have several partial refunds); older rows take the latest pending.
     const r = await db
       .prepare(
         `SELECT r.id, r.amount_paise, r.razorpay_refund_id, o.razorpay_payment_id, o.order_no FROM refunds r JOIN orders o ON o.id = r.order_id
-         WHERE r.order_id = ? AND r.status = 'pending' ORDER BY r.id DESC LIMIT 1`,
+         WHERE r.order_id = ?1 AND r.status = 'pending' AND (?2 IS NULL OR r.id = ?2) ORDER BY r.id DESC LIMIT 1`,
       )
-      .bind(row.order_id)
+      .bind(row.order_id, Number.isInteger(payload?.refundId) ? payload.refundId : null)
       .first<{ id: number; amount_paise: number; razorpay_refund_id: string | null; razorpay_payment_id: string | null; order_no: string }>();
     if (!r || r.razorpay_refund_id) return; // nothing pending, or already sent (webhook / cron settles it)
     if (!r.razorpay_payment_id) throw new Error('refund without a Razorpay payment id');
