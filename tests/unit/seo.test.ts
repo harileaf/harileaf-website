@@ -59,6 +59,7 @@ describe('seo', () => {
     const p = product({ season: { startMd: '04-01', endMd: '06-30', offSeasonMode: 'preorder', preorderDispatchDate: '2027-04-10' } });
     const ld = productGroupJsonLd({ product: p, variants: [variant({ availability: 'preorder' })], images }) as any;
     expect(ld.hasVariant[0].offers).toMatchObject({ availability: 'https://schema.org/PreOrder', availabilityStarts: '2027-04-10', price: '699.00' });
+    expect(ld.hasVariant[0].offers).not.toHaveProperty('shippingDetails'); // no 0–2 day handling time on a months-away dispatch
   });
 
   it('escapes "<" so content cannot close the JSON-LD script tag', () => {

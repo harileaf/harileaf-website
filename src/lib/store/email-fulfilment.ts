@@ -49,12 +49,12 @@ export function readyToDispatchEmail(o: OrderRow, viewUrl: string, s: StoreSetti
 
 /** Pre-order pushed back: the new date, the reason, and a one-click cancel (full refund) on the order page. */
 export function preorderDelayedEmail(o: OrderRow, viewUrl: string, s: StoreSettings, d: { from: string | null; to: string; reason: string }): Email {
-  const body = `<p>Hi ${first(o)}, we're sorry: your pre-order <strong>${esc(o.order_no)}</strong> will now be dispatched from <strong>${esc(longDay(d.to))}</strong>${d.from ? ` instead of ${esc(longDay(d.from))}` : ''}.</p><p>Why: ${esc(d.reason)}</p><p>If that no longer works for you, you can cancel for a full refund to your original payment method — no questions asked.</p>${button(`${viewUrl}#cancel`, 'Cancel and get a full refund')}<p><a href="${esc(viewUrl)}">Or keep your order and view it here</a>.</p>`;
+  const body = `<p>Hi ${first(o)}, we're sorry: your pre-order <strong>${esc(o.order_no)}</strong> will now be dispatched from <strong>${esc(longDay(d.to))}</strong>${d.from ? ` instead of ${esc(longDay(d.from))}` : ''}.</p><p>Why: ${esc(d.reason)}</p><p>If that no longer works for you, you can cancel for a full refund to your original payment method — no questions asked. The button opens your order page, where you confirm the cancellation.</p>${button(`${viewUrl}#cancel`, 'Review or cancel your order')}<p>To keep your order, you don't need to do anything.</p>`;
   return {
     to: o.email,
     subject: `New dispatch date for your pre-order ${o.order_no} — HariLeaf`,
     html: wrap('Your pre-order has a new date', body, s),
-    text: `Your pre-order ${o.order_no} will now be dispatched from ${longDay(d.to)}${d.from ? ` instead of ${longDay(d.from)}` : ''}.\nWhy: ${d.reason}\nTo cancel for a full refund: ${viewUrl}#cancel`,
+    text: `Your pre-order ${o.order_no} will now be dispatched from ${longDay(d.to)}${d.from ? ` instead of ${longDay(d.from)}` : ''}.\nWhy: ${d.reason}\nTo keep your order, do nothing. To cancel for a full refund, confirm it on your order page: ${viewUrl}#cancel`,
     idempotencyKey: `email.preorder_delayed/${o.order_no}/${d.to}`,
     replyTo: s.customer_care_email || undefined,
   };

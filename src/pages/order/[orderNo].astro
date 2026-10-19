@@ -144,7 +144,7 @@ const paymentLine =
         {canCancel && (
           <div id="cancel" class="rounded-2xl border border-black/10 p-5 scroll-mt-28">
             <h2 class="font-extrabold mb-1">Need to cancel?</h2>
-            <p class="text-on-surface-variant">{o.is_preorder === 1 ? 'You can cancel free of charge until we dispatch it; a prepaid amount is refunded in full.' : 'You can cancel free of charge until we pack it.'}</p>
+            <p class="text-on-surface-variant">{o.is_preorder === 1 ? 'You can cancel free of charge until we pack it for dispatch; the amount you paid is refunded in full.' : 'You can cancel free of charge until we pack it.'}</p>
             <label class="block mt-3 text-xs font-bold" for="cancel-reason">Reason (optional)</label>
             <form id="cancel-form">
               <input id="cancel-reason" type="text" maxlength="300" class="mt-1 w-full rounded-lg border border-black/15 px-3 py-2" />

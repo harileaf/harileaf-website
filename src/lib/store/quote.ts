@@ -68,6 +68,7 @@ export interface Quote {
   cod: { eligible: boolean; reason: string | null; max: Paise };
   /** Groups present among the lines being bought; more than one means the cart must be split. */
   groups: CartGroup[];
+  /** More than one group, or pre-orders with different dispatch dates. */
   mixed: boolean;
   /** True when every line can be bought as asked, the minimum is met and the cart isn't mixed. */
   ok: boolean;
@@ -152,7 +153,9 @@ export async function quoteCart(
   const meetsMinimum = subtotal >= minOrder;
   const buyable = lines.filter((l) => l.qty > 0);
   const groups = (['preorder', 'perishable', 'regular'] as const).filter((g) => buyable.some((l) => l.group === g));
-  const mixed = groups.length > 1;
+  // Pre-orders with different dispatch dates can't share an order either: one order is one parcel.
+  const preorderDates = [...new Set(buyable.map((l) => l.preorderDate).filter((d): d is string => Boolean(d)))].sort();
+  const mixed = groups.length > 1 || preorderDates.length > 1;
   const codReason = !buyable.length
     ? 'Your cart is empty'
     : groups.includes('preorder')

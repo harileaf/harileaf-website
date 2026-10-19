@@ -185,7 +185,8 @@ export async function dashboardMetrics(db: D1Database, now: Date) {
   const row = await db
     .prepare(
       `SELECT
-         (SELECT count(*) FROM orders WHERE status = 'placed') AS to_pack,
+         (SELECT count(*) FROM orders WHERE status = 'placed' AND is_preorder = 0) AS to_pack,
+         (SELECT count(*) FROM orders WHERE status = 'placed' AND is_preorder = 1) AS preorders_open,
          (SELECT count(*) FROM orders WHERE status = 'packed') AS to_ship,
          (SELECT count(*) FROM orders WHERE status = 'rto') AS rto,
          (SELECT count(*) FROM orders WHERE created_at >= ?1 AND status NOT IN ('pending_payment', 'payment_failed')) AS orders_today,

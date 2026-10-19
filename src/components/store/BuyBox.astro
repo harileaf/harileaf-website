@@ -82,7 +82,7 @@ const fmtDate = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateS
     </p>
     {preorderDate && variants.some((v) => v.availability === 'preorder') && (
       <p class:list={['mt-2 text-sm font-bold rounded-xl px-3 py-2', { hidden: initial.availability !== 'preorder' }]} style="background:#efeafc;color:#3a2470" data-bb-preorder>
-        Pre-order · dispatches from {fmtDay(preorderDate)} · prepaid only · cancel for a full refund until dispatch
+        Pre-order · dispatches from {fmtDay(preorderDate)} · prepaid only · cancel for a full refund until we pack it
       </p>
     )}
   </div>
