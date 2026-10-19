@@ -110,8 +110,9 @@ test('keyboard only: choose a pack size and add it to the cart', async ({ page, 
 test('mobile shows the sticky add-to-cart bar', async ({ page, isMobile }) => {
   test.skip(!isMobile, 'sticky bar is mobile only');
   await page.goto('/rice/karjat-3');
-  await page.mouse.wheel(0, 1500);
   const bar = page.locator('[data-sticky-bar]');
+  await expect(bar).toBeHidden(); // the main button is on screen
+  await page.mouse.wheel(0, 1500);
   await expect(bar).toBeVisible();
   await bar.locator('[data-add-sticky]').click();
   await expect(page.getByRole('link', { name: /^Cart/ }).first()).toContainText('1');
