@@ -2,6 +2,7 @@
 import type { AstroCookies } from 'astro';
 import { validateSession } from './auth';
 import { OUTBOX_HANDLERS } from './store/handlers';
+import { queueBackInStock } from './store/notify';
 import { drainOutbox } from './store/outbox';
 
 export const json = (body: unknown, status = 200) =>
@@ -27,11 +28,16 @@ export function idParam(v: string | undefined): number | null {
 }
 
 /**
- * After a write: drain due outbox rows (cache purges) without delaying the
- * response; anything that fails is retried by the cron.
+ * After a write: queue "notify me" emails if a product just became buyable
+ * (a no-op unless requests are waiting), then drain due outbox rows (cache
+ * purges, emails) without delaying the response; anything that fails is
+ * retried by the cron.
  */
 export function drainSoon(env: Env, locals: App.Locals): void {
-  const job = drainOutbox(env.STORE_DB, OUTBOX_HANDLERS, { env, now: new Date(), limit: 10 }).catch((err) =>
+  const now = new Date();
+  const job = queueBackInStock(env.STORE_DB, now)
+    .then(() => drainOutbox(env.STORE_DB, OUTBOX_HANDLERS, { env, now, limit: 10 }))
+    .catch((err) =>
     console.error(JSON.stringify({ msg: 'post-write drain failed', error: String(err) })),
   );
   if (locals.cfContext) locals.cfContext.waitUntil(job);

@@ -12,6 +12,7 @@ import { reconcileRefunds } from './refunds';
 import { cancelStaleUnconfirmedCod, remindUnconfirmedCod } from './cod';
 import { getSettings } from './settings';
 import { anonymiseStaleOrders } from './retention';
+import { purgeNotifyRequests, queueBackInStock } from './notify';
 
 export async function runScheduled(env: Env, now: Date): Promise<void> {
   const failed: string[] = [];
@@ -33,6 +34,9 @@ export async function runScheduled(env: Env, now: Date): Promise<void> {
     await step('cod_reminders', () => remindUnconfirmedCod(env.STORE_DB, now));
     await step('cod_expired', async () => cancelStaleUnconfirmedCod(env.STORE_DB, Number((await getSettings(env.STORE_DB)).cod_confirm_window_hours), now));
     await step('anonymised', () => anonymiseStaleOrders(env.STORE_DB, now));
+    // Seasons open on the calendar, not on a write: check waiting "notify me" requests every run.
+    await step('notify_queued', () => queueBackInStock(env.STORE_DB, now));
+    await step('notify_purged', () => purgeNotifyRequests(env.STORE_DB, now));
     await step('outbox', () => drainOutbox(env.STORE_DB, OUTBOX_HANDLERS, { env, now, limit: 50 }));
     console.log(JSON.stringify({ msg: 'scheduled', ...report }));
   } catch (err) {

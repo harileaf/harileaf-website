@@ -8,6 +8,7 @@ import type { Batch, Product, Variant } from '../../lib/store/catalog';
 import { organicCopy } from '../../lib/store/claims';
 import { formatINR } from '../../lib/store/money';
 import type { ReviewSummary } from '../../lib/store/reviews';
+import NotifyForm from './NotifyForm.astro';
 import Stars from './Stars.astro';
 
 interface Props {
@@ -122,6 +123,9 @@ const fmtDate = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateS
     </button>
   </div>
   <p class="text-sm font-bold min-h-[1.25rem]" style="color:#1d7a3a" aria-live="polite" data-add-status></p>
+  {!variants.some((v) => v.availability === 'buy' || v.availability === 'preorder') && (
+    <NotifyForm productId={p.id} productName={p.name} outOfSeason={variants.every((v) => v.availability === 'notify')} />
+  )}
 
   <ul class="text-sm text-on-surface-variant flex flex-col gap-1">
     <li>Free delivery across India{codMaxPaise && p.codAllowed ? <> · Cash on delivery up to {formatINR(codMaxPaise)}</> : null}</li>

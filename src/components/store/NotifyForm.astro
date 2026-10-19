@@ -1,0 +1,78 @@
+---
+/**
+ * "Notify me" for a product no one can buy right now. Turnstile loads only when
+ * the shopper starts typing (it would cost the product page its Lighthouse
+ * score). One email, then the address is deleted; never used for marketing.
+ */
+import { env } from 'cloudflare:workers';
+
+interface Props {
+  productId: number;
+  productName: string;
+  /** Out of season ("notify") vs sold out in season. */
+  outOfSeason: boolean;
+}
+const { productId, productName, outOfSeason } = Astro.props;
+const siteKey = env.PUBLIC_TURNSTILE_SITE_KEY ?? '';
+const id = `notify-${productId}`;
+---
+
+<form data-notify={productId} class="rounded-2xl bg-surface-container-low p-4 flex flex-col gap-3" novalidate aria-labelledby={`${id}-h`}>
+  <p id={`${id}-h`} class="font-extrabold">{outOfSeason ? 'Tell me when it’s in season' : 'Tell me when it’s back'}</p>
+  <div class="flex flex-col sm:flex-row gap-2">
+    <label for={`${id}-email`} class="sr-only">Email address</label>
+    <input id={`${id}-email`} name="email" type="email" autocomplete="email" required placeholder="you@example.com" aria-describedby={`${id}-note`}
+      class="min-w-0 flex-1 rounded-xl border border-black/15 bg-white px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-primary" />
+    <button type="submit" class="rounded-full px-6 py-3 font-extrabold text-white cta-gradient disabled:opacity-50">Notify me</button>
+  </div>
+  {siteKey && <div data-turnstile data-sitekey={siteKey}></div>}
+  <p id={`${id}-note`} class="text-xs text-on-surface-variant">
+    We’ll email you once when {productName} can be ordered, then delete your address. It isn’t used for anything else. <a href="/privacy" class="underline">Privacy policy</a>.
+  </p>
+  <p class="text-sm font-bold empty:hidden" role="status" aria-live="polite" data-notify-status></p>
+</form>
+
+<script>
+  import { onEveryPage } from '../../scripts/page-load';
+  import { mountTurnstile } from '../../scripts/store/turnstile';
+
+  function initNotify() {
+    document.querySelectorAll<HTMLFormElement>('form[data-notify]').forEach((form) => {
+      const status = form.querySelector<HTMLElement>('[data-notify-status]')!;
+      const email = form.querySelector<HTMLInputElement>('input[name=email]')!;
+      let widget: Promise<{ reset(): void } | null> | null = null;
+      const ensureWidget = () => (widget ??= mountTurnstile(form.querySelector<HTMLElement>('[data-turnstile]')));
+      email.addEventListener('focus', ensureWidget, { once: true });
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!email.checkValidity()) {
+          status.style.color = '#b3261e';
+          status.textContent = 'Enter a valid email address.';
+          email.focus();
+          return;
+        }
+        const w = await ensureWidget();
+        const btn = form.querySelector<HTMLButtonElement>('button[type=submit]')!;
+        btn.disabled = true;
+        const token = new FormData(form).get('cf-turnstile-response');
+        const res = await fetch('/api/store/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ productId: Number(form.dataset.notify), email: email.value, turnstileToken: token ? String(token) : null }),
+        }).catch(() => null);
+        const data = (await res?.json().catch(() => ({}))) as { ok?: boolean; error?: string } | undefined;
+        w?.reset();
+        if (res?.ok && data?.ok) {
+          status.style.color = '#1d7a3a';
+          status.textContent = `Done — we’ll email ${email.value} once it can be ordered.`;
+          email.value = '';
+        } else {
+          status.style.color = '#b3261e';
+          status.textContent = data?.error ?? 'Something went wrong. Please try again.';
+        }
+        btn.disabled = false;
+      });
+    });
+  }
+  onEveryPage(initNotify);
+</script>
