@@ -9,6 +9,9 @@ import { organicCopy } from '../../lib/store/claims';
 import { formatINR } from '../../lib/store/money';
 import type { ReviewSummary } from '../../lib/store/reviews';
 import NotifyForm from './NotifyForm.astro';
+import ZoneCheck from './ZoneCheck.astro';
+import type { StoreSettings } from '../../lib/store/settings';
+import type { Zone } from '../../lib/store/zones';
 import Stars from './Stars.astro';
 
 interface Props {
@@ -19,9 +22,12 @@ interface Props {
   codMaxPaise: number | null;
   /** Approved reviews only; no rating line at all until the first one. */
   rating?: ReviewSummary | null;
+  /** Perishables: the zone they're sold in (enables the delivery check). */
+  zone?: Zone | null;
+  settings?: StoreSettings;
 }
 
-const { product: p, variants, batch, minOrderPaise, codMaxPaise, rating } = Astro.props;
+const { product: p, variants, batch, minOrderPaise, codMaxPaise, rating, zone, settings } = Astro.props;
 const initial = variants.find((v) => v.availability === 'buy') ?? variants[0];
 const cert = organicCopy({ organicScheme: p.organic.scheme, conversionSince: p.organic.conversionSince, certNumber: p.organic.certNumber });
 const off = (v: Variant) => (v.mrp > v.price ? Math.round((1 - v.price / v.mrp) * 100) : 0);
@@ -29,7 +35,7 @@ const unavailableLabel = { buy: '', sold_out: 'Sold out — back soon', preorder
 const fmtDate = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
 ---
 
-<div data-buybox data-product-id={p.id} class="flex flex-col gap-4">
+<div data-buybox data-product-id={p.id} data-perishable={p.perishable ? '1' : '0'} class="flex flex-col gap-4">
   <div>
     <a href={`/${p.category.slug}/`} class="inline-block text-[11px] font-extrabold uppercase tracking-wider px-3 py-1.5 rounded-full bg-surface-container-high text-secondary">{p.category.name}</a>
     <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight leading-tight mt-3 text-on-surface">{p.name}</h1>
@@ -123,13 +129,16 @@ const fmtDate = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateS
     </button>
   </div>
   <p class="text-sm font-bold min-h-[1.25rem]" style="color:#1d7a3a" aria-live="polite" data-add-status></p>
+  {zone && settings && variants.some((v) => v.availability === 'buy') && <ZoneCheck productName={p.name} zone={zone} settings={settings} />}
   {!variants.some((v) => v.availability === 'buy' || v.availability === 'preorder') && (
     <NotifyForm productId={p.id} productName={p.name} outOfSeason={variants.every((v) => v.availability === 'notify')} />
   )}
 
   <ul class="text-sm text-on-surface-variant flex flex-col gap-1">
-    <li>Free delivery across India{codMaxPaise && p.codAllowed ? <> · Cash on delivery up to {formatINR(codMaxPaise)}</> : null}</li>
-    <li>Damaged or wrong item? Replacement or refund — <a href="/refund-policy" class="underline">refund policy</a></li>
+    {p.perishable
+      ? <li>Free delivery · prepaid only · checked out separately from other products</li>
+      : <li>Free delivery across India{codMaxPaise && p.codAllowed ? <> · Cash on delivery up to {formatINR(codMaxPaise)}</> : null}</li>}
+    <li>{p.perishable ? 'Fresh produce isn’t returnable. Arrived damaged? Send a photo within 24 hours of delivery for a replacement or refund' : 'Damaged or wrong item? Replacement or refund'} — <a href="/refund-policy" class="underline">refund policy</a></li>
   </ul>
 
   {p.claims.length > 0 && (

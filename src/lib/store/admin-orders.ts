@@ -15,6 +15,8 @@ export const ORDER_STATUSES = ['pending_payment', 'placed', 'packed', 'shipped',
 export interface OrderListRow {
   id: number; order_no: string; status: string; payment_method: string; payment_status: string; customer_name: string;
   ship_city: string; ship_state: string; total_paise: number; created_at: string; awb: string | null; replacement_for_order_id: number | null;
+  /** v2: fresh produce in the order, and the day it must leave the farm. */
+  perishable: number; expected_dispatch_date: string | null;
 }
 
 export async function listOrders(db: D1Database, f: { status?: string; q?: string; limit?: number; offset?: number } = {}) {
@@ -34,7 +36,8 @@ export async function listOrders(db: D1Database, f: { status?: string; q?: strin
   }
   const { results } = await db
     .prepare(
-      `SELECT id, order_no, status, payment_method, payment_status, customer_name, ship_city, ship_state, total_paise, created_at, awb, replacement_for_order_id
+      `SELECT id, order_no, status, payment_method, payment_status, customer_name, ship_city, ship_state, total_paise, created_at, awb, replacement_for_order_id,
+              expected_dispatch_date, EXISTS (SELECT 1 FROM order_items i WHERE i.order_id = orders.id AND i.perishable = 1) AS perishable
        FROM orders ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY id DESC LIMIT ? OFFSET ?`,
     )
     .bind(...binds, Math.min(f.limit ?? 50, 200), f.offset ?? 0)

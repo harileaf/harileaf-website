@@ -18,6 +18,7 @@ export function initBuyBox(signal?: AbortSignal): void {
   const box = document.querySelector<HTMLElement>('[data-buybox]');
   if (!box) return;
   const radios = Array.from(box.querySelectorAll<HTMLButtonElement>('[data-variant]'));
+  const perishable = box.dataset.perishable === '1';
   const qty = box.querySelector<HTMLInputElement>('[data-qty-input]')!;
   const addBtn = box.querySelector<HTMLButtonElement>('[data-add]')!;
   const status = box.querySelector<HTMLElement>('[data-add-status]')!;
@@ -111,6 +112,11 @@ export function initBuyBox(signal?: AbortSignal): void {
     link.className = 'underline';
     link.textContent = 'View cart';
     status.append(link);
+    // Fresh produce checks out on its own: say so now rather than surprise the shopper in the cart.
+    const ours = new Set(radios.map((el) => Number(el.dataset.id)));
+    if (perishable && readCart().some((l) => !ours.has(l.variantId))) {
+      status.append(' Fresh produce is checked out on its own — your cart will show you how.');
+    }
     confirmAdded(added > 0 ? 'Added to cart ✓' : 'Already at 20');
   }
   addBtn.addEventListener('click', add);

@@ -3,7 +3,8 @@ import { env } from 'cloudflare:workers';
 import { allowed, json, tooMany } from '../../../lib/store-api';
 import { stateCodeFor } from '../../../lib/store/india-states';
 import { getSettings } from '../../../lib/store/settings';
-import { checkServiceability, shiprocketConfig } from '../../../lib/store/shiprocket';
+import { checkServiceability, couriers, shiprocketConfig } from '../../../lib/store/shiprocket';
+import { deliveryWindow, nextDispatch, parseCalendar, parseZones, pickCourier, pincodeInZone } from '../../../lib/store/zones';
 
 export const prerender = false;
 
@@ -12,6 +13,9 @@ export const prerender = false;
  * → { serviceable, cod, etaDays, city, state, stateCode, checked }.
  * `checked: false` means we couldn't ask the courier (not configured / outage):
  * checkout still allows non-perishable orders and confirms delivery afterwards.
+ *
+ * With `&zone={id}` (a perishable's delivery zone) the answer is that zone's
+ * verdict instead: { zone: { name, inZone, courier, etaDays, dispatch, window } }.
  */
 export const GET: APIRoute = async ({ url, request }) => {
   if (!(await allowed(env, request, 'pincode'))) return tooMany();
@@ -29,6 +33,24 @@ export const GET: APIRoute = async ({ url, request }) => {
   const unknown = { serviceable: null, cod: null, etaDays: null, city: null, state: null, stateCode: null, checked: false };
   const cfg = shiprocketConfig(env);
   const settings = await getSettings(env.STORE_DB);
+
+  const zoneId = url.searchParams.get('zone');
+  if (zoneId) {
+    const zone = parseZones(settings.delivery_zones).find((z) => z.id === zoneId && z.enabled);
+    if (!zone) return json({ error: 'Not on sale' }, 404);
+    const base = { name: zone.name, maxTransitDays: zone.maxTransitDays, inZone: pincodeInZone(pin, zone), courier: null as boolean | null, etaDays: null as number | null, dispatch: null as string | null, window: null as { from: string; to: string } | null };
+    if (!base.inZone || !cfg || !settings.pickup_pincode) return json({ zone: base });
+    try {
+      const list = await couriers(cfg, { pickup: settings.pickup_pincode, delivery: pin, weightKg: grams / 1000, cod: false, declaredValue: value / 100 });
+      const pick = pickCourier(list, zone);
+      const dispatch = pick ? nextDispatch(new Date(), parseCalendar(settings)) : null;
+      return json({ zone: { ...base, courier: Boolean(pick), etaDays: pick?.etaDays ?? null, dispatch, window: dispatch && pick ? deliveryWindow(dispatch, pick.etaDays) : null } });
+    } catch (err) {
+      console.error(JSON.stringify({ msg: 'zone pincode check failed', pin, error: String(err) }));
+      return json({ zone: base });
+    }
+  }
+
   if (!cfg || !settings.pickup_pincode) return json(unknown);
 
   const cacheKey = `pin:${pin}:${Math.ceil(grams / 500)}:${valueBucket}`;

@@ -73,11 +73,14 @@ interface Courier {
   courier_name?: string;
   cod?: number;
   estimated_delivery_days?: string | number;
+  /** false = air (express). */
+  is_surface?: boolean;
   city?: string;
   state?: string;
 }
 
-async function couriers(cfg: ShiprocketConfig, q: { pickup: string; delivery: string; weightKg: number; cod: boolean; declaredValue: number }): Promise<Courier[]> {
+/** Couriers that will carry a parcel on this route (empty when not serviceable; throws on a Shiprocket outage). */
+export async function couriers(cfg: ShiprocketConfig, q: { pickup: string; delivery: string; weightKg: number; cod: boolean; declaredValue: number }): Promise<Courier[]> {
   const params = new URLSearchParams({
     pickup_postcode: q.pickup,
     delivery_postcode: q.delivery,

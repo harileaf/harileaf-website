@@ -11,6 +11,7 @@ import ProductGrid from './ProductGrid.astro';
 import ReviewsSection from './ReviewsSection.astro';
 import type { Batch, Image, LabReport, Product, ProductCard, Variant } from '../../lib/store/catalog';
 import type { PublicReview, ReviewSummary } from '../../lib/store/reviews';
+import type { Zone } from '../../lib/store/zones';
 import { organicCopy } from '../../lib/store/claims';
 import { renderBasicMarkdown } from '../../lib/store/markdown';
 import { formatINR } from '../../lib/store/money';
@@ -27,10 +28,11 @@ interface Props {
   labReports: LabReport[];
   related: ProductCard[];
   reviews: { summary: ReviewSummary | null; items: PublicReview[] };
+  zone: Zone | null;
   settings: StoreSettings;
 }
 
-const { product: p, variants, images, batch, labReports, related, reviews, settings } = Astro.props;
+const { product: p, variants, images, batch, labReports, related, reviews, zone, settings } = Astro.props;
 const initial = variants.find((v) => v.availability === 'buy') ?? variants[0];
 const mayUseOrganic = organicCopy({ organicScheme: p.organic.scheme, conversionSince: p.organic.conversionSince, certNumber: p.organic.certNumber }).mayUseOrganic;
 const title = productTitle(p, initial, { mayUseOrganic });
@@ -94,7 +96,7 @@ const hasBand = howEntries.length || harvestEntries.length || p.nutrition.rows.l
         )}
       </div>
 
-      <BuyBox product={p} variants={variants} batch={batch} minOrderPaise={minOrder} codMaxPaise={codMax} rating={reviews.summary}>
+      <BuyBox product={p} variants={variants} batch={batch} minOrderPaise={minOrder} codMaxPaise={codMax} rating={reviews.summary} zone={zone} settings={settings}>
         <details class="rounded-2xl bg-surface-container-low px-5 py-4">
           <summary class="font-extrabold text-sm cursor-pointer">Product information</summary>
           <dl class="mt-3 grid grid-cols-[9rem_1fr] gap-x-4 gap-y-1.5 text-sm text-on-surface-variant">

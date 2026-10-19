@@ -10,7 +10,8 @@ import { MAX_OPEN_UNCONFIRMED, openUnconfirmedCod } from '../../../../lib/store/
 import { publicQuote, quoteCart } from '../../../../lib/store/quote';
 import { createOrder as createRazorpayOrder, razorpayConfig } from '../../../../lib/store/razorpay';
 import { getSettings } from '../../../../lib/store/settings';
-import { checkServiceability, shiprocketConfig } from '../../../../lib/store/shiprocket';
+import { checkServiceability, couriers, shiprocketConfig } from '../../../../lib/store/shiprocket';
+import { nextDispatch, parseCalendar, pickCourier, pincodeInZone } from '../../../../lib/store/zones';
 import { verifyTurnstile } from '../../../../lib/store/turnstile';
 
 export const prerender = false;
@@ -78,8 +79,35 @@ export const POST: APIRoute = async ({ request, locals }) => {
   }
   if (c.paymentMethod === 'cod' && !quote.cod.eligible) return json({ error: quote.cod.reason ?? 'Cash on delivery is not available', errors: { paymentMethod: quote.cod.reason ?? '' } }, 422);
 
-  // Courier check (fails open for non-perishables if Shiprocket is unreachable).
+  // Perishables: only inside their zone, only with an express courier within its transit limit.
+  // Fails closed: if we can't ask the courier, a perishable order is not taken.
   const sr = shiprocketConfig(env);
+  const perishableZones = [...new Map(quote.lines.filter((l) => l.qty > 0 && l.zone).map((l) => [l.zone!.id, { zone: l.zone!, name: l.name }])).values()];
+  for (const { zone, name } of perishableZones) {
+    if (!pincodeInZone(c.ship.pincode, zone)) {
+      const msg = `We deliver ${name} only within ${zone.name} for now`;
+      return json({ error: msg, errors: { 'ship.pincode': msg } }, 422);
+    }
+  }
+  if (perishableZones.length) {
+    if (!sr || !settings.pickup_pincode) return json({ error: 'We couldn’t confirm delivery to this pincode. Please try again shortly.' }, 503);
+    const grams = quote.lines.reduce((g, l) => g + l.weightG * l.qty, 0);
+    let list: Awaited<ReturnType<typeof couriers>>;
+    try {
+      list = await couriers(sr, { pickup: settings.pickup_pincode, delivery: c.ship.pincode, weightKg: grams / 1000, cod: false, declaredValue: quote.total / 100 });
+    } catch (err) {
+      console.error(JSON.stringify({ msg: 'perishable courier check failed', error: String(err) }));
+      return json({ error: 'We couldn’t confirm delivery to this pincode. Please try again shortly.' }, 503);
+    }
+    for (const { zone, name } of perishableZones) {
+      if (!pickCourier(list, zone)) {
+        const msg = `No ${zone.expressOnly ? 'express ' : ''}courier can bring ${name} to ${c.ship.pincode} within ${zone.maxTransitDays} day${zone.maxTransitDays === 1 ? '' : 's'}, so we can’t send it there`;
+        return json({ error: msg, errors: { 'ship.pincode': msg } }, 422);
+      }
+    }
+  }
+
+  // Courier check (fails open for non-perishables if Shiprocket is unreachable).
   if (sr && settings.pickup_pincode) {
     const grams = quote.lines.reduce((g, l) => g + l.weightG * l.qty, 0);
     try {
@@ -96,7 +124,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
   }
 
-  const created = await createOrder(env.STORE_DB, { quote, checkout: c, idempotencyKey: key, sellerStateCode: settings.state_code, tokenSecret: env.ORDER_TOKEN_SECRET, now, fingerprint, codConfirmationRequired: settings.cod_confirmation !== 'off' });
+  const created = await createOrder(env.STORE_DB, { quote, checkout: c, idempotencyKey: key, sellerStateCode: settings.state_code, tokenSecret: env.ORDER_TOKEN_SECRET, now, fingerprint, codConfirmationRequired: settings.cod_confirmation !== 'off', expectedDispatchDate: perishableZones.length ? nextDispatch(now, parseCalendar(settings)) : null });
   if (!created.ok) {
     const fresh = await quoteCart(env.STORE_DB, body.lines, { ...quoteOpts, today: new Date() });
     return json({ error: created.message, quote: publicQuote(fresh) }, 409);

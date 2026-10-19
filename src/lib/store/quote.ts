@@ -10,9 +10,15 @@ import { splitTax, type TaxLine } from './gst';
 import type { Paise } from './money';
 import type { StoreSettings } from './settings';
 import { mediaUrl, productPath } from './urls';
-import { parseZones } from './zones';
+import { parseZones, sellableZone, type Zone } from './zones';
 
 export type LineProblem = 'unavailable' | 'out_of_stock' | 'limited';
+
+/**
+ * Goods that ship differently check out separately (spec: Product
+ * Availability Rules): perishables go prepaid, by express, to their zone only.
+ */
+export type CartGroup = 'perishable' | 'regular';
 
 export interface QuoteLine {
   variantId: number;
@@ -36,6 +42,9 @@ export interface QuoteLine {
   gstRateBp: number;
   hsnCode: string;
   perishable: boolean;
+  group: CartGroup;
+  /** The enabled delivery zone a perishable line ships in (null for regular goods). */
+  zone: Zone | null;
   codAllowed: boolean;
   weightG: number;
   dims: { l: number; b: number; h: number };
@@ -55,7 +64,10 @@ export interface Quote {
   minOrder: Paise;
   meetsMinimum: boolean;
   cod: { eligible: boolean; reason: string | null; max: Paise };
-  /** True when every line can be bought as asked and the minimum is met. */
+  /** Groups present among the lines being bought; more than one means the cart must be split. */
+  groups: CartGroup[];
+  mixed: boolean;
+  /** True when every line can be bought as asked, the minimum is met and the cart isn't mixed. */
   ok: boolean;
 }
 
@@ -115,6 +127,8 @@ export async function quoteCart(
         gstRateBp: product.gstRateBp,
         hsnCode: product.hsnCode,
         perishable: product.perishable,
+        group: product.perishable ? 'perishable' : 'regular',
+        zone: sellableZone(product, zones).zone,
         codAllowed: product.codAllowed,
         weightG: r.weight_g,
         dims: { l: r.length_cm, b: r.breadth_cm, h: r.height_cm },
@@ -132,6 +146,8 @@ export async function quoteCart(
   // The minimum is on the value of the goods before a coupon, so a code never invalidates a cart.
   const meetsMinimum = subtotal >= minOrder;
   const buyable = lines.filter((l) => l.qty > 0);
+  const groups = (['perishable', 'regular'] as const).filter((g) => buyable.some((l) => l.group === g));
+  const mixed = groups.length > 1;
   const codReason = !buyable.length
     ? 'Your cart is empty'
     : buyable.some((l) => !l.codAllowed)
@@ -150,7 +166,9 @@ export async function quoteCart(
     minOrder,
     meetsMinimum,
     cod: { eligible: codReason === null, reason: codReason, max: codMax },
-    ok: lines.length > 0 && lines.every((l) => l.problem === null) && meetsMinimum,
+    groups,
+    mixed,
+    ok: lines.length > 0 && lines.every((l) => l.problem === null) && meetsMinimum && !mixed,
   };
 }
 
@@ -191,10 +209,14 @@ export function publicQuote(q: Quote) {
     minOrder: q.minOrder,
     meetsMinimum: q.meetsMinimum,
     cod: q.cod,
+    groups: q.groups,
+    mixed: q.mixed,
+    // Perishable lines' delivery zones: checkout checks the pincode against each.
+    zones: [...new Map(q.lines.filter((l) => l.zone).map((l) => [l.zone!.id, { id: l.zone!.id, name: l.zone!.name, maxTransitDays: l.zone!.maxTransitDays }])).values()],
     weightG: q.lines.reduce((g, l) => g + l.weightG * l.qty, 0),
     lines: q.lines.map((l) => ({
       variantId: l.variantId, name: l.name, label: l.label, path: l.path, image: l.image, qty: l.qty, requestedQty: l.requestedQty,
-      unitPrice: l.unitPrice, mrp: l.mrp, grossTotal: l.grossTotal, discount: l.discount, lineTotal: l.lineTotal, problem: l.problem, available: l.available, codAllowed: l.codAllowed,
+      unitPrice: l.unitPrice, mrp: l.mrp, grossTotal: l.grossTotal, discount: l.discount, lineTotal: l.lineTotal, problem: l.problem, group: l.group, available: l.available, codAllowed: l.codAllowed,
     })),
   };
 }
