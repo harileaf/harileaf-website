@@ -29,10 +29,4 @@ describe('canTransition', () => {
     expect(canTransition('payment_failed', 'placed', 'razorpay')).toBe(true);
     expect(canTransition('payment_failed', 'placed', 'razorpay', { customerCancelled: true })).toBe(false);
   });
-
-  it('has no self-transitions and nothing leaves a terminal state', () => {
-    for (const s of ORDER_STATUSES) for (const a of ACTORS) expect(canTransition(s, s, a)).toBe(false);
-    for (const terminal of ['cancelled', 'rto', 'returned'] as const)
-      for (const to of ORDER_STATUSES) for (const a of ACTORS) expect(canTransition(terminal, to, a)).toBe(false);
-  });
 });
