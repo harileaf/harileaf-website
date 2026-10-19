@@ -33,6 +33,7 @@ test('a shopper buys rice with cash on delivery and can cancel before packing', 
   await expect(page).toHaveURL(/\/cart\/?$/);
   await expectFullLoad(page);
   await expect(page.locator('#cart-root')).toContainText('5 kg');
+  await page.evaluate(() => localStorage.setItem('hl_coupon_v1', 'E2ETEN')); // applied earlier in the visit
   await page.getByRole('link', { name: 'Proceed to checkout' }).click();
   await expect(page).toHaveURL(/\/checkout\/?$/);
   await expectFullLoad(page);
@@ -50,6 +51,7 @@ test('a shopper buys rice with cash on delivery and can cancel before packing', 
   await page.click('#place-order');
 
   await expect(page).toHaveURL(/\/order\/HL-\d{4}-\d{4}\?t=[0-9a-f]+$/, { timeout: 15_000 }); // the token stays, so refresh works
+  expect(await page.evaluate(() => [localStorage.getItem('hl_cart_v1'), localStorage.getItem('hl_coupon_v1')])).toEqual(['[]', null]); // nothing rides into the next cart
   await page.reload();
   await expect(page.getByRole('heading', { level: 1, name: /please confirm/ })).toBeVisible();
   // COD orders ship once the customer confirms (setting on by default).
