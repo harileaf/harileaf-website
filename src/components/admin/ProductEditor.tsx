@@ -3,7 +3,7 @@
  * Prices are entered in rupees and sent as paise; stock is changed by an
  * adjustment (+/−) so concurrent sales are never overwritten.
  */
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { cloneElement, isValidElement, useEffect, useId, useMemo, useState, type ReactElement, type ReactNode } from 'react';
 import { editorMedia, type AdminMediaRows } from '../../lib/store/editor-media';
 
 type Claim = { code: string; text: string; evidence_note: string };
@@ -62,10 +62,14 @@ const errStyle: React.CSSProperties = { color: '#c00', fontSize: '0.8rem', margi
 const btn: React.CSSProperties = { background: 'none', border: '1px solid rgba(0,0,0,0.2)', borderRadius: 999, padding: '0.4rem 0.9rem', fontWeight: 700, cursor: 'pointer', fontSize: '0.8rem' };
 
 function Field(props: { label: string; error?: string; hint?: string; children: ReactNode }) {
+  // Tie the label to a single control so screen readers announce it (groups keep their own aria-labels).
+  const id = useId();
+  const single = isValidElement(props.children) && ['input', 'select', 'textarea', IntInput].includes(props.children.type as never) ? (props.children as ReactElement<{ id?: string }>) : null;
+  const control = single && !single.props.id ? cloneElement(single, { id }) : props.children;
   return (
     <div>
-      <label>{props.label}</label>
-      {props.children}
+      <label htmlFor={single ? (single.props.id ?? id) : undefined}>{props.label}</label>
+      {control}
       {props.hint && <p style={small}>{props.hint}</p>}
       {props.error && <p style={errStyle} role="alert">{props.error}</p>}
     </div>
@@ -76,7 +80,7 @@ function Field(props: { label: string; error?: string; hint?: string; children: 
  * Integer field that lets the admin type intermediate text ("-", "") — a
  * controlled type=number input coerces those to 0 and erases the minus sign.
  */
-function IntInput(props: { value: number; onChange: (n: number) => void; 'aria-label'?: string }) {
+function IntInput(props: { value: number; onChange: (n: number) => void; 'aria-label'?: string; id?: string }) {
   const [text, setText] = useState(String(props.value));
   useEffect(() => {
     // Follow outside changes (e.g. reset to 0 after saving) without clobbering "-" mid-typing.
@@ -87,6 +91,7 @@ function IntInput(props: { value: number; onChange: (n: number) => void; 'aria-l
       type="text"
       inputMode="text"
       pattern="-?[0-9]*"
+      id={props.id}
       aria-label={props['aria-label']}
       value={text}
       onChange={(e) => {
