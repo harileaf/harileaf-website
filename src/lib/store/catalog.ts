@@ -5,6 +5,7 @@
 import { availability, type Availability } from './availability';
 import type { OrganicScheme, ProcessClaim } from './claims';
 import { formatUnitPrice, type Paise } from './money';
+import { publishedReviews, reviewSummary, type PublicReview, type ReviewSummary } from './reviews';
 import { mediaUrl, productPath } from './urls';
 
 export type ProductStatus = 'draft' | 'active' | 'discontinued';
@@ -372,7 +373,11 @@ export async function listActiveProductsWithVariants(
 }
 
 export type ProductPageResult =
-  | { kind: 'ok'; product: Product; variants: Variant[]; images: Image[]; batch: Batch | null; labReports: LabReport[]; related: ProductCard[] }
+  | {
+      kind: 'ok'; product: Product; variants: Variant[]; images: Image[]; batch: Batch | null; labReports: LabReport[]; related: ProductCard[];
+      /** Approved reviews only; `summary` is null (and nothing renders) until the first one. */
+      reviews: { summary: ReviewSummary | null; items: PublicReview[] };
+    }
   | { kind: 'redirect'; to: string }
   | { kind: 'gone' }
   | { kind: 'not_found' };
@@ -412,7 +417,7 @@ export async function getProductPage(db: D1Database, categorySlug: string, slug:
   }
 
   const product = mapProduct(row);
-  const [variantRows, images, batchRow, labRows] = await Promise.all([
+  const [variantRows, images, batchRow, labRows, summary, reviewItems] = await Promise.all([
     variantsFor(db, [product.id]).then((m) => m.get(product.id) ?? []),
     imagesFor(db, [product.id]).then((m) => m.get(product.id) ?? []),
     db
@@ -433,6 +438,8 @@ export async function getProductPage(db: D1Database, categorySlug: string, slug:
       .bind(product.id)
       .all<LabRow>()
       .then((r) => r.results),
+    reviewSummary(db, product.id),
+    publishedReviews(db, product.id),
   ]);
 
   const variants = variantRows.map((v) => mapVariant(v, product, today)).filter((v): v is Variant => v !== null);
@@ -464,5 +471,5 @@ export async function getProductPage(db: D1Database, categorySlug: string, slug:
   const picked = product.relatedIds.map((id) => others.find((c) => c.id === id)).filter((c): c is ProductCard => Boolean(c));
   const related = [...picked, ...others.filter((c) => c.categorySlug === product.category.slug && !picked.includes(c)), ...others.filter((c) => c.categorySlug !== product.category.slug && !picked.includes(c))].slice(0, 4);
 
-  return { kind: 'ok', product, variants, images, batch, labReports: labRows.map(mapLab), related };
+  return { kind: 'ok', product, variants, images, batch, labReports: labRows.map(mapLab), related, reviews: { summary, items: summary ? reviewItems : [] } };
 }

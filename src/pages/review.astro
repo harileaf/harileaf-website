@@ -1,0 +1,144 @@
+---
+export const prerender = false;
+import { env } from 'cloudflare:workers';
+import SiteLayout from '../layouts/SiteLayout.astro';
+import SEO from '../components/seo/SEO.astro';
+import { defaultDisplayName, openReviewLink, type ReviewLink } from '../lib/store/reviews';
+
+Astro.response.headers.set('Cache-Control', 'no-store');
+Astro.response.headers.set('X-Robots-Tag', 'noindex');
+// The URL carries a secret token: never leak it to other sites.
+Astro.response.headers.set('Referrer-Policy', 'no-referrer');
+
+const orderNo = Astro.url.searchParams.get('o') ?? '';
+const token = Astro.url.searchParams.get('t') ?? '';
+let link: ReviewLink | null = null;
+try {
+  link = env.ORDER_TOKEN_SECRET ? await openReviewLink(env.STORE_DB, env.ORDER_TOKEN_SECRET, orderNo, token) : null;
+} catch (err) {
+  console.error(JSON.stringify({ msg: 'review page load failed', error: String(err) }));
+  return Astro.rewrite('/store-unavailable');
+}
+if (!link) Astro.response.status = 404;
+const name = link ? defaultDisplayName(link.order.firstName, link.order.city) : '';
+const field = 'w-full rounded-xl border border-black/15 bg-white px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-primary';
+const label = 'block text-sm font-bold text-on-surface mb-1.5';
+const day = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' });
+const STATUS: Record<string, string> = {
+  pending: 'Thanks! We check every review before it appears (usually within 2 working days).',
+  approved: 'Published on the product page.',
+  rejected: 'Not published: it broke our review rules (abusive language, personal details, not about the product, advertising, or health claims).',
+  withdrawn: 'Removed at your request.',
+};
+---
+
+<SiteLayout title="Review your order | HariLeaf" description="Review the products from your HariLeaf order" noIndex>
+  <slot name="head" slot="head"><SEO title="Review your order | HariLeaf" description="Review the products from your HariLeaf order" noIndex /></slot>
+  <div class="max-w-3xl mx-auto px-6 pt-32 pb-24">
+    {!link ? (
+      <>
+        <h1 class="text-3xl font-extrabold tracking-tight">This review link doesn’t work</h1>
+        <p class="mt-4 text-on-surface-variant">Please use the “Review your order” link in your delivery email. If it still doesn’t open, write to us and we’ll send a fresh one.</p>
+        <a href="/shop/" class="inline-block mt-6 font-extrabold text-primary underline">Back to the shop</a>
+      </>
+    ) : (
+      <>
+        <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight">Review your order {link.order.orderNo}</h1>
+        {!link.order.delivered ? (
+          <p class="mt-4 text-on-surface-variant">You can review your products once the order has been delivered. We’ll email you then.</p>
+        ) : (
+          <>
+            <p class="mt-3 text-on-surface-variant">Tell other shoppers what you thought. Good or bad, every honest review is published after a quick check.</p>
+            <ul class="mt-8 flex flex-col gap-6">
+              {link.items.map((it) => (
+                <li class="rounded-2xl bg-white border border-black/5 p-5 md:p-6">
+                  <div class="flex items-center gap-4">
+                    {it.image ? <img src={it.image} alt="" width="64" height="64" class="w-16 h-16 rounded-xl object-cover bg-surface-container" /> : <div class="w-16 h-16 rounded-xl bg-surface-container" />}
+                    <h2 class="text-lg font-extrabold"><a href={it.path} class="hover:underline">{it.name}</a></h2>
+                  </div>
+                  {it.review ? (
+                    <p class="mt-4 text-sm" role="status"><strong>You reviewed this on {day(it.review.createdAt)}</strong> ({it.review.rating}★ “{it.review.title}”). {STATUS[it.review.status]}</p>
+                  ) : (
+                    <form class="review-form mt-5 flex flex-col gap-4" data-product={it.productId} novalidate>
+                      <fieldset>
+                        <legend class={label}>Your rating</legend>
+                        <div class="flex flex-wrap gap-2">
+                          {[1, 2, 3, 4, 5].map((n) => (
+                            <label class="cursor-pointer rounded-full border-2 border-surface-container-high bg-white px-4 py-2 font-extrabold has-[:checked]:border-primary has-[:checked]:bg-primary/10 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary">
+                              <input type="radio" name="rating" value={n} class="sr-only" required />
+                              <span aria-hidden="true">{n} ★</span><span class="sr-only">{n} star{n === 1 ? '' : 's'}</span>
+                            </label>
+                          ))}
+                        </div>
+                        <p class="err" data-err="rating"></p>
+                      </fieldset>
+                      <div><label class={label} for={`t-${it.productId}`}>Title</label><input class={field} id={`t-${it.productId}`} name="title" maxlength="100" required /><p class="err" data-err="title"></p></div>
+                      <div><label class={label} for={`b-${it.productId}`}>Your review</label><textarea class={field} id={`b-${it.productId}`} name="body" rows="4" maxlength="2000" required placeholder="How did it cook, taste or smell? Was the pack in good condition?"></textarea><p class="err" data-err="body"></p></div>
+                      <div>
+                        <label class={label} for={`n-${it.productId}`}>Name to show</label>
+                        <input class={field} id={`n-${it.productId}`} name="displayName" maxlength="40" value={name} required aria-describedby={`nh-${it.productId}`} />
+                        <p id={`nh-${it.productId}`} class="text-xs text-on-surface-variant mt-1">Shown next to your review. Change it to just your first name if you prefer.</p>
+                        <p class="err" data-err="displayName"></p>
+                      </div>
+                      <button type="submit" class="self-start rounded-full px-7 py-3 font-extrabold text-white disabled:opacity-50" style="background:linear-gradient(135deg,#196a5e,#2d7a4f)">Submit review</button>
+                      <p class="form-status text-sm font-bold" aria-live="polite"></p>
+                    </form>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <div class="mt-8 text-sm text-on-surface-variant flex flex-col gap-2">
+              <p><strong>How reviews work.</strong> Only buyers of a delivered order can review, once per product. We publish every review, positive or negative, unless it contains abusive language, personal details, content not about the product, advertising, or health or disease claims. We never pay for or reward reviews, and we don’t edit them. Your rating, title, review and the name you choose are published on the product page with the date; your email and address are not.</p>
+              <p>To have your review removed later, write to us. See our <a href="/privacy" class="underline">privacy policy</a>.</p>
+            </div>
+          </>
+        )}
+      </>
+    )}
+  </div>
+</SiteLayout>
+
+<style>
+  .err { color: #b3261e; font-size: 0.8125rem; margin-top: 0.25rem; }
+  .err:empty { display: none; }
+</style>
+
+<script>
+  import { onEveryPage } from '../scripts/page-load';
+
+  function initReviews() {
+    const params = new URLSearchParams(location.search);
+    document.querySelectorAll<HTMLFormElement>('form.review-form').forEach((form) => {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(form);
+        const btn = form.querySelector<HTMLButtonElement>('button[type=submit]')!;
+        const status = form.querySelector<HTMLElement>('.form-status')!;
+        btn.disabled = true;
+        status.textContent = 'Sending…';
+        const res = await fetch('/api/store/review', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderNo: params.get('o'), token: params.get('t'), productId: Number(form.dataset.product), rating: Number(fd.get('rating')), title: fd.get('title'), body: fd.get('body'), displayName: fd.get('displayName') }),
+        }).catch(() => null);
+        const data = (await res?.json().catch(() => ({}))) as { ok?: boolean; error?: string; errors?: Record<string, string> } | undefined;
+        form.querySelectorAll<HTMLElement>('[data-err]').forEach((el) => (el.textContent = data?.errors?.[el.dataset.err!] ?? ''));
+        if (res?.ok && data?.ok) {
+          const done = document.createElement('p');
+          done.className = 'mt-4 text-sm font-bold';
+          done.setAttribute('role', 'status');
+          done.textContent = 'Thank you! We check every review before it appears (usually within 2 working days).';
+          form.replaceWith(done);
+          done.setAttribute('tabindex', '-1');
+          done.focus();
+          return;
+        }
+        btn.disabled = false;
+        status.textContent = data?.error ?? 'Something went wrong. Please try again.';
+        const first = data?.errors && Object.keys(data.errors)[0];
+        if (first) form.querySelector<HTMLElement>(`[name="${first}"]`)?.focus();
+      });
+    });
+  }
+  onEveryPage(initReviews);
+</script>

@@ -6,9 +6,14 @@
  * URL, free shipping within India, and the returns policy. Ratings are only
  * added when approved reviews exist (none in v1), so there is no
  * `aggregateRating` here yet.
+ *
+ * v2: `aggregateRating` + `review` on the ProductGroup (the rating is the
+ * product's, not one pack's), only when approved reviews exist, computed from
+ * approved reviews only, and listing only the reviews rendered in the page HTML.
  */
 import type { Availability } from './availability';
 import type { Faq, Image, Product, Variant } from './catalog';
+import type { PublicReview, ReviewSummary } from './reviews';
 import { findBannedPhrases } from './claims';
 import { absolute, productPath, variantPath } from './urls';
 
@@ -74,7 +79,31 @@ export function returnPolicy() {
   };
 }
 
-export function productGroupJsonLd(input: { product: Product; variants: Variant[]; images: Image[] }): Record<string, unknown> {
+/** IST calendar date of an instant ("2026-11-01"). */
+const istDate = (iso: string) => new Date(Date.parse(iso) + 330 * 60_000).toISOString().slice(0, 10);
+
+function reviewMarkup(reviews?: { summary: ReviewSummary | null; items: PublicReview[] }): Record<string, unknown> {
+  if (!reviews?.summary || reviews.summary.count === 0) return {};
+  return {
+    aggregateRating: { '@type': 'AggregateRating', ratingValue: reviews.summary.average, reviewCount: reviews.summary.count, bestRating: 5, worstRating: 1 },
+    review: reviews.items.map((r) => ({
+      '@type': 'Review',
+      name: r.title,
+      reviewBody: r.body,
+      datePublished: istDate(r.publishedAt),
+      author: { '@type': 'Person', name: r.displayName },
+      reviewRating: { '@type': 'Rating', ratingValue: r.rating, bestRating: 5, worstRating: 1 },
+    })),
+  };
+}
+
+export function productGroupJsonLd(input: {
+  product: Product;
+  variants: Variant[];
+  images: Image[];
+  /** Approved reviews: the summary and exactly the reviews rendered in the page. */
+  reviews?: { summary: ReviewSummary | null; items: PublicReview[] };
+}): Record<string, unknown> {
   const { product: p, variants, images } = input;
   const imageUrls = images.map((i) => absolute(i.url));
   return {
@@ -88,6 +117,7 @@ export function productGroupJsonLd(input: { product: Product; variants: Variant[
     variesBy: ['https://schema.org/size'],
     ...(imageUrls.length ? { image: imageUrls } : {}),
     countryOfOrigin: p.listing.countryOfOrigin,
+    ...reviewMarkup(input.reviews),
     hasVariant: variants.map((v) => ({
       '@type': 'Product',
       sku: v.sku,

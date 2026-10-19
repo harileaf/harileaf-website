@@ -30,6 +30,25 @@ describe('seo', () => {
     expect(one.offers).not.toHaveProperty('priceSpecification');
   });
 
+  it('marks up ratings only from approved reviews shown on the page', () => {
+    const reviews = {
+      summary: { count: 2, average: 3, distribution: [1, 0, 0, 0, 1] as [number, number, number, number, number] },
+      items: [
+        { id: 1, rating: 5, title: 'Lovely', body: 'Cooks evenly.', displayName: 'Asha, Mumbai', publishedAt: '2026-11-02T06:00:00.000Z' },
+        { id: 2, rating: 1, title: 'Too broken', body: 'Many broken grains.', displayName: 'Ravi, Pune', publishedAt: '2026-11-01T06:00:00.000Z' },
+      ],
+    };
+    const ld = productGroupJsonLd({ product: product(), variants: [variant()], images, reviews }) as any;
+    expect(ld.aggregateRating).toEqual({ '@type': 'AggregateRating', ratingValue: 3, reviewCount: 2, bestRating: 5, worstRating: 1 });
+    expect(ld.review[1]).toEqual({
+      '@type': 'Review', name: 'Too broken', reviewBody: 'Many broken grains.', datePublished: '2026-11-01',
+      author: { '@type': 'Person', name: 'Ravi, Pune' }, reviewRating: { '@type': 'Rating', ratingValue: 1, bestRating: 5, worstRating: 1 },
+    });
+    const none = productGroupJsonLd({ product: product(), variants: [variant()], images, reviews: { summary: null, items: [] } }) as any;
+    expect(none).not.toHaveProperty('aggregateRating');
+    expect(none).not.toHaveProperty('review');
+  });
+
   it('escapes "<" so content cannot close the JSON-LD script tag', () => {
     expect(jsonLdString({ name: '</script><script>alert(1)</script>' })).not.toContain('</script>');
   });

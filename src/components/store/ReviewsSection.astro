@@ -1,0 +1,87 @@
+---
+/**
+ * Approved reviews for a product page (rendered only when at least one
+ * exists). The summary and the first page are in the HTML; "Show more" loads
+ * further pages from /api/store/reviews.
+ */
+import type { PublicReview, ReviewSummary } from '../../lib/store/reviews';
+import { REVIEWS_PAGE } from '../../lib/store/reviews';
+import Stars from './Stars.astro';
+
+interface Props {
+  productId: number;
+  summary: ReviewSummary;
+  items: PublicReview[];
+}
+const { productId, summary, items } = Astro.props;
+const day = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
+---
+
+<section id="reviews" aria-labelledby="reviews-heading" class="scroll-mt-28">
+  <p class="text-xs uppercase tracking-widest font-extrabold mb-2 text-secondary">Verified buyers</p>
+  <h2 id="reviews-heading" class="text-2xl font-extrabold tracking-tight mb-5">Reviews</h2>
+  <div class="grid grid-cols-1 md:grid-cols-[16rem_1fr] gap-8 items-start">
+    <div class="rounded-2xl bg-white border border-black/5 p-5">
+      <p class="text-4xl font-extrabold">{summary.average.toFixed(1)}<span class="text-base font-bold text-on-surface-variant"> / 5</span></p>
+      <p class="mt-1"><Stars value={summary.average} size={18} /> <span class="sr-only">Average rating {summary.average.toFixed(1)} out of 5</span></p>
+      <p class="text-sm text-on-surface-variant mt-1">{summary.count} review{summary.count === 1 ? '' : 's'}</p>
+      <dl class="mt-4 flex flex-col gap-1.5 text-sm">
+        {summary.distribution.map((n, i) => (
+          <div class="grid grid-cols-[3rem_1fr_2rem] items-center gap-2">
+            <dt>{5 - i} star{i === 4 ? '' : 's'}</dt>
+            <dd class="h-2 rounded-full bg-surface-container-high overflow-hidden" aria-hidden="true"><span class="block h-full" style={`width:${Math.round((n / summary.count) * 100)}%;background:#b8860b`}></span></dd>
+            <dd class="text-right text-on-surface-variant">{n}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+    <div>
+      <ul id="review-list" class="flex flex-col gap-4" data-product-id={productId} data-loaded={items.length} data-total={summary.count}>
+        {items.map((r) => (
+          <li class="rounded-2xl bg-white border border-black/5 p-5">
+            <p class="flex flex-wrap items-center gap-x-2 gap-y-1"><Stars value={r.rating} /> <span class="sr-only">Rated {r.rating} out of 5.</span><strong>{r.title}</strong></p>
+            <p class="mt-2 text-on-surface-variant leading-relaxed whitespace-pre-line">{r.body}</p>
+            <p class="mt-3 text-xs text-on-surface-variant">{r.displayName} · Verified buyer · {day(r.publishedAt)}</p>
+          </li>
+        ))}
+      </ul>
+      {summary.count > items.length && (
+        <button id="more-reviews" type="button" class="mt-4 rounded-full border-2 border-primary px-6 py-2.5 font-extrabold text-primary" data-page={REVIEWS_PAGE}>Show more reviews</button>
+      )}
+      <p class="mt-4 text-xs text-on-surface-variant max-w-2xl">Only buyers of a delivered order can review, once per product. We publish every review, positive or negative, unless it breaks our review rules (abusive language, personal details, not about the product, advertising, health or disease claims). We never pay for or reward reviews.</p>
+    </div>
+  </div>
+</section>
+
+<script>
+  import { onEveryPage } from '../../scripts/page-load';
+  import { h } from '../../scripts/store/dom';
+
+  interface R { rating: number; title: string; body: string; displayName: string; publishedAt: string }
+  const day = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
+
+  function initMoreReviews() {
+    const btn = document.getElementById('more-reviews') as HTMLButtonElement | null;
+    const list = document.getElementById('review-list');
+    if (!btn || !list) return;
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      const offset = Number(list.dataset.loaded);
+      const res = await fetch(`/api/store/reviews?product=${list.dataset.productId}&offset=${offset}`).catch(() => null);
+      const data = res?.ok ? ((await res.json()) as { reviews: R[] }) : { reviews: [] };
+      for (const r of data.reviews) {
+        list.append(
+          h('li', { class: 'rounded-2xl bg-white border border-black/5 p-5' },
+            h('p', { class: 'flex flex-wrap items-center gap-x-2 gap-y-1' }, h('span', { class: 'font-extrabold', style: 'color:#b8860b' }, `${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}`), h('span', { class: 'sr-only' }, `Rated ${r.rating} out of 5.`), h('strong', {}, r.title)),
+            h('p', { class: 'mt-2 text-on-surface-variant leading-relaxed whitespace-pre-line' }, r.body),
+            h('p', { class: 'mt-3 text-xs text-on-surface-variant' }, `${r.displayName} · Verified buyer · ${day(r.publishedAt)}`),
+          ),
+        );
+      }
+      list.dataset.loaded = String(offset + data.reviews.length);
+      btn.disabled = false;
+      if (!data.reviews.length || Number(list.dataset.loaded) >= Number(list.dataset.total)) btn.remove();
+    });
+  }
+  onEveryPage(initMoreReviews);
+</script>

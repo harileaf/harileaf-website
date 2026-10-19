@@ -2,13 +2,15 @@
 /**
  * Product page — Layout C (Hybrid): light buy box above the fold, dark
  * "From our farm" bento band, FAQ, related products, sticky mobile bar.
- * Reviews render only when approved reviews exist (none in v1).
+ * Reviews render only when approved reviews exist.
  */
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import SEO from '../seo/SEO.astro';
 import BuyBox from './BuyBox.astro';
 import ProductGrid from './ProductGrid.astro';
+import ReviewsSection from './ReviewsSection.astro';
 import type { Batch, Image, LabReport, Product, ProductCard, Variant } from '../../lib/store/catalog';
+import type { PublicReview, ReviewSummary } from '../../lib/store/reviews';
 import { organicCopy } from '../../lib/store/claims';
 import { renderBasicMarkdown } from '../../lib/store/markdown';
 import { formatINR } from '../../lib/store/money';
@@ -24,10 +26,11 @@ interface Props {
   batch: Batch | null;
   labReports: LabReport[];
   related: ProductCard[];
+  reviews: { summary: ReviewSummary | null; items: PublicReview[] };
   settings: StoreSettings;
 }
 
-const { product: p, variants, images, batch, labReports, related, settings } = Astro.props;
+const { product: p, variants, images, batch, labReports, related, reviews, settings } = Astro.props;
 const initial = variants.find((v) => v.availability === 'buy') ?? variants[0];
 const mayUseOrganic = organicCopy({ organicScheme: p.organic.scheme, conversionSince: p.organic.conversionSince, certNumber: p.organic.certNumber }).mayUseOrganic;
 const title = productTitle(p, initial, { mayUseOrganic });
@@ -38,7 +41,7 @@ const crumbs = [
   { name: p.category.name, path: categoryPath(p.category.slug) },
   { name: p.name, path: productPath(p.category.slug, p.slug) },
 ];
-const schemas = [productGroupJsonLd({ product: p, variants, images }), breadcrumbJsonLd(crumbs), faqJsonLd(p.faq)].filter(
+const schemas = [productGroupJsonLd({ product: p, variants, images, reviews }), breadcrumbJsonLd(crumbs), faqJsonLd(p.faq)].filter(
   (s): s is Record<string, unknown> => s !== null,
 );
 const lab = batch?.labReport ?? labReports[0] ?? null;
@@ -91,7 +94,7 @@ const hasBand = howEntries.length || harvestEntries.length || p.nutrition.rows.l
         )}
       </div>
 
-      <BuyBox product={p} variants={variants} batch={batch} minOrderPaise={minOrder} codMaxPaise={codMax}>
+      <BuyBox product={p} variants={variants} batch={batch} minOrderPaise={minOrder} codMaxPaise={codMax} rating={reviews.summary}>
         <details class="rounded-2xl bg-surface-container-low px-5 py-4">
           <summary class="font-extrabold text-sm cursor-pointer">Product information</summary>
           <dl class="mt-3 grid grid-cols-[9rem_1fr] gap-x-4 gap-y-1.5 text-sm text-on-surface-variant">
@@ -180,6 +183,8 @@ const hasBand = howEntries.length || harvestEntries.length || p.nutrition.rows.l
   )}
 
   <div class="max-w-7xl mx-auto px-6 py-16 flex flex-col gap-16 pb-32 md:pb-16">
+    {reviews.summary && <ReviewsSection productId={p.id} summary={reviews.summary} items={reviews.items} />}
+
     {p.faq.length > 0 && (
       <section aria-labelledby="faq-heading">
         <p class="text-xs uppercase tracking-widest font-extrabold mb-2 text-secondary">Questions</p>

@@ -10,9 +10,9 @@
  * edits. Approved reviews of every rating are published; rejection needs a
  * policy reason, never a low rating.
  */
-import { purgeStmts } from './catalog-admin';
 import { classifyD1Error, nowIso } from './db';
-import { productPurgePaths } from './edge-cache';
+import { purgeUrls } from './edge-cache';
+import { enqueueStmt } from './outbox';
 import { constantTimeEqual, hmacHex } from './tokens';
 import { mediaUrl, productPath } from './urls';
 
@@ -153,8 +153,9 @@ export async function moderateReview(db: D1Database, id: number, m: ModerationAc
             )
             .bind(at, ctx.actorEmail, id);
   if (m.action === 'reject' && !(m.reason in REJECT_REASONS)) return { ok: false, error: 'Choose a reason' };
-  // Only the product page shows reviews; product pages also show related products, not their ratings.
-  const purge = m.action === 'reject' ? [] : purgeStmts(db, productPurgePaths(row.category_slug, row.slug).slice(0, 1), at);
+  // Only the product page shows reviews (now, and again 30 s later for pages mid-render, as catalog writes do).
+  const urls = purgeUrls([productPath(row.category_slug, row.slug)]);
+  const purge = m.action === 'reject' ? [] : [enqueueStmt(db, { kind: 'cache.purge', payload: { urls }, at }), enqueueStmt(db, { kind: 'cache.purge', payload: { urls }, at, notBefore: new Date(ctx.now.getTime() + 30_000).toISOString() })];
   const res = await db.batch([update, ...purge]);
   if ((res[0].meta.changes ?? 0) === 0) return { ok: false, error: `This review is already ${row.status}` };
   return { ok: true };

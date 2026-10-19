@@ -6,6 +6,7 @@ import { formatINR } from './money';
 import type { OutboxHandler } from './outbox';
 import type { OrderRow } from './orders';
 import { getSettings, type StoreSettings } from './settings';
+import { reviewTokenFor } from './reviews';
 import { absolute, safeHttpsUrl } from './urls';
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -28,9 +29,12 @@ export function shippedEmail(o: OrderRow, viewUrl: string, s: StoreSettings): Em
   return { to: o.email, subject: `Order ${o.order_no} has shipped — HariLeaf`, html: wrap('Your order is on its way', body, s), text: `Your order ${o.order_no} has shipped.${trackingUrl ? ` Track: ${trackingUrl}` : ''}${o.total_paise > 0 ? `\nInvoice: ${invoiceUrl}` : ''}\nOrder: ${viewUrl}`, idempotencyKey: `email.shipped/${o.order_no}`, replyTo: s.customer_care_email || undefined };
 }
 
-export function deliveredEmail(o: OrderRow, viewUrl: string, s: StoreSettings): Email {
-  const body = `<p>Hi ${first(o)}, your order <strong>${esc(o.order_no)}</strong> has been delivered. We hope you enjoy it!</p><p>Something not right — a damaged pack or a wrong item? Reply to this email with a photo within 48 hours and we'll send a replacement or refund it. See our <a href="${absolute('/refund-policy/')}">refund policy</a>.</p>${button(viewUrl, 'View your order')}`;
-  return { to: o.email, subject: `Order ${o.order_no} delivered — HariLeaf`, html: wrap('Delivered', body, s), text: `Your order ${o.order_no} has been delivered. Damaged or wrong item? Reply with a photo within 48 hours.\n${viewUrl}`, idempotencyKey: `email.delivered/${o.order_no}`, replyTo: s.customer_care_email || undefined };
+/** `reviewUrl` is null for free replacements (only the original order can be reviewed). */
+export function deliveredEmail(o: OrderRow, viewUrl: string, s: StoreSettings, reviewUrl: string | null = null): Email {
+  // A plain request: no reward, and no hint that only good reviews are wanted (IS 19000:2022).
+  const review = reviewUrl ? `<p>Once you've tried it, would you tell other shoppers what you thought? Good or bad, every honest review is published.</p>${button(reviewUrl, 'Review your order')}` : '';
+  const body = `<p>Hi ${first(o)}, your order <strong>${esc(o.order_no)}</strong> has been delivered. We hope you enjoy it!</p><p>Something not right — a damaged pack or a wrong item? Reply to this email with a photo within 48 hours and we'll send a replacement or refund it. See our <a href="${absolute('/refund-policy/')}">refund policy</a>.</p>${review}<p><a href="${esc(viewUrl)}">View your order</a></p>`;
+  return { to: o.email, subject: `Order ${o.order_no} delivered — HariLeaf`, html: wrap('Delivered', body, s), text: `Your order ${o.order_no} has been delivered. Damaged or wrong item? Reply with a photo within 48 hours.${reviewUrl ? `\nReview your order: ${reviewUrl}` : ''}\n${viewUrl}`, idempotencyKey: `email.delivered/${o.order_no}`, replyTo: s.customer_care_email || undefined };
 }
 
 export function cancelledEmail(o: OrderRow, viewUrl: string, s: StoreSettings): Email {
@@ -75,7 +79,14 @@ export function makeFulfilmentEmailHandlers(fetchImpl?: typeof fetch): Record<st
   };
   return {
     'email.shipped': handler(shippedEmail),
-    'email.delivered': handler(deliveredEmail),
+    'email.delivered': async (_p, { env, row }) => {
+      const o = await env.STORE_DB.prepare('SELECT * FROM orders WHERE id = ?').bind(row.order_id).first<OrderRow & { replacement_for_order_id: number | null }>();
+      if (!o) throw new Error(`order ${row.order_id} not found`);
+      const reviewUrl = o.replacement_for_order_id === null && o.idempotency_key && env.ORDER_TOKEN_SECRET
+        ? absolute(`/review?o=${o.order_no}&t=${await reviewTokenFor(env.ORDER_TOKEN_SECRET, o.idempotency_key)}`)
+        : null;
+      await sendEmail(env, deliveredEmail(o, await orderViewUrl(env, o), await getSettings(env.STORE_DB), reviewUrl), fetchImpl);
+    },
     'email.cancelled': handler(cancelledEmail),
     'email.refunded': handler(refundedEmail),
     'email.order_link': async (_p, { env, row }) => {

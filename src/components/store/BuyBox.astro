@@ -7,6 +7,8 @@
 import type { Batch, Product, Variant } from '../../lib/store/catalog';
 import { organicCopy } from '../../lib/store/claims';
 import { formatINR } from '../../lib/store/money';
+import type { ReviewSummary } from '../../lib/store/reviews';
+import Stars from './Stars.astro';
 
 interface Props {
   product: Product;
@@ -14,9 +16,11 @@ interface Props {
   batch: Batch | null;
   minOrderPaise: number | null;
   codMaxPaise: number | null;
+  /** Approved reviews only; no rating line at all until the first one. */
+  rating?: ReviewSummary | null;
 }
 
-const { product: p, variants, batch, minOrderPaise, codMaxPaise } = Astro.props;
+const { product: p, variants, batch, minOrderPaise, codMaxPaise, rating } = Astro.props;
 const initial = variants.find((v) => v.availability === 'buy') ?? variants[0];
 const cert = organicCopy({ organicScheme: p.organic.scheme, conversionSince: p.organic.conversionSince, certNumber: p.organic.certNumber });
 const off = (v: Variant) => (v.mrp > v.price ? Math.round((1 - v.price / v.mrp) * 100) : 0);
@@ -29,6 +33,13 @@ const fmtDate = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateS
     <a href={`/${p.category.slug}/`} class="inline-block text-[11px] font-extrabold uppercase tracking-wider px-3 py-1.5 rounded-full bg-surface-container-high text-secondary">{p.category.name}</a>
     <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight leading-tight mt-3 text-on-surface">{p.name}</h1>
     {p.shortDescription && <p class="mt-2 text-on-surface-variant leading-relaxed">{p.shortDescription}</p>}
+    {rating && rating.count > 0 && (
+      <p class="mt-2 text-sm" data-rating-line>
+        <a href="#reviews" class="inline-flex items-center gap-2 font-bold text-on-surface hover:underline">
+          <Stars value={rating.average} /> {rating.average.toFixed(1)} out of 5 <span class="font-normal text-on-surface-variant">({rating.count} review{rating.count === 1 ? '' : 's'})</span>
+        </a>
+      </p>
+    )}
     {batch && (
       <p class="mt-2 text-sm text-on-surface-variant">
         <strong class="text-on-surface">Packed {fmtDate(batch.packedOn)}</strong>
