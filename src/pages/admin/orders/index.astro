@@ -14,10 +14,10 @@ let rows: OrderListRow[] = [];
 if (authenticated) rows = await listOrders(env.STORE_DB, { status: status === 'all' ? undefined : status, q, limit: 50, offset: page * 50 });
 
 const LABEL: Record<string, string> = {
-  open: 'Open', all: 'All', pending_payment: 'Awaiting payment', placed: 'To pack', packed: 'To ship', shipped: 'Shipped',
+  open: 'Open', all: 'All', pending_payment: 'Awaiting payment', placed: 'To pack', preorders: 'Pre-orders', packed: 'To ship', shipped: 'Shipped',
   delivered: 'Delivered', rto: 'RTO', returned: 'Returned', cancelled: 'Cancelled', payment_failed: 'Payment failed',
 };
-const tabs = ['open', 'placed', 'packed', 'shipped', 'rto', 'delivered', 'cancelled', 'all', ...ORDER_STATUSES.filter((s) => !['placed', 'packed', 'shipped', 'rto', 'delivered', 'cancelled'].includes(s))];
+const tabs = ['open', 'placed', 'preorders', 'packed', 'shipped', 'rto', 'delivered', 'cancelled', 'all', ...ORDER_STATUSES.filter((s) => !['placed', 'packed', 'shipped', 'rto', 'delivered', 'cancelled'].includes(s))];
 const fmt = (iso: string) => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' });
 const href = (p: Record<string, string | number>) => `/admin/orders?${new URLSearchParams({ status, q, ...Object.fromEntries(Object.entries(p).map(([k, v]) => [k, String(v)])) })}`;
 ---

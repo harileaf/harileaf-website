@@ -10,18 +10,21 @@ interface Props {
   productName: string;
   zone: Zone;
   settings: StoreSettings;
+  /** Set while the product is only on pre-order: it leaves on this day, not on this week's dispatch days. */
+  preorderDate?: string | null;
 }
-const { productName, zone, settings } = Astro.props;
+const { productName, zone, settings, preorderDate } = Astro.props;
+const preorderDay = preorderDate ? new Date(`${preorderDate}T00:00:00+05:30`).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' }) : null;
 const cal = parseCalendar(settings);
 const days = cal.days.map((d) => WEEKDAY_NAMES[d - 1].slice(0, 3));
 const dayText = days.length > 1 ? `${days.slice(0, -1).join(', ')} and ${days[days.length - 1]}` : (days[0] ?? 'on set days');
 const hour = cal.cutoffHour === 0 ? 'midnight' : cal.cutoffHour < 12 ? `${cal.cutoffHour} am` : cal.cutoffHour === 12 ? 'noon' : `${cal.cutoffHour - 12} pm`;
 ---
 
-<div class="rounded-2xl border border-black/10 bg-white p-4 flex flex-col gap-3" data-zone-check={zone.id} data-product-name={productName}>
+<div class="rounded-2xl border border-black/10 bg-white p-4 flex flex-col gap-3" data-zone-check={zone.id} data-product-name={productName} data-preorder-day={preorderDay}>
   <p class="text-sm">
     <strong>Delivered only within {zone.name}</strong>, by {zone.expressOnly ? 'express ' : ''}courier within {zone.maxTransitDays} day{zone.maxTransitDays === 1 ? '' : 's'} of dispatch, so it reaches you fresh.
-    We dispatch on {dayText} (orders paid before {hour} go the same day). Prepaid only.
+    {preorderDay ? <>Pre-orders dispatch from {preorderDay}.</> : <>We dispatch on {dayText} (orders paid before {hour} go the same day).</>} Prepaid only.
   </p>
   <form class="flex gap-2" novalidate>
     <label for={`zc-${zone.id}`} class="sr-only">Your pincode</label>
@@ -57,6 +60,8 @@ const hour = cal.cutoffHour === 0 ? 'midnight' : cal.cutoffHour < 12 ? `${cal.cu
         if (!z) return say('We couldn’t check right now. Please try again, or check at checkout.', false);
         if (!z.inZone) return say(`Sorry — we send ${name} only within ${z.name} for now, so it can’t go to ${pin}.`, false);
         if (z.courier === false) return say(`Sorry — no courier can bring ${name} to ${pin} within ${z.maxTransitDays} days, so we can’t send it there.`, false);
+        const preorderDay = box.dataset.preorderDay;
+        if (preorderDay && z.courier !== null) return say(`✓ Delivers to ${pin}: dispatched from ${preorderDay}, arriving within ${z.maxTransitDays} day${z.maxTransitDays === 1 ? '' : 's'}.`, true);
         if (z.courier === null || !z.dispatch || !z.window) return say(`${pin} is in our ${z.name} delivery area. We’ll confirm the courier at checkout.`, true);
         say(`✓ Delivers to ${pin}: dispatched ${day(z.dispatch)}, arrives ${z.window.from === z.window.to ? day(z.window.to) : `${day(z.window.from)} – ${day(z.window.to)}`}.`, true);
       });

@@ -22,9 +22,11 @@ const COURIERS = [
   { courier_company_id: 20, courier_name: 'Air Express', rate: 140, estimated_delivery_days: '1', is_surface: false },
   { courier_company_id: 30, courier_name: 'Air Slow', rate: 90, estimated_delivery_days: '4', is_surface: false },
 ];
-function stubShiprocket(calls: string[]) {
+function stubShiprocket(calls: string[], onAssign?: () => Promise<unknown>) {
   vi.stubGlobal('fetch', async (url: string, init: RequestInit = {}) => {
     calls.push(`${init.method ?? 'GET'} ${url.replace(/^.*\/v1\/external/, '').split('?')[0]}`);
+    if (url.endsWith('/courier/assign/awb')) await onAssign?.();
+    if (url.endsWith('/orders/cancel')) return Response.json({});
     if (url.includes('/courier/serviceability/')) return Response.json({ status: 200, data: { available_courier_companies: COURIERS } });
     if (url.includes('/orders?filter_by=channel_order_id')) return Response.json({ data: url.includes('HL-LATE') ? [{ id: 5002, channel_order_id: 'HL-LATE', shipments: [{ id: 6002 }] }] : [] });
     if (url.endsWith('/orders/create/adhoc')) return Response.json({ order_id: 5001, shipment_id: 6001 });
@@ -65,9 +67,20 @@ describe('courier booking', () => {
     const id = await packedOrder(true);
     expect(await bookCourier(env, id, 10, ctx)).toMatchObject({ ok: false }); // surface: not allowed for fresh produce
     expect(await bookCourier(env, id, 20, ctx)).toEqual({ ok: true, value: { awb: 'AWB777', courier: 'Air Express', pickup: '2026-12-06 10:00:00' } });
-    expect(await db.prepare('SELECT awb, courier, shiprocket_shipment_id FROM orders WHERE id = ?').bind(id).first()).toEqual({ awb: 'AWB777', courier: 'Air Express', shiprocket_shipment_id: '6001' });
+    expect(await db.prepare('SELECT awb, courier, shiprocket_shipment_id, tracking_url FROM orders WHERE id = ?').bind(id).first()).toEqual({ awb: 'AWB777', courier: 'Air Express', shiprocket_shipment_id: '6001', tracking_url: 'https://shiprocket.co/tracking/AWB777' });
     expect(calls.filter((c) => c.startsWith('POST'))).toEqual(['POST /orders/create/adhoc', 'POST /courier/assign/awb', 'POST /courier/generate/pickup']);
     expect(await bookCourier(env, id, 20, ctx)).toMatchObject({ ok: false, error: expect.stringMatching(/Already booked/) });
+  });
+
+  it('a cancel that lands while the AWB is being assigned wins: nothing saved, no pickup, Shiprocket order cancelled', async () => {
+    const calls: string[] = [];
+    let id = 0;
+    stubShiprocket(calls, () => db.prepare("UPDATE orders SET status = 'cancelled' WHERE id = ?").bind(id).run());
+    id = await packedOrder(false);
+    expect(await bookCourier(env, id, 10, ctx)).toMatchObject({ ok: false, error: expect.stringMatching(/cancelled while booking/) });
+    expect(await db.prepare('SELECT awb, status FROM orders WHERE id = ?').bind(id).first()).toEqual({ awb: null, status: 'cancelled' });
+    expect(await scalar("SELECT count(*) FROM order_events WHERE order_id = ? AND type IN ('courier_booked', 'pickup_requested')", id)).toBe(0);
+    expect(calls.filter((c) => c.startsWith('POST'))).toEqual(['POST /orders/create/adhoc', 'POST /courier/assign/awb', 'POST /orders/cancel']);
   });
 
   it('finds the shipment of an order Shiprocket created without one, then books it', async () => {

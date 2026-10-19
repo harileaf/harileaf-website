@@ -47,6 +47,9 @@ describe('seo', () => {
     const none = productGroupJsonLd({ product: product(), variants: [variant()], images, reviews: { summary: null, items: [] } }) as any;
     expect(none).not.toHaveProperty('aggregateRating');
     expect(none).not.toHaveProperty('review');
+    const noneShown = productGroupJsonLd({ product: product(), variants: [variant()], images, reviews: { ...reviews, items: [] } }) as any;
+    expect(noneShown).toHaveProperty('aggregateRating');
+    expect(noneShown).not.toHaveProperty('review');
   });
 
   it('perishables: returns not permitted, and no all-India shipping claim (their zone is set in Merchant Center)', () => {

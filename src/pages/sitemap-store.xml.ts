@@ -12,6 +12,7 @@ export const GET: APIRoute = async () => {
   const entries = await listActiveProductsWithVariants(env.STORE_DB, new Date());
   const latest = (dates: string[]) => dates.sort().pop();
   const xml = storeSitemapXml(entries, [
+    { path: '/produce/' },
     { path: '/our-process/' },
     { path: '/recipes/', lastmod: latest(RECIPES.map((r) => r.updated)) },
     ...RECIPES.map((r) => ({ path: `/recipes/${r.slug}/`, lastmod: r.updated })),

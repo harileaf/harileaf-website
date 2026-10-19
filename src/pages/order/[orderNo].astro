@@ -38,11 +38,19 @@ const STATUS: Record<string, { title: string; body: string }> = {
   rto: { title: 'Returning to us', body: 'The courier couldn’t deliver this order and it is coming back to us. We’ll be in touch.' },
   returned: { title: 'Returned', body: 'This order was returned.' },
 };
-const s = STATUS[o.status] ?? { title: o.status, body: '' };
-// v2 partial refunds: what has actually gone back.
-const refundedPaise = ['partially_refunded', 'refunded', 'refund_pending'].includes(o.payment_status)
-  ? ((await env.STORE_DB.prepare("SELECT COALESCE(SUM(amount_paise), 0) AS n FROM refunds WHERE order_id = ? AND status = 'processed'").bind(o.id).first<{ n: number }>())?.n ?? 0)
-  : 0;
+// A pre-order isn't packed within days: it waits for its dispatch date (shown in the banner below).
+const s =
+  o.is_preorder === 1 && o.status === 'placed'
+    ? { title: 'Pre-order confirmed', body: 'Thank you! Your pre-order is reserved. We’ll email you when it’s ready to dispatch, and again with a tracking link.' }
+    : STATUS[o.status] ?? { title: o.status, body: '' };
+// v2 partial refunds: what has gone back, and what is on its way.
+const { refunded: refundedPaise, pending: pendingPaise } = ['partially_refunded', 'refunded', 'refund_pending'].includes(o.payment_status)
+  ? ((await env.STORE_DB.prepare(
+      "SELECT COALESCE(SUM(CASE WHEN status = 'processed' THEN amount_paise END), 0) AS refunded, COALESCE(SUM(CASE WHEN status = 'pending' THEN amount_paise END), 0) AS pending FROM refunds WHERE order_id = ?",
+    ).bind(o.id).first<{ refunded: number; pending: number }>()) ?? { refunded: 0, pending: 0 })
+  : { refunded: 0, pending: 0 };
+// Part of the order is being refunded (not all of it).
+const partRefund = o.payment_status === 'refund_pending' && pendingPaise > 0 && refundedPaise + pendingPaise < o.total_paise;
 const canCancel = o.status === 'placed';
 const awaitingConfirm = needsCodConfirmation(o);
 const confirmHours = awaitingConfirm ? Number((await getSettings(env.STORE_DB)).cod_confirm_window_hours) : 0;
@@ -52,7 +60,7 @@ const isReplacement = o.total_paise === 0;
 const hasDoc = Boolean(o.invoice_id) || (isReplacement && Boolean(await env.STORE_DB.prepare('SELECT 1 AS d FROM delivery_challans WHERE order_id = ?').bind(o.id).first()));
 const trackingUrl = safeHttpsUrl(o.tracking_url);
 const refundLine =
-  o.payment_status === 'refund_pending' ? 'Refund in progress — usually 5–7 business days to reach you.' : o.payment_status === 'refunded' ? 'Refunded.' : null;
+  o.payment_status === 'refund_pending' ? `${partRefund ? `Refund of ${formatINR(pendingPaise)} in progress` : 'Refund in progress'} — usually 5–7 business days to reach you.` : o.payment_status === 'refunded' ? 'Refunded.' : null;
 const canPay = o.status === 'pending_payment' && o.payment_method === 'razorpay' && Boolean(holdExpiresAt && holdExpiresAt > new Date().toISOString());
 const fmt = (iso: string) => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' });
 const tax = items.reduce((a, i) => ({ cgst: a.cgst + i.cgst_paise, sgst: a.sgst + i.sgst_paise, igst: a.igst + i.igst_paise }), { cgst: 0, sgst: 0, igst: 0 });
@@ -73,7 +81,9 @@ const paymentLine =
       ? `Paid online${o.paid_at ? ` on ${fmt(o.paid_at)}` : ''}`
       : o.payment_status === 'refunded' ? 'Refunded'
       : o.payment_status === 'partially_refunded' ? `Paid online · ${formatINR(refundedPaise)} refunded`
-      : o.payment_status === 'refund_pending' ? 'Refund on its way' : 'Online payment';
+      : o.payment_status === 'refund_pending'
+        ? partRefund ? `Paid online · ${formatINR(pendingPaise)} refund on its way${refundedPaise ? ` · ${formatINR(refundedPaise)} refunded` : ''}` : 'Refund on its way'
+        : 'Online payment';
 ---
 
 <SiteLayout title={`Order ${o.order_no} | HariLeaf`} description="Your HariLeaf order" noIndex>
@@ -84,7 +94,7 @@ const paymentLine =
     <p class="mt-2 text-on-surface-variant max-w-2xl">{heading.body}</p>
     {o.is_preorder === 1 && o.expected_dispatch_date && ['placed', 'packed'].includes(o.status) && (
       <p class="mt-4 rounded-2xl px-5 py-4 max-w-2xl" style="background:#efeafc;border:1px solid #cdbff2;color:#3a2470">
-        <strong>Pre-order</strong> · {o.status === 'packed' ? 'packed and ready to leave the farm' : <>expected to dispatch from <strong>{new Date(`${o.expected_dispatch_date}T00:00:00+05:30`).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' })}</strong>. We’ll email you when it’s ready. You can cancel for a full refund until then.</>}
+        <strong>Pre-order</strong> · {o.status === 'packed' ? 'packed and ready to leave the farm' : <>expected to dispatch from <strong>{new Date(`${o.expected_dispatch_date}T00:00:00+05:30`).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' })}</strong>. You can cancel for a full refund until we pack it.</>}
       </p>
     )}
 

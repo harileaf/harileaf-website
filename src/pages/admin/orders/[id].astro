@@ -10,6 +10,7 @@ import { isErasable } from '../../../lib/store/retention';
 import { formatINR } from '../../../lib/store/money';
 import { refundableLines } from '../../../lib/store/fulfilment';
 import { safeHttpsUrl } from '../../../lib/store/urls';
+import { istYmd } from '../../../lib/store/fy';
 
 const authenticated = await validateSession(env.HARILEAF_CMS, Astro.cookies);
 const id = idParam(Astro.params.id);
@@ -20,6 +21,9 @@ const awaitingCod = o ? needsCodConfirmation(o) : false;
 const refundLeft = o && ['shipped', 'delivered', 'returned', 'rto'].includes(o.status) ? await refundableLines(env.STORE_DB, o.id) : [];
 const actions = o ? availableActions(o, { awaitingCodConfirmation: awaitingCod, returnReceived: d!.events.some((e) => e.type === 'return_received') }) : [];
 const fmt = (iso: string) => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' });
+// A pre-order can only be pushed back: the earliest pick is the day after both today and its current date.
+const dayAfter = (ymd: string) => new Date(Date.parse(`${ymd}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+const minDelayDate = [dayAfter(istYmd(new Date())), o?.expected_dispatch_date ? dayAfter(o.expected_dispatch_date) : ''].sort().at(-1);
 const tracking = safeHttpsUrl(o?.tracking_url);
 const LABELS: Record<string, string> = {
   pack: 'Mark packed (issues invoice)', ready_to_dispatch: 'Ready to dispatch (issues invoice, sends to Shiprocket, emails customer)', delay_preorder: 'Push back dispatch date (emails customer)', ship: 'Mark shipped', update_tracking: 'Update tracking', deliver: 'Mark delivered', rto: 'Mark RTO', returned: 'Mark returned',
@@ -49,14 +53,14 @@ const needs: Record<string, string[]> = { delay_preorder: ['date', 'reason'], sh
         <section class="box" id="courier" data-order={o.id} aria-labelledby="courier-h">
           <h2 id="courier-h">Courier</h2>
           {o.awb ? (
-            <p>Booked: <strong>{o.courier ?? 'Courier'}</strong> · AWB <strong>{o.awb}</strong></p>
+            <p>Booked: <strong>{o.courier ?? 'Courier'}</strong> · AWB <strong>{o.awb}</strong>{!o.shiprocket_shipment_id && <span class="muted"> — not a Shiprocket shipment, so print the label and manifest from the courier’s own portal</span>}</p>
           ) : (
             <p class="muted">Not booked yet. Pick a courier from Shiprocket’s live rates{d.items.some((i) => i.perishable) ? ' (fresh produce: only express couriers within the delivery zone’s days — ship within 24 hours)' : ''}.</p>
           )}
           <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.5rem;">
             {!o.awb && o.status === 'packed' && <button type="button" class="brand-btn" data-courier="find" style="padding:0.4rem 1rem;">Find couriers</button>}
-            {o.awb && <button type="button" class="brand-btn" data-courier="label" style="padding:0.4rem 1rem;">Print label</button>}
-            {o.awb && <button type="button" class="brand-btn" data-courier="manifest" style="padding:0.4rem 1rem;">Print manifest</button>}
+            {o.awb && o.shiprocket_shipment_id && <button type="button" class="brand-btn" data-courier="label" style="padding:0.4rem 1rem;">Print label</button>}
+            {o.awb && o.shiprocket_shipment_id && <button type="button" class="brand-btn" data-courier="manifest" style="padding:0.4rem 1rem;">Print manifest</button>}
           </div>
           <div data-courier-list style="margin-top:0.75rem;"></div>
           <p data-courier-status role="status" aria-live="polite" class="muted" style="margin-top:0.5rem;"></p>
@@ -75,7 +79,7 @@ const needs: Record<string, string[]> = { delay_preorder: ['date', 'reason'], sh
             <div data-field="awb"><label for="f-awb">AWB</label><input id="f-awb" name="awb" type="text" value={o.awb ?? ''} /></div>
             <div data-field="courier"><label for="f-courier">Courier</label><input id="f-courier" name="courier" type="text" value={o.courier ?? ''} /></div>
             <div data-field="trackingUrl"><label for="f-tracking">Tracking link (https://…)</label><input id="f-tracking" name="trackingUrl" type="text" value={o.tracking_url ?? ''} /></div>
-            <div data-field="date"><label for="f-date">New dispatch date</label><input id="f-date" name="date" type="date" min={o.expected_dispatch_date ?? undefined} /></div>
+            <div data-field="date"><label for="f-date">New dispatch date</label><input id="f-date" name="date" type="date" min={minDelayDate} /></div>
             <fieldset data-field="refundHow" style="border:0;display:flex;flex-direction:column;gap:0.4rem;">
               <legend class="muted">What to refund (still refundable: {formatINR(refundLeft.reduce((a, l) => a + l.leftPaise, 0))})</legend>
               <label class="act"><input type="radio" name="refundMode" value="all" checked /> Everything still refundable</label>
@@ -83,7 +87,7 @@ const needs: Record<string, string[]> = { delay_preorder: ['date', 'reason'], sh
               <div data-refund-lines style="display:flex;flex-direction:column;gap:0.25rem;padding-left:1.5rem;">
                 {refundLeft.map((l) => (
                   <p style="display:flex;gap:0.5rem;align-items:center;">
-                    <input type="number" min="0" max={l.leftQty} value="0" data-refund-item={l.item.id} aria-label={`Units of ${l.item.product_name} ${l.item.variant_label} to refund`} style="width:5rem;" disabled={l.leftQty === 0 || l.leftPaise === 0} />
+                    <input type="number" min="0" max={l.leftQty} value="0" data-refund-item={l.item.id} data-spent={l.leftQty === 0 || l.leftPaise === 0 ? '' : undefined} aria-label={`Units of ${l.item.product_name} ${l.item.variant_label} to refund`} style="width:5rem;" disabled={l.leftQty === 0 || l.leftPaise === 0} />
                     <span>{l.item.product_name} · {l.item.variant_label} — {l.leftQty} of {l.item.qty} left ({formatINR(l.leftPaise)})</span>
                   </p>
                 ))}
@@ -215,6 +219,8 @@ const needs: Record<string, string[]> = { delay_preorder: ['date', 'reason'], sh
       b.addEventListener('click', async () => {
         b.disabled = true;
         status.textContent = 'Asking Shiprocket…';
+        // Open the tab now, inside the click: one opened after the request returns is blocked as a popup.
+        const tab = b.dataset.courier === 'find' ? null : window.open('', '_blank');
         try {
           if (b.dataset.courier === 'find') {
             const res = await fetch(url);
@@ -255,9 +261,16 @@ const needs: Record<string, string[]> = { delay_preorder: ['date', 'reason'], sh
           } else {
             const link = (await post({ action: b.dataset.courier })) as string;
             status.textContent = '';
-            window.open(link, '_blank', 'noopener');
+            if (tab) {
+              tab.opener = null;
+              tab.location.href = link;
+            } else {
+              // Popups blocked anyway: offer the link instead.
+              status.replaceChildren(Object.assign(document.createElement('a'), { href: link, target: '_blank', rel: 'noopener', textContent: `Open the ${b.dataset.courier} →` }));
+            }
           }
         } catch (err) {
+          tab?.close();
           status.textContent = String(err instanceof Error ? err.message : err);
         } finally {
           b.disabled = false;
@@ -291,6 +304,11 @@ const needs: Record<string, string[]> = { delay_preorder: ['date', 'reason'], sh
     const needs = new Set((chosen?.dataset.needs ?? '').split(' ').filter(Boolean));
     if (chosen?.value === 'replacement') needs.add('replacement');
     form.querySelectorAll<HTMLElement>('[data-field]').forEach((el) => el.classList.toggle('hidden', !needs.has(el.dataset.field!)));
+    // Refund: only the inputs of the chosen mode can be filled in (and are sent).
+    const mode = form.querySelector<HTMLInputElement>('input[name="refundMode"]:checked')?.value;
+    form.querySelectorAll<HTMLInputElement>('[data-refund-item]').forEach((i) => (i.disabled = mode !== 'lines' || i.hasAttribute('data-spent')));
+    const amount = form.querySelector<HTMLInputElement>('#f-amount');
+    if (amount) amount.disabled = mode !== 'amount';
   }
   form?.addEventListener('change', syncFields);
   syncFields();
@@ -299,11 +317,17 @@ const needs: Record<string, string[]> = { delay_preorder: ['date', 'reason'], sh
     e.preventDefault();
     const fd = new FormData(form);
     const action = String(fd.get('action'));
-    if (['cancel', 'refund'].includes(action) && !confirm(action === 'cancel' ? 'Cancel this order? Stock is restored and any payment refunded.' : (fd.get('refundMode') === 'all' ? 'Refund everything still refundable on this order?' : 'Refund the selected items / amount?'))) return;
+    const ask: Record<string, string> = {
+      cancel: 'Cancel this order? Stock is restored and any payment refunded.',
+      refund: fd.get('refundMode') === 'all' ? 'Refund everything still refundable on this order?' : 'Refund the selected items / amount?',
+      // Can't be undone: the invoice is issued, the order goes to Shiprocket and the customer can no longer cancel online.
+      ready_to_dispatch: 'Mark this pre-order ready to dispatch? This issues the GST invoice, sends it to Shiprocket and emails the customer.',
+    };
+    if (ask[action] && !confirm(ask[action])) return;
     const body: Record<string, unknown> = Object.fromEntries(fd.entries());
     if (action === 'refund') {
       body.requestKey = requestKey;
-      body.refundLines = Array.from(form.querySelectorAll<HTMLInputElement>('[data-refund-item]')).map((i) => ({ itemId: Number(i.dataset.refundItem), qty: Number(i.value) })).filter((l) => l.qty > 0);
+      body.refundLines = Array.from(form.querySelectorAll<HTMLInputElement>('[data-refund-item]:not(:disabled)')).map((i) => ({ itemId: Number(i.dataset.refundItem), qty: Number(i.value) })).filter((l) => l.qty > 0);
     }
     if (action === 'replacement') {
       body.requestKey = requestKey;

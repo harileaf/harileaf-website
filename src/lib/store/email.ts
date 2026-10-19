@@ -92,7 +92,7 @@ export function orderPlacedEmail(o: OrderRow, items: OrderItemRow[], viewUrl: st
     ? new Date(`${o.expected_dispatch_date}T00:00:00+05:30`).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' })
     : null;
   const when = preorderDay
-    ? `This is a pre-order: we expect to dispatch it from <strong>${esc(preorderDay)}</strong> and will email you when it's ready, and again with tracking. You can cancel for a full refund any time before then.`
+    ? `This is a pre-order: we expect to dispatch it from <strong>${esc(preorderDay)}</strong> and will email you when it's ready, and again with tracking. You can cancel for a full refund until we pack it.`
     : `We'll pack it within 2 business days ${confirm ? 'of your confirmation ' : ''}and email you a tracking link when it ships.`;
   const html = `<p>Hi ${esc(o.customer_name.split(' ')[0])}, thank you for your order <strong>${esc(o.order_no)}</strong>. ${when}</p>
 ${confirmHtml}
