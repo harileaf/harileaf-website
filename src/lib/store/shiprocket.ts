@@ -106,7 +106,8 @@ export async function checkServiceability(
   const withPlace = prepaid.find((c) => c.city && c.state);
   return {
     serviceable: true,
-    cod: codList.some((c) => c.cod === 1) || codList.length > 0,
+    // Each courier says whether it takes COD on this route; trust the list only when the field is missing.
+    cod: codList.some((c) => c.cod === 1 || c.cod === undefined),
     etaDays: eta ?? null,
     city: withPlace?.city ?? null,
     state: withPlace?.state ?? null,

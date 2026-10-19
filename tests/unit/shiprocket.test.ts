@@ -33,6 +33,12 @@ describe('checkServiceability', () => {
     expect(calls[1].url).toContain('pickup_postcode=400092&delivery_postcode=560001&weight=1.05&cod=0');
   });
 
+  it('reports no COD when every courier on the route says cod: 0', async () => {
+    await env.HARILEAF_CMS.put('shiprocket:token', 'tok-1');
+    const { c } = cfg(() => ({ body: { status: 200, data: { available_courier_companies: [{ courier_name: 'Delhivery', cod: 0, estimated_delivery_days: '5' }, { courier_name: 'Xpress', cod: 0 }] } } }));
+    expect((await checkServiceability(c, { pickup: '400092', delivery: '744301', weightKg: 1, declaredValue: 100 })).cod).toBe(false);
+  });
+
   it('reports unserviceable pincodes and refreshes an expired token', async () => {
     await env.HARILEAF_CMS.put('shiprocket:token', 'stale');
     let logins = 0;
