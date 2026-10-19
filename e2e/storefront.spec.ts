@@ -136,3 +136,12 @@ test('the buy box and cart badge keep working after client-side navigation (view
   await expect(page.locator('[data-add-status]').first()).toContainText('Added');
   await expect(page.getByRole('link', { name: /^Cart/ }).first()).toContainText('2');
 });
+
+test('shop filters hide the products outside the chosen category', async ({ page }) => {
+  await page.goto('/shop/');
+  const visible = page.locator('[data-product-card]:visible');
+  const all = await visible.count();
+  await page.click('[data-filter-cat="spices"]');
+  await expect(visible).not.toHaveCount(all);
+  for (const card of await visible.all()) await expect(card).toHaveAttribute('data-category', 'spices');
+});
