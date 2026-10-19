@@ -899,3 +899,31 @@ Owner decisions taken before the v2 build (2026-10-19): perishables launch with 
   - Merchant Center says returning out-of-stock products should use `backorder`, not `preorder`.
   - The Consumer Protection (E-Commerce) (Amendment) Rules 2026 (G.S.R. 789(E), in force 1 Jan 2027) add: a yearly dark-pattern self-audit with a displayed certificate, "prior price" (lowest in 30 days) on price cuts, and grievance acknowledgement with a copy of the complaint. These are flagged for the owner.
   - DPDP Rules 2025: the notice, consent and erasure provisions start around 13 May 2027.
+
+### V2-3 Perishables, delivery zones, dispatch calendar
+
+- **Zones live in settings** (`delivery_zones`, JSON edited as cards on `/admin/settings`). Each zone has an id, a name, 6-digit pincodes or prefixes, an express-only flag (air couriers: `is_surface === false`), a transit limit, and an enabled flag.
+  - Default: Mumbai MMR (`400`, `401`, `4102`, `421`), express, 2 days, **disabled** until packaging trials and the margin sheet are done. The owner should check the prefixes: `401` also covers parts of Palghar district outside MMR.
+  - `products.delivery_zone` stores `{"zone": id}`. Perishables can't be saved without a zone.
+- **A perishable whose zone is missing or disabled is "notify" everywhere**: buy box, JSON-LD and feed say OutOfStock, the URL stays 200, and the notify form shows. In season, the button says "Not delivering yet" rather than "Out of season".
+- **Separate carts**:
+  - Quote lines carry a group (`perishable` | `regular`); a mixed quote is not ok and checkout refuses it (409).
+  - The cart explains and offers "Check out X now". The other group moves to a visible "Saved for your next order" list (`hl_cart_later_v1`) and returns to the cart after the order is placed.
+  - The product page warns when fresh produce joins a cart that already holds other goods.
+- **Checkout** requires the pincode to be in every perishable line's zone, plus a Shiprocket courier meeting the zone. It fails closed (503) if Shiprocket isn't configured or is unreachable.
+- **Dispatch calendar** (perishables only): settings `dispatch_days` (default Mon–Thu, since spec says no Friday–Sunday pickups), `dispatch_blackouts`, `dispatch_cutoff_hour` (default 11 IST).
+  - Product page (pincode check) and checkout show the dispatch day and delivery window. The window is the courier ETA from the dispatch day.
+  - Perishable orders store `expected_dispatch_date` (computed at order creation), and the admin list tags them "fresh · dispatch MM-DD".
+  - Rice and spices keep v1's "within 2 business days".
+- **The buy-box pincode check is perishables-only.** v1 never built the general one; non-perishables check at checkout.
+- **SEO**:
+  - JSON-LD keeps `MerchantReturnNotPermitted` and drops `shippingDetails` for perishables. Search supports postal-code shipping regions only for AU/CA/US (checked 2026-10-19), so "free shipping in IN" would be false.
+  - The feed gives perishables one `g:shipping` per zone pincode/prefix (`400*`, min/max transit time) plus `g:shipping_label zone-<id>`. Merchant Center supports postal codes for India (support.google.com/merchants/answer/6324484, checked 2026-10-19).
+  - A perishable without a zone gets no shipping line, so it's never offered anywhere.
+- **Content**:
+  - `scripts/seed-v2-produce.sql` inserts **draft** Kesar mango and dragon fruit (placeholder prices, stock 0). Claim evidence notes are empty, so the editor refuses to publish until the owner adds evidence; "naturally ripened" (FAQ, targeting the keyword) passes the claims check only with the evidenced `natural` claim.
+  - `/produce` is now SSR with the live produce grid and seasonal Kesar copy (no "natural" wording there; checked by the content-claims test).
+  - Kesar uses HSN 0804 50 at 0% GST (spec default; CA to confirm).
+- **Policies**: the shipping policy lists enabled zones, transit limits, dispatch days, cutoff and blackouts from settings; the refund policy says no returns on fresh produce and damage on arrival with a photo within 24 h; the terms got one sentence. The delivered email asks for photos within 24 h for orders containing perishables.
+- **Fixed on V2-1 (v1 bug)**: the static sitemap listed noindex pages (`/cart/`, `/checkout/`, `/order/find/`, `/store-unavailable/`). They're now filtered out, along with `/review/`.
+- **Lighthouse locally** gives 0.55 on every product-type page, and so does v1 (`m5`) on the same machine. The simulation estimates 22 s FCP while the observed FCP is 1.3–2.4 s, so this is environmental; CI is the judge (v1 scored 0.99 there). The perishable product page is now part of the CI Lighthouse run.

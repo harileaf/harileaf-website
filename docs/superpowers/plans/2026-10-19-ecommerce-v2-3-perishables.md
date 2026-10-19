@@ -30,12 +30,12 @@
 **Base branch:** `feat/ecommerce-v2-2-reviews-notify`. Branch: `feat/ecommerce-v2-3-perishables`.
 
 ## Tasks
-- [ ] 1. `zones.ts` + unit tests: zone parsing/validation, pincode matching, courier pick (express, ETA), next dispatch (weekday, cutoff, blackouts), delivery window.
-- [ ] 2. Settings: `delivery_zones`, `dispatch_days`, `dispatch_blackouts`, `dispatch_cutoff_hour` (validated; JSON may exceed the 500-character limit) + `/admin/settings` fields; product editor "Delivery zone" select for perishables.
-- [ ] 3. Availability: a perishable needs an enabled zone (catalog + quote); unit test.
-- [ ] 4. Quote groups + mixed-cart refusal; integration test. Cart UI split + "saved for later"; checkout restores it after the order.
-- [ ] 5. Checkout API: zone + express courier check for perishables (fail closed); `/api/store/pincode?product=` zone verdict; integration test with a stubbed Shiprocket.
-- [ ] 6. Checkout and product page: dispatch date and delivery window; buy-box pincode check for perishables.
-- [ ] 7. JSON-LD (no `shippingDetails` for zone-limited products) + feed `g:shipping` per pincode prefix; one test each (feed XML shape extended).
-- [ ] 8. Policies, terms, `/produce` copy, Kesar seed script; claims check on new copy.
-- [ ] 9. Lighthouse CI: add a perishable product page. Gates + browser pass (1280 / 390). Spec notes, PR.
+- [x] 1. `zones.ts` + unit tests: zone parsing/validation, pincode matching, courier pick (express, ETA), next dispatch (weekday, cutoff, blackouts), delivery window.
+- [x] 2. Settings: `delivery_zones`, `dispatch_days`, `dispatch_blackouts`, `dispatch_cutoff_hour` (validated; JSON may exceed the 500-character limit) + `/admin/settings` fields; product editor "Delivery zone" select for perishables.
+- [x] 3. Availability: a perishable needs an enabled zone (catalog + quote); unit test.
+- [x] 4. Quote groups + mixed-cart refusal; integration test. Cart UI split + "saved for later"; checkout restores it after the order.
+- [x] 5. Checkout API: zone + express courier check for perishables (fail closed); `/api/store/pincode?product=` zone verdict; integration test with a stubbed Shiprocket.
+- [x] 6. Checkout and product page: dispatch date and delivery window; buy-box pincode check for perishables.
+- [x] 7. JSON-LD (no `shippingDetails` for zone-limited products) + feed `g:shipping` per pincode prefix; one test each (feed XML shape extended).
+- [x] 8. Policies, terms, `/produce` copy, Kesar seed script; claims check on new copy.
+- [x] 9. Lighthouse CI: add a perishable product page. Gates + browser pass (1280 / 390). Spec notes, PR.
