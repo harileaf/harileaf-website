@@ -105,11 +105,14 @@ export async function createOrder(
   ];
   if (couponCode) {
     // Counted by trigger; the usage CHECK / one-per-phone UNIQUE abort the whole order if the code ran out.
-    const perPhone = await db.prepare('SELECT one_per_phone FROM coupons WHERE code = ?').bind(couponCode).first<{ one_per_phone: number }>();
+    // The phone is kept only for one-per-phone codes, read in the same batch.
     stmts.push(
       db
-        .prepare(`INSERT INTO coupon_redemptions (coupon_code, order_id, phone, created_at) VALUES (?, ${idQ}, ?, ?)`)
-        .bind(couponCode, key, perPhone?.one_per_phone ? c.contact.phone : null, at),
+        .prepare(
+          `INSERT INTO coupon_redemptions (coupon_code, order_id, phone, created_at)
+           VALUES (?1, (SELECT id FROM orders WHERE idempotency_key = ?2), CASE WHEN (SELECT one_per_phone FROM coupons WHERE code = ?1) = 1 THEN ?3 END, ?4)`,
+        )
+        .bind(couponCode, key, c.contact.phone, at),
     );
   }
 

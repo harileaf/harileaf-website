@@ -114,21 +114,18 @@ Astro.response.headers.set('X-Robots-Tag', 'noindex');
       }
 
       const blocked = !q.ok;
+      // A code that can't apply to this cart yet (below its minimum, no eligible items): say so at the button
+      // and let the shopper carry on without it, rather than reach a checkout that won't place the order.
+      const couponStuck = Boolean(q.coupon && !q.coupon.ok);
+      const cta = h('a', {
+        href: blocked ? undefined : '/checkout',
+        role: blocked ? 'link' : undefined,
+        'aria-disabled': blocked ? 'true' : undefined,
+        class: `mt-2 text-center rounded-full py-3.5 font-extrabold text-white ${blocked ? 'opacity-50 pointer-events-none' : ''}`,
+        style: 'background:linear-gradient(135deg,#196a5e,#2d7a4f)',
+      }, couponStuck ? 'Check out without the code' : 'Proceed to checkout');
+      if (couponStuck) cta.addEventListener('click', () => setCoupon(null));
       const summary = h('aside', { class: 'rounded-2xl bg-surface-container-low p-6 flex flex-col gap-3', 'aria-label': 'Order summary' },
-        row('Subtotal', formatINR(q.subtotal)),
-        discountRow(q.coupon, q.discount),
-        row('Delivery', 'Free'),
-        h('div', { class: 'border-t border-black/10 pt-3' }, row('Total', formatINR(q.total), true)),
-        h('p', { class: 'text-xs text-on-surface-variant' }, 'Inclusive of all taxes.'),
-        !q.meetsMinimum ? h('p', { class: 'text-sm font-bold', style: 'color:#8a4b00' }, `Add ${formatINR(q.minOrder - q.total)} more to reach the minimum order of ${formatINR(q.minOrder)}.`) : null,
-        h('a', {
-          href: blocked ? undefined : '/checkout',
-          role: blocked ? 'link' : undefined,
-          'aria-disabled': blocked ? 'true' : undefined,
-          class: `mt-2 text-center rounded-full py-3.5 font-extrabold text-white ${blocked ? 'opacity-50 pointer-events-none' : ''}`,
-          style: 'background:linear-gradient(135deg,#196a5e,#2d7a4f)',
-        }, 'Proceed to checkout'),
-        h('p', { class: 'text-xs text-on-surface-variant' }, q.cod.eligible ? 'Cash on delivery available.' : (q.cod.reason ?? '')),
         couponBox({
           applied: q.coupon,
           rejected,
@@ -136,6 +133,15 @@ Astro.response.headers.set('X-Robots-Tag', 'noindex');
           onApply: (code) => { rejected = null; focusCoupon = true; setCoupon(code.replace(/[\s-]/g, '').toUpperCase()); load(); },
           onRemove: () => { rejected = null; focusCoupon = true; setCoupon(null); load(); },
         }),
+        row('Subtotal', formatINR(q.subtotal)),
+        discountRow(q.coupon, q.discount),
+        row('Delivery', 'Free'),
+        h('div', { class: 'border-t border-black/10 pt-3' }, row('Total', formatINR(q.total), true)),
+        h('p', { class: 'text-xs text-on-surface-variant' }, 'Inclusive of all taxes.'),
+        !q.meetsMinimum ? h('p', { class: 'text-sm font-bold', style: 'color:#8a4b00' }, `Add ${formatINR(q.minOrder - q.total)} more to reach the minimum order of ${formatINR(q.minOrder)}.`) : null,
+        couponStuck ? h('p', { class: 'text-sm', style: 'color:#8a4b00' }, `${q.coupon!.code} isn’t applied to this order (see above). You can check out without it.`) : null,
+        cta,
+        h('p', { class: 'text-xs text-on-surface-variant' }, q.cod.eligible ? 'Cash on delivery available.' : (q.cod.reason ?? '')),
       );
       // Re-rendering replaces the controls; keep keyboard focus on the one in use.
       const active = document.activeElement;
