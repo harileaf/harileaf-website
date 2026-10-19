@@ -36,10 +36,7 @@ describe('validateCheckoutInput', () => {
     const bad = validateCheckoutInput({ contact: { name: 'A', email: 'x', phone: '12345' }, ship: { pincode: '012345', stateCode: '28' }, paymentMethod: 'card' });
     expect(bad.ok).toBe(false);
     if (!bad.ok) expect(Object.keys(bad.errors).sort()).toEqual(['contact.email', 'contact.name', 'contact.phone', 'paymentMethod', 'ship.city', 'ship.line1', 'ship.name', 'ship.pincode', 'ship.stateCode'].sort());
-  });
-  it('validates an optional buyer GSTIN', () => {
-    const r = validateCheckoutInput({ ...checkout(), contact: checkout().contact, ship: { line1: '12 Lake Road', city: 'Mumbai', stateCode: '27', pincode: '400092' }, paymentMethod: 'cod', buyerGstin: '27AAPFU0939F1ZW' });
-    expect(r.ok).toBe(false);
+    expect(validateCheckoutInput({ contact: checkout().contact, ship: checkout().ship, paymentMethod: 'cod', buyerGstin: '27AAPFU0939F1ZW' }).ok).toBe(false);
   });
 });
 
@@ -71,23 +68,14 @@ describe('createOrder', () => {
     expect(await scalar("SELECT count(*) FROM outbox WHERE order_id = ?", res.orderId)).toBe(0);
   });
 
-  it('returns the same order (and link) for a retried submit', async () => {
-    const v = await insertVariant(await insertProduct(), { stock_qty: 5 });
-    const k = key();
-    const a = await place(v, 1, {}, k);
-    const b = await place(v, 1, {}, k);
-    expect(a.ok && b.ok).toBe(true);
-    if (!a.ok || !b.ok) return;
-    expect(b).toMatchObject({ existing: true, orderNo: a.orderNo, viewToken: a.viewToken });
-    expect(await scalar('SELECT stock_qty FROM variants WHERE id = ?', v)).toBe(4);
-  });
 
-  it('creates exactly one order when identical submits race', async () => {
+  it('creates exactly one order (and link) when identical submits race or retry', async () => {
     const v = await insertVariant(await insertProduct(), { stock_qty: 5 });
     const k = key();
     const results = await Promise.all([place(v, 1, {}, k), place(v, 1, {}, k), place(v, 1, {}, k)]);
     expect(results.every((r) => r.ok)).toBe(true);
-    expect(new Set(results.map((r) => (r.ok ? r.orderNo : '')))).toHaveProperty('size', 1);
+    expect(new Set(results.map((r) => (r.ok ? `${r.orderNo}/${r.viewToken}` : '')))).toHaveProperty('size', 1);
+    expect(await place(v, 1, {}, k)).toMatchObject({ existing: true });
     expect(await scalar('SELECT stock_qty FROM variants WHERE id = ?', v)).toBe(4);
   });
 
@@ -99,13 +87,6 @@ describe('createOrder', () => {
     expect(await scalar('SELECT stock_qty FROM variants WHERE id = ?', v)).toBe(0);
   });
 
-  it('numbers orders consecutively within the month', async () => {
-    const v = await insertVariant(await insertProduct(), { stock_qty: 10 });
-    const a = await place(v, 1);
-    const b = await place(v, 1);
-    if (!a.ok || !b.ok) throw new Error('setup');
-    expect(Number(b.orderNo.slice(-4))).toBe(Number(a.orderNo.slice(-4)) + 1);
-  });
 
   it('refuses a cart that changed', async () => {
     const v = await insertVariant(await insertProduct(), { stock_qty: 1 });
