@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { jsonLdString, productGroupJsonLd, productTitle } from '../../src/lib/store/seo';
+import { jsonLdString, productGroupJsonLd, productTitle, recipeJsonLd } from '../../src/lib/store/seo';
 import { images, product, variant } from '../helpers/product-fixture';
 
 describe('seo', () => {
@@ -59,6 +59,20 @@ describe('seo', () => {
     const p = product({ season: { startMd: '04-01', endMd: '06-30', offSeasonMode: 'preorder', preorderDispatchDate: '2027-04-10' } });
     const ld = productGroupJsonLd({ product: p, variants: [variant({ availability: 'preorder' })], images }) as any;
     expect(ld.hasVariant[0].offers).toMatchObject({ availability: 'https://schema.org/PreOrder', availabilityStarts: '2027-04-10', price: '699.00' });
+  });
+
+  it('Recipe JSON-LD: three image ratios, ISO 8601 times, HowToSteps, HariLeaf as author', () => {
+    const ld = recipeJsonLd(
+      { slug: 'haldi-doodh', title: 'Haldi doodh', summary: 'Warm turmeric milk.', published: '2026-10-18', updated: '2026-11-02', category: 'Drink', prepMinutes: 2, cookMinutes: 5, serves: 1, ingredients: ['1 cup milk'], steps: ['Warm the milk.', 'Serve.'] },
+      ['/_astro/a-16x9.jpg', '/_astro/a-4x3.jpg', '/_astro/a-1x1.jpg'],
+    ) as any;
+    expect(ld).toMatchObject({
+      '@type': 'Recipe', name: 'Haldi doodh', url: 'https://harileaf.org/recipes/haldi-doodh/', datePublished: '2026-10-18', dateModified: '2026-11-02',
+      image: ['https://harileaf.org/_astro/a-16x9.jpg', 'https://harileaf.org/_astro/a-4x3.jpg', 'https://harileaf.org/_astro/a-1x1.jpg'],
+      author: { '@type': 'Organization', name: 'HariLeaf', url: 'https://harileaf.org/' },
+      prepTime: 'PT2M', cookTime: 'PT5M', totalTime: 'PT7M', recipeYield: ['1', '1 serving'], recipeIngredient: ['1 cup milk'],
+      recipeInstructions: [{ '@type': 'HowToStep', position: 1, text: 'Warm the milk.' }, { '@type': 'HowToStep', position: 2, text: 'Serve.' }],
+    });
   });
 
   it('escapes "<" so content cannot close the JSON-LD script tag', () => {

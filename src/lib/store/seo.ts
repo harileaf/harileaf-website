@@ -172,3 +172,35 @@ export function faqJsonLd(faq: Faq[]): Record<string, unknown> | null {
 export function jsonLdString(obj: Record<string, unknown>): string {
   return JSON.stringify(obj).replace(/</g, '\\u003c');
 }
+
+/** ISO 8601 duration for minutes: 75 → "PT1H15M". */
+const isoMinutes = (m: number) => (m >= 60 ? `PT${Math.floor(m / 60)}H${m % 60 ? `${m % 60}M` : ''}` : `PT${m}M`);
+
+/**
+ * Recipe structured data (Google: image in 16:9, 4:3 and 1:1, ≥ 50K pixels;
+ * prep/cook/total times; HowToStep instructions; yield as a number plus text).
+ */
+export function recipeJsonLd(
+  r: { slug: string; title: string; summary: string; published: string; updated: string; category: string; prepMinutes: number; cookMinutes: number; serves: number; ingredients: string[]; steps: string[] },
+  images: string[],
+): Record<string, unknown> {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Recipe',
+    name: r.title,
+    description: r.summary,
+    url: absolute(`/recipes/${r.slug}/`),
+    datePublished: r.published,
+    dateModified: r.updated,
+    image: images.map((i) => absolute(i)),
+    author: { '@type': 'Organization', name: BRAND, url: absolute('/') },
+    prepTime: isoMinutes(r.prepMinutes),
+    cookTime: isoMinutes(r.cookMinutes),
+    totalTime: isoMinutes(r.prepMinutes + r.cookMinutes),
+    recipeYield: [String(r.serves), `${r.serves} serving${r.serves === 1 ? '' : 's'}`],
+    recipeCategory: r.category,
+    recipeCuisine: 'Indian',
+    recipeIngredient: r.ingredients,
+    recipeInstructions: r.steps.map((text, i) => ({ '@type': 'HowToStep', position: i + 1, text })),
+  };
+}

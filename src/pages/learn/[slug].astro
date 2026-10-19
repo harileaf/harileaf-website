@@ -1,0 +1,62 @@
+---
+export const prerender = true;
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import SEO from '../../components/seo/SEO.astro';
+import { ARTICLES, type Article } from '../../content/store/articles';
+import { RECIPES } from '../../content/store/recipes';
+import { renderArticleMarkdown } from '../../lib/store/markdown';
+import { BRAND, breadcrumbJsonLd, jsonLdString } from '../../lib/store/seo';
+import { absolute } from '../../lib/store/urls';
+
+export function getStaticPaths() {
+  return ARTICLES.map((article) => ({ params: { slug: article.slug }, props: { article } }));
+}
+const { article: a } = Astro.props as { article: Article };
+const path = `/learn/${a.slug}/`;
+const title = `${a.title} | HariLeaf`;
+const recipes = RECIPES.filter((r) => a.relatedRecipes.includes(r.slug));
+const CATEGORY: Record<string, string> = { rice: 'Our rice', spices: 'Our spices', produce: 'Fresh produce' };
+const schema = {
+  '@context': 'https://schema.org',
+  '@type': 'Article',
+  headline: a.title,
+  description: a.summary,
+  url: absolute(path),
+  mainEntityOfPage: absolute(path),
+  datePublished: a.published,
+  dateModified: a.updated,
+  author: { '@type': 'Organization', name: BRAND, url: absolute('/') },
+  publisher: { '@type': 'Organization', name: BRAND, url: absolute('/'), logo: { '@type': 'ImageObject', url: absolute('/images/brand/logo-color.png') } },
+};
+const day = (d: string) => new Date(`${d}T00:00:00+05:30`).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' });
+---
+
+<SiteLayout title={title} description={a.summary}>
+  <slot name="head" slot="head">
+    <SEO title={title} description={a.summary} canonicalUrl={absolute(path)} ogType="article" />
+    <script type="application/ld+json" is:inline set:html={jsonLdString(schema)} />
+    <script type="application/ld+json" is:inline set:html={jsonLdString(breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Learn', path: '/learn/' }, { name: a.title, path }]))} />
+  </slot>
+  <article class="max-w-3xl mx-auto px-6 pt-32 pb-24">
+    <nav aria-label="Breadcrumb" class="text-xs text-on-surface-variant mb-4"><a href="/learn/" class="font-bold text-primary">Learn</a> › {a.title}</nav>
+    <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight text-on-surface">{a.title}</h1>
+    <p class="mt-4 text-lg text-on-surface-variant">{a.summary}</p>
+    <p class="mt-3 text-xs text-on-surface-variant">By HariLeaf · {a.updated !== a.published ? `Updated ${day(a.updated)}` : day(a.published)}</p>
+    <div class="article-body mt-10" set:html={renderArticleMarkdown(a.body)} />
+    <aside class="mt-12 rounded-3xl bg-surface-container-low p-6" aria-label="Related">
+      <ul class="flex flex-wrap gap-3">
+        {a.relatedCategories.map((c) => <li><a href={`/${c}/`} class="inline-block rounded-full px-4 py-2 font-bold text-sm bg-white border border-black/10">{CATEGORY[c] ?? c} →</a></li>)}
+        {recipes.map((r) => <li><a href={`/recipes/${r.slug}/`} class="inline-block rounded-full px-4 py-2 font-bold text-sm bg-white border border-black/10">Recipe: {r.title}</a></li>)}
+        <li><a href="/our-process/" class="inline-block rounded-full px-4 py-2 font-bold text-sm bg-white border border-black/10">How we grow, mill and grind</a></li>
+      </ul>
+    </aside>
+  </article>
+</SiteLayout>
+
+<style>
+  .article-body :global(h2) { font-size: 1.5rem; font-weight: 800; margin: 2.25rem 0 0.75rem; letter-spacing: -0.01em; }
+  .article-body :global(h3) { font-size: 1.15rem; font-weight: 800; margin: 1.5rem 0 0.5rem; }
+  .article-body :global(p) { margin: 0 0 1rem; line-height: 1.75; color: var(--color-on-surface-variant, #444); }
+  .article-body :global(ul) { list-style: disc; padding-left: 1.25rem; margin: 0 0 1rem; display: flex; flex-direction: column; gap: 0.5rem; line-height: 1.7; color: var(--color-on-surface-variant, #444); }
+  .article-body :global(a) { color: #196a5e; font-weight: 700; text-decoration: underline; }
+</style>

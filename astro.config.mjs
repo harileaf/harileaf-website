@@ -23,7 +23,10 @@ export default defineConfig({
   },
   // Adapter 13 reads bindings from wrangler.toml via @cloudflare/vite-plugin in
   // dev, so the old `platformProxy` option is gone.
-  adapter: cloudflare(),
+  // Images: optimised at build time for prerendered pages (recipes, articles: the
+  // 16:9 / 4:3 / 1:1 crops Google wants for Recipe markup), passed through at
+  // runtime — no Cloudflare Images binding or per-request transforms.
+  adapter: cloudflare({ imageService: 'compile' }),
   site: 'https://harileaf.org',
   integrations: [
     react(),

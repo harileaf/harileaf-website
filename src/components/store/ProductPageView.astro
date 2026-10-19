@@ -12,6 +12,8 @@ import ReviewsSection from './ReviewsSection.astro';
 import type { Batch, Image, LabReport, Product, ProductCard, Variant } from '../../lib/store/catalog';
 import type { PublicReview, ReviewSummary } from '../../lib/store/reviews';
 import type { Zone } from '../../lib/store/zones';
+import { recipesUsing } from '../../content/store/recipes';
+import { articlesFor } from '../../content/store/articles';
 import { organicCopy } from '../../lib/store/claims';
 import { renderBasicMarkdown } from '../../lib/store/markdown';
 import { formatINR } from '../../lib/store/money';
@@ -54,6 +56,9 @@ const howEntries = Object.entries(p.howItsMade);
 const harvestEntries = Object.entries(p.harvestInfo);
 const attrEntries = Object.entries(p.attributes);
 const fmtDate = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
+// Internal links (SEO §3.4): recipes that use this product, and the category's guide.
+const cookIt = recipesUsing(p.category.slug, p.slug);
+const readMore = articlesFor(p.category.slug);
 const hasBand = howEntries.length || harvestEntries.length || p.nutrition.rows.length || lab || description_html || attrEntries.length;
 ---
 
@@ -186,6 +191,33 @@ const hasBand = howEntries.length || harvestEntries.length || p.nutrition.rows.l
 
   <div class="max-w-7xl mx-auto px-6 py-16 flex flex-col gap-16 pb-32 md:pb-16">
     {reviews.summary && <ReviewsSection productId={p.id} summary={reviews.summary} items={reviews.items} />}
+
+    {(cookIt.length > 0 || readMore.length > 0) && (
+      <section aria-labelledby="more-heading" class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <h2 id="more-heading" class="sr-only">Recipes and guides</h2>
+        {cookIt.length > 0 && (
+          <div>
+            <p class="text-xs uppercase tracking-widest font-extrabold mb-2 text-secondary">Cook it</p>
+            <ul class="flex flex-col gap-3">
+              {cookIt.map((r) => (
+                <li><a href={`/recipes/${r.slug}/`} class="flex items-center gap-4 rounded-2xl bg-white border border-black/5 p-3 hover:shadow-sm">
+                  <img src={r.image.src} alt="" width="96" height="72" loading="lazy" decoding="async" class="w-24 h-[72px] rounded-xl object-cover" />
+                  <span><span class="font-extrabold block">{r.title}</span><span class="text-xs text-on-surface-variant">{r.prepMinutes + r.cookMinutes} min · serves {r.serves}</span></span>
+                </a></li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {readMore.length > 0 && (
+          <div>
+            <p class="text-xs uppercase tracking-widest font-extrabold mb-2 text-secondary">Read more</p>
+            <ul class="flex flex-col gap-3">
+              {readMore.map((a) => <li><a href={`/learn/${a.slug}/`} class="block rounded-2xl bg-white border border-black/5 p-4 hover:shadow-sm"><span class="font-extrabold block">{a.title}</span><span class="text-sm text-on-surface-variant">{a.summary}</span></a></li>)}
+            </ul>
+          </div>
+        )}
+      </section>
+    )}
 
     {p.faq.length > 0 && (
       <section aria-labelledby="faq-heading">

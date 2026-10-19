@@ -84,6 +84,7 @@ export default config({
       Pages: ['homepage', 'technologyPage', 'farmsPage', 'aboutPage', 'contactPage'],
       Global: ['siteSettings', 'navigation', 'footer'],
       Collections: ['farmProfiles', 'techFeatures', 'teamMembers', 'testimonials', 'faqs'],
+      Shop: ['recipes', 'articles'],
     },
   },
 
@@ -774,6 +775,68 @@ export default config({
   // ============================================================
 
   collections: {
+    // ----------------------------------------------------------
+    // Shop content (v2): recipes and articles. Prerendered pages read these
+    // JSON files through import.meta.glob (createReader fails during prerender).
+    // The file name is the URL slug — never rename a published one.
+    // ----------------------------------------------------------
+    recipes: collection({
+      label: 'Recipes',
+      slugField: 'title',
+      path: 'src/content/recipes/*',
+      format: { data: 'json' },
+      columns: ['title', 'published'],
+      schema: {
+        title: fields.slug({
+          name: { label: 'Title', validation: { isRequired: true } },
+          slug: { label: 'URL slug', description: 'The page address: /recipes/<slug>/. Never change it after publishing.' },
+        }),
+        summary: fields.text({ label: 'Summary', multiline: true, description: 'One or two sentences, shown under the title and in search results.', validation: { isRequired: true, length: { max: 200 } } }),
+        heroImage: fields.image({
+          label: 'Photo',
+          directory: 'src/assets/recipes',
+          publicPath: '../../assets/recipes/',
+          description: 'A real photo of the dish, at least 1200 px wide. The site makes 16:9, 4:3 and square crops from it for Google.',
+          validation: { isRequired: true },
+        }),
+        heroImageAlt: fields.text({ label: 'Photo description (alt text)', validation: { isRequired: true } }),
+        published: fields.date({ label: 'First published', validation: { isRequired: true } }),
+        updated: fields.date({ label: 'Last updated', description: 'Change when you edit the recipe (sitemap lastmod).' }),
+        category: fields.select({ label: 'Course', options: [{ label: 'Main course', value: 'Main course' }, { label: 'Drink', value: 'Drink' }, { label: 'Breakfast', value: 'Breakfast' }, { label: 'Snack', value: 'Snack' }, { label: 'Dessert', value: 'Dessert' }], defaultValue: 'Main course' }),
+        prepMinutes: fields.integer({ label: 'Prep time (minutes)', validation: { isRequired: true, min: 0 } }),
+        cookMinutes: fields.integer({ label: 'Cook time (minutes)', validation: { isRequired: true, min: 0 } }),
+        serves: fields.integer({ label: 'Serves', validation: { isRequired: true, min: 1 } }),
+        ingredients: fields.array(fields.text({ label: 'Ingredient' }), { label: 'Ingredients', itemLabel: (p) => p.value }),
+        steps: fields.array(fields.text({ label: 'Step', multiline: true }), { label: 'Steps', itemLabel: (p) => p.value.slice(0, 60) }),
+        productsUsed: fields.array(
+          fields.object({
+            product: fields.text({ label: 'Product', description: 'category/slug of a shop product (e.g. rice/karjat-3), or just a category (rice, spices, produce).', validation: { isRequired: true } }),
+            label: fields.text({ label: 'Link text', validation: { isRequired: true } }),
+          }),
+          { label: 'HariLeaf products used', itemLabel: (p) => p.fields.label.value },
+        ),
+        tip: fields.text({ label: 'Tip (optional)', multiline: true }),
+      },
+    }),
+    articles: collection({
+      label: 'Articles',
+      slugField: 'title',
+      path: 'src/content/articles/*',
+      format: { data: 'json' },
+      columns: ['title', 'published'],
+      schema: {
+        title: fields.slug({
+          name: { label: 'Title', validation: { isRequired: true } },
+          slug: { label: 'URL slug', description: 'The page address: /learn/<slug>/. Never change it after publishing.' },
+        }),
+        summary: fields.text({ label: 'Summary', multiline: true, validation: { isRequired: true, length: { max: 200 } } }),
+        body: fields.text({ label: 'Article', multiline: true, description: 'Paragraphs separated by a blank line. **bold**, *italic*, [links](/rice/) and "- " lists work. Only claims we can evidence — see the claims policy.', validation: { isRequired: true } }),
+        published: fields.date({ label: 'First published', validation: { isRequired: true } }),
+        updated: fields.date({ label: 'Last updated' }),
+        relatedCategories: fields.multiselect({ label: 'Shop categories', options: [{ label: 'Rice', value: 'rice' }, { label: 'Spices', value: 'spices' }, { label: 'Produce', value: 'produce' }] }),
+        relatedRecipes: fields.array(fields.text({ label: 'Recipe slug' }), { label: 'Recipes to link', itemLabel: (p) => p.value }),
+      },
+    }),
     // ----------------------------------------------------------
     // Farm Profiles
     // ----------------------------------------------------------

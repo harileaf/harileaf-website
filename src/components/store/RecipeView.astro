@@ -1,38 +1,37 @@
 ---
+/**
+ * Recipe page (prerendered from the Keystatic collection). The build crops the
+ * photo to 16:9, 4:3 and 1:1 at 1200 px for Google's Recipe markup. Products
+ * used are plain links in the HTML (crawlable); a small script then adds each
+ * product's price and availability from /api/store/products.
+ */
+import { Image, getImage } from 'astro:assets';
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import SEO from '../seo/SEO.astro';
 import type { Recipe } from '../../content/store/recipes';
-import { breadcrumbJsonLd, jsonLdString } from '../../lib/store/seo';
+import { ARTICLES } from '../../content/store/articles';
+import { breadcrumbJsonLd, jsonLdString, recipeJsonLd } from '../../lib/store/seo';
 import { absolute } from '../../lib/store/urls';
 
 interface Props { recipe: Recipe }
 const { recipe: r } = Astro.props;
 const path = `/recipes/${r.slug}/`;
-const iso = (m: number) => `PT${m}M`;
-const schema = {
-  '@context': 'https://schema.org',
-  '@type': 'Recipe',
-  name: r.title,
-  description: r.summary,
-  url: absolute(path),
-  datePublished: r.published,
-  image: [absolute(r.image)],
-  author: { '@type': 'Organization', name: 'HariLeaf' },
-  prepTime: iso(r.prepMinutes),
-  cookTime: iso(r.cookMinutes),
-  totalTime: iso(r.prepMinutes + r.cookMinutes),
-  recipeYield: `${r.serves} serving${r.serves === 1 ? '' : 's'}`,
-  recipeCategory: r.category,
-  recipeCuisine: 'Indian',
-  recipeIngredient: r.ingredients,
-  recipeInstructions: r.steps.map((text, i) => ({ '@type': 'HowToStep', position: i + 1, text })),
+// 16:9, 4:3 and 1:1, as large as the photo allows up to 1200 px wide (Astro never upscales).
+const crop = (rw: number, rh: number) => {
+  const width = Math.min(1200, r.image.width, Math.floor((r.image.height * rw) / rh));
+  return { width, height: Math.round((width * rh) / rw) };
 };
+const crops = await Promise.all([crop(16, 9), crop(4, 3), crop(1, 1)].map((c) => getImage({ src: r.image, ...c, fit: 'cover', format: 'jpeg' })));
+const schema = recipeJsonLd(r, crops.map((c) => c.src));
 const title = `${r.title} | HariLeaf recipes`;
+const products = r.uses.filter((u) => u.product.includes('/')).map((u) => u.product);
+const categories = new Set(r.uses.map((u) => u.product.split('/')[0]));
+const reading = ARTICLES.filter((a) => a.relatedRecipes.includes(r.slug) || a.relatedCategories.some((c) => categories.has(c)));
 ---
 
-<SiteLayout title={title} description={r.summary} ogImage={absolute(r.image)}>
+<SiteLayout title={title} description={r.summary} ogImage={absolute(crops[0].src)}>
   <slot name="head" slot="head">
-    <SEO title={title} description={r.summary} canonicalUrl={absolute(path)} ogImage={absolute(r.image)} ogType="article" />
+    <SEO title={title} description={r.summary} canonicalUrl={absolute(path)} ogImage={absolute(crops[0].src)} ogType="article" />
     <script type="application/ld+json" is:inline set:html={jsonLdString(schema)} />
     <script type="application/ld+json" is:inline set:html={jsonLdString(breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Recipes', path: '/recipes/' }, { name: r.title, path }]))} />
   </slot>
@@ -42,9 +41,9 @@ const title = `${r.title} | HariLeaf recipes`;
     <h1 class="text-4xl font-extrabold tracking-tight text-on-surface">{r.title}</h1>
     <p class="mt-3 text-lg text-on-surface-variant">{r.summary}</p>
     <p class="mt-4 text-sm text-on-surface-variant">Prep {r.prepMinutes} min · Cook {r.cookMinutes} min · Serves {r.serves}</p>
-    <img src={r.image} alt={r.imageAlt} width="1200" height="900" class="mt-8 rounded-3xl w-full aspect-[4/3] object-cover" />
+    <Image src={r.image} alt={r.imageAlt} width={1200} height={900} fit="cover" widths={[480, 768, 1200]} sizes="(min-width: 800px) 720px, calc(100vw - 48px)" loading="eager" class="mt-8 rounded-3xl w-full aspect-[4/3] object-cover" />
 
-    <div class="mt-10 grid md:grid-cols-[1fr_1.4fr] gap-10">
+    <div class="mt-10 grid grid-cols-1 md:grid-cols-[1fr_1.4fr] gap-10">
       <section aria-labelledby="ing">
         <h2 id="ing" class="text-xl font-extrabold mb-3">Ingredients</h2>
         <ul class="list-disc pl-5 flex flex-col gap-1.5 text-on-surface-variant">{r.ingredients.map((i) => <li>{i}</li>)}</ul>
@@ -58,9 +57,45 @@ const title = `${r.title} | HariLeaf recipes`;
 
     <aside class="mt-12 rounded-3xl p-6 text-white" style="background:#0c110c;" aria-label="Products used">
       <p class="text-xs uppercase tracking-widest font-extrabold mb-2" style="color:rgba(159,177,125,.85);">Made with</p>
-      <ul class="flex flex-wrap gap-3">
-        {r.uses.map((u) => <li><a href={u.path} class="inline-block rounded-full px-4 py-2 font-bold text-sm" style="background:rgba(139,212,198,.15);color:#8bd4c6;">{u.label} →</a></li>)}
+      <ul class="flex flex-wrap gap-3" data-recipe-products={products.join(',')}>
+        {r.uses.map((u) => (
+          <li data-product={u.product}>
+            <a href={u.path} class="inline-block rounded-full px-4 py-2 font-bold text-sm" style="background:rgba(139,212,198,.15);color:#8bd4c6;">{u.label} →</a>
+            <span class="block text-xs mt-1 px-1" style="color:rgba(255,255,255,.6);" data-product-meta></span>
+          </li>
+        ))}
       </ul>
+      <p class="mt-5 text-sm"><a href="/our-process/" class="font-bold" style="color:#8bd4c6;">How we grow, mill and grind →</a></p>
     </aside>
+
+    {reading.length > 0 && (
+      <section class="mt-10" aria-labelledby="read-h">
+        <h2 id="read-h" class="text-xl font-extrabold mb-3">Read more</h2>
+        <ul class="flex flex-col gap-2">{reading.map((a) => <li><a href={`/learn/${a.slug}/`} class="font-bold text-primary underline">{a.title}</a></li>)}</ul>
+      </section>
+    )}
   </article>
 </SiteLayout>
+
+<script>
+  import { onEveryPage } from '../../scripts/page-load';
+  import { formatINR } from '../../lib/store/money';
+
+  interface Card { key: string; fromPrice: number | null; availability: string }
+  const SAY: Record<string, string> = { buy: 'In stock', preorder: 'Pre-order', sold_out: 'Sold out — back soon', notify: 'Out of season' };
+
+  function initRecipeProducts() {
+    const list = document.querySelector<HTMLElement>('[data-recipe-products]');
+    if (!list?.dataset.recipeProducts) return;
+    fetch(`/api/store/products?slugs=${encodeURIComponent(list.dataset.recipeProducts)}`)
+      .then((r) => (r.ok ? (r.json() as Promise<{ products: Card[] }>) : { products: [] }))
+      .then(({ products }) => {
+        for (const p of products) {
+          const meta = list.querySelector<HTMLElement>(`[data-product="${CSS.escape(p.key)}"] [data-product-meta]`);
+          if (meta) meta.textContent = [p.fromPrice !== null ? `from ${formatINR(p.fromPrice)}` : null, SAY[p.availability]].filter(Boolean).join(' · ');
+        }
+      })
+      .catch(() => undefined); // the plain links still work
+  }
+  onEveryPage(initRecipeProducts);
+</script>

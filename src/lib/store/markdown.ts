@@ -22,3 +22,21 @@ export function renderBasicMarkdown(md: string): string {
     })
     .join('');
 }
+
+/**
+ * Articles (Keystatic, written by the team): the same subset plus "## " / "### "
+ * headings and [links](/path) — only site paths or https URLs, never other
+ * schemes.
+ */
+export function renderArticleMarkdown(md: string): string {
+  const link = (html: string) =>
+    html.replace(/\[([^\]]+)\]\(((?:\/(?!\/)|https:\/\/)[^\s)]*)\)/g, (_m, text: string, href: string) => `<a href="${href}">${text}</a>`);
+  const blocks = md.replace(/\r\n?/g, '\n').trim().split(/\n{2,}/).filter((b) => b.trim());
+  return blocks
+    .map((block) => {
+      const h = /^(#{2,3})\s+(.+)$/.exec(block.trim());
+      if (h && !block.trim().includes('\n')) return `<h${h[1].length}>${link(inline(h[2]))}</h${h[1].length}>`;
+      return link(renderBasicMarkdown(block));
+    })
+    .join('');
+}
