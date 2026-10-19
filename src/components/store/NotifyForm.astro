@@ -9,16 +9,16 @@ import { env } from 'cloudflare:workers';
 interface Props {
   productId: number;
   productName: string;
-  /** Out of season ("notify") vs sold out in season. */
-  outOfSeason: boolean;
+  /** "Tell me when it's back" / "…in season" / "…when you deliver it". */
+  heading: string;
 }
-const { productId, productName, outOfSeason } = Astro.props;
+const { productId, productName, heading } = Astro.props;
 const siteKey = env.PUBLIC_TURNSTILE_SITE_KEY ?? '';
 const id = `notify-${productId}`;
 ---
 
 <form data-notify={productId} class="rounded-2xl bg-surface-container-low p-4 flex flex-col gap-3" novalidate aria-labelledby={`${id}-h`}>
-  <p id={`${id}-h`} class="font-extrabold">{outOfSeason ? 'Tell me when it’s in season' : 'Tell me when it’s back'}</p>
+  <p id={`${id}-h`} class="font-extrabold">{heading}</p>
   <div class="flex flex-col sm:flex-row gap-2">
     <label for={`${id}-email`} class="sr-only">Email address</label>
     <input id={`${id}-email`} name="email" type="email" autocomplete="email" required placeholder="you@example.com" aria-describedby={`${id}-note`}

@@ -6,6 +6,7 @@
  */
 import type { Batch, Product, Variant } from '../../lib/store/catalog';
 import { organicCopy } from '../../lib/store/claims';
+import { inSeason } from '../../lib/store/availability';
 import { formatINR } from '../../lib/store/money';
 import type { ReviewSummary } from '../../lib/store/reviews';
 import NotifyForm from './NotifyForm.astro';
@@ -31,11 +32,13 @@ const { product: p, variants, batch, minOrderPaise, codMaxPaise, rating, zone, s
 const initial = variants.find((v) => v.availability === 'buy') ?? variants[0];
 const cert = organicCopy({ organicScheme: p.organic.scheme, conversionSince: p.organic.conversionSince, certNumber: p.organic.certNumber });
 const off = (v: Variant) => (v.mrp > v.price ? Math.round((1 - v.price / v.mrp) * 100) : 0);
-const unavailableLabel = { buy: '', sold_out: 'Sold out — back soon', preorder: 'Pre-order opens soon', notify: 'Out of season' } as const;
+// A perishable in season whose delivery zone isn't selling yet reads "notify" too — but "out of season" would be untrue.
+const zoneClosed = p.perishable && !zone && inSeason(p.season.startMd, p.season.endMd, new Date());
+const unavailableLabel = { buy: '', sold_out: 'Sold out — back soon', preorder: 'Pre-order opens soon', notify: zoneClosed ? 'Not delivering yet' : 'Out of season' } as const;
 const fmtDate = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
 ---
 
-<div data-buybox data-product-id={p.id} data-perishable={p.perishable ? '1' : '0'} class="flex flex-col gap-4">
+<div data-buybox data-notify-label={unavailableLabel.notify} data-product-id={p.id} data-perishable={p.perishable ? '1' : '0'} class="flex flex-col gap-4">
   <div>
     <a href={`/${p.category.slug}/`} class="inline-block text-[11px] font-extrabold uppercase tracking-wider px-3 py-1.5 rounded-full bg-surface-container-high text-secondary">{p.category.name}</a>
     <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight leading-tight mt-3 text-on-surface">{p.name}</h1>
@@ -131,7 +134,7 @@ const fmtDate = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateS
   <p class="text-sm font-bold min-h-[1.25rem]" style="color:#1d7a3a" aria-live="polite" data-add-status></p>
   {zone && settings && variants.some((v) => v.availability === 'buy') && <ZoneCheck productName={p.name} zone={zone} settings={settings} />}
   {!variants.some((v) => v.availability === 'buy' || v.availability === 'preorder') && (
-    <NotifyForm productId={p.id} productName={p.name} outOfSeason={variants.every((v) => v.availability === 'notify')} />
+    <NotifyForm productId={p.id} productName={p.name} heading={zoneClosed ? 'Tell me when you deliver it' : variants.every((v) => v.availability === 'notify') ? 'Tell me when it’s in season' : 'Tell me when it’s back'} />
   )}
 
   <ul class="text-sm text-on-surface-variant flex flex-col gap-1">

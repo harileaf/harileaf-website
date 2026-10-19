@@ -19,6 +19,8 @@ export function initBuyBox(signal?: AbortSignal): void {
   if (!box) return;
   const radios = Array.from(box.querySelectorAll<HTMLButtonElement>('[data-variant]'));
   const perishable = box.dataset.perishable === '1';
+  // The page says "Not delivering yet" instead of "Out of season" for a fresh product whose zone isn't selling.
+  const label = (a: string | undefined) => (a === 'notify' && box.dataset.notifyLabel ? box.dataset.notifyLabel : LABEL[a ?? 'notify']);
   const qty = box.querySelector<HTMLInputElement>('[data-qty-input]')!;
   const addBtn = box.querySelector<HTMLButtonElement>('[data-add]')!;
   const status = box.querySelector<HTMLElement>('[data-add-status]')!;
@@ -54,7 +56,7 @@ export function initBuyBox(signal?: AbortSignal): void {
     for (const b of [addBtn, stickyBtn]) {
       if (!b) continue;
       b.disabled = !available;
-      b.textContent = LABEL[r.dataset.availability ?? 'notify'];
+      b.textContent = label(r.dataset.availability);
     }
     if (updateUrl && r.dataset.sku) {
       const url = new URL(location.href);
@@ -92,7 +94,7 @@ export function initBuyBox(signal?: AbortSignal): void {
     clearTimeout(addedTimer);
     for (const b of [addBtn, stickyBtn]) if (b) b.textContent = text;
     addedTimer = setTimeout(() => {
-      for (const b of [addBtn, stickyBtn]) if (b) b.textContent = LABEL[current.dataset.availability ?? 'notify'];
+      for (const b of [addBtn, stickyBtn]) if (b) b.textContent = label(current.dataset.availability);
     }, 2000);
   }
 
