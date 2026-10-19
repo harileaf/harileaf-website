@@ -15,8 +15,8 @@
 **Base branch:** `feat/ecommerce-v2-3-perishables`. Branch: `feat/ecommerce-v2-4-preorders`.
 
 ## Tasks
-- [ ] 1. Availability + quote groups + COD rule + order fields; integration test (separate cart, prepaid only, allocation reserved, date stored).
-- [ ] 2. Ready to dispatch + delay in `fulfilment.ts`; Shiprocket guard; emails; integration races (two Ready clicks → one invoice, one push, one email; a captured payment never pushes before Ready; a delay can't move the date earlier; cancel after a delay refunds).
-- [ ] 3. Admin order detail actions (Ready to dispatch, Push back date) + list tag; customer order page (pre-order banner, date, cancel); product page buy box ("Pre-order · Dispatches from {date} · prepaid only"); checkout dispatch line.
-- [ ] 4. JSON-LD PreOrder + feed preorder tests (one each); notify-me now also fires when a pre-order opens.
-- [ ] 5. Policies: pre-order terms (shipping, refund, terms). Gates + browser pass (1280 / 390). Spec notes, PR.
+- [x] 1. Availability + quote groups + COD rule + order fields; integration test (separate cart, prepaid only, allocation reserved, date stored).
+- [x] 2. Ready to dispatch + delay in `fulfilment.ts`; Shiprocket guard; emails; integration races (two Ready clicks → one invoice, one push, one email; a captured payment never pushes before Ready; a delay can't move the date earlier; cancel after a delay refunds).
+- [x] 3. Admin order detail actions (Ready to dispatch, Push back date) + list tag; customer order page (pre-order banner, date, cancel); product page buy box ("Pre-order · Dispatches from {date} · prepaid only"); checkout dispatch line.
+- [x] 4. JSON-LD PreOrder + feed preorder tests (one each); notify-me now also fires when a pre-order opens.
+- [x] 5. Policies: pre-order terms (shipping, refund, terms). Gates + browser pass (1280 / 390). Spec notes, PR.
