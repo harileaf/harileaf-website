@@ -117,7 +117,7 @@ Astro.response.headers.set('X-Robots-Tag', 'noindex');
       // Re-rendering replaces the controls; keep keyboard focus on the one in use.
       const active = document.activeElement;
       const refocus = active && root.contains(active) ? active.getAttribute('aria-label') : null;
-      root.replaceChildren(h('div', { class: 'grid md:grid-cols-[1.6fr_1fr] gap-8 items-start' }, list, summary));
+      root.replaceChildren(h('div', { class: 'grid grid-cols-1 md:grid-cols-[1.6fr_1fr] gap-8 items-start' }, list, summary));
       if (refocus) root.querySelector<HTMLElement>(`[aria-label="${CSS.escape(refocus)}"]`)?.focus();
     }
 
