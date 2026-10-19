@@ -8,10 +8,11 @@ export const prerender = false;
 
 export const POST: APIRoute = async ({ request }) => {
   const body = await readJson(request);
-  // Discount codes can be guessed by trying many: rate-limit quotes that carry one.
-  if (body?.coupon && !(await allowed(env, request, 'coupon'))) return tooMany();
-  // The phone (when the checkout form has one) lets a one-per-phone code say "already used" before submit.
-  const phone = typeof body?.phone === 'string' && /^[6-9]\d{9}$/.test(body.phone) ? body.phone : null;
-  const quote = await quoteCart(env.STORE_DB, body?.lines, { today: new Date(), settings: await getSettings(env.STORE_DB), coupon: body?.coupon, phone });
+  // No phone here: "already used with this number" would tell anyone whether a number has
+  // ordered. One-per-phone codes are judged at checkout, which is behind Turnstile.
+  const quote = await quoteCart(env.STORE_DB, body?.lines, { today: new Date(), settings: await getSettings(env.STORE_DB), coupon: body?.coupon });
+  // Guessing codes means many unknown ones: rate-limit those (a valid code re-quoted on
+  // every quantity change never counts, so a shopper's applied code is never dropped).
+  if (quote.coupon && !quote.coupon.ok && quote.coupon.reason === 'not_found' && !(await allowed(env, request, 'coupon'))) return tooMany();
   return json(publicQuote(quote));
 };

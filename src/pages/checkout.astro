@@ -244,7 +244,7 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
         return;
       }
       const coupon = readCoupon();
-      const res = await fetch('/api/store/cart/quote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lines, coupon, phone: phoneDigits() }) });
+      const res = await fetch('/api/store/cart/quote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lines, coupon }) });
       if (res.status === 429 && coupon) {
         rejected = { code: coupon, message: 'Too many tries — please wait a minute and try again.' };
         setCoupon(null);
@@ -254,17 +254,6 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
       else showAlert('We couldn’t load your order. Please refresh the page.');
     }
 
-    // A one-per-phone code can only be judged once we know the mobile number.
-    const phoneInput = form.querySelector<HTMLInputElement>('[name="contact.phone"]')!;
-    function phoneDigits(): string | null {
-      let p = phoneInput.value.replace(/\D/g, '');
-      if (p.length === 12 && p.startsWith('91')) p = p.slice(2);
-      if (p.length === 11 && p.startsWith('0')) p = p.slice(1);
-      return /^[6-9]\d{9}$/.test(p) ? p : null;
-    }
-    phoneInput.addEventListener('change', () => {
-      if (readCoupon()) loadQuote();
-    });
 
     // Pincode → city, state, delivery estimate, COD availability.
     const pin = form.querySelector<HTMLInputElement>('[name="ship.pincode"]')!;
