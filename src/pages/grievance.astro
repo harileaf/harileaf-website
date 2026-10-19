@@ -2,7 +2,7 @@
 export const prerender = false;
 import { env } from 'cloudflare:workers';
 import PolicyPage, { type PolicySection } from '../components/policy/PolicyPage.astro';
-import { POLICY_CACHE, displayPhone, loadPolicySettings, orPending } from '../lib/store/policy-settings';
+import { POLICY_CACHE, displayPhone, loadPolicySettings, phoneHref, orPending } from '../lib/store/policy-settings';
 
 const s = await loadPolicySettings(env.STORE_DB);
 Astro.response.headers.set('Cache-Control', POLICY_CACHE);
@@ -24,9 +24,9 @@ const sections: PolicySection[] = [
   {
     id: 'customer-care',
     title: 'Customer care',
-    paragraphs: ['For questions about an order, delivery, cancellation or refund, contact customer care first with your order number.'],
+    paragraphs: ['For questions about an order, delivery, cancellation or refund, contact customer care first with your order number. We usually reply within one working day.'],
     rows: [
-      { label: 'Phone', value: displayPhone(s.customer_care_phone) },
+      { label: 'Phone', value: displayPhone(s.customer_care_phone), href: phoneHref(s.customer_care_phone) },
       { label: 'Email', value: orPending(s.customer_care_email), href: mail(s.customer_care_email) },
     ],
   },
@@ -40,7 +40,7 @@ const sections: PolicySection[] = [
       { label: 'Name', value: orPending(s.grievance_officer_name) },
       { label: 'Designation', value: 'Grievance Officer' },
       { label: 'Email', value: orPending(s.grievance_officer_email), href: mail(s.grievance_officer_email) },
-      { label: 'Phone', value: displayPhone(s.grievance_officer_phone) },
+      { label: 'Phone', value: displayPhone(s.grievance_officer_phone), href: phoneHref(s.grievance_officer_phone) },
     ],
   },
   {
@@ -64,8 +64,9 @@ const sections: PolicySection[] = [
   title="Grievance Redressal"
   badge="Store"
   subtitle="Seller details, customer care and our grievance officer."
-  updated="Last updated 18 October 2026"
+  updated="2026-10-18"
   path="/grievance"
+  contactPage
   description="HariLeaf seller details, customer care and grievance officer contact. Complaints are acknowledged within 48 hours and resolved within one month."
   sections={sections}
 />

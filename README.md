@@ -24,7 +24,7 @@ Store logic lives in `src/lib/store/` as plain TypeScript modules that take a `D
 ### One-time setup (production)
 
 1. Upgrade to the **Workers Paid** plan (the free plan's 10 ms CPU limit is too tight for SSR + crypto).
-2. Create the database and put its id into `wrangler.toml` (`database_id` under `STORE_DB`). The deploy workflow applies pending migrations before each deploy, so the `CLOUDFLARE_API_TOKEN` secret needs **D1 Edit** permission:
+2. Create the database and put its id into `wrangler.toml` (`database_id` under `STORE_DB`) **before merging to `main`**: the deploy workflow stops while the id is still the all-zero placeholder. It applies pending migrations before each deploy, so the `CLOUDFLARE_API_TOKEN` secret needs **D1 Edit** permission:
    ```sh
    npx wrangler d1 create harileaf-store
    npx wrangler d1 migrations apply harileaf-store --remote
@@ -35,7 +35,7 @@ Store logic lives in `src/lib/store/` as plain TypeScript modules that take a `D
    npx wrangler secret put CF_ACCESS_AUD
    ```
    Until both are set, admin is passphrase-only and the dashboard shows a warning. Setting only one locks admin (fails closed).
-4. Fill in **/admin/settings** (legal name, address, GSTIN, FSSAI licence, customer care, grievance officer). The policy pages read these values.
+4. Fill in **/admin/settings** (legal name, address, GSTIN, FSSAI licence, customer care, grievance officer) right after the first deploy and **before applying for Razorpay KYC**. The policy pages read these values and show "Being updated" until they are set, which Razorpay's website review rejects.
 5. Connect the integrations (each value via `npx wrangler secret put <NAME>`):
    - **Razorpay**: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`. Dashboard → Webhooks → `https://harileaf.org/api/webhooks/razorpay` with events `payment.authorized`, `payment.captured`, `payment.failed`, `order.paid`, `refund.processed`, `refund.failed`; put its secret in `RAZORPAY_WEBHOOK_SECRET`.
    - **Shiprocket**: an API user (Settings → API) as `SHIPROCKET_EMAIL` / `SHIPROCKET_PASSWORD`; set the pickup location name and pincode in /admin/settings. Settings → API → Webhooks → `https://harileaf.org/api/webhooks/courier` with a security token, stored as `SHIPROCKET_WEBHOOK_TOKEN`.

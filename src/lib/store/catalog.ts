@@ -4,7 +4,7 @@
  */
 import { availability, type Availability } from './availability';
 import type { OrganicScheme, ProcessClaim } from './claims';
-import { unitPricePerKg, type Paise } from './money';
+import { formatUnitPrice, type Paise } from './money';
 import { mediaUrl, productPath } from './urls';
 
 export type ProductStatus = 'draft' | 'active' | 'discontinued';
@@ -86,7 +86,8 @@ export interface Variant {
   unitQtyG: number;
   price: Paise;
   mrp: Paise;
-  unitPricePerKg: Paise;
+  /** Legal Metrology unit sale price, e.g. "₹1.20/g" (under 1 kg) or "₹139.80/kg". */
+  unitPrice: string;
   stockQty: number;
   availability: Availability;
 }
@@ -157,7 +158,7 @@ export interface ProductCard {
   image: Image | null;
   fromPrice: Paise | null;
   fromMrp: Paise | null;
-  fromUnitPricePerKg: Paise | null;
+  fromUnitPrice: string | null;
   availability: Availability;
   variantCount: number;
 }
@@ -256,7 +257,7 @@ export function mapVariant(v: VariantRow, p: Product, today: Date): Variant | nu
     unitQtyG: v.unit_qty_g,
     price: v.price_paise,
     mrp: v.mrp_paise,
-    unitPricePerKg: unitPricePerKg(v.price_paise, v.unit_qty_g),
+    unitPrice: formatUnitPrice(v.price_paise, v.unit_qty_g),
     stockQty: v.stock_qty,
     // v1 doesn't sell pre-orders yet (v2: separate prepaid cart), so they
     // behave as "notify" everywhere — buy box, JSON-LD and feed agree.
@@ -329,7 +330,7 @@ function toCard(p: Product, vs: Variant[], images: Image[]): ProductCard {
     image: images[0] ?? null,
     fromPrice: from?.price ?? null,
     fromMrp: from?.mrp ?? null,
-    fromUnitPricePerKg: from?.unitPricePerKg ?? null,
+    fromUnitPrice: from?.unitPrice ?? null,
     availability: vs.length ? bestAvailability(vs) : 'notify',
     variantCount: vs.length,
   };

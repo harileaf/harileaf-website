@@ -52,7 +52,7 @@ const fmtDate = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateS
       <span class:list={['font-extrabold text-sm', { hidden: !off(initial) }]} style="color:#1d7a3a" data-bb-off>{off(initial)}% off</span>
     </p>
     <p class="text-xs text-on-surface-variant mt-1">
-      MRP inclusive of all taxes · <span data-bb-unit>{formatINR(initial.unitPricePerKg)}/kg</span> · <strong>Free delivery</strong>
+      MRP inclusive of all taxes · <span data-bb-unit>{initial.unitPrice}</span> · <strong>Free delivery</strong>
       {minOrderPaise ? <> · Minimum order {formatINR(minOrderPaise)}</> : null}
     </p>
   </div>
@@ -73,13 +73,13 @@ const fmtDate = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateS
           data-netqty={v.netQtyLabel}
           data-price={v.price}
           data-mrp={v.mrp}
-          data-unit={v.unitPricePerKg}
+          data-unit={v.unitPrice}
           data-availability={v.availability}
           class="min-w-[6.5rem] text-left rounded-xl border-2 px-3.5 py-2.5 bg-white transition-colors aria-checked:border-primary aria-checked:bg-[#eef8f5] border-surface-container-high focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
         >
           <span class="block font-bold text-on-surface">{v.label}</span>
           <span class="block text-xs text-on-surface-variant">
-            {formatINR(v.price)} · {formatINR(v.unitPricePerKg)}/kg{v.availability !== 'buy' ? ` · ${unavailableLabel[v.availability]}` : ''}
+            {formatINR(v.price)} · {v.unitPrice}{v.availability !== 'buy' ? ` · ${unavailableLabel[v.availability]}` : ''}
           </span>
         </button>
       ))}
@@ -139,7 +139,7 @@ const fmtDate = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateS
 <div class="md:hidden fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 px-4 pt-3 bg-white/95 backdrop-blur border-t border-black/10 shadow-[0_-6px_20px_rgba(0,0,0,0.08)]" style="padding-bottom:calc(0.75rem + env(safe-area-inset-bottom))" data-sticky-bar>
   <div class="leading-tight">
     <p class="font-extrabold text-lg text-on-surface" data-bb-sticky-price>{formatINR(initial.price)}</p>
-    <p class="text-xs text-on-surface-variant" data-bb-sticky-meta>{initial.label} · {formatINR(initial.unitPricePerKg)}/kg</p>
+    <p class="text-xs text-on-surface-variant" data-bb-sticky-meta>{initial.label} · {initial.unitPrice}</p>
   </div>
   <button type="button" data-add-sticky class="flex-1 rounded-full py-3 font-extrabold text-white cta-gradient disabled:opacity-50" disabled={initial.availability !== 'buy'}>
     {initial.availability === 'buy' ? 'Add to cart' : unavailableLabel[initial.availability]}

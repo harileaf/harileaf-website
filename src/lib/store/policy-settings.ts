@@ -31,4 +31,11 @@ export function displayPhone(p: string): string {
   return orPending(p);
 }
 
+/** tel: link for a phone setting (mobile or STD landline), so it can be tapped on a phone. */
+export function phoneHref(p: string): string | undefined {
+  if (/^[6-9]\d{9}$/.test(p)) return `tel:+91${p}`;
+  if (/^0\d{10}$/.test(p)) return `tel:+91${p.slice(1)}`;
+  return undefined;
+}
+
 export const POLICY_CACHE = 'public, max-age=0, s-maxage=600';
