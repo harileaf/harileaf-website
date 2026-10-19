@@ -7,6 +7,7 @@ import { validateSession } from '../../../lib/auth';
 import { getProductForAdmin, listProductsForAdmin, shelfLifeWarning } from '../../../lib/store/catalog-admin';
 import { editorMedia } from '../../../lib/store/editor-media';
 import { mediaUrl } from '../../../lib/store/urls';
+import { loadZones } from '../../../lib/store/catalog';
 
 const authenticated = await validateSession(env.HARILEAF_CMS, Astro.cookies);
 const isNew = Astro.params.id === 'new';
@@ -16,7 +17,7 @@ const blank: EditorProduct = {
   categorySlug: 'rice', slug: '', name: '', shortDescription: '', descriptionMd: '', status: 'draft', replacementProductId: null,
   organicScheme: 'none', organicConversionSince: null, organicCertNumber: null, processClaims: [], howItsMade: {}, harvestInfo: {},
   attributes: {}, faq: [], bestBeforeDays: null, storageInstructions: '', countryOfOrigin: 'India', ingredients: '', allergenInfo: null,
-  vegMark: true, nutrition: { per: '100 g', source: null, rows: [] }, hsnCode: '', gstRateBp: 500, perishable: false, codAllowed: true,
+  vegMark: true, nutrition: { per: '100 g', source: null, rows: [] }, hsnCode: '', gstRateBp: 500, perishable: false, deliveryZoneId: null, codAllowed: true,
   seasonStartMd: null, seasonEndMd: null, offSeasonMode: null, preorderDispatchDate: null, seoTitle: null, seoDescription: null, relatedProductIds: [],
 };
 
@@ -25,8 +26,9 @@ let notFound = false;
 if (authenticated) {
   const all = await listProductsForAdmin(env.STORE_DB);
   const others = all.filter((r) => r.id !== id).map((r) => ({ id: r.id, name: `${r.name} (/${r.categorySlug}/${r.slug})` }));
+  const zones = (await loadZones(env.STORE_DB)).map((z) => ({ id: z.id, name: z.name, enabled: z.enabled }));
   if (isNew) {
-    props = { id: null, initial: blank, variants: [], images: [], batches: [], labReports: [], certUrl: null, publishedAt: null, others, shelfWarning: null };
+    props = { id: null, initial: blank, variants: [], images: [], batches: [], labReports: [], certUrl: null, publishedAt: null, others, shelfWarning: null, zones };
   } else if (Number.isInteger(id)) {
     const a = await getProductForAdmin(env.STORE_DB, id as number);
     if (!a) notFound = true;
@@ -42,7 +44,7 @@ if (authenticated) {
           howItsMade: p.howItsMade, harvestInfo: p.harvestInfo, attributes: p.attributes, faq: p.faq,
           bestBeforeDays: p.listing.bestBeforeDays, storageInstructions: p.listing.storage, countryOfOrigin: p.listing.countryOfOrigin,
           ingredients: p.listing.ingredients, allergenInfo: p.listing.allergens, vegMark: p.listing.veg, nutrition: p.nutrition,
-          hsnCode: p.hsnCode, gstRateBp: p.gstRateBp, perishable: p.perishable, codAllowed: p.codAllowed,
+          hsnCode: p.hsnCode, gstRateBp: p.gstRateBp, perishable: p.perishable, deliveryZoneId: p.deliveryZoneId, codAllowed: p.codAllowed,
           seasonStartMd: p.season.startMd, seasonEndMd: p.season.endMd, offSeasonMode: p.season.offSeasonMode,
           preorderDispatchDate: p.season.preorderDispatchDate, seoTitle: p.seoTitle, seoDescription: p.seoDescription, relatedProductIds: p.relatedIds,
         },
@@ -55,6 +57,7 @@ if (authenticated) {
         certUrl: a.certKey ? mediaUrl(a.certKey) : null,
         publishedAt: a.publishedAt,
         others,
+        zones,
         shelfWarning: shelfLifeWarning(activeBatch?.packed_on ?? null, p.listing.bestBeforeDays, new Date()),
       };
     }

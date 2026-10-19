@@ -3,6 +3,7 @@
  * key/value rows in D1 and edited at /admin/settings. Values are strings;
  * paise amounts are integer strings.
  */
+import { validateZones } from './zones';
 
 export const SETTING_KEYS = [
   'gstin', 'legal_name', 'trade_name', 'address', 'state_code', 'fssai_license',
@@ -10,6 +11,7 @@ export const SETTING_KEYS = [
   'grievance_officer_name', 'grievance_officer_email', 'grievance_officer_phone',
   'min_order_paise', 'cod_max_order_paise', 'notify_email', 'low_stock_email',
   'pickup_pincode', 'shiprocket_pickup_location', 'cod_confirmation', 'cod_confirm_window_hours',
+  'delivery_zones', 'dispatch_days', 'dispatch_blackouts', 'dispatch_cutoff_hour',
 ] as const;
 export type SettingKey = (typeof SETTING_KEYS)[number];
 export type StoreSettings = Record<SettingKey, string>;
@@ -36,6 +38,16 @@ export const SETTING_DEFAULTS: StoreSettings = {
   cod_confirmation: 'on',
   /** Unconfirmed COD orders are cancelled (stock released) after this many hours; '0' = never. */
   cod_confirm_window_hours: '48',
+  /**
+   * Perishable delivery zones (zones.ts). Launch default: Mumbai MMR by pincode
+   * prefix, air couriers within 2 days, disabled until packaging trials and the
+   * zone margin sheet are done (owner to check the prefixes).
+   */
+  delivery_zones: JSON.stringify([{ id: 'mmr', name: 'Mumbai MMR', pincodes: ['400', '401', '4102', '421'], expressOnly: true, maxTransitDays: 2, enabled: false }]),
+  /** Perishables leave the farm Mon–Thu only, so nothing sits in a hub over the weekend. */
+  dispatch_days: '1,2,3,4',
+  dispatch_blackouts: '',
+  dispatch_cutoff_hour: '11',
 };
 
 /** Required before Razorpay KYC / launch (E-Commerce Rules, Legal Metrology, FSSAI). */
@@ -95,7 +107,19 @@ export function validateSettings(input: Record<string, unknown>, current: StoreS
   const set = (k: SettingKey, v: string) => (value[k] = v);
   const fail = (k: SettingKey, msg: string) => (errors[k] ??= msg);
 
-  for (const k of SETTING_KEYS) if (value[k].length > 500) fail(k, 'Too long (max 500 characters)');
+  const LONG: Partial<Record<SettingKey, number>> = { delivery_zones: 20_000, dispatch_blackouts: 4_000 };
+  for (const k of SETTING_KEYS) if (value[k].length > (LONG[k] ?? 500)) fail(k, `Too long (max ${LONG[k] ?? 500} characters)`);
+
+  const zones = validateZones(value.delivery_zones);
+  if (!zones.ok) fail('delivery_zones', zones.error);
+  else set('delivery_zones', JSON.stringify(zones.value));
+  const days = value.dispatch_days.split(/[\s,]+/).filter(Boolean);
+  if (days.some((d) => !/^[1-7]$/.test(d))) fail('dispatch_days', 'Choose dispatch days');
+  else set('dispatch_days', [...new Set(days.map(Number))].sort().join(','));
+  const blackouts = value.dispatch_blackouts.split(/[\s,]+/).filter(Boolean);
+  if (blackouts.some((d) => !/^\d{4}-\d{2}-\d{2}$/.test(d) || Number.isNaN(Date.parse(d)))) fail('dispatch_blackouts', 'Dates as YYYY-MM-DD, separated by commas');
+  else set('dispatch_blackouts', [...new Set(blackouts)].sort().join(', '));
+  if (!/^\d{1,2}$/.test(value.dispatch_cutoff_hour) || Number(value.dispatch_cutoff_hour) > 23) fail('dispatch_cutoff_hour', 'An hour from 0 to 23 (IST)');
 
   set('gstin', value.gstin.toUpperCase());
   if (value.gstin && !isValidGstin(value.gstin)) fail('gstin', 'Not a valid GSTIN (check the 15 characters)');

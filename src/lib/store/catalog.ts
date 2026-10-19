@@ -7,6 +7,7 @@ import type { OrganicScheme, ProcessClaim } from './claims';
 import { formatUnitPrice, type Paise } from './money';
 import { publishedReviews, reviewSummary, type PublicReview, type ReviewSummary } from './reviews';
 import { mediaUrl, productPath } from './urls';
+import { parseZones, sellableZone, zoneIdOf, type Zone } from './zones';
 
 export type ProductStatus = 'draft' | 'active' | 'discontinued';
 
@@ -46,6 +47,7 @@ export interface ProductRow {
   hsn_code: string;
   gst_rate_bp: number;
   perishable: number;
+  delivery_zone: string | null;
   cod_allowed: number;
   season_start_md: string | null;
   season_end_md: string | null;
@@ -140,6 +142,8 @@ export interface Product {
   hsnCode: string;
   gstRateBp: number;
   perishable: boolean;
+  /** v2: the delivery zone a perishable is sold in (`products.delivery_zone`). */
+  deliveryZoneId: string | null;
   codAllowed: boolean;
   season: { startMd: string | null; endMd: string | null; offSeasonMode: 'notify' | 'preorder' | null; preorderDispatchDate: string | null };
   seoTitle: string | null;
@@ -222,6 +226,7 @@ export function mapProduct(r: ProductRow): Product {
     hsnCode: r.hsn_code,
     gstRateBp: r.gst_rate_bp,
     perishable: r.perishable === 1,
+    deliveryZoneId: zoneIdOf(r.delivery_zone),
     codAllowed: r.cod_allowed === 1,
     season: {
       startMd: r.season_start_md,
@@ -236,8 +241,13 @@ export function mapProduct(r: ProductRow): Product {
   };
 }
 
-export function mapVariant(v: VariantRow, p: Product, today: Date): Variant | null {
-  const a = availability(
+/**
+ * `zones` (setting `delivery_zones`): a perishable is buyable only while its
+ * zone is enabled; otherwise it reads as "notify" everywhere (buy box, JSON-LD,
+ * feed), and its URL keeps answering 200.
+ */
+export function mapVariant(v: VariantRow, p: Product, today: Date, zones: Zone[]): Variant | null {
+  const a0 = availability(
     {
       status: p.status,
       seasonStartMd: p.season.startMd,
@@ -249,7 +259,8 @@ export function mapVariant(v: VariantRow, p: Product, today: Date): Variant | nu
     },
     today,
   );
-  if (!a) return null;
+  if (!a0) return null;
+  const a = a0 !== 'notify' && !sellableZone(p, zones).sellable ? 'notify' : a0;
   return {
     id: v.id,
     sku: v.sku,
@@ -280,6 +291,12 @@ export function fromVariant(vs: Variant[]): Variant | null {
 }
 
 // ── queries ────────────────────────────────────────────────────────────────
+
+/** Delivery zones from settings ([] when unset: then no perishable is buyable). */
+export async function loadZones(db: D1Database): Promise<Zone[]> {
+  const row = await db.prepare("SELECT value FROM settings WHERE key = 'delivery_zones'").first<{ value: string }>();
+  return row ? parseZones(row.value) : [];
+}
 
 const PRODUCT_SELECT = `
   SELECT p.*, c.slug AS category_slug, c.name AS category_name, c.google_product_category AS category_google
@@ -344,10 +361,10 @@ export async function listProducts(db: D1Database, opts: { categorySlug?: string
   const { results } = await (opts.categorySlug ? stmt.bind(opts.categorySlug) : stmt).all<ProductRow>();
   const products = results.map(mapProduct);
   const ids = products.map((p) => p.id);
-  const [variants, images] = await Promise.all([variantsFor(db, ids), imagesFor(db, ids)]);
+  const [variants, images, zones] = await Promise.all([variantsFor(db, ids), imagesFor(db, ids), loadZones(db)]);
   return products
     .map((p) => {
-      const vs = (variants.get(p.id) ?? []).map((v) => mapVariant(v, p, opts.today)).filter((v): v is Variant => v !== null);
+      const vs = (variants.get(p.id) ?? []).map((v) => mapVariant(v, p, opts.today, zones)).filter((v): v is Variant => v !== null);
       return { p, vs };
     })
     .filter(({ vs }) => vs.length > 0)
@@ -362,11 +379,11 @@ export async function listActiveProductsWithVariants(
   const { results } = await db.prepare(`${PRODUCT_SELECT} WHERE p.status = 'active' ORDER BY c.sort, p.name`).all<ProductRow>();
   const products = results.map(mapProduct);
   const ids = products.map((p) => p.id);
-  const [variants, images] = await Promise.all([variantsFor(db, ids), imagesFor(db, ids)]);
+  const [variants, images, zones] = await Promise.all([variantsFor(db, ids), imagesFor(db, ids), loadZones(db)]);
   return products
     .map((product) => ({
       product,
-      variants: (variants.get(product.id) ?? []).map((v) => mapVariant(v, product, today)).filter((v): v is Variant => v !== null),
+      variants: (variants.get(product.id) ?? []).map((v) => mapVariant(v, product, today, zones)).filter((v): v is Variant => v !== null),
       images: images.get(product.id) ?? [],
     }))
     .filter((x) => x.variants.length > 0);
@@ -377,6 +394,8 @@ export type ProductPageResult =
       kind: 'ok'; product: Product; variants: Variant[]; images: Image[]; batch: Batch | null; labReports: LabReport[]; related: ProductCard[];
       /** Approved reviews only; `summary` is null (and nothing renders) until the first one. */
       reviews: { summary: ReviewSummary | null; items: PublicReview[] };
+      /** The enabled zone a perishable is sold in (null: not perishable, or not on sale). */
+      zone: Zone | null;
     }
   | { kind: 'redirect'; to: string }
   | { kind: 'gone' }
@@ -417,7 +436,7 @@ export async function getProductPage(db: D1Database, categorySlug: string, slug:
   }
 
   const product = mapProduct(row);
-  const [variantRows, images, batchRow, labRows, summary, reviewItems] = await Promise.all([
+  const [variantRows, images, batchRow, labRows, summary, reviewItems, zones] = await Promise.all([
     variantsFor(db, [product.id]).then((m) => m.get(product.id) ?? []),
     imagesFor(db, [product.id]).then((m) => m.get(product.id) ?? []),
     db
@@ -440,9 +459,10 @@ export async function getProductPage(db: D1Database, categorySlug: string, slug:
       .then((r) => r.results),
     reviewSummary(db, product.id),
     publishedReviews(db, product.id),
+    loadZones(db),
   ]);
 
-  const variants = variantRows.map((v) => mapVariant(v, product, today)).filter((v): v is Variant => v !== null);
+  const variants = variantRows.map((v) => mapVariant(v, product, today, zones)).filter((v): v is Variant => v !== null);
   if (variants.length === 0) return { kind: 'not_found' };
 
   const batch: Batch | null = batchRow
@@ -471,5 +491,5 @@ export async function getProductPage(db: D1Database, categorySlug: string, slug:
   const picked = product.relatedIds.map((id) => others.find((c) => c.id === id)).filter((c): c is ProductCard => Boolean(c));
   const related = [...picked, ...others.filter((c) => c.categorySlug === product.category.slug && !picked.includes(c)), ...others.filter((c) => c.categorySlug !== product.category.slug && !picked.includes(c))].slice(0, 4);
 
-  return { kind: 'ok', product, variants, images, batch, labReports: labRows.map(mapLab), related, reviews: { summary, items: summary ? reviewItems : [] } };
+  return { kind: 'ok', product, variants, images, batch, labReports: labRows.map(mapLab), related, reviews: { summary, items: summary ? reviewItems : [] }, zone: sellableZone(product, zones).zone };
 }

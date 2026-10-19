@@ -17,6 +17,7 @@ import { productPurgePaths, purgeUrls } from './edge-cache';
 import { enqueueStmt } from './outbox';
 import { getSettings, type SettingKey } from './settings';
 import { isCategorySlug } from './urls';
+import { parseZones } from './zones';
 
 /** Seller details every product listing displays (Legal Metrology Rule 6 / FSSAI). */
 const LISTING_SETTINGS: Array<[SettingKey, string]> = [
@@ -58,6 +59,8 @@ export interface ProductInput {
   hsnCode: string;
   gstRateBp: number;
   perishable: boolean;
+  /** v2: zone id from the `delivery_zones` setting; required for perishables. */
+  deliveryZoneId: string | null;
   codAllowed: boolean;
   seasonStartMd: string | null;
   seasonEndMd: string | null;
@@ -121,6 +124,8 @@ export interface PublishContext {
   listingSettingsMissing?: string[];
   /** Whether the product already has `published_at` (slug is then frozen). */
   published: boolean;
+  /** Zone ids defined in settings (perishables must pick one). */
+  zoneIds?: string[];
   currentSlug: string | null;
   currentCategorySlug: string | null;
 }
@@ -161,6 +166,8 @@ export function validateProduct(p: ProductInput, variants: VariantInput[], ctx: 
   if (!isInt(p.gstRateBp, 0, 4000)) fail('gstRateBp', 'Enter the GST rate');
   if (p.bestBeforeDays !== null && !isInt(p.bestBeforeDays, 1, 3650)) fail('bestBeforeDays', 'Enter days');
   if (p.perishable && p.codAllowed) fail('codAllowed', 'Perishable products are prepaid only');
+  if (p.perishable && !p.deliveryZoneId) fail('deliveryZoneId', 'Choose the delivery zone — perishables are sold only inside one');
+  else if (p.perishable && ctx.zoneIds && !ctx.zoneIds.includes(p.deliveryZoneId!)) fail('deliveryZoneId', 'This zone no longer exists in Store settings');
 
   if ((p.seasonStartMd === null) !== (p.seasonEndMd === null)) fail('seasonStartMd', 'Set both season start and end, or neither');
   if (p.seasonStartMd && !MD.test(p.seasonStartMd)) fail('seasonStartMd', 'Use MM-DD');
@@ -239,6 +246,7 @@ function productColumns(p: ProductInput) {
     hsn_code: p.hsnCode,
     gst_rate_bp: p.gstRateBp,
     perishable: p.perishable ? 1 : 0,
+    delivery_zone: p.perishable && p.deliveryZoneId ? JSON.stringify({ zone: p.deliveryZoneId }) : null,
     cod_allowed: p.perishable ? 0 : p.codAllowed ? 1 : 0,
     season_start_md: p.seasonStartMd,
     season_end_md: p.seasonEndMd,
@@ -333,6 +341,7 @@ export async function saveProduct(
     imageCount: id === null ? 0 : await imageCount(db, id),
     listingSettingsMissing: p.status === 'active' ? await listingSettingsMissing(db) : [],
     published: Boolean(prev?.published_at),
+    zoneIds: parseZones((await getSettings(db)).delivery_zones).map((z) => z.id),
     currentSlug: prev?.slug ?? null,
     currentCategorySlug: prev?.category_slug ?? null,
   });
@@ -755,6 +764,7 @@ export function coerceProductInput(raw: unknown): ProductInput {
     hsnCode: str(r.hsnCode).trim(),
     gstRateBp: num(r.gstRateBp, Number.NaN),
     perishable: bool(r.perishable),
+    deliveryZoneId: strOrNull(r.deliveryZoneId),
     codAllowed: bool(r.codAllowed),
     seasonStartMd: strOrNull(r.seasonStartMd),
     seasonEndMd: strOrNull(r.seasonEndMd),

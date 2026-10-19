@@ -17,7 +17,7 @@ export interface EditorProduct {
   processClaims: Claim[]; howItsMade: Record<string, string>; harvestInfo: Record<string, string>; attributes: Record<string, string>;
   faq: Faq[]; bestBeforeDays: number | null; storageInstructions: string; countryOfOrigin: string; ingredients: string;
   allergenInfo: string | null; vegMark: boolean; nutrition: { per: string; source: string | null; rows: NutRow[] };
-  hsnCode: string; gstRateBp: number; perishable: boolean; codAllowed: boolean;
+  hsnCode: string; gstRateBp: number; perishable: boolean; deliveryZoneId: string | null; codAllowed: boolean;
   seasonStartMd: string | null; seasonEndMd: string | null; offSeasonMode: 'notify' | 'preorder' | null; preorderDispatchDate: string | null;
   seoTitle: string | null; seoDescription: string | null; relatedProductIds: number[];
 }
@@ -43,6 +43,8 @@ interface Props {
   publishedAt: string | null;
   others: Array<{ id: number; name: string }>;
   shelfWarning: string | null;
+  /** Delivery zones from Store settings (for perishables). */
+  zones: Array<{ id: string; name: string; enabled: boolean }>;
 }
 
 const GST_RATES = [
@@ -313,6 +315,14 @@ export default function ProductEditor(props: Props) {
           <Field label="Perishable" error={err('perishable')}>
             <select value={p.perishable ? 'yes' : 'no'} onChange={(e) => setP((prev) => ({ ...prev, perishable: e.target.value === 'yes', codAllowed: e.target.value === 'yes' ? false : prev.codAllowed }))} style={{ width: '100%', padding: '0.7rem', borderRadius: 8 }}><option value="no">No</option><option value="yes">Yes (prepaid only)</option></select>
           </Field>
+          {p.perishable && (
+            <Field label="Delivery zone" error={err('deliveryZoneId')} hint="Zones are set in Store settings">
+              <select value={p.deliveryZoneId ?? ''} onChange={(e) => set('deliveryZoneId', e.target.value || null)} style={{ width: '100%', padding: '0.7rem', borderRadius: 8 }}>
+                <option value="">Choose…</option>
+                {props.zones.map((z) => (<option key={z.id} value={z.id}>{z.name}{z.enabled ? '' : ' (not selling yet)'}</option>))}
+              </select>
+            </Field>
+          )}
           <Field label="Cash on delivery" error={err('codAllowed')}>
             <select value={p.codAllowed ? 'yes' : 'no'} disabled={p.perishable} onChange={(e) => set('codAllowed', e.target.value === 'yes')} style={{ width: '100%', padding: '0.7rem', borderRadius: 8 }}><option value="yes">Allowed</option><option value="no">Not allowed</option></select>
           </Field>

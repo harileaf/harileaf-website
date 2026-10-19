@@ -11,11 +11,12 @@ const NOW = new Date('2026-10-18T06:30:00Z');
 const settings = {
   ...SETTING_DEFAULTS, cod_confirmation: 'off', min_order_paise: '100', legal_name: 'HariLeaf Agritech Pvt Ltd', address: 'Borivali, Mumbai 400092', gstin: '27AAPFU0939F1ZV',
   fssai_license: '11524999000123', state_code: '27',
+  delivery_zones: JSON.stringify([{ id: 'mmr', name: 'Mumbai MMR', pincodes: ['400'], expressOnly: true, maxTransitDays: 2, enabled: true }]),
 };
 beforeAll(async () => putSettings(db, settings));
 
 async function order(method: 'cod' | 'razorpay', opts: { stock?: number; perishable?: boolean } = {}) {
-  const v = await insertVariant(await insertProduct(opts.perishable ? { perishable: 1, cod_allowed: 0, category_id: 3 } : {}), { stock_qty: opts.stock ?? 5, price_paise: 69900, mrp_paise: 79900 });
+  const v = await insertVariant(await insertProduct(opts.perishable ? { perishable: 1, cod_allowed: 0, category_id: 3, delivery_zone: '{"zone":"mmr"}' } : {}), { stock_qty: opts.stock ?? 5, price_paise: 69900, mrp_paise: 79900 });
   const quote = await quoteCart(db, [{ variantId: v, qty: 1 }], { today: NOW, settings });
   const co = validateCheckoutInput({ contact: { name: 'Asha Rao', email: 'asha@example.com', phone: '9820012345' }, ship: { line1: '12 Lake Road', city: 'Mumbai', stateCode: '27', pincode: '400092' }, paymentMethod: method });
   if (!co.ok) throw new Error('co');

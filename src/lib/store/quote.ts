@@ -10,6 +10,7 @@ import { splitTax, type TaxLine } from './gst';
 import type { Paise } from './money';
 import type { StoreSettings } from './settings';
 import { mediaUrl, productPath } from './urls';
+import { parseZones } from './zones';
 
 export type LineProblem = 'unavailable' | 'out_of_stock' | 'limited';
 
@@ -69,6 +70,7 @@ export async function quoteCart(
   const minOrder = settingPaise(opts.settings.min_order_paise, 0);
   const codMax = settingPaise(opts.settings.cod_max_order_paise, 0);
   const lines: QuoteLine[] = [];
+  const zones = parseZones(opts.settings.delivery_zones);
 
   if (wanted.length) {
     const ids = wanted.map((l) => l.variantId);
@@ -89,7 +91,7 @@ export async function quoteCart(
       if (!r) continue; // unknown variant ids are dropped silently (stale cart)
       const product = mapProduct(r);
       const variantRow: VariantRow = { ...r, id: r.v_id, active: r.v_active };
-      const v = mapVariant(variantRow, product, opts.today);
+      const v = mapVariant(variantRow, product, opts.today, zones);
       const buyable = v?.availability === 'buy';
       const available = buyable ? r.stock_qty : 0;
       const qty = Math.min(want.qty, available);
