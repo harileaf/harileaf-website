@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { creditNoteSnapshot, invoiceSnapshot } from '../../src/lib/store/invoices';
+import { creditNoteSnapshot, invoiceSnapshot, partialCreditNoteSnapshot } from '../../src/lib/store/invoices';
 import type { OrderItemRow, OrderRow } from '../../src/lib/store/orders';
 import { SETTING_DEFAULTS } from '../../src/lib/store/settings';
 
@@ -50,6 +50,17 @@ describe('invoiceSnapshot', () => {
     const inv = invoiceSnapshot(order(), [item()], settings);
     const cn = creditNoteSnapshot(inv, { docNo: 'HL/2627/000042', issuedAt: '2026-10-19T05:00:00.000Z' }, 'Cancelled by customer');
     expect(cn).toMatchObject({ docType: 'credit_note', title: 'Credit Note', reference: { docNo: 'HL/2627/000042' }, reason: 'Cancelled by customer', totals: { total: 139800 } });
+  });
+
+  it('a partial credit note for a discounted line shows the discount, so qty × price − discount is the line total', () => {
+    // ₹699 × 2 with ₹139.80 off (10% code): ₹1,258.20; one unit refunded = ₹629.10.
+    const inv = invoiceSnapshot(order(), [item({ discount_paise: 13980, taxable_paise: 119829, cgst_paise: 2995, sgst_paise: 2996, line_total_paise: 125820 })], settings);
+    const cn = partialCreditNoteSnapshot(inv, { docNo: 'HL/2627/000042', issuedAt: '2026-10-19T05:00:00.000Z' }, 'One pack damaged', [{ item: item(), qty: 1, amount: 62910 }]);
+    const [l] = cn.lines;
+    expect(l.qty * l.unitPrice - l.discount).toBe(l.total);
+    expect(l).toMatchObject({ qty: 1, unitPrice: 69900, discount: 6990, total: 62910 });
+    expect(l.taxable + l.cgst + l.sgst + l.igst).toBe(l.total);
+    expect(cn.totals.total).toBe(62910);
   });
 
 });

@@ -106,13 +106,16 @@ export async function bookCourier(env: Env, orderId: number, courierId: number, 
   if (!allowed.value.options.some((x) => x.id === courierId)) return fail('That courier can’t take this parcel (or doesn’t meet the fresh-produce delivery limit)');
 
   const db = env.STORE_DB;
-  let shipmentId: string | null;
+  let sr: { orderId: string; shipmentId: string | null };
   try {
-    shipmentId = (await ensureShiprocketOrder(db, cfg, o, c.settings.shiprocket_pickup_location)).shipmentId;
+    sr = await ensureShiprocketOrder(db, cfg, o, c.settings.shiprocket_pickup_location);
   } catch (err) {
     return fail(String(err instanceof Error ? err.message : err));
   }
+  const { shipmentId } = sr;
   if (!shipmentId) return fail('Shiprocket has no shipment for this order yet — try again in a minute');
+  const cancelled = 'The order was cancelled while booking — nothing was booked';
+  if ((await db.prepare('SELECT status FROM orders WHERE id = ?').bind(orderId).first<{ status: string }>())?.status !== 'packed') return fail(cancelled);
   const assign = await srCall<{ awb_assign_status?: number; message?: string; response?: { data?: { awb_code?: string; courier_name?: string } } }>(cfg, 'POST', '/courier/assign/awb', {
     shipment_id: Number(shipmentId),
     courier_id: courierId,
@@ -121,10 +124,18 @@ export async function bookCourier(env: Env, orderId: number, courierId: number, 
   if (assign.status !== 200 || assign.data.awb_assign_status !== 1 || !awb) return fail(`AWB not assigned: ${assign.data.message ?? assign.status}`);
   const courier = assign.data.response?.data?.courier_name ?? allowed.value.options.find((x) => x.id === courierId)?.name ?? 'Courier';
   const at = nowIso(ctx.now);
-  await db.batch([
-    db.prepare('UPDATE orders SET awb = ?, courier = ?, updated_at = ? WHERE id = ? AND awb IS NULL').bind(awb, courier, at, orderId),
-    db.prepare("INSERT INTO order_events (order_id, at, type, actor, actor_email, note) VALUES (?, ?, 'courier_booked', 'admin', ?, ?)").bind(orderId, at, ctx.actorEmail, `${courier} · AWB ${awb}`),
+  // Only onto a still-packed order: a cancel that landed while Shiprocket answered wins.
+  const [saved] = await db.batch([
+    db.prepare("UPDATE orders SET awb = ?, courier = ?, tracking_url = COALESCE(tracking_url, ?), updated_at = ? WHERE id = ? AND awb IS NULL AND status = 'packed'").bind(awb, courier, trackingUrlFor(awb), at, orderId),
+    db.prepare("INSERT INTO order_events (order_id, at, type, actor, actor_email, note) SELECT ?, ?, 'courier_booked', 'admin', ?, ? WHERE changes() = 1").bind(orderId, at, ctx.actorEmail, `${courier} · AWB ${awb}`),
   ]);
+  if (saved.meta.changes !== 1) {
+    const now = await db.prepare('SELECT status, awb FROM orders WHERE id = ?').bind(orderId).first<{ status: string; awb: string | null }>();
+    if (now?.status !== 'cancelled') return fail(`Not saved: the order is ${now?.status ?? 'missing'}${now?.awb ? ` with AWB ${now.awb}` : ''} — check it in Shiprocket`);
+    // The shiprocket.cancel task may have run before the AWB existed: cancel the Shiprocket order again (it drops the AWB).
+    await srCall(cfg, 'POST', '/orders/cancel', { ids: [Number(sr.orderId)] });
+    return fail(cancelled);
+  }
   const pickup = await srCall<{ pickup_status?: number; message?: string; response?: { pickup_scheduled_date?: string } }>(cfg, 'POST', '/courier/generate/pickup', { shipment_id: [Number(shipmentId)] });
   const pickupDate = pickup.data.pickup_status === 1 ? (pickup.data.response?.pickup_scheduled_date ?? 'requested') : null;
   await db
@@ -133,6 +144,9 @@ export async function bookCourier(env: Env, orderId: number, courierId: number, 
     .run();
   return { ok: true, value: { awb, courier, pickup: pickupDate } };
 }
+
+/** Shiprocket's public tracking page for an AWB (the customer's "Track" link and shipped email). */
+const trackingUrlFor = (awb: string) => `https://shiprocket.co/tracking/${encodeURIComponent(awb)}`;
 
 async function shipmentOf(env: Env, orderId: number): Promise<Result<{ cfg: ShiprocketConfig; shipmentId: number; srOrderId: number }>> {
   const o = await env.STORE_DB.prepare('SELECT awb, shiprocket_order_id, shiprocket_shipment_id FROM orders WHERE id = ?').bind(orderId).first<{ awb: string | null; shiprocket_order_id: string | null; shiprocket_shipment_id: string | null }>();

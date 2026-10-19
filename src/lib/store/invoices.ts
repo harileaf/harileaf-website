@@ -137,7 +137,8 @@ export function partialCreditNoteSnapshot(
     hsn: l.item.hsn_code,
     qty: l.qty,
     unitPrice: l.item.unit_price_paise,
-    discount: 0,
+    // The units' share of the line's discount, so qty × price − discount is the refunded amount.
+    discount: l.qty > 0 ? Math.max(0, l.qty * l.item.unit_price_paise - l.amount) : 0,
     taxable: taxed[i].taxable,
     rateBp: l.item.gst_rate_bp,
     cgst: taxed[i].cgst,
