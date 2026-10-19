@@ -130,7 +130,7 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
 <script>
   import { onEveryPage } from '../scripts/page-load';
   import { formatINR } from '../lib/store/money';
-  import { clearCart, readCart, restoreLater } from '../scripts/store/cart';
+  import { clearCart, forgetUnpaidOrder, readCart, rememberUnpaidOrder, restoreLater } from '../scripts/store/cart';
   import { couponBox, discountRow, focusCouponBox, isDeadCoupon, readCoupon, setCoupon, type QuoteCoupon } from '../scripts/store/coupon';
   import { h } from '../scripts/store/dom';
   import { payForOrder } from '../scripts/store/razorpay-checkout';
@@ -274,22 +274,30 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
       }
       pinStatus.textContent = 'Checking delivery…';
       const grams = Math.max(100, quote?.weightG ?? 1000);
-      const res = await fetch(`/api/store/pincode?pin=${v}&grams=${grams}&value=${quote?.total ?? 10000}`);
-      const d = (await res.json().catch(() => ({}))) as { serviceable: boolean | null; cod: boolean | null; etaDays: number | null; city: string | null; stateCode: string | null; checked: boolean };
-      if (pin.value !== v) return;
-      if (d.city && !form.querySelector<HTMLInputElement>('[name="ship.city"]')!.value) form.querySelector<HTMLInputElement>('[name="ship.city"]')!.value = d.city;
-      if (d.stateCode) form.querySelector<HTMLSelectElement>('[name="ship.stateCode"]')!.value = d.stateCode;
-      if (!d.checked) pinStatus.textContent = 'We’ll confirm delivery after you order.';
-      else if (!d.serviceable) pinStatus.textContent = 'Sorry — we can’t deliver to this pincode yet.';
-      else pinStatus.textContent = `✓ Delivers${d.etaDays ? ` in about ${d.etaDays} day${d.etaDays === 1 ? '' : 's'}` : ''}${d.cod ? ' · COD available' : ''}`;
-      pinStatus.style.color = d.checked && !d.serviceable ? '#b3261e' : '#1d7a3a';
-      pinCod = d.checked ? Boolean(d.cod) : null;
-      pinBlocked = d.checked && !d.serviceable;
-      // Fresh produce: only inside its zone, by a courier within the limit; show when it leaves and arrives.
-      for (const z of quote?.zones ?? []) {
-        const zr = await fetch(`/api/store/pincode?pin=${v}&zone=${encodeURIComponent(z.id)}&grams=${grams}&value=${quote?.total ?? 10000}`);
-        const zd = ((await zr.json().catch(() => ({}))) as { zone?: { inZone: boolean; courier: boolean | null; dispatch: string | null; window: { from: string; to: string } | null } }).zone;
+      const fillPlace = (city: string | null | undefined, stateCode: string | null | undefined) => {
+        const cityInput = form.querySelector<HTMLInputElement>('[name="ship.city"]')!;
+        if (city && !cityInput.value) cityInput.value = city;
+        if (stateCode) form.querySelector<HTMLSelectElement>('[name="ship.stateCode"]')!.value = stateCode;
+      };
+      const zones = quote?.zones ?? [];
+      if (!zones.length) {
+        const res = await fetch(`/api/store/pincode?pin=${v}&grams=${grams}&value=${quote?.total ?? 10000}`);
+        const d = (await res.json().catch(() => ({}))) as { serviceable: boolean | null; cod: boolean | null; etaDays: number | null; city: string | null; stateCode: string | null; checked: boolean };
         if (pin.value !== v) return;
+        fillPlace(d.city, d.stateCode);
+        if (!d.checked) pinStatus.textContent = 'We’ll confirm delivery after you order.';
+        else if (!d.serviceable) pinStatus.textContent = 'Sorry — we can’t deliver to this pincode yet.';
+        else pinStatus.textContent = `✓ Delivers${d.etaDays ? ` in about ${d.etaDays} day${d.etaDays === 1 ? '' : 's'}` : ''}${d.cod ? ' · COD available' : ''}`;
+        pinStatus.style.color = d.checked && !d.serviceable ? '#b3261e' : '#1d7a3a';
+        pinCod = d.checked ? Boolean(d.cod) : null;
+        pinBlocked = d.checked && !d.serviceable;
+      }
+      // Fresh produce (prepaid only): its zone's answer is the whole answer — inside the zone, a courier within the limit, when it leaves and arrives.
+      for (const z of zones) {
+        const zr = await fetch(`/api/store/pincode?pin=${v}&zone=${encodeURIComponent(z.id)}&grams=${grams}&value=${quote?.total ?? 10000}`);
+        const zd = ((await zr.json().catch(() => ({}))) as { zone?: { inZone: boolean; courier: boolean | null; dispatch: string | null; window: { from: string; to: string } | null; city: string | null; stateCode: string | null } }).zone;
+        if (pin.value !== v) return;
+        fillPlace(zd?.city, zd?.stateCode);
         const day = (ymd: string) => new Date(`${ymd}T00:00:00+05:30`).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' });
         if (zd && !zd.inZone) {
           pinBlocked = true;
@@ -299,6 +307,8 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
           pinStatus.textContent = `Sorry — no courier can reach ${v} within ${z.maxTransitDays} days, so we can’t send fresh produce there.`;
         } else if (zd?.dispatch && zd.window) {
           pinStatus.textContent = `✓ Dispatched ${day(zd.dispatch)}, arrives ${zd.window.from === zd.window.to ? day(zd.window.to) : `${day(zd.window.from)} – ${day(zd.window.to)}`}`;
+        } else if (!pinBlocked) {
+          pinStatus.textContent = 'We’ll confirm delivery after you order.';
         }
         pinStatus.style.color = pinBlocked ? '#b3261e' : '#1d7a3a';
       }
@@ -391,6 +401,7 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
         if (outcome.kind === 'paid') finish(data.viewUrl!);
         else showAlert(outcome.kind === 'dismissed' ? 'Payment not completed. Your items are held for 30 minutes — you can pay from your order page.' : outcome.message);
         if (outcome.kind !== 'paid') {
+          rememberUnpaidOrder(data.orderNo!); // paying later from the order page empties this cart
           const link = h('a', { href: data.viewUrl!, class: 'underline ml-1' }, 'Go to your order');
           alertBox.append(' ', link);
         }
@@ -406,6 +417,7 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
       clearCart();
       setCoupon(null); // a used code must not ride into the next cart
       restoreLater(); // goods saved for the next order (a split cart) come back into the cart
+      forgetUnpaidOrder();
       try {
         sessionStorage.removeItem('hl_checkout_key');
       } catch {

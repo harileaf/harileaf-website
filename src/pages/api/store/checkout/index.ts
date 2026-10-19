@@ -89,10 +89,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
       return json({ error: msg, errors: { 'ship.pincode': msg } }, 422);
     }
   }
+  const grams = quote.lines.reduce((g, l) => g + l.weightG * l.qty, 0);
+  let list: Awaited<ReturnType<typeof couriers>> | undefined; // reused by the courier check below: one Shiprocket call, not three
   if (perishableZones.length) {
     if (!sr || !settings.pickup_pincode) return json({ error: 'We couldn’t confirm delivery to this pincode. Please try again shortly.' }, 503);
-    const grams = quote.lines.reduce((g, l) => g + l.weightG * l.qty, 0);
-    let list: Awaited<ReturnType<typeof couriers>>;
     try {
       list = await couriers(sr, { pickup: settings.pickup_pincode, delivery: c.ship.pincode, weightKg: grams / 1000, cod: false, declaredValue: quote.total / 100 });
     } catch (err) {
@@ -100,7 +100,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       return json({ error: 'We couldn’t confirm delivery to this pincode. Please try again shortly.' }, 503);
     }
     for (const { zone, name } of perishableZones) {
-      if (!pickCourier(list, zone)) {
+      if (!pickCourier(list!, zone)) {
         const msg = `No ${zone.expressOnly ? 'express ' : ''}courier can bring ${name} to ${c.ship.pincode} within ${zone.maxTransitDays} day${zone.maxTransitDays === 1 ? '' : 's'}, so we can’t send it there`;
         return json({ error: msg, errors: { 'ship.pincode': msg } }, 422);
       }
@@ -109,9 +109,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   // Courier check (fails open for non-perishables if Shiprocket is unreachable).
   if (sr && settings.pickup_pincode) {
-    const grams = quote.lines.reduce((g, l) => g + l.weightG * l.qty, 0);
     try {
-      const s = await checkServiceability(sr, { pickup: settings.pickup_pincode, delivery: c.ship.pincode, weightKg: grams / 1000, declaredValue: quote.total / 100 });
+      const s = await checkServiceability(sr, { pickup: settings.pickup_pincode, delivery: c.ship.pincode, weightKg: grams / 1000, declaredValue: quote.total / 100 }, { cod: c.paymentMethod === 'cod', prepaid: list });
       if (!s.serviceable) return json({ error: "We can't deliver to this pincode yet", errors: { 'ship.pincode': "We can't deliver to this pincode yet" } }, 422);
       const pinState = s.state ? stateCodeFor(s.state) : null;
       if (pinState && pinState !== c.ship.stateCode) {
