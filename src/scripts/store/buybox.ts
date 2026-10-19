@@ -43,10 +43,10 @@ export function initBuyBox(signal?: AbortSignal): void {
     set('[data-bb-off]', `${off}% off`);
     box!.querySelector('[data-bb-mrp-wrap]')?.classList.toggle('hidden', !off);
     box!.querySelector('[data-bb-off]')?.classList.toggle('hidden', !off);
-    set('[data-bb-unit]', `${formatINR(Number(r.dataset.unit))}/kg`);
+    set('[data-bb-unit]', r.dataset.unit ?? '');
     set('[data-bb-netqty]', r.dataset.netqty ?? '');
     set('[data-bb-sticky-price]', formatINR(price));
-    set('[data-bb-sticky-meta]', `${r.dataset.label} · ${formatINR(Number(r.dataset.unit))}/kg`);
+    set('[data-bb-sticky-meta]', `${r.dataset.label} · ${r.dataset.unit ?? ''}`);
     const available = r.dataset.availability === 'buy';
     for (const b of [addBtn, stickyBtn]) {
       if (!b) continue;

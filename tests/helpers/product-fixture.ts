@@ -40,7 +40,7 @@ export function variant(over: Partial<Variant> = {}): Variant {
     unitQtyG: 5000,
     price: 69900,
     mrp: 79900,
-    unitPricePerKg: 13980,
+    unitPrice: '₹139.80/kg',
     stockQty: 20,
     availability: 'buy',
     ...over,

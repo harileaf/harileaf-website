@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { PENDING, displayPhone, loadPolicySettings, orPending, rupeesSetting } from '../../src/lib/store/policy-settings';
+import { PENDING, displayPhone, loadPolicySettings, orPending, phoneHref, rupeesSetting } from '../../src/lib/store/policy-settings';
 import { SETTING_DEFAULTS } from '../../src/lib/store/settings';
 
 it('formats phones for display and marks missing values as pending', () => {
@@ -8,6 +8,12 @@ it('formats phones for display and marks missing values as pending', () => {
   expect(displayPhone('')).toBe(PENDING);
   expect(orPending('  ')).toBe(PENDING);
   expect(orPending('HariLeaf')).toBe('HariLeaf');
+});
+
+it('links phones for tapping, in international form', () => {
+  expect(phoneHref('9820966177')).toBe('tel:+919820966177');
+  expect(phoneHref('02228901234')).toBe('tel:+912228901234');
+  expect(phoneHref('')).toBeUndefined();
 });
 
 it('formats paise settings as rupees', () => {

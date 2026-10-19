@@ -28,5 +28,6 @@ export async function runScheduled(env: Env, now: Date): Promise<void> {
   } catch (err) {
     // Each job already catches its own errors; this guards the runner itself.
     console.error(JSON.stringify({ msg: 'scheduled run failed', at: now.toISOString(), error: err instanceof Error ? `${err.name}: ${err.message}` : String(err) }));
+    throw err;
   }
 }

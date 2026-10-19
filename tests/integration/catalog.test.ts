@@ -28,7 +28,7 @@ describe('listProducts', () => {
       path: '/rice/karjat-3',
       fromPrice: 69900, // the 1 kg pack is sold out, so the cheapest *buyable* pack leads
       fromMrp: 79900,
-      fromUnitPricePerKg: 13980,
+      fromUnitPrice: '₹139.80/kg',
       availability: 'buy',
       variantCount: 2,
       image: { key: 'products/1/a.jpg', url: '/media/products/1/a.jpg', alt: 'alt products/1/a.jpg' },
