@@ -356,6 +356,14 @@ export default function ProductEditor(props: Props) {
                   <select value={v.active ? 'yes' : 'no'} onChange={(e) => updateVariant(i, { active: e.target.value === 'yes' })} style={{ width: '100%', padding: '0.7rem', borderRadius: 8 }}><option value="yes">Yes</option><option value="no">No (hidden)</option></select>
                 </Field>
               </div>
+              {/* Only unsaved packs can be removed; saved ones have orders pointing at them, so they are hidden with "On sale: No". */}
+              {!v.id && (
+                <button type="button" style={{ ...btn, alignSelf: 'flex-start' }} aria-label={`Remove pack ${v.label || i + 1}`} onClick={() => {
+                  setVariants((vs) => vs.filter((_, j) => j !== i));
+                  // Pack errors are keyed by position, so they no longer line up.
+                  setErrors((es) => Object.fromEntries(Object.entries(es).filter(([k]) => !k.startsWith('variants.'))));
+                }}>✕ Remove pack</button>
+              )}
             </div>
           );
         })}
