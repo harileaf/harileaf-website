@@ -30,9 +30,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const db = env.STORE_DB;
   const awb = typeof p.awb === 'string' || typeof p.awb === 'number' ? String(p.awb) : null;
   const srOrderId = p.sr_order_id !== undefined && p.sr_order_id !== null ? String(p.sr_order_id) : null;
+  // order_id is our order number (sent as Shiprocket's channel order id), so a scan that arrives
+  // before we stored the Shiprocket id or AWB still finds its order.
+  const orderNo = typeof p.order_id === 'string' && p.order_id ? p.order_id : null;
   const order = await db
-    .prepare('SELECT id, status FROM orders WHERE (shiprocket_order_id IS NOT NULL AND shiprocket_order_id = ?) OR (awb IS NOT NULL AND awb = ?) LIMIT 1')
-    .bind(srOrderId, awb)
+    .prepare('SELECT id, status FROM orders WHERE (shiprocket_order_id IS NOT NULL AND shiprocket_order_id = ?1) OR (awb IS NOT NULL AND awb = ?2) OR order_no = ?3 LIMIT 1')
+    .bind(srOrderId, awb, orderNo)
     .first<{ id: number; status: string }>();
   if (!order) return ok();
 

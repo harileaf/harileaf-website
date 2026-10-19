@@ -61,7 +61,10 @@ export async function orderDetail(db: D1Database, id: number) {
 }
 
 /** Which buttons the detail page shows for an order (the server re-checks every action). */
-export function availableActions(o: Pick<OrderRow, 'status' | 'payment_method' | 'payment_status' | 'total_paise'>): string[] {
+export function availableActions(
+  o: Pick<OrderRow, 'status' | 'payment_method' | 'payment_status' | 'total_paise'>,
+  opts: { returnReceived?: boolean } = {},
+): string[] {
   const a: string[] = [];
   const prepaidReady = o.payment_method === 'cod' || o.payment_status === 'paid';
   if (o.status === 'placed' && prepaidReady) a.push('pack');
@@ -71,7 +74,8 @@ export function availableActions(o: Pick<OrderRow, 'status' | 'payment_method' |
   if (o.status === 'delivered') a.push('returned');
   if (o.status === 'placed' || o.status === 'packed') a.push('cancel');
   if (['shipped', 'delivered', 'returned', 'rto'].includes(o.status) && o.payment_status === 'paid' && o.total_paise > 0) a.push('refund');
-  if (o.status === 'rto' || o.status === 'returned') a.push('receive_return');
+  // Receiving doesn't change the status, so a recorded return_received event hides the button.
+  if ((o.status === 'rto' || o.status === 'returned') && !opts.returnReceived) a.push('receive_return');
   if (['shipped', 'delivered', 'returned'].includes(o.status)) a.push('replacement');
   return a;
 }

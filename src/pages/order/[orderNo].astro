@@ -45,7 +45,15 @@ const paymentLine =
   isReplacement
     ? 'Free replacement — nothing to pay'
     : o.payment_method === 'cod'
-    ? `Cash on delivery — ${formatINR(o.total_paise)} to pay on delivery`
+    ? o.payment_status === 'paid'
+      ? 'Paid in cash on delivery'
+      : o.payment_status === 'refunded' || o.payment_status === 'partially_refunded'
+        ? o.payment_status === 'refunded' ? 'Refunded' : 'Partly refunded'
+        : o.status === 'cancelled'
+          ? 'Cash on delivery — nothing to pay (order cancelled)'
+          : o.status === 'rto'
+            ? 'Cash on delivery — nothing to pay (not delivered)'
+            : `Cash on delivery — ${formatINR(o.total_paise)} to pay on delivery`
     : o.payment_status === 'paid' || o.payment_status === 'authorized'
       ? `Paid online${o.paid_at ? ` on ${fmt(o.paid_at)}` : ''}`
       : o.payment_status === 'refunded' ? 'Refunded' : 'Online payment';
@@ -108,8 +116,10 @@ const paymentLine =
             <h2 class="font-extrabold mb-1">Need to cancel?</h2>
             <p class="text-on-surface-variant">You can cancel free of charge until we pack it.</p>
             <label class="block mt-3 text-xs font-bold" for="cancel-reason">Reason (optional)</label>
-            <input id="cancel-reason" maxlength="300" class="mt-1 w-full rounded-lg border border-black/15 px-3 py-2" />
-            <button id="cancel-order" type="button" data-order={o.order_no} data-token={token} class="mt-3 rounded-full px-5 py-2 font-bold border-2 border-red-700 text-red-800">Cancel order</button>
+            <form id="cancel-form">
+              <input id="cancel-reason" type="text" maxlength="300" class="mt-1 w-full rounded-lg border border-black/15 px-3 py-2" />
+              <button id="cancel-order" type="submit" data-order={o.order_no} data-token={token} class="mt-3 rounded-full px-5 py-2 font-bold border-2 border-red-700 text-red-800 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 disabled:opacity-60">Cancel order</button>
+            </form>
             <p id="cancel-status" class="mt-2 font-bold" role="status" aria-live="polite"></p>
           </div>
         )}
@@ -130,10 +140,13 @@ const paymentLine =
     const reloadOrder = () => location.reload();
 
     const cancelBtn = document.getElementById('cancel-order') as HTMLButtonElement | null;
-    cancelBtn?.addEventListener('click', async () => {
-      if (!confirm('Cancel this order?')) return;
+    // A form, so Enter in the reason field submits it too.
+    document.getElementById('cancel-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!cancelBtn || cancelBtn.disabled || !confirm('Cancel this order?')) return;
       const out = document.getElementById('cancel-status');
       cancelBtn.disabled = true;
+      cancelBtn.textContent = 'Cancelling…';
       try {
         const res = await fetch('/api/store/order/cancel', {
           method: 'POST',
@@ -147,6 +160,7 @@ const paymentLine =
         if (out) out.textContent = 'Network error — please try again.';
       }
       cancelBtn.disabled = false;
+      cancelBtn.textContent = 'Cancel order';
     });
 
     const btn = document.getElementById('pay-now') as HTMLButtonElement | null;

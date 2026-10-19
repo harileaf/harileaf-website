@@ -186,6 +186,14 @@ describe('courier edge cases (I3/I4)', () => {
     expect((await dashboardMetrics(db, NOW)).courier_problems).toBeGreaterThan(0);
   });
 
+  it('finds the order by our order number when neither the Shiprocket id nor the AWB is stored yet', async () => {
+    const o = await order('cod');
+    await markPacked(db, o.id, ctx);
+    const orderNo = await scalar('SELECT order_no FROM orders WHERE id = ?', o.id);
+    await hook({ order_id: orderNo, awb: `ON${o.id}`, shipment_status_id: 9, shipment_status: 'RTO INITIATED', current_timestamp: 't1' });
+    expect(await status(o.id)).toBe('rto/unpaid');
+  });
+
   it('applies an RTO whose pickup scans were missed, and records lost parcels', async () => {
     const o = await order('cod');
     await db.prepare('UPDATE orders SET awb = ? WHERE id = ?').bind(`RT${o.id}`, o.id).run();
