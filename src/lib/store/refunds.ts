@@ -67,7 +67,8 @@ export function retryRefundStmts(db: D1Database, orderId: number, at: string): D
          SELECT ?1, f.credit_note_id, f.amount_paise, 'pending', f.reason || ' (retry)', f.id, ?2, ?2 FROM refunds f WHERE f.id = ${failedId}`,
       )
       .bind(orderId, at),
-    db.prepare(`INSERT INTO refund_lines (refund_id, order_item_id, qty, amount_paise) SELECT ${retryId}, l.order_item_id, l.qty, l.amount_paise FROM refund_lines l JOIN refunds r ON r.id = ${retryId} WHERE l.refund_id = r.retry_of`).bind(orderId),
+    // Only the retry this batch created (an older pending retry already has its lines).
+    db.prepare(`INSERT INTO refund_lines (refund_id, order_item_id, qty, amount_paise) SELECT r.id, l.order_item_id, l.qty, l.amount_paise FROM refund_lines l JOIN refunds r ON r.id = ${retryId} AND r.created_at = ?2 WHERE l.refund_id = r.retry_of`).bind(orderId, at),
     db.prepare(`INSERT INTO outbox (order_id, kind, payload, state, attempts, next_attempt_at, created_at, updated_at) SELECT ?1, 'razorpay.refund', json_object('refundId', ${retryId}), 'pending', 0, ?2, ?2, ?2 WHERE EXISTS (SELECT 1 FROM refunds WHERE id = ${retryId} AND created_at = ?2)`).bind(orderId, at),
     paymentStatusAfterRefundsStmt(db, orderId, at),
   ];

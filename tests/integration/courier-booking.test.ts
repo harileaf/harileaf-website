@@ -26,7 +26,7 @@ function stubShiprocket(calls: string[]) {
   vi.stubGlobal('fetch', async (url: string, init: RequestInit = {}) => {
     calls.push(`${init.method ?? 'GET'} ${url.replace(/^.*\/v1\/external/, '').split('?')[0]}`);
     if (url.includes('/courier/serviceability/')) return Response.json({ status: 200, data: { available_courier_companies: COURIERS } });
-    if (url.includes('/orders?filter_by=channel_order_id')) return Response.json({ data: [] });
+    if (url.includes('/orders?filter_by=channel_order_id')) return Response.json({ data: url.includes('HL-LATE') ? [{ id: 5002, channel_order_id: 'HL-LATE', shipments: [{ id: 6002 }] }] : [] });
     if (url.endsWith('/orders/create/adhoc')) return Response.json({ order_id: 5001, shipment_id: 6001 });
     if (url.endsWith('/courier/assign/awb')) return Response.json({ awb_assign_status: 1, response: { data: { awb_code: 'AWB777', courier_name: 'Air Express' } } });
     if (url.endsWith('/courier/generate/pickup')) return Response.json({ pickup_status: 1, response: { pickup_scheduled_date: '2026-12-06 10:00:00' } });
@@ -53,6 +53,10 @@ describe('courier booking', () => {
     expect(rice.ok && rice.value.options.map((o) => o.name)).toEqual(['Surface Saver', 'Air Slow', 'Air Express']);
     const mango = await courierOptions(env, await packedOrder(true));
     expect(mango.ok && mango.value.options.map((o) => o.name)).toEqual(['Air Express']);
+    const lost = await packedOrder(true);
+    await db.prepare(`UPDATE products SET delivery_zone = '{"zone":"gone"}' WHERE id = (SELECT v.product_id FROM order_items i JOIN variants v ON v.id = i.variant_id WHERE i.order_id = ?)`).bind(lost).run();
+    const none = await courierOptions(env, lost); // its zone was removed: no courier qualifies, rather than every courier
+    expect(none.ok && none.value.options).toEqual([]);
   });
 
   it('books once: creates the Shiprocket order, assigns the AWB and requests the pickup', async () => {
@@ -64,6 +68,16 @@ describe('courier booking', () => {
     expect(await db.prepare('SELECT awb, courier, shiprocket_shipment_id FROM orders WHERE id = ?').bind(id).first()).toEqual({ awb: 'AWB777', courier: 'Air Express', shiprocket_shipment_id: '6001' });
     expect(calls.filter((c) => c.startsWith('POST'))).toEqual(['POST /orders/create/adhoc', 'POST /courier/assign/awb', 'POST /courier/generate/pickup']);
     expect(await bookCourier(env, id, 20, ctx)).toMatchObject({ ok: false, error: expect.stringMatching(/Already booked/) });
+  });
+
+  it('finds the shipment of an order Shiprocket created without one, then books it', async () => {
+    const calls: string[] = [];
+    stubShiprocket(calls);
+    const id = await packedOrder(false);
+    await db.prepare("UPDATE orders SET order_no = 'HL-LATE', shiprocket_order_id = '5002' WHERE id = ?").bind(id).run();
+    expect(await bookCourier(env, id, 10, ctx)).toMatchObject({ ok: true, value: { awb: 'AWB777' } });
+    expect(await scalar('SELECT shiprocket_shipment_id FROM orders WHERE id = ?', id)).toBe('6002');
+    expect(calls).not.toContain('POST /orders/create/adhoc');
   });
 
   it('with auto-push off, the outbox never creates Shiprocket orders (the admin books instead)', async () => {

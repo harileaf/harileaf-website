@@ -83,7 +83,7 @@ const needs: Record<string, string[]> = { delay_preorder: ['date', 'reason'], sh
               <div data-refund-lines style="display:flex;flex-direction:column;gap:0.25rem;padding-left:1.5rem;">
                 {refundLeft.map((l) => (
                   <p style="display:flex;gap:0.5rem;align-items:center;">
-                    <input type="number" min="0" max={l.leftQty} value="0" data-refund-item={l.item.id} aria-label={`Units of ${l.item.product_name} ${l.item.variant_label} to refund`} style="width:5rem;" disabled={l.leftQty === 0} />
+                    <input type="number" min="0" max={l.leftQty} value="0" data-refund-item={l.item.id} aria-label={`Units of ${l.item.product_name} ${l.item.variant_label} to refund`} style="width:5rem;" disabled={l.leftQty === 0 || l.leftPaise === 0} />
                     <span>{l.item.product_name} · {l.item.variant_label} — {l.leftQty} of {l.item.qty} left ({formatINR(l.leftPaise)})</span>
                   </p>
                 ))}

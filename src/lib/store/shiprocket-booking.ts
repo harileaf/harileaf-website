@@ -65,7 +65,8 @@ export async function courierOptions(env: Env, orderId: number): Promise<Result<
     return fail(`Shiprocket didn’t answer: ${String(err)}`);
   }
   const options = (list as Array<Record<string, unknown>>).map((x): CourierOption => {
-    const meetsZone = !c.perishable || c.zones.every((z) => pickCourier([x], z) !== null);
+    // A perishable whose zone is gone (or unreadable) meets nothing: never fall back to any courier.
+    const meetsZone = !c.perishable || (c.zones.length > 0 && c.zones.every((z) => pickCourier([x], z) !== null));
     const eta = Number(x.estimated_delivery_days);
     const rate = Number(x.rate ?? x.freight_charge);
     return {

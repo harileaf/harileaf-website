@@ -63,7 +63,7 @@ const paymentLine =
     ? o.payment_status === 'paid'
       ? 'Paid in cash on delivery'
       : o.payment_status === 'refunded' || o.payment_status === 'partially_refunded'
-        ? o.payment_status === 'refunded' ? 'Refunded' : 'Partly refunded'
+        ? o.payment_status === 'refunded' ? 'Refunded' : `Paid in cash on delivery · ${formatINR(refundedPaise)} refunded`
         : o.status === 'cancelled'
           ? 'Cash on delivery — nothing to pay (order cancelled)'
           : o.status === 'rto'
