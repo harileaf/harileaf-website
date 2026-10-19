@@ -16,9 +16,11 @@ import { nowIso } from './db';
 import { sendEmail, type Email } from './email';
 import type { OutboxHandler } from './outbox';
 import { getSettings, type StoreSettings } from './settings';
-import { absolute } from './urls';
+import { absolute, productPath } from './urls';
 
 export const NOTIFY_RETENTION_MONTHS = 12;
+/** A queued request whose email never went out (outbox gave up) is kept this long past the 12 months. */
+const QUEUED_GRACE_DAYS = 30;
 
 export function normaliseEmail(raw: unknown): string | null {
   const email = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
@@ -69,7 +71,7 @@ export async function queueBackInStock(db: D1Database, now: Date): Promise<numbe
   return queued;
 }
 
-export function backInStockEmail(r: { id: number; email: string; name: string; path: string; preorder: boolean }, s: StoreSettings): Email {
+export function backInStockEmail(r: { id: number; queuedAt: string; email: string; name: string; path: string; preorder: boolean }, s: StoreSettings): Email {
   const url = absolute(r.path);
   const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const what = r.preorder ? 'is open for pre-order' : 'is available again';
@@ -85,35 +87,52 @@ export function backInStockEmail(r: { id: number; email: string; name: string; p
     subject: `${r.name} ${what} — HariLeaf`,
     html,
     text: `You asked us to tell you when ${r.name} ${what}: ${url}\n\nThis is the only email you'll get about this request, and we've deleted your address from the list.`,
-    idempotencyKey: `email.notify/${r.id}`,
+    idempotencyKey: `email.notify/${r.id}/${r.queuedAt}`, // a re-queue after a sell-out is a new email
     replyTo: s.customer_care_email || undefined,
   };
 }
 
-/** Outbox handler `email.notify` ({ requestId }). A request deleted meanwhile (retention) is skipped. */
+/**
+ * Outbox handler `email.notify` ({ requestId }). A request deleted meanwhile is
+ * skipped. If the product can't be bought again by the time the email goes
+ * (sold out, unpublished), nothing is sent and the request goes back to waiting.
+ */
 export function makeNotifyHandler(fetchImpl?: typeof fetch): OutboxHandler {
   return async (payload: { requestId?: number }, { env }) => {
     const db = env.STORE_DB;
     const r = await db
       .prepare(
-        `SELECT n.id, n.email, n.product_id, n.notified_at, p.name, p.slug, c.slug AS category_slug
+        `SELECT n.id, n.email, n.product_id, n.queued_at, n.notified_at, p.name, p.slug, c.slug AS category_slug
          FROM notify_requests n JOIN products p ON p.id = n.product_id JOIN categories c ON c.id = p.category_id WHERE n.id = ?`,
       )
       .bind(payload.requestId ?? 0)
-      .first<{ id: number; email: string; product_id: number; notified_at: string | null; name: string; slug: string; category_slug: string }>();
-    if (!r || r.notified_at) return;
+      .first<{ id: number; email: string; product_id: number; queued_at: string | null; notified_at: string | null; name: string; slug: string; category_slug: string }>();
+    if (!r || r.notified_at || !r.queued_at) return;
     const now = new Date();
     const hit = (await listActiveProductsWithVariants(db, now)).find((x) => x.product.id === r.product_id);
-    const preorder = Boolean(hit && !hit.variants.some((v) => v.availability === 'buy') && hit.variants.some((v) => v.availability === 'preorder'));
-    await sendEmail(env, backInStockEmail({ id: r.id, email: r.email, name: r.name, path: `/${r.category_slug}/${r.slug}`, preorder }, await getSettings(db)), fetchImpl);
+    const buy = Boolean(hit?.variants.some((v) => v.availability === 'buy'));
+    const preorder = !buy && Boolean(hit?.variants.some((v) => v.availability === 'preorder'));
+    if (!buy && !preorder) {
+      await db.prepare('UPDATE notify_requests SET queued_at = NULL WHERE id = ? AND notified_at IS NULL').bind(r.id).run();
+      return;
+    }
+    await sendEmail(env, backInStockEmail({ id: r.id, queuedAt: r.queued_at, email: r.email, name: r.name, path: productPath(r.category_slug, r.slug), preorder }, await getSettings(db)), fetchImpl);
     await db.prepare('UPDATE notify_requests SET notified_at = ? WHERE id = ? AND notified_at IS NULL').bind(nowIso(now), r.id).run();
   };
 }
 
-/** Retention: addresses go once notified, and after 12 months regardless. */
+/**
+ * Retention: addresses go once notified, and after 12 months. A request already
+ * queued is left for its email to go out (the outbox runs after this in the same
+ * cron), unless it has been stuck for 30 days.
+ */
 export async function purgeNotifyRequests(db: D1Database, now: Date): Promise<number> {
   const cutoff = new Date(now);
   cutoff.setUTCMonth(cutoff.getUTCMonth() - NOTIFY_RETENTION_MONTHS);
-  const res = await db.prepare('DELETE FROM notify_requests WHERE notified_at IS NOT NULL OR created_at < ?').bind(cutoff.toISOString()).run();
+  const stuck = new Date(now.getTime() - QUEUED_GRACE_DAYS * 86_400_000);
+  const res = await db
+    .prepare('DELETE FROM notify_requests WHERE notified_at IS NOT NULL OR (created_at < ?1 AND (queued_at IS NULL OR queued_at < ?2))')
+    .bind(cutoff.toISOString(), stuck.toISOString())
+    .run();
   return res.meta.changes ?? 0;
 }

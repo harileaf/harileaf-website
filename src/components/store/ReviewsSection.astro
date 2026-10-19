@@ -64,11 +64,17 @@ const day = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'n
     const btn = document.getElementById('more-reviews') as HTMLButtonElement | null;
     const list = document.getElementById('review-list');
     if (!btn || !list) return;
+    const label = btn.textContent ?? '';
     btn.addEventListener('click', async () => {
       btn.disabled = true;
       const offset = Number(list.dataset.loaded);
       const res = await fetch(`/api/store/reviews?product=${list.dataset.productId}&offset=${offset}`).catch(() => null);
-      const data = res?.ok ? ((await res.json()) as { reviews: R[] }) : { reviews: [] };
+      const data = res?.ok ? ((await res.json().catch(() => null)) as { reviews: R[] } | null) : null;
+      btn.disabled = false;
+      if (!data) {
+        btn.textContent = 'Couldn’t load more reviews — try again';
+        return; // keep the button so the shopper can retry
+      }
       for (const r of data.reviews) {
         list.append(
           h('li', { class: 'rounded-2xl bg-white border border-black/5 p-5' },
@@ -79,7 +85,7 @@ const day = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'n
         );
       }
       list.dataset.loaded = String(offset + data.reviews.length);
-      btn.disabled = false;
+      btn.textContent = label;
       if (!data.reviews.length || Number(list.dataset.loaded) >= Number(list.dataset.total)) btn.remove();
     });
   }
