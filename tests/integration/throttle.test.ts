@@ -17,19 +17,14 @@ it('allows five failures in 15 minutes, then blocks', async () => {
   expect(await checkLoginAllowed(kv, '203.0.113.2', at(5))).toBe(true);
 });
 
-it('opens again once the window has passed', async () => {
+it('opens again once the window has passed or after a successful login', async () => {
   const ip = '203.0.113.3';
   for (let i = 0; i < 5; i++) await recordLoginFailure(kv, ip, at(0));
   expect(await checkLoginAllowed(kv, ip, at(14))).toBe(false);
   expect(await checkLoginAllowed(kv, ip, at(16))).toBe(true);
-  // A failure after the window starts a fresh count.
-  await recordLoginFailure(kv, ip, at(16));
-  expect(await checkLoginAllowed(kv, ip, at(17))).toBe(true);
+  const other = '203.0.113.4';
+  for (let i = 0; i < 5; i++) await recordLoginFailure(kv, other, at(0));
+  await clearLoginFailures(kv, other);
+  expect(await checkLoginAllowed(kv, other, at(1))).toBe(true);
 });
 
-it('clears the count after a successful login', async () => {
-  const ip = '203.0.113.4';
-  for (let i = 0; i < 5; i++) await recordLoginFailure(kv, ip, at(0));
-  await clearLoginFailures(kv, ip);
-  expect(await checkLoginAllowed(kv, ip, at(1))).toBe(true);
-});

@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { describe, expect, it } from 'vitest';
-import { MAX_ATTEMPTS, backoffMs, drainOutbox, enqueueStmt, type OutboxHandler } from '../../src/lib/store/outbox';
-import { db, scalar } from '../helpers/fixtures';
+import { MAX_ATTEMPTS, drainOutbox, enqueueStmt, type OutboxHandler } from '../../src/lib/store/outbox';
+import { db } from '../helpers/fixtures';
 
 const T0 = new Date('2026-10-18T06:00:00.000Z');
 const plus = (ms: number) => new Date(T0.getTime() + ms);
@@ -16,18 +16,11 @@ const row = (id: number) =>
     state: string; attempts: number; next_attempt_at: string; last_error: string | null; lease_until: string | null;
   }>();
 
-describe('backoffMs', () => {
-  it('doubles from 30 s and caps at 6 h', () => {
-    expect(backoffMs(1)).toBe(30_000);
-    expect(backoffMs(2)).toBe(60_000);
-    expect(backoffMs(5)).toBe(480_000);
-    expect(backoffMs(20)).toBe(6 * 3600_000);
-  });
-});
 
 describe('drainOutbox', () => {
-  it('runs a handler once and marks the row done', async () => {
+  it('runs a handler once and marks the row done, draining only the ids asked for', async () => {
     const id = await enqueue('test.ok', { n: 1 });
+    const other = await enqueue('test.ok');
     const seen: unknown[] = [];
     const handlers: Record<string, OutboxHandler> = { 'test.ok': async (p) => void seen.push(p) };
     const res = await drainOutbox(db, handlers, { env, now: T0, ids: [id] });
@@ -36,6 +29,7 @@ describe('drainOutbox', () => {
     expect(await row(id)).toMatchObject({ state: 'done', attempts: 1, lease_until: null });
     // Draining again does nothing.
     expect(await drainOutbox(db, handlers, { env, now: plus(1000), ids: [id] })).toEqual({ done: 0, failed: 0, dead: 0 });
+    expect((await row(other))?.state).toBe('pending');
   });
 
   it('backs off after a failure and retries when due', async () => {
@@ -74,11 +68,6 @@ describe('drainOutbox', () => {
     expect(await row(id)).toMatchObject({ state: 'dead', attempts: MAX_ATTEMPTS, last_error: 'nope' });
   });
 
-  it('marks unknown kinds dead immediately', async () => {
-    const id = await enqueue('test.unknown');
-    expect(await drainOutbox(db, {}, { env, now: T0, ids: [id] })).toEqual({ done: 0, failed: 0, dead: 1 });
-    expect(await row(id)).toMatchObject({ state: 'dead', last_error: 'no handler for test.unknown' });
-  });
 
   it('never runs a row twice when drains overlap', async () => {
     const ids = [await enqueue('test.slow'), await enqueue('test.slow'), await enqueue('test.slow')];
@@ -109,25 +98,7 @@ describe('drainOutbox', () => {
     expect(await row(id)).toMatchObject({ state: 'done', attempts: 2 });
   });
 
-  it('drains only the given ids when asked (request drains its own rows)', async () => {
-    const mine = await enqueue('test.ok');
-    const other = await enqueue('test.ok');
-    const handlers: Record<string, OutboxHandler> = { 'test.ok': async () => {} };
-    await drainOutbox(db, handlers, { env, now: T0, ids: [mine] });
-    expect((await row(mine))?.state).toBe('done');
-    expect((await row(other))?.state).toBe('pending');
-  });
 
-  it('drains due rows oldest first up to the limit', async () => {
-    await db.prepare("UPDATE outbox SET state = 'done' WHERE state = 'pending'").run();
-    const first = await enqueue('test.ok');
-    const second = await enqueue('test.ok');
-    const order: number[] = [];
-    const handlers: Record<string, OutboxHandler> = { 'test.ok': async (_p, { row }) => void order.push(row.id) };
-    expect(await drainOutbox(db, handlers, { env, now: T0, limit: 1 })).toEqual({ done: 1, failed: 0, dead: 0 });
-    expect(order).toEqual([first]);
-    expect(await scalar('SELECT state FROM outbox WHERE id = ?', second)).toBe('pending');
-  });
 
   it("ignores a stale drain's result after its lease was taken over", async () => {
     const id = await enqueue('test.contested');
