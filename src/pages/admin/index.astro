@@ -82,6 +82,7 @@ const sections = [
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:0.75rem;margin-bottom:2rem;">
       {[
         { label: 'To pack', value: m.to_pack ?? 0, href: '/admin/orders?status=placed' },
+        { label: 'Pre-orders waiting', value: m.preorders_open ?? 0, href: '/admin/orders?status=placed' },
         { label: 'To ship', value: m.to_ship ?? 0, href: '/admin/orders?status=packed' },
         { label: 'RTO', value: m.rto ?? 0, href: '/admin/orders?status=rto' },
         { label: 'Orders today', value: m.orders_today ?? 0, href: '/admin/orders?status=all' },

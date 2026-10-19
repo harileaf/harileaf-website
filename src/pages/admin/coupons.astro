@@ -94,7 +94,7 @@ const field = 'display:flex;flex-direction:column;gap:0.25rem;';
                   <td style="padding:0.5rem;">{statusOf(c)}</td>
                   <td style="padding:0.5rem 0;white-space:nowrap;">
                     <button type="button" class="brand-btn" data-toggle={c.code} data-active={c.active ? '0' : '1'} style="padding:0.3rem 0.8rem;">{c.active ? 'Pause' : 'Resume'}</button>
-                    {!c.first_used_at && <a href={`/admin/coupons?edit=${c.code}#form`} style="color:#196a5e;font-weight:700;margin-left:0.5rem;">Edit</a>}
+                    {c.first_used_at ? <span class="muted" style="margin-left:0.5rem;" title={`Locked since its first order on ${c.first_used_at.slice(0, 10)}`}>Locked</span> : <a href={`/admin/coupons?edit=${c.code}#form`} style="color:#196a5e;font-weight:700;margin-left:0.5rem;">Edit</a>}
                   </td>
                 </tr>
               ))}
@@ -102,7 +102,7 @@ const field = 'display:flex;flex-direction:column;gap:0.25rem;';
           </table>
         </div>
       )}
-      <p class="muted" style="margin-top:0.75rem;">A code can be edited until its first use; after that it can only be paused. Codes never change the prices shown on product pages, in Google listings or in the feed.</p>
+      <p class="muted" style="margin-top:0.75rem;">A code can be edited until its first use — including an order that was never paid, so test with a throwaway code. After that it can only be paused. Codes never change the prices shown on product pages, in Google listings or in the feed.</p>
     </section>
 
     <section id="form" class="card" style="padding:1.5rem;background:#fff;" aria-labelledby="form-h">

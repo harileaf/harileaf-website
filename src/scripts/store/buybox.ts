@@ -116,11 +116,10 @@ export function initBuyBox(signal?: AbortSignal): void {
     link.className = 'underline';
     link.textContent = 'View cart';
     status.append(link);
-    // Fresh produce checks out on its own: say so now rather than surprise the shopper in the cart.
+    // Pre-orders and fresh produce check out on their own: say so now rather than surprise the shopper in the cart.
     const ours = new Set(radios.map((el) => Number(el.dataset.id)));
-    if (perishable && readCart().some((l) => !ours.has(l.variantId))) {
-      status.append(' Fresh produce is checked out on its own — your cart will show you how.');
-    }
+    const own = current.dataset.availability === 'preorder' ? 'Pre-orders are checked out on their own' : perishable ? 'Fresh produce is checked out on its own' : null;
+    if (own && readCart().some((l) => !ours.has(l.variantId))) status.append(` ${own} — your cart will show you how.`);
     confirmAdded(added > 0 ? 'Added to cart ✓' : 'Already at 20');
   }
   addBtn.addEventListener('click', add);

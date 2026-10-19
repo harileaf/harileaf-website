@@ -144,7 +144,8 @@ export function productGroupJsonLd(input: {
         seller: { '@type': 'Organization', name: BRAND },
         // Zone-limited perishables: Search supports postal-code regions only for AU/CA/US, so
         // "free shipping in IN" would be false; their zone lives in Merchant Center (feed g:shipping).
-        ...(p.perishable ? {} : { shippingDetails: shippingDetails() }),
+        // Pre-orders: a 0–2 day handling time would contradict availabilityStarts.
+        ...(p.perishable || v.availability === 'preorder' ? {} : { shippingDetails: shippingDetails() }),
         hasMerchantReturnPolicy: returnPolicy(),
       },
     })),

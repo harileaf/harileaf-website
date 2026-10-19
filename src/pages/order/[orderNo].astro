@@ -63,7 +63,7 @@ const paymentLine =
     ? o.payment_status === 'paid'
       ? 'Paid in cash on delivery'
       : o.payment_status === 'refunded' || o.payment_status === 'partially_refunded'
-        ? o.payment_status === 'refunded' ? 'Refunded' : 'Partly refunded'
+        ? o.payment_status === 'refunded' ? 'Refunded' : `Paid in cash on delivery · ${formatINR(refundedPaise)} refunded`
         : o.status === 'cancelled'
           ? 'Cash on delivery — nothing to pay (order cancelled)'
           : o.status === 'rto'
@@ -95,6 +95,7 @@ const paymentLine =
         <p id="pay-status" class="w-full text-sm font-bold" role="status" aria-live="polite"></p>
       </div>
     )}
+    {!['pending_payment', 'payment_failed', 'cancelled'].includes(o.status) && <span hidden data-settle-order={o.order_no}></span>}
     {awaitingConfirm && (
       <div id="confirm" class="mt-6 rounded-2xl p-5 flex flex-wrap items-center gap-4" style="background:#fff4e0;border:1px solid #e8c37a">
         <p class="flex-1 min-w-[14rem] text-sm"><strong>Please confirm your order</strong> — cash on delivery orders ship once you confirm. You'll pay {formatINR(o.total_paise)} on delivery.{confirmHours > 0 && ` Unconfirmed orders are cancelled after ${confirmHours} hours.`}</p>
@@ -149,7 +150,7 @@ const paymentLine =
         {canCancel && (
           <div id="cancel" class="rounded-2xl border border-black/10 p-5 scroll-mt-28">
             <h2 class="font-extrabold mb-1">Need to cancel?</h2>
-            <p class="text-on-surface-variant">{o.is_preorder === 1 ? 'You can cancel free of charge until we dispatch it; a prepaid amount is refunded in full.' : 'You can cancel free of charge until we pack it.'}</p>
+            <p class="text-on-surface-variant">{o.is_preorder === 1 ? 'You can cancel free of charge until we pack it for dispatch; the amount you paid is refunded in full.' : 'You can cancel free of charge until we pack it.'}</p>
             <label class="block mt-3 text-xs font-bold" for="cancel-reason">Reason (optional)</label>
             <form id="cancel-form">
               <input id="cancel-reason" type="text" maxlength="300" class="mt-1 w-full rounded-lg border border-black/15 px-3 py-2" />
@@ -166,6 +167,8 @@ const paymentLine =
 
 <script>
   import { onEveryPage } from '../../scripts/page-load';
+  import { settleUnpaidOrder } from '../../scripts/store/cart';
+  import { setCoupon } from '../../scripts/store/coupon';
   import { payForOrder } from '../../scripts/store/razorpay-checkout';
 
   // With view transitions this script runs once per visit, so set the page up on every page load.
@@ -173,6 +176,10 @@ const paymentLine =
     // The ?t= token stays in the address bar so refresh, bookmarks and Back keep working; the page
     // is no-referrer, noindex and no-store, so the link isn't leaked to other sites or caches.
     const reloadOrder = () => location.reload();
+
+    // Paid here after checkout left it unpaid: that cart (and its code) is done with.
+    const settled = document.querySelector<HTMLElement>('[data-settle-order]')?.dataset.settleOrder;
+    if (settled && settleUnpaidOrder(settled)) setCoupon(null);
 
     const confirmBtn = document.getElementById('confirm-cod') as HTMLButtonElement | null;
     confirmBtn?.addEventListener('click', async () => {

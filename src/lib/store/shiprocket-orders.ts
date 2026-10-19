@@ -108,7 +108,13 @@ async function findExisting(cfg: ShiprocketConfig, orderNo: string): Promise<{ i
  * Used by the `shiprocket.create` push and by in-admin courier booking.
  */
 export async function ensureShiprocketOrder(db: D1Database, cfg: ShiprocketConfig, o: OrderRow, pickupLocation: string): Promise<{ orderId: string; shipmentId: string | null }> {
-  if (o.shiprocket_order_id) return { orderId: o.shiprocket_order_id, shipmentId: o.shiprocket_shipment_id };
+  if (o.shiprocket_order_id && o.shiprocket_shipment_id) return { orderId: o.shiprocket_order_id, shipmentId: o.shiprocket_shipment_id };
+  if (o.shiprocket_order_id) {
+    // Created without a shipment id (Shiprocket can add the shipment later): look it up and keep it.
+    const shipmentId = (await findExisting(cfg, o.order_no))?.shipmentId ?? null;
+    if (shipmentId !== null) await db.prepare('UPDATE orders SET shiprocket_shipment_id = ?, updated_at = ? WHERE id = ? AND shiprocket_shipment_id IS NULL').bind(String(shipmentId), new Date().toISOString(), o.id).run();
+    return { orderId: o.shiprocket_order_id, shipmentId: shipmentId === null ? null : String(shipmentId) };
+  }
   if (!pickupLocation) throw new Error('Set the Shiprocket pickup location name in Store settings');
   const save = async (id: number, shipmentId: number | null) => {
     await db.batch([
@@ -139,7 +145,7 @@ export function makeShiprocketHandlers(fetchImpl?: typeof fetch): Record<string,
       if (!o) throw new Error(`order ${row.order_id} not found`);
       if (o.shiprocket_order_id || o.status === 'cancelled') return;
       if (needsCodConfirmation(o)) return; // confirmCod queues a new push
-      if (o.is_preorder === 1 && !(o as OrderRow & { ready_to_dispatch?: number }).ready_to_dispatch) return; // "Ready to dispatch" queues a new push
+      if (o.is_preorder === 1 && !o.ready_to_dispatch) return; // "Ready to dispatch" queues a new push
       const settings = await getSettings(db);
       // v2: with auto-push off, the admin books the courier from the order page instead.
       if (settings.shiprocket_auto_push === 'off') return;

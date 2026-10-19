@@ -57,6 +57,8 @@ describe('partial refunds', () => {
     expect(await refundOrder(db, o.id, { ...ctx, reason: 'More than is left', amount: 90001 })).toMatchObject({ ok: false });
     await db.batch(retryRefundStmts(db, o.id, NOW.toISOString())); // same amount, lines and credit note
     expect(await status(o.id)).toBe('refund_pending');
+    const again = await db.batch(retryRefundStmts(db, o.id, new Date(NOW.getTime() + 1000).toISOString())); // nothing failed is left: a no-op, not a UNIQUE error
+    expect(again[1].meta.changes).toBe(0);
     await settleLatest(o.id, 'processed');
 
     expect(await refundOrder(db, o.id, { ...ctx, reason: 'Customer returned the rest' })).toEqual({ ok: true });

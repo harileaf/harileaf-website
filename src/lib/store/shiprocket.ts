@@ -94,14 +94,19 @@ export async function couriers(cfg: ShiprocketConfig, q: { pickup: string; deliv
   return data.data?.available_courier_companies ?? [];
 }
 
-/** Can we deliver to this pincode (and with COD)? Uses the fastest courier's ETA. */
+/**
+ * Can we deliver to this pincode (and with COD)? Uses the fastest courier's ETA.
+ * `prepaid` reuses a courier list already fetched for this parcel; `cod: false`
+ * skips the COD question (the answer's `cod` is then false).
+ */
 export async function checkServiceability(
   cfg: ShiprocketConfig,
   q: { pickup: string; delivery: string; weightKg: number; declaredValue: number },
+  opts: { cod?: boolean; prepaid?: Courier[] } = {},
 ): Promise<Serviceability> {
-  const prepaid = await couriers(cfg, { ...q, cod: false });
+  const prepaid = opts.prepaid ?? (await couriers(cfg, { ...q, cod: false }));
   if (!prepaid.length) return { serviceable: false, cod: false, etaDays: null, city: null, state: null };
-  const codList = await couriers(cfg, { ...q, cod: true });
+  const codList = opts.cod === false ? [] : await couriers(cfg, { ...q, cod: true });
   const eta = prepaid
     .map((c) => Number(c.estimated_delivery_days))
     .filter((n) => Number.isFinite(n) && n > 0)

@@ -91,6 +91,7 @@ describe('coupons at checkout', () => {
     expect(await scalar('SELECT used_count FROM coupons WHERE code = ?', code)).toBe(1);
     expect(await scalar('SELECT stock_qty FROM variants WHERE id = ?', v)).toBe(9);
     expect((await place([{ variantId: v, qty: 1 }], { coupon: code })).quote.coupon).toMatchObject({ ok: false, reason: 'limit_reached' });
+    expect((await quoteCart(db, [{ variantId: v, qty: 1 }], { today: NOW, settings, coupon: { code } })).coupon).toEqual({ ok: false, code: '', reason: 'not_found', message: 'This code isn’t valid.' });
   });
 
   it('lets one phone use a one-per-phone code once, even when its orders race', async () => {

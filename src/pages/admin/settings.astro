@@ -120,16 +120,22 @@ const rupees = (paise: string) => (/^\d+$/.test(paise) ? String(Number(paise) / 
         <p class="muted">A perishable product is sold only to pincodes in its zone, only while the zone is enabled, and only when the courier offers delivery within the zone's days (air only when "express" is ticked). Enable a zone only after packaging trials and test shipments show a positive margin.</p>
         <input type="hidden" name="delivery_zones" value={settings.delivery_zones} data-zones-json />
         <div data-zones style="display:flex;flex-direction:column;gap:1rem;">
-          {zones.map((z) => (
-            <div class="card" data-zone style="padding:1rem;background:#fff;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.75rem;">
-              <div><label>Zone name<input type="text" data-z="name" value={z.name} /></label></div>
-              <div><label>Zone id<input type="text" data-z="id" value={z.id} /></label></div>
-              <div style="grid-column:1/-1;"><label>Pincodes or prefixes<textarea data-z="pincodes" rows="2">{z.pincodes.join(', ')}</textarea></label><p class="muted" style="font-size:0.75rem;">e.g. 400, 401, 4102 — a prefix covers every pincode starting with it.</p></div>
-              <div><label>Max transit days<input type="number" min="1" max="7" data-z="maxTransitDays" value={z.maxTransitDays} /></label></div>
-              <label style="display:flex;gap:0.5rem;align-items:center;text-transform:none;letter-spacing:0;font-size:0.875rem;color:#1a1a1a;"><input type="checkbox" data-z="expressOnly" checked={z.expressOnly} /> Express (air) couriers only</label>
-              <label style="display:flex;gap:0.5rem;align-items:center;text-transform:none;letter-spacing:0;font-size:0.875rem;color:#1a1a1a;"><input type="checkbox" data-z="enabled" checked={z.enabled} /> Enabled (selling)</label>
-            </div>
-          ))}
+          {[...zones, null].map((zone) => {
+            // The last card is the blank one "+ Add zone" copies, kept in a <template>.
+            const z = zone ?? { id: '', name: '', pincodes: [] as string[], maxTransitDays: 2, expressOnly: true, enabled: false };
+            const card = (
+              <div class="card" data-zone style="padding:1rem;background:#fff;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.75rem;">
+                <div><label>Zone name<input type="text" data-z="name" value={z.name} /></label></div>
+                <div><label>Zone id<input type="text" data-z="id" value={z.id} /></label></div>
+                <div style="grid-column:1/-1;"><label>Pincodes or prefixes<textarea data-z="pincodes" rows="2">{z.pincodes.join(', ')}</textarea></label><p class="muted" style="font-size:0.75rem;">e.g. 400, 401, 4102 — a prefix covers every pincode starting with it.</p></div>
+                <div><label>Max transit days<input type="number" min="1" max="7" data-z="maxTransitDays" value={z.maxTransitDays} /></label></div>
+                <label style="display:flex;gap:0.5rem;align-items:center;text-transform:none;letter-spacing:0;font-size:0.875rem;color:#1a1a1a;"><input type="checkbox" data-z="expressOnly" checked={z.expressOnly} /> Express (air) couriers only</label>
+                <label style="display:flex;gap:0.5rem;align-items:center;text-transform:none;letter-spacing:0;font-size:0.875rem;color:#1a1a1a;"><input type="checkbox" data-z="enabled" checked={z.enabled} /> Enabled (selling)</label>
+                <button type="button" data-remove-zone style="justify-self:start;align-self:center;background:none;border:0;color:#b3261e;font-weight:700;cursor:pointer;padding:0;">Remove zone</button>
+              </div>
+            );
+            return zone ? card : <template data-zone-template>{card}</template>;
+          })}
         </div>
         <button type="button" data-add-zone style="align-self:flex-start;padding:0.4rem 1rem;border-radius:999px;border:1px solid #196a5e;background:#fff;color:#196a5e;font-weight:700;cursor:pointer;">+ Add zone</button>
         <p id="e-delivery_zones" class="error" data-error-for="delivery_zones" aria-live="polite"></p>
@@ -171,18 +177,16 @@ const rupees = (paise: string) => (/^\d+$/.test(paise) ? String(Number(paise) / 
 
   const form = document.getElementById('settings-form') as HTMLFormElement | null;
 
-  // A new zone starts as a copy of the last card with its values cleared (and disabled).
+  // A new zone is a blank card (express only, not yet selling); removing one takes effect on Save.
   form?.querySelector('[data-add-zone]')?.addEventListener('click', () => {
-    const list = form.querySelector<HTMLElement>('[data-zones]')!;
-    const last = list.querySelector<HTMLElement>('[data-zone]:last-child');
-    if (!last) return;
-    const card = last.cloneNode(true) as HTMLElement;
-    card.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('[data-z]').forEach((el) => {
-      if (el instanceof HTMLInputElement && el.type === 'checkbox') el.checked = el.dataset.z === 'expressOnly';
-      else el.value = el.dataset.z === 'maxTransitDays' ? '2' : '';
-    });
-    list.append(card);
+    const tpl = form.querySelector<HTMLTemplateElement>('[data-zone-template]')!;
+    const card = tpl.content.firstElementChild!.cloneNode(true) as HTMLElement;
+    tpl.before(card);
     card.querySelector<HTMLInputElement>('[data-z="name"]')?.focus();
+  });
+  form?.querySelector('[data-zones]')?.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('[data-remove-zone]');
+    if (btn) btn.closest('[data-zone]')?.remove();
   });
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();

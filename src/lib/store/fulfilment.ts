@@ -94,7 +94,7 @@ async function pack(db: D1Database, orderId: number, ctx: { now: Date; actor?: A
   if (!data) return FAIL('Order not found');
   const { order, items } = data;
   if (order.status !== 'placed') return FAIL(`Order is ${order.status}`);
-  const isPreorder = (order as { is_preorder?: number }).is_preorder === 1;
+  const isPreorder = order.is_preorder === 1;
   if (isPreorder !== ready) return FAIL(isPreorder ? 'This is a pre-order: use “Ready to dispatch”' : 'Only pre-orders are marked ready to dispatch');
   if (order.payment_method !== 'cod' && order.payment_status !== 'paid') return FAIL('Wait for the payment to be captured before packing');
   const at = nowIso(ctx.now);
