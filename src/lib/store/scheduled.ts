@@ -13,5 +13,6 @@ export async function runScheduled(env: Env, now: Date): Promise<void> {
   } catch (err) {
     // e.g. D1 briefly unavailable: log with context; the next run (5 min) retries.
     console.error(JSON.stringify({ msg: 'scheduled run failed', at: now.toISOString(), error: err instanceof Error ? `${err.name}: ${err.message}` : String(err) }));
+    throw err;
   }
 }

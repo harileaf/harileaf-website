@@ -10,9 +10,9 @@ import { runScheduled } from './lib/store/scheduled';
 
 export default {
   fetch: handle,
-  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
-    const at = new Date(controller.scheduledTime);
-    // runScheduled logs its own failures; this is the backstop so nothing reaches the runtime as an unhandled rejection.
-    ctx.waitUntil(runScheduled(env, at).catch((err) => console.error(JSON.stringify({ msg: 'scheduled handler crashed', at: at.toISOString(), error: String(err) }))));
+  // Awaited, so the run's real duration and outcome show in Cron Events: runScheduled logs
+  // failures with context, then rethrows so the invocation is recorded as an exception.
+  async scheduled(controller: ScheduledController, env: Env) {
+    await runScheduled(env, new Date(controller.scheduledTime));
   },
 };

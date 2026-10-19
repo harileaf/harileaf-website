@@ -73,3 +73,23 @@ export function unitPricePerKg(price: Paise, unitQtyG: number): Paise {
   if (!Number.isFinite(unitQtyG) || unitQtyG <= 0) throw new RangeError(`bad pack size: ${unitQtyG}`);
   return Math.round((price * 1000) / unitQtyG);
 }
+
+/**
+ * Unit sale price as Legal Metrology (Packaged Commodities) Rules 2011 r.6
+ * (as amended 2022) require it on the listing: per gram for packs under 1 kg,
+ * per kg otherwise, rounded to the paisa.
+ */
+export function unitSalePrice(price: Paise, unitQtyG: number): { paise: Paise; per: 'g' | 'kg' } {
+  if (unitQtyG < 1000) {
+    assertPaise(price);
+    if (!Number.isFinite(unitQtyG) || unitQtyG <= 0) throw new RangeError(`bad pack size: ${unitQtyG}`);
+    return { paise: Math.round(price / unitQtyG), per: 'g' };
+  }
+  return { paise: unitPricePerKg(price, unitQtyG), per: 'kg' };
+}
+
+/** 50 g at ₹60 → "₹1.20/g"; 5 kg at ₹699 → "₹139.80/kg". */
+export function formatUnitPrice(price: Paise, unitQtyG: number): string {
+  const u = unitSalePrice(price, unitQtyG);
+  return `${formatINR(u.paise)}/${u.per}`;
+}

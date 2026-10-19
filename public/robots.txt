@@ -1,7 +1,7 @@
 User-agent: *
 Allow: /
-Disallow: /admin/
-Disallow: /keystatic/
+Disallow: /admin
+Disallow: /keystatic
 Disallow: /api/
 Disallow: /cart
 Disallow: /checkout

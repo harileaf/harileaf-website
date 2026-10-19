@@ -2,7 +2,7 @@
 export const prerender = false;
 import { env } from 'cloudflare:workers';
 import PolicyPage, { type PolicySection } from '../components/policy/PolicyPage.astro';
-import { POLICY_CACHE, displayPhone, loadPolicySettings, orPending, rupeesSetting } from '../lib/store/policy-settings';
+import { POLICY_CACHE, displayPhone, loadPolicySettings, phoneHref, orPending, rupeesSetting } from '../lib/store/policy-settings';
 
 const s = await loadPolicySettings(env.STORE_DB);
 Astro.response.headers.set('Cache-Control', POLICY_CACHE);
@@ -59,7 +59,7 @@ const sections: PolicySection[] = [
     title: 'Contact',
     paragraphs: ['For any question about a delivery, contact our customer care team with your order number.'],
     rows: [
-      { label: 'Phone', value: displayPhone(s.customer_care_phone) },
+      { label: 'Phone', value: displayPhone(s.customer_care_phone), href: phoneHref(s.customer_care_phone) },
       { label: 'Email', value: orPending(s.customer_care_email), href: s.customer_care_email ? `mailto:${s.customer_care_email}` : undefined },
     ],
   },
@@ -70,7 +70,7 @@ const sections: PolicySection[] = [
   title="Shipping Policy"
   badge="Store"
   subtitle="How and where we deliver your order."
-  updated="Last updated 18 October 2026"
+  updated="2026-10-18"
   path="/shipping-policy"
   description="Free delivery across India to serviceable pincodes, dispatch within 2 business days, tracking by email and cash on delivery from HariLeaf."
   sections={sections}
