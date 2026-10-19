@@ -310,9 +310,10 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
         forceNewKey = false;
         if (!res.ok) {
           resetTurnstile();
+          // The server closed this attempt (payment_start_failed also released the stock): the next
+          // press starts a fresh one, with a new security token.
+          forceNewKey = data.code === 'expired' || data.code === 'key_reused' || data.code === 'payment_start_failed';
           if (data.code === 'expired' || data.code === 'key_reused') {
-            // Start a fresh attempt on the next press (it needs a new security token).
-            forceNewKey = true;
             showAlert(data.code === 'expired' ? 'Your previous payment attempt expired. Press “Place order” to try again.' : 'Please press “Place order” again.');
             return;
           }
