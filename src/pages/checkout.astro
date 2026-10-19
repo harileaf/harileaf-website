@@ -97,7 +97,7 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
         <div class="flex flex-col gap-3 text-sm text-on-surface-variant">
           <p>
             We use your details only to deliver and support this order (courier, payment provider and email service), and keep order records for tax purposes. See our
-            <a href="/privacy" class="underline">privacy policy</a>, <a href="/shipping-policy" class="underline">shipping</a> and <a href="/refund-policy" class="underline">refund</a> policies.
+            <a href="/privacy" class="underline">privacy policy</a>, <a href="/shipping-policy" target="_blank" class="underline">shipping</a> and <a href="/refund-policy" target="_blank" class="underline">refund</a> policies.
           </p>
           <label class="flex items-start gap-2"><input type="checkbox" name="contact.marketingOptIn" class="mt-1" /> Email me about new harvests and offers (optional).</label>
           {turnstileKey && <div data-turnstile data-sitekey={turnstileKey}></div>}
@@ -114,6 +114,7 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
         </div>
         <button id="place-order" type="submit" class="mt-2 rounded-full py-3.5 font-extrabold text-white disabled:opacity-50" style="background:linear-gradient(135deg,#196a5e,#2d7a4f)" disabled aria-describedby="place-hint">Place order</button>
         <p id="place-hint" class="text-sm font-bold text-center empty:hidden" style="color:#b3261e" aria-live="polite"></p>
+        <p class="text-xs text-on-surface-variant text-center">By placing your order you agree to our <a href="/terms" target="_blank" class="underline">Terms</a>, <a href="/shipping-policy" target="_blank" class="underline">Shipping</a> and <a href="/refund-policy" target="_blank" class="underline">Refund &amp; Cancellation</a> policies.</p>
         <a href="/cart" class="text-center text-sm font-bold text-primary underline">Edit cart</a>
       </aside>
     </form>
