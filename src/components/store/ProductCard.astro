@@ -53,8 +53,8 @@ const off = card.fromPrice && card.fromMrp && card.fromMrp > card.fromPrice ? Ma
           </span>
         )}
         {off > 0 && <span class="ml-1.5 font-bold" style="color:#1d7a3a">{off}% off</span>}
-        {card.fromUnitPricePerKg !== null && (
-          <span class:list={['block text-xs', dark ? 'text-white/50' : 'text-on-surface-variant']}>{formatINR(card.fromUnitPricePerKg)}/kg</span>
+        {card.fromUnitPrice !== null && (
+          <span class:list={['block text-xs', dark ? 'text-white/50' : 'text-on-surface-variant']}>{card.fromUnitPrice}</span>
         )}
       </p>
     )}
