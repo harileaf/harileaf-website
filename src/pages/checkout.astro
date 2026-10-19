@@ -404,6 +404,7 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
 
     function finish(viewUrl: string) {
       clearCart();
+      setCoupon(null); // a used code must not ride into the next cart
       restoreLater(); // goods saved for the next order (a split cart) come back into the cart
       try {
         sessionStorage.removeItem('hl_checkout_key');
