@@ -66,6 +66,7 @@ export interface Quote {
   cod: { eligible: boolean; reason: string | null; max: Paise };
   /** Groups present among the lines being bought; more than one means the cart must be split. */
   groups: CartGroup[];
+  /** More than one group, or fresh produce from different delivery zones. */
   mixed: boolean;
   /** True when every line can be bought as asked, the minimum is met and the cart isn't mixed. */
   ok: boolean;
@@ -147,7 +148,9 @@ export async function quoteCart(
   const meetsMinimum = subtotal >= minOrder;
   const buyable = lines.filter((l) => l.qty > 0);
   const groups = (['perishable', 'regular'] as const).filter((g) => buyable.some((l) => l.group === g));
-  const mixed = groups.length > 1;
+  // Fresh produce from different delivery zones can't share an order either: no pincode is in both.
+  const perishableZones = new Set(buyable.filter((l) => l.group === 'perishable').map((l) => l.zone?.id ?? null));
+  const mixed = groups.length > 1 || perishableZones.size > 1;
   const codReason = !buyable.length
     ? 'Your cart is empty'
     : buyable.some((l) => !l.codAllowed)
@@ -216,7 +219,7 @@ export function publicQuote(q: Quote) {
     weightG: q.lines.reduce((g, l) => g + l.weightG * l.qty, 0),
     lines: q.lines.map((l) => ({
       variantId: l.variantId, name: l.name, label: l.label, path: l.path, image: l.image, qty: l.qty, requestedQty: l.requestedQty,
-      unitPrice: l.unitPrice, mrp: l.mrp, grossTotal: l.grossTotal, discount: l.discount, lineTotal: l.lineTotal, problem: l.problem, group: l.group, available: l.available, codAllowed: l.codAllowed,
+      unitPrice: l.unitPrice, mrp: l.mrp, grossTotal: l.grossTotal, discount: l.discount, lineTotal: l.lineTotal, problem: l.problem, group: l.group, zoneId: l.zone?.id ?? null, available: l.available, codAllowed: l.codAllowed,
     })),
   };
 }

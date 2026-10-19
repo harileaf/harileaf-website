@@ -24,7 +24,8 @@ it('Merchant Center feed: one item per pack, MRP as price and sale_price only wh
 });
 
 it('store sitemap lists product, category, shop and content URLs with lastmod', () => {
-  const xml = storeSitemapXml([{ product: product(), variants: [variant()], images }], [{ path: '/our-process/' }]);
+  const xml = storeSitemapXml([{ product: product(), variants: [variant()], images }], [{ path: '/our-process/' }, { path: '/rice/' }]);
+  expect(xml.match(/<loc>https:\/\/harileaf.org\/rice\/<\/loc>/g)).toHaveLength(1); // an extra that is also a category is listed once
   expect(xml).toContain('<url><loc>https://harileaf.org/rice/karjat-3</loc><lastmod>2026-10-18</lastmod></url>');
   for (const loc of ['/rice/', '/shop/', '/our-process/']) expect(xml).toContain(`<loc>https://harileaf.org${loc}</loc>`);
 });

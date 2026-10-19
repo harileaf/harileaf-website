@@ -2,7 +2,7 @@
  * Catalog read layer: D1 rows → typed products for pages, SEO, feed and admin.
  * Only `active` products with `active` variants are ever shown to shoppers.
  */
-import { availability, type Availability } from './availability';
+import { availability, inSeason, type Availability } from './availability';
 import type { OrganicScheme, ProcessClaim } from './claims';
 import { formatUnitPrice, type Paise } from './money';
 import { publishedReviews, reviewSummary, type PublicReview, type ReviewSummary } from './reviews';
@@ -166,6 +166,8 @@ export interface ProductCard {
   fromUnitPrice: string | null;
   availability: Availability;
   variantCount: number;
+  /** A perishable in season whose delivery zone isn't selling: "not delivering yet", not "out of season". */
+  zoneClosed: boolean;
 }
 
 // ── mapping ────────────────────────────────────────────────────────────────
@@ -335,7 +337,7 @@ async function imagesFor(db: D1Database, ids: number[]): Promise<Map<number, Ima
   return out;
 }
 
-function toCard(p: Product, vs: Variant[], images: Image[]): ProductCard {
+function toCard(p: Product, vs: Variant[], images: Image[], zoneClosed = false): ProductCard {
   const from = fromVariant(vs);
   return {
     id: p.id,
@@ -351,6 +353,7 @@ function toCard(p: Product, vs: Variant[], images: Image[]): ProductCard {
     fromUnitPrice: from?.unitPrice ?? null,
     availability: vs.length ? bestAvailability(vs) : 'notify',
     variantCount: vs.length,
+    zoneClosed,
   };
 }
 
@@ -368,7 +371,7 @@ export async function listProducts(db: D1Database, opts: { categorySlug?: string
       return { p, vs };
     })
     .filter(({ vs }) => vs.length > 0)
-    .map(({ p, vs }) => toCard(p, vs, images.get(p.id) ?? []));
+    .map(({ p, vs }) => toCard(p, vs, images.get(p.id) ?? [], p.perishable && !sellableZone(p, zones).sellable && inSeason(p.season.startMd, p.season.endMd, opts.today)));
 }
 
 /** Active products with their active variants — for the feed and sitemap. */
