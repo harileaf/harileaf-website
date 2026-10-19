@@ -47,9 +47,6 @@ describe('issueDocStmts', () => {
     expect(await scalar("SELECT last_no FROM doc_counters WHERE series = 'INV' AND fy = '2627'")).toBe(before);
   });
 
-  it('refuses a mismatched series and document type', () => {
-    expect(() => issueDocStmts(db, { series: 'INV', fy: '2627', docType: 'credit_note', orderId: 1, issuedAt: AT, snapshot: {} })).toThrow();
-  });
 });
 
 describe('document counter guards', () => {

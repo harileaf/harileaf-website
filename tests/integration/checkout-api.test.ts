@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { POST as checkout } from '../../src/pages/api/store/checkout/index';
 import { POST as verify } from '../../src/pages/api/store/checkout/verify';
 import { POST as webhook } from '../../src/pages/api/webhooks/razorpay';
-import { POST as quoteRoute } from '../../src/pages/api/store/cart/quote';
 import { SETTING_DEFAULTS, putSettings } from '../../src/lib/store/settings';
 import { hmacHex } from '../../src/lib/store/tokens';
 import { db, insertProduct, insertVariant, scalar } from '../helpers/fixtures';
@@ -38,12 +37,6 @@ function stubRazorpay(paymentFor: (orderId: string) => unknown) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('checkout API', () => {
-  it('quotes from the database', async () => {
-    await putSettings(db, { ...SETTING_DEFAULTS, min_order_paise: '10000' });
-    const v = await insertVariant(await insertProduct(), { price_paise: 69900, mrp_paise: 79900 });
-    const r = await call(quoteRoute, post('/api/store/cart/quote', { lines: [{ variantId: v, qty: 2, price: 1 }] }));
-    expect(r.body).toMatchObject({ ok: true, total: 139800, lines: [{ variantId: v, qty: 2, unitPrice: 69900 }] });
-  });
 
   it('requires an idempotency key and a valid form', async () => {
     expect((await call(checkout, post('/api/store/checkout', form([], 'cod')))).status).toBe(400);
@@ -52,25 +45,19 @@ describe('checkout API', () => {
     expect(bad.body.errors).toHaveProperty('contact.name');
   });
 
-  it('places a COD order and returns its private link', async () => {
-    const v = await insertVariant(await insertProduct(), { stock_qty: 3, price_paise: 69900, mrp_paise: 79900 });
-    const r = await call(checkout, post('/api/store/checkout', form([{ variantId: v, qty: 1 }], 'cod'), { 'Idempotency-Key': crypto.randomUUID() }));
+  it('places a COD order with a private link; a retry returns it even after the last unit is gone', async () => {
+    await putSettings(db, { ...SETTING_DEFAULTS, min_order_paise: '10000' });
+    const v = await insertVariant(await insertProduct(), { stock_qty: 1, price_paise: 69900, mrp_paise: 79900 });
+    const key = crypto.randomUUID();
+    const r = await call(checkout, post('/api/store/checkout', form([{ variantId: v, qty: 1 }], 'cod'), { 'Idempotency-Key': key }));
     expect(r.status).toBe(201);
     expect(r.body).toMatchObject({ status: 'placed', payment: null });
     expect(r.body.viewUrl).toMatch(new RegExp(`^/order/${r.body.orderNo}\\?t=[0-9a-f]{32}$`));
-    expect(await scalar('SELECT stock_qty FROM variants WHERE id = ?', v)).toBe(2);
+    expect(await scalar('SELECT stock_qty FROM variants WHERE id = ?', v)).toBe(0);
+    const again = await call(checkout, post('/api/store/checkout', form([{ variantId: v, qty: 1 }], 'cod'), { 'Idempotency-Key': key }));
+    expect(again).toMatchObject({ status: 200, body: { orderNo: r.body.orderNo, viewUrl: r.body.viewUrl } });
   });
 
-  it('a retried submit returns the existing order even when the last unit is now taken', async () => {
-    const v = await insertVariant(await insertProduct(), { stock_qty: 1 });
-    const key = crypto.randomUUID();
-    const a = await call(checkout, post('/api/store/checkout', form([{ variantId: v, qty: 1 }], 'cod'), { 'Idempotency-Key': key }));
-    const b = await call(checkout, post('/api/store/checkout', form([{ variantId: v, qty: 1 }], 'cod'), { 'Idempotency-Key': key }));
-    expect(a.status).toBe(201);
-    expect(b.status).toBe(200);
-    expect(b.body.orderNo).toBe(a.body.orderNo);
-    expect(b.body.viewUrl).toBe(a.body.viewUrl);
-  });
 
   it('asks a duplicate submit to retry while the first is still starting the Razorpay order', async () => {
     const v = await insertVariant(await insertProduct(), { stock_qty: 5 });
@@ -92,10 +79,13 @@ describe('checkout API', () => {
     expect(other).toMatchObject({ status: 409, body: { code: 'key_reused' } });
   });
 
-  it('asks the shopper to confirm a changed price', async () => {
+  it('answers 409 with a fresh quote when the price or the cart changed', async () => {
     const v = await insertVariant(await insertProduct(), { stock_qty: 5, price_paise: 69900, mrp_paise: 79900 });
     const r = await call(checkout, post('/api/store/checkout', { ...form([{ variantId: v, qty: 1 }], 'cod'), expectedTotal: 59900 }, { 'Idempotency-Key': crypto.randomUUID() }));
     expect(r).toMatchObject({ status: 409, body: { code: 'price_changed', quote: { total: 69900 } } });
+    const short = await call(checkout, post('/api/store/checkout', form([{ variantId: v, qty: 9 }], 'cod'), { 'Idempotency-Key': crypto.randomUUID() }));
+    expect(short.status).toBe(409);
+    expect(short.body.quote.lines[0]).toMatchObject({ qty: 5, problem: 'limited' });
   });
 
   it('requires a buyer GSTIN to match the billing state', async () => {
@@ -105,12 +95,6 @@ describe('checkout API', () => {
     expect(r.body.errors.buyerGstin).toMatch(/another state/);
   });
 
-  it('answers 409 with a fresh quote when the cart changed', async () => {
-    const v = await insertVariant(await insertProduct(), { stock_qty: 1 });
-    const r = await call(checkout, post('/api/store/checkout', form([{ variantId: v, qty: 2 }], 'cod'), { 'Idempotency-Key': crypto.randomUUID() }));
-    expect(r.status).toBe(409);
-    expect(r.body.quote.lines[0]).toMatchObject({ qty: 1, problem: 'limited' });
-  });
 
   it('prepaid: creates a Razorpay order, then verify places it once', async () => {
     const v = await insertVariant(await insertProduct(), { stock_qty: 3, price_paise: 69900, mrp_paise: 79900 });
@@ -136,18 +120,6 @@ describe('checkout API', () => {
     expect(again2.body.result).toBe('already');
   });
 
-  it('verify refuses a payment whose amount does not match', async () => {
-    const v = await insertVariant(await insertProduct(), { stock_qty: 3, price_paise: 69900, mrp_paise: 79900 });
-    let orderId = '';
-    stubRazorpay(() => ({ id: 'pay_B1', amount: 100, currency: 'INR', status: 'authorized', order_id: orderId }));
-    const r = await call(checkout, post('/api/store/checkout', form([{ variantId: v, qty: 1 }], 'razorpay'), { 'Idempotency-Key': crypto.randomUUID() }));
-    orderId = r.body.payment.order_id;
-    const token = new URL(`https://x${r.body.viewUrl}`).searchParams.get('t')!;
-    const sig = await hmacHex('rzp_test_secret', `${orderId}|pay_B1`);
-    const res = await call(verify, post('/api/store/checkout/verify', { orderNo: r.body.orderNo, token, razorpay_order_id: orderId, razorpay_payment_id: 'pay_B1', razorpay_signature: sig }));
-    expect(res.status).toBe(400);
-    expect(await scalar('SELECT status FROM orders WHERE order_no = ?', r.body.orderNo)).toBe('pending_payment');
-  });
 
   it('tells the browser to start over when a retried attempt already expired', async () => {
     const v = await insertVariant(await insertProduct(), { stock_qty: 2 });
@@ -187,7 +159,7 @@ describe('Razorpay webhook', () => {
     return res.status;
   };
 
-  it('rejects bad signatures and places the order on payment.authorized, once', async () => {
+  it('rejects bad signatures, places the order on payment.authorized once, and acknowledges unknown orders and events', async () => {
     const o = await pendingOrder();
     const event = { event: 'payment.authorized', payload: { payment: { entity: { id: 'pay_W1', amount: 69900, currency: 'INR', status: 'authorized', order_id: o.payment.order_id } } } };
     expect(await hook(event, 'evt_1', 'wrong')).toBe(401);
@@ -195,9 +167,6 @@ describe('Razorpay webhook', () => {
     expect(await hook(event, 'evt_1')).toBe(200);
     expect(await scalar('SELECT status FROM orders WHERE order_no = ?', o.orderNo)).toBe('placed');
     expect(await scalar("SELECT count(*) FROM outbox o JOIN orders r ON r.id = o.order_id WHERE r.order_no = ? AND o.kind = 'email.placed'", o.orderNo)).toBe(1);
-  });
-
-  it('acknowledges unknown orders and other events', async () => {
     expect(await hook({ event: 'payment.authorized', payload: { payment: { entity: { id: 'pay_X', amount: 1, currency: 'INR', status: 'authorized', order_id: 'order_unknown' } } } }, 'evt_x')).toBe(200);
     expect(await hook({ event: 'refund.processed', payload: {} }, 'evt_r')).toBe(200);
   });

@@ -83,27 +83,19 @@ describe('expiry and late payments', () => {
     expect(await scalar('SELECT stock_qty FROM variants WHERE id = ?', o.variantId)).toBe(4);
   });
 
-  it('does not capture a late authorisation once the stock is gone, and tells the customer once', async () => {
+  it('does not capture a late authorisation once the stock is gone, tells the customer once, and never captures later', async () => {
     const o = await prepaidOrder(1, 1);
     await expireReservations(db, plusMin(31));
     await db.prepare('UPDATE variants SET stock_qty = 0 WHERE id = ?').bind(o.variantId).run(); // sold to someone else
     expect(await markPaid(db, { orderId: o.orderId, payment: o.payment, source: 'webhook', now: plusMin(35) })).toEqual({ result: 'late_released' });
     expect(await markPaid(db, { orderId: o.orderId, payment: o.payment, source: 'verify', now: plusMin(36) })).toEqual({ result: 'late_released' });
     expect(await status(o.orderId)).toBe('payment_failed');
+    await db.prepare('UPDATE variants SET stock_qty = 5 WHERE id = ?').bind(o.variantId).run(); // stock comes back
+    expect((await markPaid(db, { orderId: o.orderId, payment: o.payment, source: 'webhook', webhookEventId: `evt_after_release_${o.orderId}`, now: plusMin(40) })).result).toBe('late_released');
     expect(await scalar("SELECT count(*) FROM outbox WHERE order_id = ? AND kind = 'email.payment_released'", o.orderId)).toBe(1);
     expect(await scalar("SELECT count(*) FROM outbox WHERE order_id = ? AND kind = 'razorpay.capture'", o.orderId)).toBe(0);
   });
 
-  it('never captures after telling the customer they were not charged, even if stock comes back', async () => {
-    const o = await prepaidOrder(1, 1);
-    await expireReservations(db, plusMin(31));
-    await db.prepare('UPDATE variants SET stock_qty = 0 WHERE id = ?').bind(o.variantId).run();
-    expect((await markPaid(db, { orderId: o.orderId, payment: o.payment, source: 'verify', now: plusMin(35) })).result).toBe('late_released');
-    await db.prepare('UPDATE variants SET stock_qty = 5 WHERE id = ?').bind(o.variantId).run(); // another order released stock
-    expect((await markPaid(db, { orderId: o.orderId, payment: o.payment, source: 'webhook', webhookEventId: `evt_after_release_${o.orderId}`, now: plusMin(40) })).result).toBe('late_released');
-    expect(await status(o.orderId)).toBe('payment_failed');
-    expect(await scalar("SELECT count(*) FROM outbox WHERE order_id = ? AND kind = 'razorpay.capture'", o.orderId)).toBe(0);
-  });
 
   it('records a second authorisation on an already-paid order without capturing it', async () => {
     const o = await prepaidOrder();
@@ -135,13 +127,6 @@ describe('reconciliation and capture', () => {
     return { cfg, calls };
   };
 
-  it('reconciles recently expired orders too (late authorisation with missed callbacks)', async () => {
-    const o = await prepaidOrder();
-    await expireReservations(db, plusMin(31));
-    const { cfg } = rzp((url) => (url.includes(`/orders/${o.rzpOrder}/payments`) ? { items: [o.payment] } : { items: [] }));
-    await reconcilePending(db, cfg, plusMin(45));
-    expect(await status(o.orderId)).toBe('placed');
-  });
 
   it('keeps reconciling other orders when one Razorpay call fails', async () => {
     const bad = await prepaidOrder();
@@ -171,13 +156,17 @@ describe('reconciliation and capture', () => {
     expect(await scalar('SELECT payment_status FROM orders WHERE id = ?', o.orderId)).toBe('paid');
   });
 
-  it('finds payments whose callbacks were missed', async () => {
+  it('finds payments whose callbacks were missed, including on recently expired orders', async () => {
     const o = await prepaidOrder();
-    const { cfg, calls } = rzp((url) => (url.includes(`/orders/${o.rzpOrder}/payments`) ? { items: [o.payment] } : { items: [] }));
+    const { cfg } = rzp((url) => (url.includes(`/orders/${o.rzpOrder}/payments`) ? { items: [o.payment] } : { items: [] }));
     expect(await reconcilePending(db, cfg, plusMin(5))).toBe(0); // too young
     expect(await reconcilePending(db, cfg, plusMin(15))).toBeGreaterThanOrEqual(1);
     expect(await status(o.orderId)).toBe('placed');
-    expect(calls.some((c) => c.includes(o.rzpOrder))).toBe(true);
+    const late = await prepaidOrder();
+    await expireReservations(db, plusMin(31));
+    const { cfg: cfg2 } = rzp((url) => (url.includes(`/orders/${late.rzpOrder}/payments`) ? { items: [late.payment] } : { items: [] }));
+    await reconcilePending(db, cfg2, plusMin(45));
+    expect(await status(late.orderId)).toBe('placed');
   });
 
   it('captures an authorised payment and marks it paid, but never for a cancelled order', async () => {

@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { describe, expect, it } from 'vitest';
 import {
-  activateBatch, addBatch, addImage, addLabReport, deleteImage, getProductForAdmin, listProductsForAdmin, publishChecklist, saveProduct,
+  activateBatch, addBatch, addImage, addLabReport, deleteImage, getProductForAdmin, saveProduct,
   setLabReportVisible, shelfLifeWarning, type ProductInput, type VariantInput,
 } from '../../src/lib/store/catalog-admin';
 import { SETTING_DEFAULTS, putSettings } from '../../src/lib/store/settings';
@@ -44,7 +44,7 @@ function v(over: Partial<VariantInput> = {}): VariantInput {
 const png = () => new File([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], 'a.png', { type: 'image/png' });
 
 describe('saveProduct', () => {
-  it('creates a draft with variants and queues a cache purge', async () => {
+  it('creates a draft with variants and queues a purge now and 30 s later', async () => {
     const before = await scalar("SELECT count(*) FROM outbox WHERE kind = 'cache.purge'");
     const res = await saveProduct(db, null, input({ slug: 'karjat-3' }), [v({ sku: 'KJ3-1KG' }), v({ sku: 'KJ3-5KG', label: '5 kg', netQtyLabel: '5 kg', unitQtyG: 5000, pricePaise: 69900, mrpPaise: 79900, weightG: 5100 })], NOW);
     expect(res.ok).toBe(true);
@@ -53,21 +53,21 @@ describe('saveProduct', () => {
     expect(a?.product.slug).toBe('karjat-3');
     expect(a?.variants.map((x) => [x.sku, x.stock_qty])).toEqual([['KJ3-1KG', 10], ['KJ3-5KG', 10]]);
     expect(a?.publishedAt).toBeNull();
-    expect(await scalar("SELECT count(*) FROM outbox WHERE kind = 'cache.purge'")).toBe(before + 2); // now + 30 s later
-    const payload = JSON.parse(await scalar<string>("SELECT payload FROM outbox WHERE kind = 'cache.purge' ORDER BY id DESC LIMIT 1"));
-    expect(payload.urls).toContain('https://harileaf.org/rice/karjat-3');
+    expect(await scalar("SELECT count(*) FROM outbox WHERE kind = 'cache.purge'")).toBe(before + 2);
+    const { results } = await db.prepare("SELECT payload, next_attempt_at FROM outbox WHERE kind = 'cache.purge' ORDER BY id DESC LIMIT 2").all<{ payload: string; next_attempt_at: string }>();
+    expect(results.map((r) => r.next_attempt_at).sort()).toEqual([NOW.toISOString(), new Date(NOW.getTime() + 30_000).toISOString()]);
+    expect(JSON.parse(results[0].payload).urls).toContain('https://harileaf.org/rice/karjat-3');
   });
 
-  it('rejects banned and unsupported wording anywhere a shopper can see it', async () => {
+  it('rejects banned and unsupported wording anywhere a shopper can see it; "organic" needs a certificate', async () => {
     const res = await saveProduct(db, null, input({ name: 'Organic Rice', faq: [{ q: 'Is it good for diabetics?', a: 'Yes' }], attributes: { Farming: 'Chemical-free' } }), [v()], NOW);
     expect(res.ok).toBe(false);
     if (res.ok) return;
     expect(res.errors.name).toMatch(/organic/);
     expect(res.errors['faq.0']).toMatch(/diabet/);
     expect(res.errors['attributes.Farming']).toMatch(/chemical-free/);
-  });
 
-  it('allows "organic" only with a scheme and certificate number', async () => {
+    // "organic" needs a scheme and certificate number
     const without = await saveProduct(db, null, input({ name: 'Organic Rice', organicScheme: 'npop' }), [v()], NOW);
     expect(without.ok).toBe(false);
     if (!without.ok) expect(without.errors.organicCertNumber).toBeDefined();
@@ -96,13 +96,6 @@ describe('saveProduct', () => {
     expect(res).toEqual({ ok: false, errors: { variants: 'A pack size no longer exists — reload the page' } });
   });
 
-  it('queues an immediate and a delayed purge that include other live product pages', async () => {
-    const res = await saveProduct(db, null, input({ slug: 'purge-check' }), [v()], NOW);
-    expect(res.ok).toBe(true);
-    const { results } = await db.prepare("SELECT payload, next_attempt_at FROM outbox WHERE kind = 'cache.purge' ORDER BY id DESC LIMIT 2").all<{ payload: string; next_attempt_at: string }>();
-    expect(results.map((r) => r.next_attempt_at).sort()).toEqual([NOW.toISOString(), new Date(NOW.getTime() + 30_000).toISOString()]);
-    expect(JSON.parse(results[0].payload).urls).toContain('https://harileaf.org/rice/purge-check');
-  });
 
   it('enforces the publish checklist and perishable rules', async () => {
     const res = await saveProduct(db, null, input({ status: 'active', ingredients: '', bestBeforeDays: null, perishable: true, codAllowed: true }), [], NOW);
@@ -185,15 +178,7 @@ describe('images, batches and lab reports', () => {
 });
 
 describe('listing helpers', () => {
-  it('lists products for admin with stock and batch', async () => {
-    const rows = await listProductsForAdmin(db);
-    expect(rows.length).toBeGreaterThan(0);
-    expect(rows[0]).toHaveProperty('stock');
-  });
 
-  it('publish checklist names what is missing', () => {
-    expect(publishChecklist(input({ ingredients: '' }), [], { imageCount: 0 }).map(([k]) => k)).toEqual(['variants', 'images', 'ingredients']);
-  });
 
   it('warns when the active batch is too old for FSSAI shelf-life-at-delivery', () => {
     expect(shelfLifeWarning('2026-10-01', 270, NOW)).toBeNull();

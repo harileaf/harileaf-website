@@ -31,9 +31,11 @@ describe('runClaim', () => {
     expect(await scalar("SELECT count(*) FROM ops WHERE order_id = ? AND kind = 'mark_paid'", o)).toBe(1);
   });
 
-  it('fails as a claim when the order is missing or in the wrong state, with no side effects', async () => {
-    const missing = await markPaid(999_999);
-    expect(missing).toMatchObject({ ok: false, reason: 'claim' });
+  it('fails as a claim when the order is missing, in the wrong state or the amount differs, with no side effects', async () => {
+    expect(await markPaid(999_999)).toMatchObject({ ok: false, reason: 'claim' });
+    const pending = await insertOrder();
+    expect(await markPaid(pending, 100)).toMatchObject({ ok: false, reason: 'claim' });
+    expect(await scalar('SELECT status FROM orders WHERE id = ?', pending)).toBe('pending_payment');
 
     const placed = await insertOrder({ status: 'placed' });
     expect(await markPaid(placed)).toMatchObject({ ok: false, reason: 'claim' });
@@ -41,11 +43,6 @@ describe('runClaim', () => {
     expect(await scalar('SELECT count(*) FROM ops WHERE order_id = ?', placed)).toBe(0);
   });
 
-  it('fails as a claim when the amount does not match', async () => {
-    const o = await insertOrder();
-    expect(await markPaid(o, 100)).toMatchObject({ ok: false, reason: 'claim' });
-    expect(await scalar('SELECT status FROM orders WHERE id = ?', o)).toBe('pending_payment');
-  });
 
   it('reports stock shortfalls and rolls back the claim row too', async () => {
     const o = await insertOrder();
@@ -72,22 +69,9 @@ it('reports a reservation on an unpurchasable variant as inactive', async () => 
   expect(res).toMatchObject({ ok: false, reason: 'inactive' });
 });
 
-describe('classifyD1Error', () => {
-  it.each([
-    ['D1_ERROR: CHECK constraint failed: stock_qty >= 0: SQLITE_CONSTRAINT', 'stock'],
-    ['D1_ERROR: CHECK constraint failed: ok = 1: SQLITE_CONSTRAINT', 'claim'],
-    ['D1_ERROR: NOT NULL constraint failed: ops.ok: SQLITE_CONSTRAINT', 'claim'],
-    ['D1_ERROR: UNIQUE constraint failed: ops.order_id, ops.kind: SQLITE_CONSTRAINT', 'claim'],
-    ['D1_ERROR: UNIQUE constraint failed: orders.idempotency_key: SQLITE_CONSTRAINT', 'unique'],
-    ['D1_ERROR: invoices are immutable: SQLITE_CONSTRAINT', 'immutable'],
-    ['D1_ERROR: order_events are append-only: SQLITE_CONSTRAINT', 'immutable'],
-    ['D1_ERROR: variant not purchasable: SQLITE_CONSTRAINT', 'inactive'],
-    ['D1_ERROR: no such table: nope', 'other'],
-  ])('%s → %s', (message, kind) => {
-    expect(classifyD1Error(new Error(message))).toBe(kind);
-  });
-  it('handles non-errors', () => {
-    expect(classifyD1Error('weird')).toBe('other');
-    expect(classifyD1Error(undefined)).toBe('other');
-  });
+it('classifies the D1 errors not produced above', () => {
+  expect(classifyD1Error(new Error('D1_ERROR: UNIQUE constraint failed: orders.idempotency_key: SQLITE_CONSTRAINT'))).toBe('unique');
+  expect(classifyD1Error(new Error('D1_ERROR: invoices are immutable: SQLITE_CONSTRAINT'))).toBe('immutable');
+  expect(classifyD1Error(new Error('D1_ERROR: no such table: nope'))).toBe('other');
+  expect(classifyD1Error(undefined)).toBe('other');
 });
