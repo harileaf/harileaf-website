@@ -5,7 +5,7 @@ Disallow: /keystatic
 Disallow: /api/
 Disallow: /cart
 Disallow: /checkout
-Disallow: /order/
+Disallow: /order
 Disallow: /review
 
 Sitemap: https://harileaf.org/sitemap-index.xml
