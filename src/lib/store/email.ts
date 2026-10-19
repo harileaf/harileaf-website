@@ -81,8 +81,8 @@ ${t.html}
 <p style="margin-top:12px"><strong>Total: ${formatINR(o.total_paise)}</strong> (inclusive of GST, free delivery)<br>${esc(pay)}</p>
 <p><strong>Delivering to:</strong> ${esc(address(o))}</p>
 <p><a href="${esc(viewUrl)}" style="display:inline-block;background:#196a5e;color:#fff;text-decoration:none;padding:10px 18px;border-radius:999px;font-weight:bold">View your order</a></p>
-<p style="color:#666;font-size:12px">This email acknowledges your ${o.payment_method === 'cod' ? 'order' : 'payment'}. Your GST invoice is issued when the order is dispatched. You can cancel free of charge until it's packed — see our <a href="${absolute('/refund-policy/')}">refund policy</a>.</p>`;
-  const text = `Thank you for your order ${o.order_no}.\n\n${t.text}\n\nTotal: ${formatINR(o.total_paise)} (incl. GST, free delivery)\n${pay}\nDelivering to: ${address(o)}\n\nView your order: ${viewUrl}\n\nYour GST invoice is issued when the order is dispatched.`;
+<p style="color:#666;font-size:12px">This email acknowledges your ${o.payment_method === 'cod' ? 'order' : 'payment'}. Your GST invoice is issued when we pack your order. You can cancel free of charge until it's packed — see our <a href="${absolute('/refund-policy/')}">refund policy</a>.</p>`;
+  const text = `Thank you for your order ${o.order_no}.\n\n${t.text}\n\nTotal: ${formatINR(o.total_paise)} (incl. GST, free delivery)\n${pay}\nDelivering to: ${address(o)}\n\nView your order: ${viewUrl}\n\nYour GST invoice is issued when we pack your order.`;
   return { to: o.email, subject: `Order ${o.order_no} confirmed — HariLeaf`, html: layout('Your order is confirmed', html, settings), text, idempotencyKey: `email.placed/${o.order_no}`, replyTo: settings.customer_care_email || undefined };
 }
 
