@@ -23,7 +23,7 @@ const ERASABLE = `o.status IN ('payment_failed', 'cancelled')
 
 const ANONYMISE_SET = `customer_name = 'Removed', email = 'removed-' || id || '@invalid.harileaf.org', phone = '0000000000',
   marketing_opt_in = 0, ship_line1 = 'Removed', ship_line2 = NULL, ship_city = 'Removed', ship_pincode = '000000',
-  bill_name = NULL, bill_line1 = NULL, bill_line2 = NULL, bill_city = NULL, bill_pincode = NULL,
+  bill_name = NULL, bill_line1 = NULL, bill_line2 = NULL, bill_city = NULL, bill_state = NULL, bill_state_code = NULL, bill_pincode = NULL,
   buyer_gstin = NULL, buyer_legal_name = NULL, updated_at = ?1`;
 
 /** Cron: anonymise erasable orders older than 180 days (in small batches). */

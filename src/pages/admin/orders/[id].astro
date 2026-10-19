@@ -87,7 +87,7 @@ const needs: Record<string, string[]> = { ship: ['awb', 'courier', 'trackingUrl'
           {o.buyer_gstin && <p style="margin-top:0.5rem;">B2B: {o.buyer_legal_name} · GSTIN {o.buyer_gstin}</p>}
           <p class="muted" style="margin-top:0.5rem;">Marketing emails: {o.marketing_opt_in ? 'opted in' : 'no'}</p>
           <p style="margin-top:0.5rem;display:flex;gap:0.5rem;flex-wrap:wrap;">
-            {o.marketing_opt_in ? <button type="button" class="brand-btn" data-quick="marketing_opt_out" style="padding:0.3rem 0.8rem;">Stop marketing emails</button> : null}
+            {o.marketing_opt_in ? <button type="button" class="brand-btn" data-quick="marketing_opt_out" data-confirm="Stop marketing emails to this customer (every order with this email)?" style="padding:0.3rem 0.8rem;">Stop marketing emails</button> : null}
             {isErasable(o, d.docs.length, d.refunds.length)
               ? <button type="button" class="brand-btn" data-quick="erase_personal_data" data-confirm="Erase this customer's personal data from this order? This can't be undone." style="padding:0.3rem 0.8rem;background:#8a1c1c;">Erase personal data (DPDP request)</button>
               : <span class="muted">Tax record — personal data kept as CGST s.36 requires (erasure not possible).</span>}

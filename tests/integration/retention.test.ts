@@ -14,7 +14,9 @@ describe('retention', () => {
     const sold = await insertOrder({ status: 'delivered', payment_status: 'paid', email: 'keep@example.com' });
     const refunded = await insertOrder({ status: 'cancelled', payment_status: 'refunded', email: 'keep2@example.com' });
     const recent = await insertOrder({ status: 'payment_failed', email: 'recent@example.com', created_at: '2027-05-30T00:00:00.000Z' });
+    await db.prepare("UPDATE orders SET bill_name = 'Gone Co', bill_line1 = '1 Rd', bill_city = 'Pune', bill_state = 'Maharashtra', bill_state_code = '27', bill_pincode = '411001' WHERE id = ?").bind(abandoned).run();
     expect(await anonymiseStaleOrders(db, NOW)).toBeGreaterThanOrEqual(2);
+    expect(await scalar("SELECT COALESCE(bill_name, bill_line1, bill_city, bill_state, bill_state_code, bill_pincode, 'cleared') FROM orders WHERE id = ?", abandoned)).toBe('cleared');
     expect(await email(abandoned)).toBe(`removed-${abandoned}@invalid.harileaf.org`);
     expect(await email(cancelledCod)).toBe(`removed-${cancelledCod}@invalid.harileaf.org`);
     expect(await scalar('SELECT customer_name || phone || ship_line1 FROM orders WHERE id = ?', abandoned)).toBe('Removed0000000000Removed');

@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "astro check",
+    "check:e2e": "tsc -p e2e/tsconfig.json",
     "test:e2e": "playwright test"
   },
   "dependencies": {

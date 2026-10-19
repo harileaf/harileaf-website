@@ -44,6 +44,7 @@ jobs:
           node-version: '22'
           cache: 'npm'
       - run: npm ci
+      - run: npm run check:e2e
       - run: npx playwright install --with-deps chromium
       - name: Local secrets for the dev server
         run: printf 'ORDER_TOKEN_SECRET=ci-only-%s\n' "$GITHUB_RUN_ID" > .dev.vars

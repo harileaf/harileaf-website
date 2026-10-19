@@ -31,8 +31,9 @@ const turnstileKey = env.PUBLIC_TURNSTILE_SITE_KEY ?? '';
         <input id="f-email" name="email" type="email" required autocomplete="email" class="w-full rounded-xl border border-black/15 px-4 py-3" />
       </div>
       {turnstileKey && <div class="cf-turnstile" data-sitekey={turnstileKey}></div>}
-      <button class="rounded-full px-7 py-3 font-extrabold text-white self-start" style="background:linear-gradient(135deg,#196a5e,#2d7a4f)">Email me the link</button>
+      <button class="rounded-full px-7 py-3 font-extrabold text-white self-start disabled:opacity-60" style="background:linear-gradient(135deg,#196a5e,#2d7a4f)">Email me the link</button>
       <p id="find-status" role="status" aria-live="polite" class="font-bold"></p>
+      <button type="button" id="find-again" class="hidden self-start text-sm font-bold text-primary underline">Use a different order number or email</button>
     </form>
   </div>
 </SiteLayout>
@@ -47,15 +48,19 @@ const turnstileKey = env.PUBLIC_TURNSTILE_SITE_KEY ?? '';
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(form);
-    const btn = form.querySelector('button')!;
+    const btn = form.querySelector<HTMLButtonElement>('button:not([type="button"])')!;
     btn.disabled = true;
+    btn.textContent = 'Sending link…';
     try {
       const res = await fetch('/api/store/order/resend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderNo: String(fd.get('orderNo') ?? ''), email: String(fd.get('email') ?? ''), turnstileToken: fd.get('cf-turnstile-response') ? String(fd.get('cf-turnstile-response')) : null }) });
       const data = (await res.json().catch(() => ({}))) as { message?: string; error?: string };
       if (res.ok && data.message) {
         say(data.message, 'ok');
-        // Sent (or nothing to send): lock the form so repeated presses don't hit the limits.
-        form.querySelectorAll<HTMLInputElement | HTMLButtonElement>('input, button').forEach((el) => (el.disabled = true));
+        // Sent (or nothing to send): lock the fields so repeated presses don't hit the limits,
+        // with a way back in for a mistyped email.
+        form.querySelectorAll<HTMLInputElement>('input').forEach((el) => (el.disabled = true));
+        btn.textContent = 'Email me the link';
+        again.classList.remove('hidden');
         return;
       }
       say(data.error ?? 'Something went wrong — please try again.', 'error');
@@ -63,6 +68,16 @@ const turnstileKey = env.PUBLIC_TURNSTILE_SITE_KEY ?? '';
     } catch {
       say('Network error — please try again.', 'error');
     }
+    btn.textContent = 'Email me the link';
     btn.disabled = false;
+  });
+
+  const again = document.getElementById('find-again')!;
+  again.addEventListener('click', () => {
+    form.querySelectorAll<HTMLInputElement | HTMLButtonElement>('input, button').forEach((el) => (el.disabled = false));
+    again.classList.add('hidden');
+    out.textContent = '';
+    (window as unknown as { turnstile?: { reset(): void } }).turnstile?.reset();
+    form.querySelector<HTMLInputElement>('#f-email')?.focus();
   });
 </script>

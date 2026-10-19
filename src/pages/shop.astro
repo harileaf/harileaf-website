@@ -14,8 +14,9 @@ try {
   cards = await listProducts(env.STORE_DB, { today: new Date() });
   Astro.response.headers.set('Cache-Control', PAGE_CACHE_CONTROL);
 } catch (err) {
-  Astro.response.headers.set('Cache-Control', 'no-store');
+  // A 503 with Retry-After, not an empty 200 "first products are on their way" that a crawler could index.
   console.error(JSON.stringify({ msg: 'shop listing failed', error: String(err) }));
+  return Astro.rewrite('/store-unavailable');
 }
 
 const categories = [
