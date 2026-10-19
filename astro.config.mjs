@@ -31,11 +31,13 @@ export default defineConfig({
       applyBaseStyles: false,
     }),
     sitemap({
-      // Exclude CMS admin UI and API routes from the public sitemap
+      // Only indexable pages: no CMS/admin/API, and none of the noindex store pages
+      // (cart, checkout, order and review pages, the outage page).
       filter: (page) =>
         !page.includes('/keystatic') &&
         !page.includes('/api/') &&
-        !page.includes('/admin'),
+        !page.includes('/admin') &&
+        !/\/(cart|checkout|order|review|store-unavailable)(\/|$)/.test(new URL(page).pathname),
     }),
     keystatic(),
   ],
