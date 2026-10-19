@@ -18,7 +18,7 @@
 - The minimum order (store and coupon) is checked against the subtotal **before** the discount, so applying a code never makes a valid cart invalid.
 - `percent` is a whole percent (1–90). A flat code needs `min_order_paise > value`. Together these mean a coupon can never bring a total to ₹0, and ₹0 orders stay reserved for free replacements.
 - The redemption row is written for every coupon order (it records order ↔ code). `phone` is only filled for one-per-phone codes.
-- A cancelled or refunded order keeps its use. Only `payment_failed` releases it, as the prompt specifies.
+- A refunded order keeps its use. `payment_failed` releases it, and so does a cancel before dispatch (review: unconfirmed or fake COD orders mustn't use up a limited code). The `DELETE` sits inside the `cancel` claim batch, so it's exactly once.
 - The DPDP anonymisation job clears the redemption phone together with the order.
 
 ## Tasks
@@ -28,7 +28,7 @@
 - [x] **3. `coupons.ts`:** `normalizeCode`, `evaluateCoupon` (reasons: not_found, paused, not_started, expired, below_minimum, limit_reached, phone_used, no_eligible_items; percent cap, flat cap, category eligibility), `validateCouponInput`, `createCoupon`, `setCouponActive`, `updateCoupon`, `listCoupons`, `couponUsage`. One table-driven unit test for the reasons and amounts.
 - [x] **4. Quote:** `quoteCart(..., { coupon, phone })` → `Quote.coupon`, per-line `discount`/`categoryId`, `discount`, `total`. `publicQuote` exposes the coupon result and line discounts.
 - [x] **5. Order batch:** `createOrder` writes `coupon_code`, `discount_paise`, item discounts and the redemption insert; `classifyD1Error` → `'coupon'`; `createOrder` returns `reason: 'coupon'`. The checkout API passes `coupon` and the phone, refuses an invalid code with 422 `{ errors: { coupon } }`, and includes the code in the fingerprint.
-- [x] **6. Release and late capture:** `releaseStatements` deletes the redemption. `lateCapture` re-inserts it (with the original `created_at`) and, if the coupon refuses, takes the late-release path with a coupon-specific email. Integration races: last use (exactly one wins), one-per-phone, release on expiry exactly once (overlapping expiry + abort), cancel keeps the use, late capture re-takes it.
+- [x] **6. Release and late capture:** `releaseStatements` deletes the redemption. `lateCapture` re-inserts it (with the original `created_at`) and, if the coupon refuses, takes the late-release path with a coupon-specific email. Integration races: last use (exactly one wins), one-per-phone, release on expiry exactly once (overlapping expiry + abort), cancel gives the use back once (racing cancels), late capture re-takes it.
 - [x] **7. Retention:** anonymisation clears `coupon_redemptions.phone` (extend the existing retention test with one assertion).
 - [x] **8. Storefront UI:** "Have a discount code?" disclosure on `/cart` and `/checkout` (code in `localStorage` `hl_coupon_v1`). Apply/remove re-quotes live. The discount shows as its own line and the total is what the shopper pays. Place order is blocked while an applied code is invalid, with the reason shown.
 - [x] **9. Order page, emails, invoices, admin order detail:** lines at gross, then "Discount (CODE) −₹X", then the total. The invoice snapshot gains an optional `order.couponCode`; the discount column is already there.

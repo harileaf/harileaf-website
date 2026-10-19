@@ -22,7 +22,7 @@ const pageDesc  = 'Fruits, vegetables, herbs and flowers grown on HariLeaf Farm.
 const mangoVarieties = ['Alphonso', 'Kesar Gir', 'Payri', 'Langda', 'Rajapuri', 'Badami'];
 
 // Produce products (edge-cached). Only products whose delivery zone is enabled can be bought;
-// the rest show as out of season with "notify me" on their page.
+// the rest show "out of season" (or "not delivering yet" when in season) with "notify me" on their page.
 let cards: ProductCard[] = [];
 try {
   cards = await listProducts(env.STORE_DB, { categorySlug: 'produce', today: new Date() });

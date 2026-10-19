@@ -68,7 +68,7 @@ export interface Quote {
   cod: { eligible: boolean; reason: string | null; max: Paise };
   /** Groups present among the lines being bought; more than one means the cart must be split. */
   groups: CartGroup[];
-  /** More than one group, or pre-orders with different dispatch dates. */
+  /** More than one group, pre-orders with different dispatch dates, or fresh produce from different delivery zones. */
   mixed: boolean;
   /** True when every line can be bought as asked, the minimum is met and the cart isn't mixed. */
   ok: boolean;
@@ -155,7 +155,9 @@ export async function quoteCart(
   const groups = (['preorder', 'perishable', 'regular'] as const).filter((g) => buyable.some((l) => l.group === g));
   // Pre-orders with different dispatch dates can't share an order either: one order is one parcel.
   const preorderDates = [...new Set(buyable.map((l) => l.preorderDate).filter((d): d is string => Boolean(d)))].sort();
-  const mixed = groups.length > 1 || preorderDates.length > 1;
+  // Nor can fresh produce from different delivery zones: no pincode is in both.
+  const perishableZones = new Set(buyable.filter((l) => l.group === 'perishable').map((l) => l.zone?.id ?? null));
+  const mixed = groups.length > 1 || preorderDates.length > 1 || perishableZones.size > 1;
   const codReason = !buyable.length
     ? 'Your cart is empty'
     : groups.includes('preorder')
@@ -226,7 +228,7 @@ export function publicQuote(q: Quote) {
     weightG: q.lines.reduce((g, l) => g + l.weightG * l.qty, 0),
     lines: q.lines.map((l) => ({
       variantId: l.variantId, name: l.name, label: l.label, path: l.path, image: l.image, qty: l.qty, requestedQty: l.requestedQty,
-      unitPrice: l.unitPrice, mrp: l.mrp, grossTotal: l.grossTotal, discount: l.discount, lineTotal: l.lineTotal, problem: l.problem, group: l.group, preorderDate: l.preorderDate, available: l.available, codAllowed: l.codAllowed,
+      unitPrice: l.unitPrice, mrp: l.mrp, grossTotal: l.grossTotal, discount: l.discount, lineTotal: l.lineTotal, problem: l.problem, group: l.group, preorderDate: l.preorderDate, zoneId: l.zone?.id ?? null, available: l.available, codAllowed: l.codAllowed,
     })),
   };
 }

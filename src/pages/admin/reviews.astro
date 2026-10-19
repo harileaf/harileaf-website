@@ -76,10 +76,10 @@ const when = (iso: string) => new Date(iso).toLocaleString('en-IN', { day: 'nume
           card.querySelector<HTMLSelectElement>('[data-reason]')?.focus();
           return;
         }
-        if (action === 'withdraw' && b.dataset.sure !== '1') {
-          // No confirm() dialogs in admin: a second click confirms.
+        if ((action === 'withdraw' || action === 'reject') && b.dataset.sure !== '1') {
+          // No confirm() dialogs in admin: a second click confirms (neither can be undone here).
           b.dataset.sure = '1';
-          b.textContent = 'Click again to withdraw';
+          b.textContent = action === 'reject' ? 'Click again to reject' : 'Click again to withdraw';
           return;
         }
         card.querySelectorAll<HTMLButtonElement>('button').forEach((x) => (x.disabled = true));

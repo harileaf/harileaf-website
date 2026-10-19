@@ -12,7 +12,7 @@ interface Props {
 const { card, tone = 'light', headingLevel = 'h3' } = Astro.props;
 const H = headingLevel;
 const dark = tone === 'dark';
-const badge = { buy: null, sold_out: 'Sold out', preorder: 'Pre-order', notify: 'Out of season' }[card.availability];
+const badge = { buy: null, sold_out: 'Sold out', preorder: 'Pre-order', notify: card.zoneClosed ? 'Not delivering yet' : 'Out of season' }[card.availability];
 const off = card.fromPrice && card.fromMrp && card.fromMrp > card.fromPrice ? Math.round((1 - card.fromPrice / card.fromMrp) * 100) : 0;
 ---
 
