@@ -8,6 +8,7 @@
         "http://localhost:8787/",
         "http://localhost:8787/shop/",
         "http://localhost:8787/rice/karjat-3",
+        "http://localhost:8787/produce/kesar-mango",
         "http://localhost:8787/cart/"
       ],
       "numberOfRuns": 3,
@@ -63,7 +64,7 @@
           }
         },
         {
-          "matchingUrlPattern": "/(shop/|rice/karjat-3)$",
+          "matchingUrlPattern": "/(shop/|rice/karjat-3|produce/kesar-mango)$",
           "assertions": {
             "categories:performance": [
               "error",

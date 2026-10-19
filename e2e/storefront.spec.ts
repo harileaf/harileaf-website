@@ -118,6 +118,27 @@ test('a discount code shows as its own line and the total is what the shopper pa
   await expect(page.locator('#summary-adjust')).toContainText('Discount (E2ETEN)');
 });
 
+test('fresh produce checks out on its own: the rest is saved, not dropped; out-of-zone pincodes are refused', async ({ page }) => {
+  await page.goto('/rice/karjat-3');
+  await page.getByRole('radio', { name: /^5 kg/ }).check();
+  await page.getByRole('button', { name: 'Add to cart' }).first().click();
+  await page.goto('/produce/kesar-mango');
+  await expect(page.getByText('Delivered only within Mumbai MMR')).toBeVisible();
+  await page.getByRole('button', { name: 'Add to cart' }).first().click();
+  await expect(page.locator('[data-add-status]')).toContainText('checked out on its own');
+  await page.goto('/cart/');
+  await expect(page.getByText('Fresh produce is checked out separately')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Proceed to checkout' })).toHaveAttribute('aria-disabled', 'true');
+  await page.getByRole('button', { name: 'Check out fresh produce now' }).click();
+  await expect(page.getByRole('region', { name: 'Saved for your next order' })).toContainText('Karjat 3');
+  await expect(page.locator('#cart-root ul').first()).toContainText('Kesar Mango');
+  await page.getByRole('link', { name: 'Proceed to checkout' }).click();
+  await expect(page.locator('#summary-lines')).toContainText('Kesar Mango');
+  await page.fill('#s-pincode', '411001');
+  await expect(page.locator('#pin-status')).toContainText('only within Mumbai MMR');
+  await expect(page.locator('#place-order')).toBeDisabled();
+});
+
 test('keyboard only: choose a pack size and add it to the cart', async ({ page, isMobile }) => {
   test.skip(isMobile, 'keyboard flow is a desktop concern');
   await page.goto('/rice/karjat-3');

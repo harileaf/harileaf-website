@@ -250,8 +250,12 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
         setCoupon(null);
         return loadQuote();
       }
-      if (res.ok) renderSummary((await res.json()) as Quote);
-      else showAlert('We couldn’t load your order. Please refresh the page.');
+      if (res.ok) {
+        renderSummary((await res.json()) as Quote);
+        // A pincode typed before the quote arrived was checked without the cart's delivery zones: check again.
+        const typed = form.querySelector<HTMLInputElement>('[name="ship.pincode"]')!;
+        if (/^\d{6}$/.test(typed.value)) typed.dispatchEvent(new Event('input'));
+      } else showAlert('We couldn’t load your order. Please refresh the page.');
     }
 
 
