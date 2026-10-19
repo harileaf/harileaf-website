@@ -52,3 +52,32 @@ export function documentType(lines: { rateBp: number }[]): DocumentType {
   if (taxable && exempt) return 'invoice_cum_bill_of_supply';
   return taxable ? 'tax_invoice' : 'bill_of_supply';
 }
+
+/**
+ * Spreads an order discount over lines in proportion to their value, with
+ * largest-remainder rounding so the shares add up to exactly `discount`
+ * (ties: larger line first, then earlier line). No share exceeds its line.
+ */
+export function allocateDiscount(lineTotals: Paise[], discount: Paise): Paise[] {
+  lineTotals.forEach(assertPaise);
+  assertPaise(discount);
+  const sum = lineTotals.reduce((a, b) => a + b, 0);
+  if (discount > sum) throw new RangeError(`discount ${discount} exceeds lines ${sum}`);
+  if (discount === 0 || sum === 0) return lineTotals.map(() => 0);
+
+  const shares = lineTotals.map((line, i) => {
+    const exact = (discount * line) / sum;
+    return { i, line, base: Math.floor(exact), frac: exact - Math.floor(exact) };
+  });
+  let remainder = discount - shares.reduce((a, s) => a + s.base, 0);
+  const order = [...shares].sort((a, b) => b.frac - a.frac || b.line - a.line || a.i - b.i);
+  const out = shares.map((s) => s.base);
+  for (const s of order) {
+    if (remainder === 0) break;
+    if (out[s.i] < s.line) {
+      out[s.i] += 1;
+      remainder -= 1;
+    }
+  }
+  return out;
+}
