@@ -76,6 +76,11 @@ const paymentLine =
     <p class="text-sm text-on-surface-variant">Order {o.order_no} · placed {fmt(o.created_at)}</p>
     <h1 class="text-4xl font-extrabold tracking-tight mt-1">{heading.title}</h1>
     <p class="mt-2 text-on-surface-variant max-w-2xl">{heading.body}</p>
+    {o.is_preorder === 1 && o.expected_dispatch_date && ['placed', 'packed'].includes(o.status) && (
+      <p class="mt-4 rounded-2xl px-5 py-4 max-w-2xl" style="background:#efeafc;border:1px solid #cdbff2;color:#3a2470">
+        <strong>Pre-order</strong> · {o.status === 'packed' ? 'packed and ready to leave the farm' : <>expected to dispatch from <strong>{new Date(`${o.expected_dispatch_date}T00:00:00+05:30`).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' })}</strong>. We’ll email you when it’s ready. You can cancel for a full refund until then.</>}
+      </p>
+    )}
 
     {canPay && (
       <div class="mt-6 rounded-2xl p-5 flex flex-wrap items-center gap-4" style="background:#eef8f5;border:1px solid #8bd4c6">
@@ -136,9 +141,9 @@ const paymentLine =
             : <p class="mt-2 text-xs text-on-surface-variant">{isReplacement ? 'The delivery challan is issued when we pack the replacement.' : 'Your GST invoice is issued when we pack your order.'}</p>}
         </div>
         {canCancel && (
-          <div class="rounded-2xl border border-black/10 p-5">
+          <div id="cancel" class="rounded-2xl border border-black/10 p-5 scroll-mt-28">
             <h2 class="font-extrabold mb-1">Need to cancel?</h2>
-            <p class="text-on-surface-variant">You can cancel free of charge until we pack it.</p>
+            <p class="text-on-surface-variant">{o.is_preorder === 1 ? 'You can cancel free of charge until we dispatch it; a prepaid amount is refunded in full.' : 'You can cancel free of charge until we pack it.'}</p>
             <label class="block mt-3 text-xs font-bold" for="cancel-reason">Reason (optional)</label>
             <form id="cancel-form">
               <input id="cancel-reason" type="text" maxlength="300" class="mt-1 w-full rounded-lg border border-black/15 px-3 py-2" />

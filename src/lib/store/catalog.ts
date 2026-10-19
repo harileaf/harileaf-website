@@ -271,9 +271,8 @@ export function mapVariant(v: VariantRow, p: Product, today: Date, zones: Zone[]
     mrp: v.mrp_paise,
     unitPrice: formatUnitPrice(v.price_paise, v.unit_qty_g),
     stockQty: v.stock_qty,
-    // v1 doesn't sell pre-orders yet (v2: separate prepaid cart), so they
-    // behave as "notify" everywhere — buy box, JSON-LD and feed agree.
-    availability: a === 'preorder' ? 'notify' : a,
+    // v2: pre-orders are sold (separate, prepaid-only cart; nothing ships before "Ready to dispatch").
+    availability: a,
   };
 }
 

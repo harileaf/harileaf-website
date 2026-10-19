@@ -75,10 +75,26 @@ function invoiceSettingsMissing(s: Awaited<ReturnType<typeof getSettings>>): str
 
 /** Packed and ready to dispatch: issues the GST invoice in the same batch (CGST s.31(1)(a)). */
 export async function markPacked(db: D1Database, orderId: number, ctx: { now: Date; actor?: Actor; actorEmail?: string | null }): Promise<ActionResult> {
+  return pack(db, orderId, ctx, false);
+}
+
+/**
+ * Pre-orders (v2): "Ready to dispatch" is their pack — the invoice is issued and,
+ * in the same batch, the order goes to Shiprocket and the customer is emailed.
+ * Nothing reaches Shiprocket before this (the create handler skips pre-orders
+ * that aren't ready), and plain "pack" is refused for pre-orders.
+ */
+export async function readyToDispatch(db: D1Database, orderId: number, ctx: { now: Date; actorEmail?: string | null }): Promise<ActionResult> {
+  return pack(db, orderId, { ...ctx, actor: 'admin' }, true);
+}
+
+async function pack(db: D1Database, orderId: number, ctx: { now: Date; actor?: Actor; actorEmail?: string | null }, ready: boolean): Promise<ActionResult> {
   const data = await load(db, orderId);
   if (!data) return FAIL('Order not found');
   const { order, items } = data;
   if (order.status !== 'placed') return FAIL(`Order is ${order.status}`);
+  const isPreorder = (order as { is_preorder?: number }).is_preorder === 1;
+  if (isPreorder !== ready) return FAIL(isPreorder ? 'This is a pre-order: use “Ready to dispatch”' : 'Only pre-orders are marked ready to dispatch');
   if (order.payment_method !== 'cod' && order.payment_status !== 'paid') return FAIL('Wait for the payment to be captured before packing');
   const at = nowIso(ctx.now);
   const settings = await getSettings(db);
@@ -112,16 +128,51 @@ export async function markPacked(db: D1Database, orderId: number, ctx: { now: Da
     db,
     orderId,
     'pack',
-    `SELECT status = 'placed' AND ${PAID_SQL} FROM orders WHERE id = ?`,
+    `SELECT status = 'placed' AND ${PAID_SQL} AND is_preorder = ${ready ? 1 : 0} FROM orders WHERE id = ?`,
     [orderId],
     at,
   );
   const res = await runClaim(db, claim, [
-    db.prepare("UPDATE orders SET status = 'packed', updated_at = ? WHERE id = ?").bind(at, orderId),
+    db.prepare(`UPDATE orders SET status = 'packed', ${ready ? 'ready_to_dispatch = 1, ' : ''}updated_at = ? WHERE id = ?`).bind(at, orderId),
     ...invoice,
-    event(db, orderId, at, 'packed', ctx.actor ?? 'admin', isReplacement ? 'Replacement packed; delivery challan issued' : 'Packed; invoice issued', ctx.actorEmail),
+    event(db, orderId, at, 'packed', ctx.actor ?? 'admin', ready ? 'Ready to dispatch; invoice issued' : isReplacement ? 'Replacement packed; delivery challan issued' : 'Packed; invoice issued', ctx.actorEmail),
+    ...(ready
+      ? [enqueueStmt(db, { orderId, kind: 'shiprocket.create', payload: {}, at }), enqueueStmt(db, { orderId, kind: 'email.ready_to_dispatch', payload: {}, at })]
+      : []),
   ]);
   return settle(res, 'Order can no longer be packed');
+}
+
+/**
+ * Harvest late: push a pre-order's dispatch date back (never forward). The
+ * customer is emailed the new date with a one-click cancel (full refund) on
+ * the order page. One claim per new date, so a double click sends one email.
+ */
+export async function delayPreorder(
+  db: D1Database,
+  orderId: number,
+  d: { date: string; reason: string },
+  ctx: { now: Date; actorEmail?: string | null },
+): Promise<ActionResult> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d.date) || Number.isNaN(Date.parse(d.date))) return FAIL('Pick the new dispatch date');
+  const reason = d.reason.trim().slice(0, 300);
+  if (reason.length < 3) return FAIL('Say why (it goes in the email to the customer)');
+  const at = nowIso(ctx.now);
+  const before = await db.prepare('SELECT expected_dispatch_date FROM orders WHERE id = ?').bind(orderId).first<{ expected_dispatch_date: string | null }>();
+  const claim = claimStmt(
+    db,
+    orderId,
+    `delay:${d.date}`,
+    "SELECT status = 'placed' AND is_preorder = 1 AND ready_to_dispatch = 0 AND (expected_dispatch_date IS NULL OR expected_dispatch_date < ?) FROM orders WHERE id = ?",
+    [d.date, orderId],
+    at,
+  );
+  const res = await runClaim(db, claim, [
+    db.prepare('UPDATE orders SET expected_dispatch_date = ?, updated_at = ? WHERE id = ?').bind(d.date, at, orderId),
+    event(db, orderId, at, 'preorder_delayed', 'admin', `Dispatch moved from ${before?.expected_dispatch_date ?? '—'} to ${d.date}: ${reason}`, ctx.actorEmail),
+    enqueueStmt(db, { orderId, kind: 'email.preorder_delayed', payload: { from: before?.expected_dispatch_date ?? null, to: d.date, reason }, at }),
+  ]);
+  return settle(res, 'Only a pre-order that hasn’t been dispatched can be pushed back, and only to a later date');
 }
 
 export async function markShipped(

@@ -33,7 +33,7 @@ interface Props {
 }
 
 const { product: p, variants, images, batch, labReports, related, reviews, zone, settings } = Astro.props;
-const initial = variants.find((v) => v.availability === 'buy') ?? variants[0];
+const initial = variants.find((v) => v.availability === 'buy') ?? variants.find((v) => v.availability === 'preorder') ?? variants[0];
 const mayUseOrganic = organicCopy({ organicScheme: p.organic.scheme, conversionSince: p.organic.conversionSince, certNumber: p.organic.certNumber }).mayUseOrganic;
 const title = productTitle(p, initial, { mayUseOrganic });
 const description = productDescription(p);

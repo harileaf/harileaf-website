@@ -10,7 +10,7 @@ import { addToCart, readCart } from './cart';
 const LABEL: Record<string, string> = {
   buy: 'Add to cart',
   sold_out: 'Sold out — back soon',
-  preorder: 'Pre-order opens soon',
+  preorder: 'Pre-order',
   notify: 'Out of season',
 };
 
@@ -19,6 +19,7 @@ export function initBuyBox(signal?: AbortSignal): void {
   if (!box) return;
   const radios = Array.from(box.querySelectorAll<HTMLButtonElement>('[data-variant]'));
   const perishable = box.dataset.perishable === '1';
+  const preorderLine = box.querySelector<HTMLElement>('[data-bb-preorder]');
   // The page says "Not delivering yet" instead of "Out of season" for a fresh product whose zone isn't selling.
   const label = (a: string | undefined) => (a === 'notify' && box.dataset.notifyLabel ? box.dataset.notifyLabel : LABEL[a ?? 'notify']);
   const qty = box.querySelector<HTMLInputElement>('[data-qty-input]')!;
@@ -51,7 +52,8 @@ export function initBuyBox(signal?: AbortSignal): void {
     set('[data-bb-netqty]', r.dataset.netqty ?? '');
     set('[data-bb-sticky-price]', formatINR(price));
     set('[data-bb-sticky-meta]', `${r.dataset.label} · ${r.dataset.unit ?? ''}`);
-    const available = r.dataset.availability === 'buy';
+    const available = r.dataset.availability === 'buy' || r.dataset.availability === 'preorder';
+    preorderLine?.classList.toggle('hidden', r.dataset.availability !== 'preorder');
     clearTimeout(addedTimer);
     for (const b of [addBtn, stickyBtn]) {
       if (!b) continue;
@@ -99,7 +101,7 @@ export function initBuyBox(signal?: AbortSignal): void {
   }
 
   function add() {
-    if (current.dataset.availability !== 'buy') return;
+    if (current.dataset.availability !== 'buy' && current.dataset.availability !== 'preorder') return;
     const id = Number(current.dataset.id);
     const before = readCart().find((l) => l.variantId === id)?.qty ?? 0;
     const after = addToCart(id, clampQty(Number(qty.value))).find((l) => l.variantId === id)?.qty ?? 0;

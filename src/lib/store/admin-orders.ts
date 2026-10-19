@@ -1,7 +1,7 @@
 /** Admin order views and the action dispatcher behind /api/admin/orders/[id]. */
 import { nowIso } from './db';
 import {
-  cancelOrder, createReplacement, markDelivered, markPacked, markReturned, markRto, markShipped, receiveReturn, refundOrder,
+  cancelOrder, createReplacement, delayPreorder, markDelivered, markPacked, markReturned, markRto, markShipped, readyToDispatch, receiveReturn, refundOrder,
 } from './fulfilment';
 import { orderDocs } from './invoice-docs';
 import type { OrderItemRow, OrderRow } from './orders';
@@ -15,8 +15,8 @@ export const ORDER_STATUSES = ['pending_payment', 'placed', 'packed', 'shipped',
 export interface OrderListRow {
   id: number; order_no: string; status: string; payment_method: string; payment_status: string; customer_name: string;
   ship_city: string; ship_state: string; total_paise: number; created_at: string; awb: string | null; replacement_for_order_id: number | null;
-  /** v2: fresh produce in the order, and the day it must leave the farm. */
-  perishable: number; expected_dispatch_date: string | null;
+  /** v2: fresh produce in the order, pre-order, and the day it must leave the farm. */
+  perishable: number; is_preorder: number; expected_dispatch_date: string | null;
 }
 
 export async function listOrders(db: D1Database, f: { status?: string; q?: string; limit?: number; offset?: number } = {}) {
@@ -37,7 +37,7 @@ export async function listOrders(db: D1Database, f: { status?: string; q?: strin
   const { results } = await db
     .prepare(
       `SELECT id, order_no, status, payment_method, payment_status, customer_name, ship_city, ship_state, total_paise, created_at, awb, replacement_for_order_id,
-              expected_dispatch_date, EXISTS (SELECT 1 FROM order_items i WHERE i.order_id = orders.id AND i.perishable = 1) AS perishable
+              expected_dispatch_date, is_preorder, EXISTS (SELECT 1 FROM order_items i WHERE i.order_id = orders.id AND i.perishable = 1) AS perishable
        FROM orders ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY id DESC LIMIT ? OFFSET ?`,
     )
     .bind(...binds, Math.min(f.limit ?? 50, 200), f.offset ?? 0)
@@ -67,13 +67,15 @@ export async function orderDetail(db: D1Database, id: number) {
 
 /** Which buttons the detail page shows for an order (the server re-checks every action). */
 export function availableActions(
-  o: Pick<OrderRow, 'status' | 'payment_method' | 'payment_status' | 'total_paise'>,
+  o: Pick<OrderRow, 'status' | 'payment_method' | 'payment_status' | 'total_paise' | 'is_preorder'>,
   opts: { awaitingCodConfirmation?: boolean; returnReceived?: boolean } = {},
 ): string[] {
   const a: string[] = [];
   if (opts.awaitingCodConfirmation) return ['confirm_cod', 'cancel'];
   const prepaidReady = o.payment_method === 'cod' || o.payment_status === 'paid';
-  if (o.status === 'placed' && prepaidReady) a.push('pack');
+  // Pre-orders wait for the harvest: "Ready to dispatch" invoices and sends them to Shiprocket.
+  if (o.status === 'placed' && prepaidReady) a.push(o.is_preorder === 1 ? 'ready_to_dispatch' : 'pack');
+  if (o.status === 'placed' && o.is_preorder === 1) a.push('delay_preorder');
   if (o.status === 'packed') a.push('ship');
   if (o.status === 'shipped') a.push('deliver', 'rto');
   if (['shipped', 'delivered', 'rto'].includes(o.status)) a.push('update_tracking');
@@ -97,6 +99,10 @@ export async function runAdminAction(
 ): Promise<{ ok: true; orderNo?: string } | { ok: false; error: string }> {
   const base = { now: ctx.now, actorEmail: ctx.actorEmail };
   switch (body.action) {
+    case 'ready_to_dispatch':
+      return readyToDispatch(db, orderId, base);
+    case 'delay_preorder':
+      return delayPreorder(db, orderId, { date: str(body, 'date', 10), reason: str(body, 'reason') }, base);
     case 'pack':
       return markPacked(db, orderId, base);
     case 'marketing_opt_out': {

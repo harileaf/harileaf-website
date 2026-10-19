@@ -43,4 +43,13 @@ describe('notify me', () => {
     await purgeNotifyRequests(db, NOW);
     expect((await db.prepare('SELECT email FROM notify_requests WHERE product_id = ?').bind(p).all<{ email: string }>()).results.map((r) => r.email)).toEqual(['new@example.com']);
   });
+
+  it('treats a pre-order opening as available', async () => {
+    const p = await insertProduct({ season_start_md: '04-01', season_end_md: '06-15', off_season_mode: 'preorder' });
+    await insertVariant(p, { stock_qty: 20 });
+    await signUp(db, p, 'mango@example.com', NOW);
+    expect(await queueBackInStock(db, NOW)).toBe(0); // out of season, no dispatch date yet → notify
+    await db.prepare("UPDATE products SET preorder_dispatch_date = '2027-04-05' WHERE id = ?").bind(p).run();
+    expect(await queueBackInStock(db, NOW)).toBe(1);
+  });
 });

@@ -39,6 +39,27 @@ export function deliveredEmail(o: OrderRow, viewUrl: string, s: StoreSettings, r
   return { to: o.email, subject: `Order ${o.order_no} delivered — HariLeaf`, html: wrap('Delivered', body, s), text: `Your order ${o.order_no} has been delivered. Damaged or wrong item? Reply with a photo within ${within}.${reviewUrl ? `\nReview your order: ${reviewUrl}` : ''}\n${viewUrl}`, idempotencyKey: `email.delivered/${o.order_no}`, replyTo: s.customer_care_email || undefined };
 }
 
+const longDay = (ymd: string) => new Date(`${ymd}T00:00:00+05:30`).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' });
+
+/** Pre-order: the harvest is in and the order is leaving the farm (sent by "Ready to dispatch"). */
+export function readyToDispatchEmail(o: OrderRow, viewUrl: string, s: StoreSettings): Email {
+  const body = `<p>Hi ${first(o)}, good news: your pre-order <strong>${esc(o.order_no)}</strong> is packed and ready to leave the farm. We'll email you the tracking link as soon as the courier collects it.</p>${button(viewUrl, 'View your order')}`;
+  return { to: o.email, subject: `Your pre-order ${o.order_no} is ready to dispatch — HariLeaf`, html: wrap('Your pre-order is on its way soon', body, s), text: `Your pre-order ${o.order_no} is packed and ready to leave the farm. Tracking follows when the courier collects it.\n${viewUrl}`, idempotencyKey: `email.ready_to_dispatch/${o.order_no}`, replyTo: s.customer_care_email || undefined };
+}
+
+/** Pre-order pushed back: the new date, the reason, and a one-click cancel (full refund) on the order page. */
+export function preorderDelayedEmail(o: OrderRow, viewUrl: string, s: StoreSettings, d: { from: string | null; to: string; reason: string }): Email {
+  const body = `<p>Hi ${first(o)}, we're sorry: your pre-order <strong>${esc(o.order_no)}</strong> will now be dispatched from <strong>${esc(longDay(d.to))}</strong>${d.from ? ` instead of ${esc(longDay(d.from))}` : ''}.</p><p>Why: ${esc(d.reason)}</p><p>If that no longer works for you, you can cancel for a full refund to your original payment method — no questions asked.</p>${button(`${viewUrl}#cancel`, 'Cancel and get a full refund')}<p><a href="${esc(viewUrl)}">Or keep your order and view it here</a>.</p>`;
+  return {
+    to: o.email,
+    subject: `New dispatch date for your pre-order ${o.order_no} — HariLeaf`,
+    html: wrap('Your pre-order has a new date', body, s),
+    text: `Your pre-order ${o.order_no} will now be dispatched from ${longDay(d.to)}${d.from ? ` instead of ${longDay(d.from)}` : ''}.\nWhy: ${d.reason}\nTo cancel for a full refund: ${viewUrl}#cancel`,
+    idempotencyKey: `email.preorder_delayed/${o.order_no}/${d.to}`,
+    replyTo: s.customer_care_email || undefined,
+  };
+}
+
 export function cancelledEmail(o: OrderRow, viewUrl: string, s: StoreSettings): Email {
   const money =
     o.payment_method === 'cod' || o.total_paise === 0
@@ -91,6 +112,13 @@ export function makeFulfilmentEmailHandlers(fetchImpl?: typeof fetch): Record<st
       await sendEmail(env, deliveredEmail(o, await orderViewUrl(env, o), await getSettings(env.STORE_DB), reviewUrl, perishable), fetchImpl);
     },
     'email.cancelled': handler(cancelledEmail),
+    'email.ready_to_dispatch': handler(readyToDispatchEmail),
+    'email.preorder_delayed': async (payload: { from?: string | null; to?: string; reason?: string }, { env, row }) => {
+      const o = await env.STORE_DB.prepare('SELECT * FROM orders WHERE id = ?').bind(row.order_id).first<OrderRow>();
+      if (!o) throw new Error(`order ${row.order_id} not found`);
+      if (o.status !== 'placed' || !payload.to) return; // cancelled or dispatched meanwhile
+      await sendEmail(env, preorderDelayedEmail(o, await orderViewUrl(env, o), await getSettings(env.STORE_DB), { from: payload.from ?? null, to: payload.to, reason: payload.reason ?? '' }), fetchImpl);
+    },
     'email.refunded': handler(refundedEmail),
     'email.order_link': async (_p, { env, row }) => {
       const o = await env.STORE_DB.prepare('SELECT * FROM orders WHERE id = ?').bind(row.order_id).first<OrderRow>();

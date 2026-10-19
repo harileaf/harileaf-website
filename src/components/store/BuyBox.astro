@@ -29,12 +29,16 @@ interface Props {
 }
 
 const { product: p, variants, batch, minOrderPaise, codMaxPaise, rating, zone, settings } = Astro.props;
-const initial = variants.find((v) => v.availability === 'buy') ?? variants[0];
+const sellable = (v: Variant) => v.availability === 'buy' || v.availability === 'preorder';
+const initial = variants.find((v) => v.availability === 'buy') ?? variants.find(sellable) ?? variants[0];
+const fmtDay = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' });
+const preorderDate = p.season.preorderDispatchDate;
+const ctaLabel = (v: Variant) => (v.availability === 'buy' ? 'Add to cart' : v.availability === 'preorder' ? 'Pre-order' : unavailableLabel[v.availability]);
 const cert = organicCopy({ organicScheme: p.organic.scheme, conversionSince: p.organic.conversionSince, certNumber: p.organic.certNumber });
 const off = (v: Variant) => (v.mrp > v.price ? Math.round((1 - v.price / v.mrp) * 100) : 0);
 // A perishable in season whose delivery zone isn't selling yet reads "notify" too — but "out of season" would be untrue.
 const zoneClosed = p.perishable && !zone && inSeason(p.season.startMd, p.season.endMd, new Date());
-const unavailableLabel = { buy: '', sold_out: 'Sold out — back soon', preorder: 'Pre-order opens soon', notify: zoneClosed ? 'Not delivering yet' : 'Out of season' } as const;
+const unavailableLabel = { buy: '', sold_out: 'Sold out — back soon', preorder: 'Pre-order', notify: zoneClosed ? 'Not delivering yet' : 'Out of season' } as const;
 const fmtDate = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
 ---
 
@@ -76,6 +80,11 @@ const fmtDate = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateS
       MRP inclusive of all taxes · <span data-bb-unit>{initial.unitPrice}</span> · <strong>Free delivery</strong>
       {minOrderPaise ? <> · Minimum order {formatINR(minOrderPaise)}</> : null}
     </p>
+    {preorderDate && variants.some((v) => v.availability === 'preorder') && (
+      <p class:list={['mt-2 text-sm font-bold rounded-xl px-3 py-2', { hidden: initial.availability !== 'preorder' }]} style="background:#efeafc;color:#3a2470" data-bb-preorder>
+        Pre-order · dispatches from {fmtDay(preorderDate)} · prepaid only · cancel for a full refund until dispatch
+      </p>
+    )}
   </div>
 
   <fieldset>
@@ -100,7 +109,7 @@ const fmtDate = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateS
         >
           <span class="block font-bold text-on-surface">{v.label}</span>
           <span class="block text-xs text-on-surface-variant">
-            {formatINR(v.price)} · {v.unitPrice}{v.availability !== 'buy' ? ` · ${unavailableLabel[v.availability]}` : ''}
+            {formatINR(v.price)} · {v.unitPrice}{v.availability !== 'buy' ? ` · ${v.availability === 'preorder' ? 'Pre-order' : unavailableLabel[v.availability]}` : ''}
           </span>
         </button>
       ))}
@@ -126,13 +135,13 @@ const fmtDate = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateS
       type="button"
       data-add
       class="flex-1 rounded-full py-3.5 px-6 font-extrabold text-white cta-gradient disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-      disabled={initial.availability !== 'buy'}
+      disabled={!sellable(initial)}
     >
-      {initial.availability === 'buy' ? 'Add to cart' : unavailableLabel[initial.availability]}
+      {ctaLabel(initial)}
     </button>
   </div>
   <p class="text-sm font-bold min-h-[1.25rem]" style="color:#1d7a3a" aria-live="polite" data-add-status></p>
-  {zone && settings && variants.some((v) => v.availability === 'buy') && <ZoneCheck productName={p.name} zone={zone} settings={settings} />}
+  {zone && settings && variants.some(sellable) && <ZoneCheck productName={p.name} zone={zone} settings={settings} />}
   {!variants.some((v) => v.availability === 'buy' || v.availability === 'preorder') && (
     <NotifyForm productId={p.id} productName={p.name} heading={zoneClosed ? 'Tell me when you deliver it' : variants.every((v) => v.availability === 'notify') ? 'Tell me when it’s in season' : 'Tell me when it’s back'} />
   )}
@@ -168,8 +177,8 @@ const fmtDate = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateS
     <p class="font-extrabold text-lg text-on-surface" data-bb-sticky-price>{formatINR(initial.price)}</p>
     <p class="text-xs text-on-surface-variant" data-bb-sticky-meta>{initial.label} · {initial.unitPrice}</p>
   </div>
-  <button type="button" data-add-sticky class="flex-1 rounded-full py-3 font-extrabold text-white cta-gradient disabled:opacity-50" disabled={initial.availability !== 'buy'}>
-    {initial.availability === 'buy' ? 'Add to cart' : unavailableLabel[initial.availability]}
+  <button type="button" data-add-sticky class="flex-1 rounded-full py-3 font-extrabold text-white cta-gradient disabled:opacity-50" disabled={!sellable(initial)}>
+    {ctaLabel(initial)}
   </button>
 </div>
 

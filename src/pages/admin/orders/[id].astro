@@ -20,10 +20,10 @@ const actions = o ? availableActions(o, { awaitingCodConfirmation: awaitingCod, 
 const fmt = (iso: string) => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' });
 const tracking = safeHttpsUrl(o?.tracking_url);
 const LABELS: Record<string, string> = {
-  pack: 'Mark packed (issues invoice)', ship: 'Mark shipped', update_tracking: 'Update tracking', deliver: 'Mark delivered', rto: 'Mark RTO', returned: 'Mark returned',
+  pack: 'Mark packed (issues invoice)', ready_to_dispatch: 'Ready to dispatch (issues invoice, sends to Shiprocket, emails customer)', delay_preorder: 'Push back dispatch date (emails customer)', ship: 'Mark shipped', update_tracking: 'Update tracking', deliver: 'Mark delivered', rto: 'Mark RTO', returned: 'Mark returned',
   confirm_cod: 'Confirm COD order (after calling the customer)', cancel: 'Cancel order', refund: 'Refund', receive_return: 'Return received (restock)', replacement: 'Send replacement',
 };
-const needs: Record<string, string[]> = { ship: ['awb', 'courier', 'trackingUrl'], update_tracking: ['awb', 'courier', 'trackingUrl'], cancel: ['reason'], refund: o?.payment_method === 'cod' ? ['reason', 'manualReference'] : ['reason'], returned: ['note'], rto: ['note'], receive_return: ['note'], replacement: ['note'] };
+const needs: Record<string, string[]> = { delay_preorder: ['date', 'reason'], ship: ['awb', 'courier', 'trackingUrl'], update_tracking: ['awb', 'courier', 'trackingUrl'], cancel: ['reason'], refund: o?.payment_method === 'cod' ? ['reason', 'manualReference'] : ['reason'], returned: ['note'], rto: ['note'], receive_return: ['note'], replacement: ['note'] };
 ---
 
 <AdminLayout title={o ? `Order ${o.order_no}` : 'Order'} active="orders">
@@ -36,6 +36,7 @@ const needs: Record<string, string[]> = { ship: ['awb', 'courier', 'trackingUrl'
           <h1 style="font-size:1.75rem;font-weight:800;">{o.order_no}</h1>
           <p class="muted">Placed {fmt(o.created_at)} · <strong>{o.status}</strong> · {o.total_paise === 0 ? 'Free replacement' : <>{o.payment_method === 'cod' ? 'COD' : 'Online'} ({o.payment_status.replace('_', ' ')})</>}</p>
           {d.original && <p class="warn" style="margin-top:0.5rem;">Free replacement for <a href={`/admin/orders/${d.original.id}`}>{d.original.order_no}</a> — no invoice is issued (no consideration). Confirm document treatment with your CA.</p>}
+          {o.is_preorder === 1 && <p class="warn" style="margin-top:0.5rem;">Pre-order · expected dispatch <strong>{o.expected_dispatch_date ?? '—'}</strong>{o.status === 'placed' ? ' — nothing goes to Shiprocket until you mark it Ready to dispatch.' : ''}</p>}
           {awaitingCod && <p class="warn" style="margin-top:0.5rem;">Cash on delivery, <strong>not confirmed yet</strong> — it won't be sent to Shiprocket until the customer confirms (email / order page) or you confirm after calling {o.phone}.</p>}
           {d.replacements.length > 0 && <p class="muted">Replacements: {d.replacements.map((r) => r.order_no).join(', ')}</p>}
         </div>
@@ -54,7 +55,8 @@ const needs: Record<string, string[]> = { ship: ['awb', 'courier', 'trackingUrl'
             <div data-field="awb"><label for="f-awb">AWB</label><input id="f-awb" name="awb" type="text" value={o.awb ?? ''} /></div>
             <div data-field="courier"><label for="f-courier">Courier</label><input id="f-courier" name="courier" type="text" value={o.courier ?? ''} /></div>
             <div data-field="trackingUrl"><label for="f-tracking">Tracking link (https://…)</label><input id="f-tracking" name="trackingUrl" type="text" value={o.tracking_url ?? ''} /></div>
-            <div data-field="reason"><label for="f-reason">Reason (printed on the credit note and emailed)</label><input id="f-reason" name="reason" type="text" maxlength="300" /></div>
+            <div data-field="date"><label for="f-date">New dispatch date</label><input id="f-date" name="date" type="date" min={o.expected_dispatch_date ?? undefined} /></div>
+            <div data-field="reason"><label for="f-reason">Reason (emailed to the customer{o.is_preorder ? '' : '; printed on the credit note'})</label><input id="f-reason" name="reason" type="text" maxlength="300" /></div>
             <div data-field="manualReference"><label for="f-ref">COD refund — UPI / bank reference</label><input id="f-ref" name="manualReference" type="text" maxlength="80" /></div>
             <div data-field="note"><label for="f-note">Note</label><input id="f-note" name="note" type="text" maxlength="300" /></div>
             <fieldset data-field="replacement" style="border:0;">

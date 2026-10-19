@@ -70,6 +70,9 @@ export async function createOrder(
   if (!quote.ok || !lines.length) return { ok: false, reason: 'invalid', message: 'Cart has changed' };
   if (quote.coupon && !quote.coupon.ok) return { ok: false, reason: 'coupon', message: quote.coupon.message };
   const couponCode = quote.coupon?.ok ? quote.coupon.code : null;
+  // A pre-order cart dispatches when its latest product does.
+  const preorderDate = lines.map((l) => l.preorderDate).filter((d): d is string => Boolean(d)).sort().pop() ?? null;
+  if (preorderDate && c.paymentMethod === 'cod') return { ok: false, reason: 'invalid', message: 'Pre-orders are prepaid' };
 
   const at = nowIso(now);
   const intra = placeOfSupplyCode(c) === input.sellerStateCode;
@@ -91,10 +94,10 @@ export async function createOrder(
            customer_name, email, phone, marketing_opt_in,
            ship_line1, ship_line2, ship_city, ship_state, ship_state_code, ship_pincode,
            bill_same_as_ship, bill_name, bill_line1, bill_line2, bill_city, bill_state, bill_state_code, bill_pincode,
-           buyer_gstin, buyer_legal_name, subtotal_paise, discount_paise, gst_paise, total_paise, created_at, updated_at, checkout_fingerprint, cod_confirmed_at, coupon_code, expected_dispatch_date)
+           buyer_gstin, buyer_legal_name, subtotal_paise, discount_paise, gst_paise, total_paise, created_at, updated_at, checkout_fingerprint, cod_confirmed_at, coupon_code, expected_dispatch_date, is_preorder)
          VALUES ('HL-' || ?1 || '-' || printf('%04d', (SELECT last_no FROM order_counters WHERE yymm = ?1)),
            ?2, ?3, ?4, ?5, 'unpaid', ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15,
-           ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?30, ?31, ?32, ?33, ?34)`,
+           ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?30, ?31, ?32, ?33, ?34, ?35)`,
       )
       .bind(
         ym, await hashViewToken(input.tokenSecret, viewToken), key, cod ? 'placed' : 'pending_payment', c.paymentMethod,
@@ -102,7 +105,7 @@ export async function createOrder(
         c.ship.line1, c.ship.line2, c.ship.city, c.ship.state, c.ship.stateCode, c.ship.pincode,
         b ? 0 : 1, b?.name ?? null, b?.line1 ?? null, b?.line2 ?? null, b?.city ?? null, b?.state ?? null, b?.stateCode ?? null, b?.pincode ?? null,
         c.buyerGstin, c.buyerLegalName, quote.subtotal, quote.discount, gst, quote.total, at, input.fingerprint ?? null,
-        cod && !input.codConfirmationRequired ? at : null, couponCode, input.expectedDispatchDate ?? null,
+        cod && !input.codConfirmationRequired ? at : null, couponCode, preorderDate ?? input.expectedDispatchDate ?? null, preorderDate ? 1 : 0,
       ),
   ];
   if (couponCode) {

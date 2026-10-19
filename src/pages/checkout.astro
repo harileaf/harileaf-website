@@ -136,7 +136,7 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
   import { payForOrder } from '../scripts/store/razorpay-checkout';
   import { mountTurnstile } from '../scripts/store/turnstile';
 
-  type Quote = { ok: boolean; zones?: Array<{ id: string; name: string; maxTransitDays: number }>; total: number; subtotal: number; discount: number; coupon: QuoteCoupon | null; weightG?: number; minOrder: number; meetsMinimum: boolean; cod: { eligible: boolean; reason: string | null }; lines: Array<{ variantId: number; name: string; label: string; qty: number; grossTotal: number; lineTotal: number; problem: string | null; available: number }> };
+  type Quote = { ok: boolean; zones?: Array<{ id: string; name: string; maxTransitDays: number }>; total: number; subtotal: number; discount: number; coupon: QuoteCoupon | null; weightG?: number; minOrder: number; meetsMinimum: boolean; cod: { eligible: boolean; reason: string | null }; lines: Array<{ variantId: number; name: string; label: string; qty: number; grossTotal: number; lineTotal: number; problem: string | null; available: number; preorderDate?: string | null }> };
 
   // With view transitions this script runs once per visit, so set the page up on every page load.
   function initCheckout() {
@@ -201,7 +201,9 @@ const label = 'block text-sm font-bold text-on-surface mb-1.5';
       ul.replaceChildren(
         ...q.lines.map((l) =>
           h('li', { class: 'flex justify-between gap-3' },
-            h('span', {}, `${l.name} · ${l.label} × ${l.qty}`, l.problem ? h('span', { class: 'block text-xs font-bold', style: 'color:#8a4b00' }, l.problem === 'limited' ? `Only ${l.available} left` : 'No longer available') : null),
+            h('span', {}, `${l.name} · ${l.label} × ${l.qty}`,
+              l.preorderDate ? h('span', { class: 'block text-xs font-bold', style: 'color:#3a2470' }, `Pre-order · dispatches from ${new Date(`${l.preorderDate}T00:00:00+05:30`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })}`) : null,
+              l.problem ? h('span', { class: 'block text-xs font-bold', style: 'color:#8a4b00' }, l.problem === 'limited' ? `Only ${l.available} left` : 'No longer available') : null),
             h('span', { class: 'font-bold whitespace-nowrap' }, formatINR(l.grossTotal)),
           ),
         ),

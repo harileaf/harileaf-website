@@ -88,7 +88,13 @@ export function orderPlacedEmail(o: OrderRow, items: OrderItemRow[], viewUrl: st
   const confirmHtml = confirm
     ? `<div style="background:#fff4e0;border:1px solid #e8c37a;border-radius:10px;padding:12px 14px;margin:12px 0"><p style="margin:0 0 8px"><strong>One quick step:</strong> please confirm your cash-on-delivery order so we can ship it.</p><a href="${esc(viewUrl)}#confirm" style="display:inline-block;background:#196a5e;color:#fff;text-decoration:none;padding:10px 18px;border-radius:999px;font-weight:bold">Confirm my order</a></div>`
     : '';
-  const html = `<p>Hi ${esc(o.customer_name.split(' ')[0])}, thank you for your order <strong>${esc(o.order_no)}</strong>. We'll pack it within 2 business days ${confirm ? 'of your confirmation ' : ''}and email you a tracking link when it ships.</p>
+  const preorderDay = o.is_preorder === 1 && o.expected_dispatch_date
+    ? new Date(`${o.expected_dispatch_date}T00:00:00+05:30`).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' })
+    : null;
+  const when = preorderDay
+    ? `This is a pre-order: we expect to dispatch it from <strong>${esc(preorderDay)}</strong> and will email you when it's ready, and again with tracking. You can cancel for a full refund any time before then.`
+    : `We'll pack it within 2 business days ${confirm ? 'of your confirmation ' : ''}and email you a tracking link when it ships.`;
+  const html = `<p>Hi ${esc(o.customer_name.split(' ')[0])}, thank you for your order <strong>${esc(o.order_no)}</strong>. ${when}</p>
 ${confirmHtml}
 ${t.html}
 <p style="margin-top:12px"><strong>Total: ${formatINR(o.total_paise)}</strong> (inclusive of GST, free delivery)<br>${esc(pay)}</p>

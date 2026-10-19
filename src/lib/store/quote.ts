@@ -18,7 +18,7 @@ export type LineProblem = 'unavailable' | 'out_of_stock' | 'limited';
  * Goods that ship differently check out separately (spec: Product
  * Availability Rules): perishables go prepaid, by express, to their zone only.
  */
-export type CartGroup = 'perishable' | 'regular';
+export type CartGroup = 'preorder' | 'perishable' | 'regular';
 
 export interface QuoteLine {
   variantId: number;
@@ -43,6 +43,8 @@ export interface QuoteLine {
   hsnCode: string;
   perishable: boolean;
   group: CartGroup;
+  /** Pre-order lines: the day the product is due to be dispatched (YYYY-MM-DD). */
+  preorderDate: string | null;
   /** The enabled delivery zone a perishable line ships in (null for regular goods). */
   zone: Zone | null;
   codAllowed: boolean;
@@ -104,7 +106,7 @@ export async function quoteCart(
       const product = mapProduct(r);
       const variantRow: VariantRow = { ...r, id: r.v_id, active: r.v_active };
       const v = mapVariant(variantRow, product, opts.today, zones);
-      const buyable = v?.availability === 'buy';
+      const buyable = v?.availability === 'buy' || v?.availability === 'preorder';
       const available = buyable ? r.stock_qty : 0;
       const qty = Math.min(want.qty, available);
       const problem: LineProblem | null = !v || !buyable ? (v?.availability === 'sold_out' ? 'out_of_stock' : 'unavailable') : qty < want.qty ? 'limited' : null;
@@ -127,7 +129,10 @@ export async function quoteCart(
         gstRateBp: product.gstRateBp,
         hsnCode: product.hsnCode,
         perishable: product.perishable,
-        group: product.perishable ? 'perishable' : 'regular',
+        // Pre-orders first: a mango pre-order is a pre-order (prepaid, held until "Ready to dispatch")
+        // that still gets its perishable zone check at checkout.
+        group: v?.availability === 'preorder' ? 'preorder' : product.perishable ? 'perishable' : 'regular',
+        preorderDate: v?.availability === 'preorder' ? product.season.preorderDispatchDate : null,
         zone: sellableZone(product, zones).zone,
         codAllowed: product.codAllowed,
         weightG: r.weight_g,
@@ -146,11 +151,13 @@ export async function quoteCart(
   // The minimum is on the value of the goods before a coupon, so a code never invalidates a cart.
   const meetsMinimum = subtotal >= minOrder;
   const buyable = lines.filter((l) => l.qty > 0);
-  const groups = (['perishable', 'regular'] as const).filter((g) => buyable.some((l) => l.group === g));
+  const groups = (['preorder', 'perishable', 'regular'] as const).filter((g) => buyable.some((l) => l.group === g));
   const mixed = groups.length > 1;
   const codReason = !buyable.length
     ? 'Your cart is empty'
-    : buyable.some((l) => !l.codAllowed)
+    : groups.includes('preorder')
+      ? 'Pre-orders are prepaid'
+      : buyable.some((l) => !l.codAllowed)
       ? 'Cash on delivery isn’t available for one or more items'
       : codMax > 0 && total > codMax
         ? `Cash on delivery is available on orders up to ₹${codMax / 100}`
@@ -216,7 +223,7 @@ export function publicQuote(q: Quote) {
     weightG: q.lines.reduce((g, l) => g + l.weightG * l.qty, 0),
     lines: q.lines.map((l) => ({
       variantId: l.variantId, name: l.name, label: l.label, path: l.path, image: l.image, qty: l.qty, requestedQty: l.requestedQty,
-      unitPrice: l.unitPrice, mrp: l.mrp, grossTotal: l.grossTotal, discount: l.discount, lineTotal: l.lineTotal, problem: l.problem, group: l.group, available: l.available, codAllowed: l.codAllowed,
+      unitPrice: l.unitPrice, mrp: l.mrp, grossTotal: l.grossTotal, discount: l.discount, lineTotal: l.lineTotal, problem: l.problem, group: l.group, preorderDate: l.preorderDate, available: l.available, codAllowed: l.codAllowed,
     })),
   };
 }

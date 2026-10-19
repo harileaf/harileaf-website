@@ -37,3 +37,9 @@ it('zone-limited perishables ship only to their zone pincodes (Merchant Center p
   expect(xml).toContain('<g:shipping_label>zone-mmr</g:shipping_label>');
   expect(xml).not.toContain('<g:shipping><g:country>IN</g:country><g:price>');
 });
+
+it('pre-orders stay in the feed as preorder with an availability date in IST', () => {
+  const p = product({ season: { startMd: '04-01', endMd: '06-30', offSeasonMode: 'preorder', preorderDispatchDate: '2027-04-10' } });
+  const { xml } = googleFeedXml([{ product: p, variants: [variant({ availability: 'preorder' })], images }]);
+  expect(xml).toContain('<g:availability>preorder</g:availability><g:availability_date>2027-04-10T00:00:00+05:30</g:availability_date>');
+});
