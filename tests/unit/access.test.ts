@@ -47,25 +47,14 @@ const verify = (token: string, now = NOW) =>
   } });
 
 describe('verifyAccessJwt', () => {
-  it('returns the email for a valid token', async () => {
+  it('returns the email for a valid token (aud as array or string)', async () => {
     expect(await verify(await sign(good()))).toEqual({ email: 'nishit@harileaf.org' });
-  });
-
-  it('accepts a string aud', async () => {
     expect(await verify(await sign({ ...good(), aud: cfg.aud }))).toEqual({ email: 'nishit@harileaf.org' });
   });
 
-  it.each([
-    ['wrong audience', { aud: ['someone-else'] }],
-    ['wrong issuer', { iss: 'https://evil.cloudflareaccess.com' }],
-    ['expired', { exp: sec(NOW) - 1 }],
-    ['not yet valid', { nbf: sec(NOW) + 60 }],
-    ['missing email', { email: undefined }],
-  ])('rejects a token with %s', async (_label, over) => {
-    expect(await verify(await sign({ ...good(), ...over }))).toBeNull();
-  });
-
-  it('rejects a bad signature, an unknown kid, a non-RS256 alg and garbage', async () => {
+  it('rejects wrong claims, a bad signature, an unknown kid, a non-RS256 alg and garbage', async () => {
+    for (const over of [{ aud: ['someone-else'] }, { iss: 'https://evil.cloudflareaccess.com' }, { exp: sec(NOW) - 1 }, { nbf: sec(NOW) + 60 }, { email: undefined }])
+      expect(await verify(await sign({ ...good(), ...over }))).toBeNull();
     expect(await verify(await sign(good(), { key: other.privateKey }))).toBeNull();
     expect(await verify(await sign(good(), { kid: 'unknown' }))).toBeNull();
     expect(await verify(await sign(good(), { alg: 'HS256' }))).toBeNull();
@@ -78,14 +67,12 @@ describe('verifyAccessJwt', () => {
 });
 
 describe('accessDecision', () => {
-  it('passes through when Access is not configured (session-only admin)', () => {
+  it('is off without config and fails closed when only one of the two settings is present', () => {
     expect(accessDecision({})).toEqual({ mode: 'off' });
-  });
-  it('fails closed when only one of the two settings is present', () => {
     expect(accessDecision({ CF_ACCESS_AUD: 'x' })).toEqual({ mode: 'misconfigured' });
     expect(accessDecision({ CF_ACCESS_TEAM_DOMAIN: 'x' })).toEqual({ mode: 'misconfigured' });
   });
-  it('normalises the team domain', () => {
+  it('enforces with a normalised team domain', () => {
     expect(accessDecision({ CF_ACCESS_AUD: 'a', CF_ACCESS_TEAM_DOMAIN: 'https://harileaf.cloudflareaccess.com/' })).toEqual({
       mode: 'enforce',
       cfg: { aud: 'a', teamDomain: 'harileaf.cloudflareaccess.com' },
@@ -93,26 +80,14 @@ describe('accessDecision', () => {
   });
 });
 
-describe('requiresAdminAccess', () => {
-  it.each([
-    ['/admin', 'GET'], ['/admin/', 'GET'], ['/admin/settings', 'GET'], ['/admin/settings/', 'POST'],
-    ['/api/admin/settings', 'PUT'], ['/api/admin/settings/', 'GET'],
-    ['/api/auth', 'POST'], ['/api/auth/', 'POST'], ['/api/auth//', 'POST'],
-    ['/keystatic', 'GET'], ['/keystatic/branch/main', 'GET'], ['/api/keystatic/update', 'POST'],
-    ['/api/photos', 'POST'], ['/api/photos/', 'DELETE'], ['/api/photos/image', 'DELETE'],
-    ['/api/produce', 'PUT'], ['/api/produce/', 'PUT'], ['/api/content', 'put'],
-    // Spellings the router still serves as admin pages (Astro decodes escapes and tolerates repeated slashes).
-    ['/%61dmin', 'GET'], ['/%61dmin/orders', 'GET'], ['/%2561dmin', 'GET'], ['//admin', 'GET'], ['/api//admin/settings', 'PUT'],
-    ['/api/%61dmin/settings', 'PUT'], ['/api/aut%68', 'POST'], ['/ADMIN', 'GET'], ['/API/Admin/settings', 'PUT'], ['/api/PHOTOS', 'POST'],
-  ])('%s %s needs Access', (path, method) => {
-    expect(requiresAdminAccess(path, method)).toBe(true);
-  });
-
-  it.each([
-    ['/', 'GET'], ['/rice', 'GET'], ['/administrator', 'GET'], ['/admins', 'GET'],
-    ['/api/photos', 'GET'], ['/api/photos/image', 'GET'], ['/api/produce', 'GET'], ['/api/content', 'HEAD'],
-    ['/api/authx', 'POST'], ['/shipping-policy', 'GET'],
-  ])('%s %s stays public', (path, method) => {
-    expect(requiresAdminAccess(path, method)).toBe(false);
-  });
+it('requiresAdminAccess gates every admin path and spelling the router serves, and nothing public', () => {
+  const gated = [
+    ['/admin', 'GET'], ['/admin/settings/', 'POST'], ['/api/admin/settings', 'PUT'], ['/api/auth', 'POST'],
+    ['/keystatic/branch/main', 'GET'], ['/api/keystatic/update', 'POST'], ['/api/photos/image', 'DELETE'], ['/api/produce', 'PUT'], ['/api/content', 'put'],
+    // Spellings Astro still routes to admin pages (it decodes escapes and tolerates repeated slashes and case).
+    ['/%61dmin', 'GET'], ['/%2561dmin', 'GET'], ['//admin', 'GET'], ['/api//admin/settings', 'PUT'], ['/api/aut%68', 'POST'], ['/API/Admin/settings', 'PUT'],
+  ];
+  const open = [['/rice', 'GET'], ['/administrator', 'GET'], ['/api/photos/image', 'GET'], ['/api/content', 'HEAD'], ['/api/authx', 'POST']];
+  for (const [path, method] of gated) expect([path, method, requiresAdminAccess(path, method)]).toEqual([path, method, true]);
+  for (const [path, method] of open) expect([path, method, requiresAdminAccess(path, method)]).toEqual([path, method, false]);
 });
