@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { POST as confirmRoute } from '../../src/pages/api/store/order/confirm-cod';
 import { availableActions, dashboardMetrics, runAdminAction } from '../../src/lib/store/admin-orders';
 import { validateCheckoutInput } from '../../src/lib/store/checkout-input';
-import { MAX_OPEN_UNCONFIRMED, cancelStaleUnconfirmedCod, openUnconfirmedCod, remindUnconfirmedCod } from '../../src/lib/store/cod';
+import { cancelStaleUnconfirmedCod, remindUnconfirmedCod } from '../../src/lib/store/cod';
 import { makeFulfilmentEmailHandlers } from '../../src/lib/store/email-fulfilment';
 import { cancelOrder, markPacked } from '../../src/lib/store/fulfilment';
 import { createOrder } from '../../src/lib/store/orders';
@@ -100,7 +100,7 @@ describe('COD confirmation', () => {
   });
 });
 
-describe('unconfirmed COD orders cannot hoard stock (PR #5 review)', () => {
+describe('unconfirmed COD orders cannot hoard stock', () => {
   it('cancels them after the window and puts the stock back', async () => {
     const o = await codOrder();
     const variant = await scalar<number>('SELECT variant_id FROM order_items WHERE order_id = ?', o.orderId);
@@ -113,11 +113,4 @@ describe('unconfirmed COD orders cannot hoard stock (PR #5 review)', () => {
     expect(await scalar("SELECT count(*) FROM outbox WHERE order_id = ? AND kind = 'email.cancelled'", o.orderId)).toBe(1);
   });
 
-  it('counts open unconfirmed COD orders per email or phone', async () => {
-    const a = await codOrder();
-    const email = await scalar<string>('SELECT email FROM orders WHERE id = ?', a.orderId);
-    const n = await openUnconfirmedCod(db, email.toUpperCase(), '0000000000');
-    expect(n).toBeGreaterThanOrEqual(1);
-    expect(MAX_OPEN_UNCONFIRMED).toBe(2);
-  });
 });

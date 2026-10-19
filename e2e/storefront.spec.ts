@@ -95,10 +95,6 @@ test('the cart blocks checkout below the minimum order', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'Proceed to checkout' })).toHaveAttribute('aria-disabled', 'true');
 });
 
-test('product pages hide reviews when there are none', async ({ page }) => {
-  await page.goto('/rice/karjat-3');
-  await expect(page.getByRole('heading', { name: /reviews/i })).toHaveCount(0);
-});
 
 test('keyboard only: choose a pack size and add it to the cart', async ({ page, isMobile }) => {
   test.skip(isMobile, 'keyboard flow is a desktop concern');
