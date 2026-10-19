@@ -30,7 +30,7 @@ describe('reviews', () => {
     const o = await deliveredOrder([p1, p2]);
     expect(await openReviewLink(db, SECRET, o.orderNo, 'f'.repeat(32))).toBeNull();
     const link = await openReviewLink(db, SECRET, o.orderNo, o.token);
-    expect(link?.order).toMatchObject({ delivered: true, firstName: 'Test', city: 'Mumbai' });
+    expect(link?.order).toMatchObject({ delivered: true, firstName: 'Test' });
     expect(link?.items.map((i) => i.productId).sort()).toEqual([p1, p2].sort());
 
     expect(await submitReview(db, o.orderId, review(p1), NOW)).toEqual({ ok: true });

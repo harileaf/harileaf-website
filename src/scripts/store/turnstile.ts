@@ -4,8 +4,13 @@
  * navigation, so the script is loaded once and each widget is rendered here.
  */
 interface TurnstileApi {
-  render(el: HTMLElement, opts: { sitekey: string }): string | undefined;
+  render(el: HTMLElement, opts: { sitekey: string; callback?: (token: string) => void; 'expired-callback'?: () => void }): string | undefined;
   reset(id?: string): void;
+}
+export interface TurnstileWidget {
+  reset(): void;
+  /** The solved challenge's token, waiting for it (up to `ms`) when the shopper submits before it finishes. */
+  token(ms?: number): Promise<string | null>;
 }
 type WithTurnstile = typeof window & { turnstile?: TurnstileApi };
 
@@ -30,13 +35,38 @@ function loadApi(): Promise<TurnstileApi> {
 }
 
 /** Renders the widget in `el` (no-op without one, e.g. Turnstile not configured). */
-export async function mountTurnstile(el: HTMLElement | null): Promise<{ reset(): void } | null> {
+export async function mountTurnstile(el: HTMLElement | null): Promise<TurnstileWidget | null> {
   if (!el?.dataset.sitekey) return null;
   try {
     const api = await loadApi();
     if (!el.isConnected) return null;
-    const id = api.render(el, { sitekey: el.dataset.sitekey });
-    return { reset: () => api.reset(id) };
+    let current: string | null = null;
+    let waiting: Array<(t: string) => void> = [];
+    const id = api.render(el, {
+      sitekey: el.dataset.sitekey,
+      callback: (t) => {
+        current = t;
+        waiting.forEach((w) => w(t));
+        waiting = [];
+      },
+      'expired-callback': () => (current = null),
+    });
+    return {
+      reset: () => {
+        current = null;
+        api.reset(id);
+      },
+      token: (ms = 15000) =>
+        current
+          ? Promise.resolve(current)
+          : new Promise<string | null>((resolve) => {
+              const timer = setTimeout(() => resolve(null), ms); // the server then asks them to complete the check
+              waiting.push((t) => {
+                clearTimeout(timer);
+                resolve(t);
+              });
+            }),
+    };
   } catch (err) {
     console.error(err);
     return null; // the server answers 403 "complete the security check" and the shopper can reload

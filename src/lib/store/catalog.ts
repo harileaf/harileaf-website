@@ -374,13 +374,18 @@ export async function listProducts(db: D1Database, opts: { categorySlug?: string
     .map(({ p, vs }) => toCard(p, vs, images.get(p.id) ?? [], p.perishable && !sellableZone(p, zones).sellable && inSeason(p.season.startMd, p.season.endMd, opts.today)));
 }
 
-/** Active products with their active variants — for the feed and sitemap. */
+/** Active products with their active variants — for the feed and sitemap, or just the products in `only`. */
 export async function listActiveProductsWithVariants(
   db: D1Database,
   today: Date,
+  only?: number[],
 ): Promise<Array<{ product: Product; variants: Variant[]; images: Image[]; shippingZone: Zone | null }>> {
-  const { results } = await db.prepare(`${PRODUCT_SELECT} WHERE p.status = 'active' ORDER BY c.sort, p.name`).all<ProductRow>();
-  const products = results.map(mapProduct);
+  const rows: ProductRow[] = [];
+  if (!only) rows.push(...(await db.prepare(`${PRODUCT_SELECT} WHERE p.status = 'active' ORDER BY c.sort, p.name`).all<ProductRow>()).results);
+  else
+    for (const part of chunks(only))
+      rows.push(...(await db.prepare(`${PRODUCT_SELECT} WHERE p.status = 'active' AND p.id IN (${part.map(() => '?').join(',')}) ORDER BY c.sort, p.name`).bind(...part).all<ProductRow>()).results);
+  const products = rows.map(mapProduct);
   const ids = products.map((p) => p.id);
   const [variants, images, zones] = await Promise.all([variantsFor(db, ids), imagesFor(db, ids), loadZones(db)]);
   return products
