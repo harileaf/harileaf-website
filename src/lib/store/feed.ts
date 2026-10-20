@@ -7,7 +7,7 @@ import type { Availability } from './availability';
 import type { Image, Product, Variant } from './catalog';
 import { productDescription } from './seo';
 import { absolute, categoryPath, productPath, variantPath } from './urls';
-import type { Zone } from './zones';
+import { MAX_ZONE_PINCODES, type Zone } from './zones';
 
 export const xmlEscape = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;')
@@ -56,6 +56,11 @@ export function googleFeedXml(entries: FeedEntry[], opts: { title?: string } = {
   for (const { product: p, variants, images, shippingZone } of entries) {
     if (!images.length) {
       skipped.push(`${p.slug}: no image`);
+      continue;
+    }
+    // Never list it without its zone's limits (zones saved before the cap could exceed it).
+    if (p.perishable && shippingZone && shippingZone.pincodes.length > MAX_ZONE_PINCODES) {
+      skipped.push(`${p.slug}: zone "${shippingZone.id}" has more than ${MAX_ZONE_PINCODES} pincodes — use prefixes`);
       continue;
     }
     for (const v of variants) {

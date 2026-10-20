@@ -37,6 +37,11 @@ it('zone-limited perishables ship only to their zone pincodes (Merchant Center p
   expect(xml).toContain('<g:postal_code>410206</g:postal_code>');
   expect(xml).toContain('<g:shipping_label>zone-mmr</g:shipping_label>');
   expect(xml).not.toContain('<g:shipping><g:country>IN</g:country><g:price>');
+  // Over Merchant Center's 100 shipping entries per item: left out rather than listed without its limits.
+  const big = { ...zone, pincodes: Array.from({ length: 101 }, (_, i) => String(400001 + i)) };
+  const over = googleFeedXml([{ product: product({ perishable: true, deliveryZoneId: 'mmr' }), variants: [variant()], images, shippingZone: big }]);
+  expect(over.xml).not.toContain('<item>');
+  expect(over.skipped[0]).toContain('more than 100 pincodes');
 });
 
 it('pre-orders stay in the feed as preorder with an availability date in IST', () => {

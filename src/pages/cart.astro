@@ -88,18 +88,18 @@ Astro.response.headers.set('X-Robots-Tag', 'noindex');
 
     // A cart can't mix groups that ship differently (nor pre-orders dispatching on different dates, nor fresh
     // produce from different delivery zones): the shopper picks one to check out now; the rest is saved for later.
-    const batchOf = (l: Line) => (l.group === 'preorder' ? `preorder:${l.preorderDate}` : l.group === 'perishable' ? `perishable:${l.zoneId}` : l.group);
+    const batchOf = (l: Line) => (l.group === 'preorder' ? `preorder:${l.preorderDate}:${l.zoneId ?? ''}` : l.group === 'perishable' ? `perishable:${l.zoneId}` : l.group);
     const shortDay = (ymd: string, year = false) => new Date(`${ymd}T00:00:00+05:30`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', ...(year ? { year: 'numeric' } : {}), timeZone: 'Asia/Kolkata' });
     function splitNotice(q: Quote) {
       const live = q.lines.filter((l) => l.qty > 0);
       const batches = [...new Map(live.map((l) => [batchOf(l), l])).values()];
       const preorderDates = new Set(live.filter((l) => l.group === 'preorder').map((l) => l.preorderDate));
-      const zoneCount = new Set(live.filter((l) => l.group === 'perishable').map((l) => l.zoneId)).size;
+      // Fresh produce, pre-ordered or not, is delivered only within its zone.
+      const zoneCount = new Set(live.filter((l) => l.zoneId).map((l) => l.zoneId)).size;
       const buttons = batches.map((first) => {
-        const zone = q.zones.find((z) => z.id === first.zoneId);
-        const what = first.group === 'preorder' && preorderDates.size > 1 ? `pre-orders dispatching ${shortDay(first.preorderDate!)}`
-          : first.group === 'perishable' && zoneCount > 1 && zone ? `fresh produce for ${zone.name}`
-          : GROUP_NAME[first.group];
+        const zone = zoneCount > 1 ? q.zones.find((z) => z.id === first.zoneId) : undefined;
+        const what = first.group === 'regular' ? GROUP_NAME.regular
+          : `${GROUP_NAME[first.group]}${zone ? ` for ${zone.name}` : ''}${first.group === 'preorder' && preorderDates.size > 1 ? ` dispatching ${shortDay(first.preorderDate!)}` : ''}`;
         const b = h('button', { type: 'button', class: 'rounded-full px-5 py-2.5 font-extrabold text-white', style: 'background:linear-gradient(135deg,#196a5e,#2d7a4f)' }, `Check out ${what} now`);
         b.addEventListener('click', () => {
           saveForLater(q.lines.filter((l) => batchOf(l) !== batchOf(first)).map((l) => ({ variantId: l.variantId, qty: l.requestedQty, name: l.name, label: l.label })));
@@ -108,7 +108,7 @@ Astro.response.headers.set('X-Robots-Tag', 'noindex');
         return b;
       });
       const datesOnly = q.groups.length === 1 && preorderDates.size > 1;
-      const zonesOnly = q.groups.length === 1 && zoneCount > 1;
+      const zonesOnly = q.groups.length === 1 && zoneCount > 1 && !datesOnly;
       return h('div', { class: 'mb-6 rounded-2xl px-5 py-4', role: 'status', style: 'background:#fff4e0;border:1px solid #e8c37a;color:#6b4a07' },
         h('p', { class: 'font-bold' }, datesOnly ? 'Pre-orders for different dates are checked out separately' : zonesOnly ? 'Fresh produce for different areas is checked out separately' : q.groups.includes('preorder') ? 'Pre-orders are checked out separately' : 'Fresh produce is checked out separately'),
         h('p', { class: 'text-sm mt-1' }, datesOnly
@@ -193,7 +193,7 @@ Astro.response.headers.set('X-Robots-Tag', 'noindex');
         row('Delivery', 'Free'),
         h('div', { class: 'border-t border-black/10 pt-3' }, row('Total', formatINR(q.total), true)),
         h('p', { class: 'text-xs text-on-surface-variant' }, 'Inclusive of all taxes.'),
-        !q.meetsMinimum ? h('p', { class: 'text-sm font-bold', style: 'color:#8a4b00' }, `Add ${formatINR(q.minOrder - q.total)} more to reach the minimum order of ${formatINR(q.minOrder)}.`) : null,
+        !q.meetsMinimum ? h('p', { class: 'text-sm font-bold', style: 'color:#8a4b00' }, `Add ${formatINR(q.minOrder - q.subtotal)} more to reach the minimum order of ${formatINR(q.minOrder)}.`) : null,
         couponStuck ? h('p', { class: 'text-sm', style: 'color:#8a4b00' }, `${q.coupon!.code} isn’t applied to this order (see above). You can check out without it.`) : null,
         cta,
         h('p', { class: 'text-xs text-on-surface-variant' }, q.cod.eligible ? 'Cash on delivery available.' : (q.cod.reason ?? '')),
