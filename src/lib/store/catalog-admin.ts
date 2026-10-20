@@ -16,6 +16,8 @@ import { classifyD1Error, nowIso } from './db';
 import { productPurgePaths } from './edge-cache';
 import { purgeStmts } from './purge';
 import { getSettings, type SettingKey } from './settings';
+import { checkProductStory, fieldLabel, type ContextProduct } from './story-claims';
+import { loadContextProducts, publishedPageConflicts } from './story-pages';
 import { isCategorySlug } from './urls';
 import { parseZones } from './zones';
 
@@ -229,7 +231,8 @@ export function publishChecklist(p: ProductInput, variants: VariantInput[], ctx:
 
 // ── writes ─────────────────────────────────────────────────────────────────
 
-export type SaveResult = { ok: true; id: number } | { ok: false; errors: FieldErrors };
+/** `warnings` are problems that were already there before this save (never blocking). */
+export type SaveResult = { ok: true; id: number; warnings?: FieldErrors } | { ok: false; errors: FieldErrors };
 
 function productColumns(p: ProductInput) {
   return {
@@ -347,6 +350,35 @@ export async function saveProduct(
   });
   if (Object.keys(errors).length) return { ok: false, errors };
 
+  // Evidence can't be removed from under live copy. Only problems this save
+  // introduces block it; ones already there come back as warnings, so price,
+  // stock and name edits are never locked out by an old story or page problem.
+  const warnings: FieldErrors = {};
+  if (id !== null) {
+    const [saved] = await loadContextProducts(db, [id]);
+    if (saved) {
+      const changed: ContextProduct = {
+        ...saved,
+        name: p.name.trim(),
+        organic: { scheme: p.organicScheme, conversionSince: p.organicConversionSince, certNumber: trimOrNull(p.organicCertNumber) },
+        claims: p.processClaims,
+        perishable: p.perishable,
+        gi: { name: trimOrNull(p.giName), auRegNumber: trimOrNull(p.giAuRegNumber) },
+      };
+      if (saved.story) {
+        const before = checkProductStory(saved.story, saved);
+        const blocking: string[] = [];
+        const old: string[] = [];
+        for (const [k, m] of Object.entries(checkProductStory(saved.story, changed))) (before[k] === m ? old : blocking).push(`${fieldLabel(k)}: ${m}`);
+        if (blocking.length) return { ok: false, errors: { story: `This change would break this product's story. ${blocking.join('; ')}. Edit the story first.` } };
+        if (old.length) warnings.story = `This product's story already has problems: ${old.join('; ')}. Edit the story to fix them.`;
+      }
+      const pages = await publishedPageConflicts(db, changed);
+      if (pages.blocking.length) return { ok: false, errors: { _pages: pages.blocking.join('\n') } };
+      if (pages.warnings.length) warnings._pages = pages.warnings.join('\n');
+    }
+  }
+
   const at = nowIso(now);
   const cols = productColumns(p);
   const keys = Object.keys(cols);
@@ -405,7 +437,8 @@ export async function saveProduct(
 
   try {
     const res = await db.batch<{ id: number }>(stmts);
-    return { ok: true, id: res[res.length - 1].results[0].id };
+    const out = { ok: true as const, id: res[res.length - 1].results[0].id };
+    return Object.keys(warnings).length ? { ...out, warnings } : out;
   } catch (err) {
     const kind = classifyD1Error(err);
     const msg = err instanceof Error ? err.message : String(err);

@@ -21,5 +21,5 @@ export const PUT: APIRoute = async ({ params, request, cookies, locals }) => {
   const res = await saveProduct(env.STORE_DB, id, coerceProductInput(body.product), coerceVariantInputs(body.variants));
   if (!res.ok) return json({ error: 'Not saved', errors: res.errors }, res.errors._ === 'Product not found' ? 404 : 400);
   drainSoon(env, locals);
-  return json({ ok: true, id });
+  return json(res.warnings ? { ok: true, id, warnings: res.warnings } : { ok: true, id });
 };
