@@ -8,6 +8,10 @@ describe('delivery zones', () => {
     const ok = validateZones(JSON.stringify([{ id: 'MMR', name: ' Mumbai MMR ', pincodes: '400, 401\n4102', expressOnly: true, maxTransitDays: 2, enabled: true }]));
     expect(ok).toEqual({ ok: true, value: [mmr] });
     expect(validateZones('[{"id":"x","name":"X","pincodes":["40a"],"maxTransitDays":0}]')).toMatchObject({ ok: false });
+    // Each entry becomes a Merchant Center shipping entry, and an item takes at most 100.
+    const many = Array.from({ length: 101 }, (_, i) => String(400001 + i));
+    expect(validateZones(JSON.stringify([{ id: 'big', name: 'Big', pincodes: many, maxTransitDays: 2 }]))).toMatchObject({ ok: false, error: expect.stringContaining('at most 100') });
+    expect(validateZones(JSON.stringify([{ id: 'big', name: 'Big', pincodes: many.slice(0, 100), maxTransitDays: 2 }]))).toMatchObject({ ok: true });
     expect(validateZones('not json')).toMatchObject({ ok: false });
     expect(parseZones('garbage')).toEqual([]);
     expect(pincodeInZone('400092', mmr)).toBe(true);

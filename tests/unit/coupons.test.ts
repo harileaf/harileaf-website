@@ -25,6 +25,10 @@ describe('evaluateCoupon', () => {
     expect(reason({ min_order_paise: 100000 })).toBe('below_minimum');
     const r = evaluateCoupon({ ...base, min_order_paise: 100000 }, 'MANGO10', [rice], NOW, {});
     expect(!r.ok && r.message).toBe('Add ₹301 more to use this code (minimum order ₹1,000).');
+    // A category code's minimum counts only its own items: ₹301 of spice + ₹699 of rice doesn't unlock a ₹1,000 spice code.
+    const spiceOnly = evaluateCoupon({ ...base, category_ids: '[2]', min_order_paise: 100000 }, 'X', [rice, spice], NOW, {});
+    expect(!spiceOnly.ok && spiceOnly.message).toBe('Add ₹699 more of the items this code covers to use it (minimum ₹1,000 on those items).');
+    expect(evaluateCoupon({ ...base, category_ids: '[1]', min_order_paise: 69900 }, 'X', [rice, spice], NOW, {}).ok).toBe(true);
   });
 
   it('caps percent and flat discounts and splits them over eligible lines only', () => {

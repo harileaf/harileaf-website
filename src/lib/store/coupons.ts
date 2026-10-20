@@ -83,9 +83,12 @@ export function evaluateCoupon(c: CouponRow | null, code: string, lines: CouponL
   const eligible = lines.map((l) => l.lineTotal > 0 && (cats === null || cats.includes(l.categoryId)));
   const eligibleTotal = lines.reduce((a, l, i) => a + (eligible[i] ? l.lineTotal : 0), 0);
   if (eligibleTotal === 0) return fail('no_eligible_items', 'This code doesn’t apply to the items in your cart.');
-  const subtotal = lines.reduce((a, l) => a + l.lineTotal, 0);
-  if (subtotal < c.min_order_paise) {
-    return fail('below_minimum', `Add ${formatINR(c.min_order_paise - subtotal)} more to use this code (minimum order ${formatINR(c.min_order_paise)}).`);
+  // The minimum counts only the items the code covers: a rice-only code for ₹2,000 needs ₹2,000 of rice.
+  if (eligibleTotal < c.min_order_paise) {
+    const short = formatINR(c.min_order_paise - eligibleTotal);
+    return fail('below_minimum', cats === null
+      ? `Add ${short} more to use this code (minimum order ${formatINR(c.min_order_paise)}).`
+      : `Add ${short} more of the items this code covers to use it (minimum ${formatINR(c.min_order_paise)} on those items).`);
   }
 
   let discount = c.kind === 'percent' ? Math.floor((eligibleTotal * c.value) / 100) : c.value;
