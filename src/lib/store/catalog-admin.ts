@@ -154,6 +154,7 @@ export function validateProduct(p: ProductInput, variants: VariantInput[], ctx: 
 
   if (trimOrNull(p.giName) && !trimOrNull(p.giAuRegNumber)) fail('giAuRegNumber', 'Add the authorised-user registration number, or clear the GI name');
   const giRegistered = Boolean(trimOrNull(p.giName) && trimOrNull(p.giAuRegNumber));
+  // Slugs are lowercase, so only the GI name, "gi-tagged" and "geographical-indication" can match here, not bare "GI".
   // A published slug is frozen; a product being discontinued may keep it (its replacement gets a clean slug).
   const slugFrozenForDiscontinue = ctx.published && p.slug === ctx.currentSlug && p.status === 'discontinued';
   if (!slugFrozenForDiscontinue && findGiProblems(p.slug.replace(/-/g, ' '), { giRegistered }).length) fail('slug', GI_MESSAGE);
@@ -418,7 +419,13 @@ export async function saveProduct(
 // ── images, batches, lab reports, certificates ─────────────────────────────
 
 /** Claims-policy check for extra shopper-visible text attached to a product. */
-async function textProblems(db: D1Database, productId: number, text: string): Promise<string | null> {
+type TextProblem = { kind: 'gi' } | { kind: 'banned'; phrases: string };
+
+/**
+ * Runs only when text is written (alt text, lab text); existing text isn't re-scanned.
+ * Returns null when the text is fine.
+ */
+async function textProblems(db: D1Database, productId: number, text: string): Promise<TextProblem | null> {
   const row = await db
     .prepare('SELECT organic_scheme, organic_conversion_since, organic_cert_number, process_claims, perishable, gi_name, gi_au_reg_number FROM products WHERE id = ?')
     .bind(productId)
@@ -432,8 +439,8 @@ async function textProblems(db: D1Database, productId: number, text: string): Pr
   }
   const mayUseOrganic = organicCopy({ organicScheme: row.organic_scheme, conversionSince: row.organic_conversion_since, certNumber: row.organic_cert_number }).mayUseOrganic;
   const banned = findBannedPhrases(text, { organicScheme: row.organic_scheme, claims, mayUseOrganic, allowedTerms: row.perishable ? RAW_PRODUCE_TERMS : [] });
-  if (findGiProblems(text, { giRegistered: Boolean(row.gi_name && row.gi_au_reg_number) }).length) return GI_MESSAGE;
-  return banned.length ? banned.join(', ') : null;
+  if (findGiProblems(text, { giRegistered: Boolean(row.gi_name && row.gi_au_reg_number) }).length) return { kind: 'gi' };
+  return banned.length ? { kind: 'banned', phrases: banned.join(', ') } : null;
 }
 
 const IMAGE_TYPES: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/avif': 'avif' };
@@ -455,7 +462,7 @@ export async function addImage(db: D1Database, r2: R2Bucket, productId: number, 
   if (file.size > MAX_IMAGE_BYTES) return { ok: false as const, error: 'Images must be 5 MB or smaller' };
   if (!alt.trim()) return { ok: false as const, error: 'Describe the photo (alt text) for accessibility and search' };
   const altProblems = await textProblems(db, productId, alt);
-  if (altProblems) return { ok: false as const, error: altProblems === GI_MESSAGE ? `Alt text: ${GI_MESSAGE}` : `Alt text: remove or substantiate ${altProblems}` };
+  if (altProblems) return { ok: false as const, error: altProblems.kind === 'gi' ? `Alt text: ${GI_MESSAGE}` : `Alt text: remove or substantiate ${altProblems.phrases}` };
   const key = `products/${productId}/${now.getTime()}-${rand()}.${ext}`;
   await r2.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type } });
   const at = nowIso(now);
@@ -478,9 +485,10 @@ export async function updateImage(db: D1Database, productId: number, imageId: nu
   const paths = await productPaths(db, productId);
   if (!paths) return { ok: false as const, error: 'Product not found' };
   if (patch.alt !== undefined && !patch.alt.trim()) return { ok: false as const, error: 'Alt text is required' };
+  if (patch.kind !== undefined && patch.kind !== 'photo' && patch.kind !== 'infographic') return { ok: false as const, error: 'Choose Photo or Infographic' };
   const altProblems = patch.alt ? await textProblems(db, productId, patch.alt) : null;
-  if (altProblems) return { ok: false as const, error: altProblems === GI_MESSAGE ? `Alt text: ${GI_MESSAGE}` : `Alt text: remove or substantiate ${altProblems}` };
-  const kind = patch.kind === 'photo' || patch.kind === 'infographic' ? patch.kind : null;
+  if (altProblems) return { ok: false as const, error: altProblems.kind === 'gi' ? `Alt text: ${GI_MESSAGE}` : `Alt text: remove or substantiate ${altProblems.phrases}` };
+  const kind = patch.kind ?? null;
   const at = nowIso(now);
   await db.batch([
     db
@@ -579,7 +587,7 @@ export async function addLabReport(db: D1Database, r2: R2Bucket, productId: numb
   if (!l.batchCode.trim() || !l.labName.trim() || !DATE.test(l.testedOn)) return { ok: false as const, error: 'Batch code, lab name and test date are required' };
   if (pdf && (pdf.type !== 'application/pdf' || pdf.size > MAX_PDF_BYTES)) return { ok: false as const, error: 'Upload the report as a PDF of 10 MB or less' };
   const labProblems = await textProblems(db, productId, [l.testScope, ...Object.entries(l.summary).flat()].join(' '));
-  if (labProblems) return { ok: false as const, error: `Report text: remove or substantiate ${labProblems} (state measured results only)` };
+  if (labProblems) return { ok: false as const, error: labProblems.kind === 'gi' ? GI_MESSAGE : `Report text: remove or substantiate ${labProblems.phrases} (state measured results only)` };
   let key: string | null = null;
   if (pdf) {
     key = `lab-reports/${productId}/${now.getTime()}-${rand()}.pdf`;

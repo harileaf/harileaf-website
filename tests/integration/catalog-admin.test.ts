@@ -6,6 +6,8 @@ import {
 } from '../../src/lib/store/catalog-admin';
 import { SETTING_DEFAULTS, putSettings } from '../../src/lib/store/settings';
 import { beforeAll } from 'vitest';
+import { editorMedia } from '../../src/lib/store/editor-media';
+import { GI_MESSAGE } from '../../src/lib/store/claims';
 import { db, scalar } from '../helpers/fixtures';
 
 const LISTING_SETTINGS = {
@@ -223,5 +225,74 @@ describe('image kind', () => {
     const imageId = Number(await scalar(`SELECT id FROM product_images WHERE product_id = ${res.id}`));
     expect(await updateImage(db, res.id, imageId, { kind: 'infographic' }, NOW)).toEqual({ ok: true });
     expect(await scalar(`SELECT kind FROM product_images WHERE id = ${imageId}`)).toBe('infographic');
+  });
+});
+
+describe('GI rule coverage', () => {
+  const reg = { giName: 'Wada Kolam', giAuRegNumber: 'AU-1' };
+  const lab = (over: Partial<Parameters<typeof addLabReport>[3]> = {}) => ({
+    batchCode: 'B-GI', testedOn: '2026-10-01', labName: 'Lab', labAccreditation: null, testScope: 'Moisture', summary: {}, visible: true, ...over,
+  });
+
+  it('rejects GI wording in a process claim and in SEO fields without the number, allows it with', async () => {
+    const claim = [{ code: 'unpolished', text: 'GI-tagged unpolished', evidence_note: 'log' }] as ProductInput['processClaims'];
+    const bad = await saveProduct(db, null, input({ processClaims: claim, seoTitle: 'GI rice', seoDescription: 'Wada Kolam rice' }), [v()], NOW);
+    expect(bad.ok).toBe(false);
+    if (bad.ok) return;
+    expect(bad.errors.processClaims).toContain(GI_MESSAGE);
+    expect(bad.errors.seoTitle).toBe(GI_MESSAGE);
+    expect(bad.errors.seoDescription).toBe(GI_MESSAGE);
+    const ok = await saveProduct(db, null, input({ ...reg, processClaims: claim, seoTitle: 'GI rice', seoDescription: 'Wada Kolam rice' }), [v()], NOW);
+    expect(ok.ok).toBe(true);
+  });
+
+  it('gives lab-report GI hits the GI message exactly', async () => {
+    const res = await saveProduct(db, null, input(), [v()], NOW);
+    if (!res.ok) throw new Error('setup');
+    const out = await addLabReport(db, r2, res.id, lab({ testScope: 'Wada Kolam moisture' }), null, NOW);
+    expect(out).toEqual({ ok: false, error: GI_MESSAGE });
+  });
+
+  it('rejects GI alt text on update, and allows it on a registered product', async () => {
+    const res = await saveProduct(db, null, input(), [v()], NOW);
+    if (!res.ok) throw new Error('setup');
+    await addImage(db, r2, res.id, png(), 'Rice grains', NOW);
+    const imageId = Number(await scalar(`SELECT id FROM product_images WHERE product_id = ${res.id}`));
+    const bad = await updateImage(db, res.id, imageId, { alt: 'Wada Kolam grains' }, NOW);
+    expect(bad).toEqual({ ok: false, error: `Alt text: ${GI_MESSAGE}` });
+
+    const reg2 = await saveProduct(db, null, input(reg), [v()], NOW);
+    if (!reg2.ok) throw new Error('setup');
+    expect((await addImage(db, r2, reg2.id, png(), 'Wada Kolam grains', NOW)).ok).toBe(true);
+  });
+
+  it('lets a published product keep a GI slug when discontinued, but not when active', async () => {
+    const created = await saveProduct(db, null, input({ ...reg, slug: 'wada-kolam-rice' }), [v({ sku: 'WK-1' })], NOW);
+    if (!created.ok) throw new Error('setup');
+    await addImage(db, r2, created.id, png(), 'Rice grains', NOW);
+    const variantId = (await getProductForAdmin(db, created.id))!.variants[0].id;
+    const vs = () => [v({ id: variantId, sku: 'WK-1', stockAdjust: 0 })];
+    expect((await saveProduct(db, created.id, input({ ...reg, slug: 'wada-kolam-rice', status: 'active' }), vs(), NOW)).ok).toBe(true);
+    // registration lapses: GI cleared
+    const active = await saveProduct(db, created.id, input({ slug: 'wada-kolam-rice', status: 'active' }), vs(), NOW);
+    expect(!active.ok && active.errors.slug).toBe(GI_MESSAGE);
+    const disc = await saveProduct(db, created.id, input({ slug: 'wada-kolam-rice', status: 'discontinued' }), vs(), NOW);
+    expect(disc.ok).toBe(true);
+  });
+
+  it('rejects an invalid image kind and leaves the column unchanged; new images default to photo', async () => {
+    const res = await saveProduct(db, null, input(), [v()], NOW);
+    if (!res.ok) throw new Error('setup');
+    await addImage(db, r2, res.id, png(), 'Rice grains', NOW);
+    const imageId = Number(await scalar(`SELECT id FROM product_images WHERE product_id = ${res.id}`));
+    expect(await scalar(`SELECT kind FROM product_images WHERE id = ${imageId}`)).toBe('photo');
+    const bad = await updateImage(db, res.id, imageId, { kind: 'poster' as never }, NOW);
+    expect(bad).toEqual({ ok: false, error: 'Choose Photo or Infographic' });
+    expect(await scalar(`SELECT kind FROM product_images WHERE id = ${imageId}`)).toBe('photo');
+  });
+
+  it('editorMedia maps a missing kind to photo', () => {
+    const m = editorMedia({ images: [{ id: 1, r2_key: 'products/1/a.png', alt: 'a', sort: 0 }], batches: [], labReports: [] });
+    expect(m.images[0]).toMatchObject({ key: 'products/1/a.png', kind: 'photo' });
   });
 });
