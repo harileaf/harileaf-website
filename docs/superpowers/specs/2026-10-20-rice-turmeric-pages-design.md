@@ -73,13 +73,13 @@ Section names below are the shared **section kit** ([next chapter](#shared-secti
 
 The existing dark "From our farm" bento (`description_md`, `how_its_made`, `harvest_info`, `attributes`) stays for products without story content. When a product has story content, `how_its_made` is replaced by the timeline; the other bento cards remain.
 
-### 2. Rice product page (`/rice/<slug>`) — Wada Kolam first, same layout
+### 2. Rice product page (`/rice/<slug>`) — the Kolam rice from Wada first, same layout
 
 Differences from turmeric (marked "RICE" in the mockup):
 
 - **No certification line** (rice is `none`). Practice icons instead: 🌾 Grown without synthetic pesticides or fertilisers · ✋ Hand-harvested, sun-dried · 🟤 Bran & germ kept.
-- **GI badge** "GI-tagged Wada Kolam · Reg. AU-####" — shown **only** when the product has a GI name **and** an authorised-user registration number (see [GI](#geographical-indication-gi)). Without it, copy may say "grown in Wada, Palghar" but not "GI-tagged".
-- **Variety switcher** (Wada Kolam / Karjat 3 / Red Rice): links to the other active products in the category, when the product enables it.
+- **GI badge** "GI-tagged Wada Kolam · Reg. AU-####" — shown **only** when the product has a GI name **and** an authorised-user registration number (see [GI](#geographical-indication-gi)). The owner is **not** a registered authorised user today (grows in the GI area only), so at launch there is no badge **and the registered name "Wada Kolam" is not used anywhere** (product name, slug, copy, alt text, feed). Working name: **"Kolam rice from Wada, Palghar"** — confirm with the lawyer, since even this phrasing sits close to the GI name. Registering as an authorised user (through the GI's registered proprietor) unlocks the name and badge without code changes.
+- **Variety switcher** (Kolam from Wada / Karjat 3 / Red Rice): links to the other active products in the category, when the product enables it.
 - **Origin story** block ("A Palghar rice with its own name") between buy box and timeline.
 - Timeline: nursery before the monsoon · transplanted by hand · fed with manure and compost · cut with sickles · sun-dried · milled once.
 - Comparison is **single-pass vs polished white rice**: split image + per-100 g table (fibre, magnesium, thiamine) where every numeric row shows its source, plus a cooking row.
@@ -89,7 +89,7 @@ Differences from turmeric (marked "RICE" in the mockup):
 ### 3. `/turmeric` landing page (new)
 
 1. **Hero**: eyebrow, two-line headline ("Haldi the slow way." / "Boiled, sun-cured, stone-ground."), subtitle, badges (certification line from the turmeric product's `organicCopy()`, plus up to two lab proof items), CTA "Buy turmeric ↓", optional hero photo.
-2. **Product cards**: the linked turmeric products (powder; whole dried fingers if the owner sells them later), using `ProductGrid` (price "from ₹…", link to product page).
+2. **Product cards**: the linked turmeric products — **powder and whole dried fingers** (both sold, both under the PGS-India Organic certificate), using `ProductGrid` (price "from ₹…", link to product page).
 3. **Photo strip** "A year in the field": 4–8 photo steps (photo + caption, 2 lines each).
 4. **Comparison block**: split image + same table as the product page + "rub and smell" taste-test note.
 5. **Batch lab table** "Every batch, tested": one row per visible lab report of the linked products, newest first (max 8), configured columns (Curcumin, Volatile oil, Moisture) + PDF link.
@@ -100,7 +100,7 @@ Differences from turmeric (marked "RICE" in the mockup):
 
 1. **Hero**: keeps "Rice with the bran left on." (restyled), practice badges, GI badge only when the Wada Kolam product carries a valid GI registration, CTA "Choose your rice ↓".
 2. **Product cards** "Three varieties, three characters": merges today's "Buy our rice" grid and the variety cards (character line per card is a per-product card blurb set on the page).
-3. **Origin story** "The Wada Kolam story".
+3. **Origin story** "Rice from Wada, Palghar" (no GI name until authorised-user registration).
 4. **Photo strip** "Monsoon to milling".
 5. **Comparison block** "What polishing takes away" (replaces today's polishing + nutrition sections; sourced numbers).
 6. **Batch lab table** (moisture, broken grains, residue).
@@ -108,7 +108,7 @@ Differences from turmeric (marked "RICE" in the mockup):
 
 ### 5. `/spices` hub (reworked)
 
-Hero (short) → two cards: **Turmeric** → `/turmeric`; **Red chilli** → its product page (or a notify-me card while it has no active product) → a short stone-grinding note → link to `/our-process`. Certification wording on cards comes from each product's `organicCopy()`; hub free text may not say "organic" because chilli isn't certified.
+Hero (short) → two cards: **Turmeric** → `/turmeric`; **Red chilli** → a **notify-me card** at launch (it has no active product; the card switches to a product card automatically once one is activated) → a short stone-grinding note → link to `/our-process`. Certification wording on cards comes from each product's `organicCopy()`; hub free text may not say "organic" because chilli isn't certified.
 
 ---
 
@@ -135,7 +135,9 @@ Visual language follows today's dark "Organic Bento" shell (`#0c110c`, glass bor
 
 ### Gallery infographics
 
-- Two per product, uploaded by the owner as product images with `kind = 'infographic'`: the **comparison split** and the **process strip**.
+- Two per product: the **comparison split** and the **process strip** (turmeric powder, turmeric fingers share the turmeric pair; rice varieties share the rice pair, with a red-rice variant of the comparison).
+- **Made as part of this work**, not by the owner: high-quality illustrated artwork with layered shading, soft cast shadows, subtle grain/paper texture and the page palettes (turmeric gold, rice wheat, leaf green). Source is hand-built SVG committed under `design/infographics/`; exported to WebP at 1200×900 and 2400×1800 (retina) and uploaded as product images with `kind = 'infographic'`. The owner reviews each in the visual companion before upload.
+- **No batch numbers in images** (curcumin %, volatile oil %, prices, certificate numbers): those change per batch and live in page text. Images carry only stable process facts.
 - Alt text for an infographic is required, at least 40 characters, and is claims-checked. The editor shows a reminder: "Every fact in this image must also appear in the page's sections".
 - The comparison block may reuse the comparison infographic by choosing it as its `imageKey`.
 
@@ -236,7 +238,7 @@ Matching is case-insensitive, and an unknown key is simply not shown.
 ### Geographical Indication (GI)
 
 - The GI badge renders only when `gi_name` **and** `gi_au_reg_number` are both set. Uploading the certificate (`gi_cert_r2_key`) is optional; when present it is linked from the badge.
-- Without the number, any free text containing "GI", "geographical indication" or "GI-tagged" is rejected on save, for that product and for any landing page linking it, with the message: "GI wording needs the authorised-user registration number (Products → Geographical Indication)".
+- Without the number, any free text (including product name and slug) containing "GI", "geographical indication", "GI-tagged" **or a registered GI name from a fixed list in `claims.ts` (starting with "Wada Kolam")** is rejected on save, for that product and for any landing page linking it, with the message: "GI wording needs the authorised-user registration number (Products → Geographical Indication)".
 
 ---
 
@@ -422,7 +424,7 @@ Library modules:
 |---|---|---|
 | Turmeric batch lab report PDF with **curcumin %, volatile oil %, moisture** (and "added colour: not detected" if tested) | Proof line, lab card, lab table, oil-retention comparison row | Proof line values; numeric comparison rows |
 | **PGS-India Organic certificate number** (and scan) for turmeric | Certification badge | Any "organic" wording on turmeric |
-| **GI authorised-user registration number** for Wada Kolam (and certificate) | GI badge | Any "GI" wording |
+| **GI authorised-user registration number** for Wada Kolam (and certificate) — *not held today; owner may apply* | GI badge, use of the name "Wada Kolam" | Any "GI" wording and the name "Wada Kolam" |
 | Grower names, village, years on the land, photos, **and the grower's OK to be named and pictured** | Grower cards | Grower section |
 | **Years** the boiling/curing and the rice nursery/transplanting method have been used (≥ 30), with an evidence note | `traditional` process claims | Word "traditional" |
 | **Grinding temperature basis**, e.g. measured at the mill | Comparison "heat" row | Any °C figure |
@@ -431,14 +433,14 @@ Library modules:
 | Prices, MRP, pack sizes (100/250/500 g turmeric; 1/5/10 kg rice), HSN, GST | Buy box | Selling |
 | Rice district(s) / village | Hero eyebrow, origin story | — |
 | Field and process photos (planting → stone mill; nursery → milling) | Photo strips, timeline | — |
-| Two infographics per product (designed outside this work) | Gallery | — |
+| Review/approval of the infographics (made in this work) | Gallery | — |
 
 ---
 
-## Open Questions
+## Resolved Questions (owner, 2026-10-20)
 
-1. Will whole dried turmeric fingers be sold? If yes, they need the same PGS certificate for `/turmeric` to keep "organic" (page context rule).
-2. Does the PGS certificate name the specific farm and the turmeric crop? The badge assumes it covers this product.
-3. Does the owner hold Wada Kolam GI **authorised-user** registration, or only grow in the GI area?
-4. Is red chilli going to have an active product at hub launch, or a notify-me card?
-5. Who designs the two infographics per product, and in which sizes? We recommend 1200×900, matching the gallery aspect ratio.
+1. **Whole dried turmeric fingers:** sold, and covered by the same PGS-India Organic certificate, so `/turmeric` keeps "organic".
+2. **PGS certificate scope:** names this farm and the turmeric crop.
+3. **Wada Kolam GI:** the owner grows in the GI area but is **not** a registered authorised user. No GI badge and no use of the name "Wada Kolam" until registered (see the rice product page and GI sections). Lawyer to confirm the interim name.
+4. **Red chilli:** notify-me card on the `/spices` hub at launch.
+5. **Infographics:** made in this work as polished illustrations (shading, shadows, texture), 1200×900 + 2400×1800 WebP.
