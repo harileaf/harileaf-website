@@ -79,11 +79,14 @@ export function shiprocketOrderPayload(o: OrderRow, items: Array<OrderItemRow & 
       sku: i.sku,
       units: i.qty,
       selling_price: (i.unit_price_paise / 100).toFixed(2),
-      discount: (i.discount_paise / 100 / i.qty).toFixed(2),
+      // Discounts go once, exactly, as total_discount: a per-unit share (₹10 over 3 units) can't be written in paise.
+      discount: '0.00',
       tax: (i.gst_rate_bp / 100).toFixed(2),
       hsn: i.hsn_code,
     })),
     payment_method: cod ? 'COD' : 'Prepaid',
+    // Items − total_discount = sub_total, to the paisa; sub_total is what Shiprocket collects on COD.
+    total_discount: (o.total_paise > 0 ? o.discount_paise / 100 : 0).toFixed(2),
     sub_total: (declared / 100).toFixed(2),
     length: p.length,
     breadth: p.breadth,
