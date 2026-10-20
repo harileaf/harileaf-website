@@ -201,7 +201,7 @@ const hasBand = howEntries.length || harvestEntries.length || p.nutrition.rows.l
             <ul class="flex flex-col gap-3">
               {cookIt.map((r) => (
                 <li><a href={`/recipes/${r.slug}/`} class="flex items-center gap-4 rounded-2xl bg-white border border-black/5 p-3 hover:shadow-sm">
-                  <img src={r.image.src} alt="" width="96" height="72" loading="lazy" decoding="async" class="w-24 h-[72px] rounded-xl object-cover" />
+                  <img src={r.image.src} alt="" width="96" height="72" loading="lazy" decoding="async" class="w-24 h-[72px] shrink-0 rounded-xl object-cover" />
                   <span><span class="font-extrabold block">{r.title}</span><span class="text-xs text-on-surface-variant">{r.prepMinutes + r.cookMinutes} min · serves {r.serves}</span></span>
                 </a></li>
               ))}

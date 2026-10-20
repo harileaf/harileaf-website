@@ -83,14 +83,17 @@ const selling = cards.length > 0;
         <p class="text-xs uppercase tracking-widest font-extrabold mb-2" style="color:rgba(224,165,58,.75);">Order online · free delivery across India</p>
         <h2 id="spices-products-heading" class="text-3xl font-extrabold tracking-tight mb-8 text-white">Buy our spices</h2>
         <ProductGrid cards={cards} tone="dark" />
-        <p class="mt-8 text-sm flex flex-wrap gap-x-5 gap-y-2" style="color:rgba(240,240,238,.75);">
-          {articlesFor('spices').map((a) => <a href={`/learn/${a.slug}/`} class="font-bold underline" style="color:#8bd4c6;">{a.title}</a>)}
-          <a href="/recipes/" class="font-bold underline" style="color:#8bd4c6;">Recipes</a>
-          <a href="/our-process/" class="font-bold underline" style="color:#8bd4c6;">How we grow, mill and grind</a>
-        </p>
       </div>
     </section>
   )}
+  <!-- Reading links stay when nothing is on sale (off season, sold out), so these pages keep their links in. -->
+  <div style="background:#0c0a08;" class="px-6">
+    <p class="max-w-7xl mx-auto pt-8 text-sm flex flex-wrap gap-x-5 gap-y-2" style="color:rgba(240,240,238,.75);">
+      {articlesFor('spices').map((a) => <a href={`/learn/${a.slug}/`} class="font-bold underline" style="color:#8bd4c6;">{a.title}</a>)}
+      <a href="/recipes/" class="font-bold underline" style="color:#8bd4c6;">Recipes</a>
+      <a href="/our-process/" class="font-bold underline" style="color:#8bd4c6;">How we grow, mill and grind</a>
+    </p>
+  </div>
 
   <!-- PRODUCTS (scalable grid) -->
   <section style="background:#0c0a08;" class="py-16 px-6">

@@ -26,11 +26,11 @@ export function renderBasicMarkdown(md: string): string {
 /**
  * Articles (Keystatic, written by the team): the same subset plus "## " / "### "
  * headings and [links](/path) — only site paths or https URLs, never other
- * schemes.
+ * schemes. A URL may hold one level of parentheses (…/Rice_(grain)).
  */
 export function renderArticleMarkdown(md: string): string {
   const link = (html: string) =>
-    html.replace(/\[([^\]]+)\]\(((?:\/(?!\/)|https:\/\/)[^\s)]*)\)/g, (_m, text: string, href: string) => `<a href="${href}">${text}</a>`);
+    html.replace(/\[([^\]]+)\]\(((?:\/(?!\/)|https:\/\/)(?:[^\s()]|\([^\s()]*\))*)\)/g, (_m, text: string, href: string) => `<a href="${href}">${text}</a>`);
   const blocks = md.replace(/\r\n?/g, '\n').trim().split(/\n{2,}/).filter((b) => b.trim());
   return blocks
     .map((block) => {

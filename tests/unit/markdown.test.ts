@@ -14,4 +14,7 @@ it('articles add headings and links to site paths or https only', () => {
   expect(renderArticleMarkdown('## How we mill\n\nSee [our process](/our-process/) or [x](javascript:alert(1)).')).toBe(
     '<h2>How we mill</h2><p>See <a href="/our-process/">our process</a> or [x](javascript:alert(1)).</p>',
   );
+  expect(renderArticleMarkdown('[Rice](https://en.wikipedia.org/wiki/Rice_(grain)) (whole grain).')).toBe(
+    '<p><a href="https://en.wikipedia.org/wiki/Rice_(grain)">Rice</a> (whole grain).</p>',
+  );
 });

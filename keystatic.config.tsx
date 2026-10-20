@@ -834,7 +834,7 @@ export default config({
         published: fields.date({ label: 'First published', validation: { isRequired: true } }),
         updated: fields.date({ label: 'Last updated' }),
         relatedCategories: fields.multiselect({ label: 'Shop categories', options: [{ label: 'Rice', value: 'rice' }, { label: 'Spices', value: 'spices' }, { label: 'Produce', value: 'produce' }] }),
-        relatedRecipes: fields.array(fields.text({ label: 'Recipe slug' }), { label: 'Recipes to link', itemLabel: (p) => p.value }),
+        relatedRecipes: fields.multiRelationship({ label: 'Recipes to link', collection: 'recipes' }),
       },
     }),
     // ----------------------------------------------------------
