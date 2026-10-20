@@ -15,7 +15,9 @@ export const PUT: APIRoute = async ({ params, request, cookies, locals }) => {
   // Removal must be an explicit {"story": null}; an empty or malformed body never wipes the story.
   const body = await readJsonObject(request);
   if (!body || !('story' in body)) return json({ error: UNREADABLE }, 400);
-  const res = await saveProductStory(env.STORE_DB, id, body.story);
+  const story = body.story;
+  if (story !== null && (typeof story !== 'object' || Array.isArray(story))) return json({ error: UNREADABLE }, 400);
+  const res = await saveProductStory(env.STORE_DB, id, story);
   if (!res.ok) return json({ error: 'Not saved', errors: res.errors }, res.errors._ === 'Product not found' ? 404 : 400);
   drainSoon(env, locals);
   return json(Object.keys(res.warnings).length ? { ok: true, id, warnings: res.warnings } : { ok: true, id });

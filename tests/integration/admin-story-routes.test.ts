@@ -66,6 +66,11 @@ describe('admin story routes', () => {
       expect(d.status).toBe(400);
       expect(d.body.error).toBe(BAD);
     }
+    for (const bad of ['x', 5, true, []]) {
+      const r = await call(putStory, { params: { id: String(id) }, body: { story: bad } });
+      expect(r.status).toBe(400);
+      expect(r.body.error).toBe(BAD);
+    }
     for (const draft of [null, [], 'x']) expect((await call(putDraft, { params: { slug: 'turmeric' }, body: { draft } })).status).toBe(400);
     expect(await scalar(`SELECT story FROM products WHERE id = ${id}`)).toBe(storyBefore);
     expect(await draftOf()).toBe(draftBefore);
