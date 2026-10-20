@@ -8,7 +8,7 @@
  * - /spices and pages without products: the strictest context.
  */
 import {
-  findBannedPhrases, findCertificationWords, findComparisonProblems, findGiProblems, GI_MESSAGE, organicCopy, RAW_PRODUCE_TERMS,
+  CONDITIONAL_TERMS, findBannedPhrases, findCertificationWords, findComparisonProblems, findGiProblems, GI_MESSAGE, HEALTH_LABEL_PREFIX, organicCopy, RAW_PRODUCE_TERMS,
   type CertContext, type OrganicScheme, type ProcessClaim,
 } from './claims';
 import { pageWideTexts, storyTexts, type ProductStory, type StoryPage } from './story';
@@ -82,12 +82,10 @@ export function intersectContexts(products: ContextProduct[]): ClaimContext {
 export type ProblemKind = 'gi' | 'comparison' | 'health' | 'cert' | 'term' | 'organic' | 'banned';
 export interface Problem { kind: ProblemKind; label: string }
 
-/** The Reg 4 terms findBannedPhrases reports by bare name (claims.ts keeps its list private). */
-const CONDITIONAL = new Set(['natural', 'fresh', 'pure', 'traditional', 'authentic', 'genuine', 'real', 'original']);
-const HEALTH_PREFIX = 'health claim: ';
+const CONDITIONAL = new Set<string>(CONDITIONAL_TERMS);
 
 function bannedProblem(label: string): Problem {
-  if (label.startsWith(HEALTH_PREFIX)) return { kind: 'health', label: label.slice(HEALTH_PREFIX.length) };
+  if (label.startsWith(HEALTH_LABEL_PREFIX)) return { kind: 'health', label: label.slice(HEALTH_LABEL_PREFIX.length) };
   if (label === 'organic') return { kind: 'organic', label };
   if (CONDITIONAL.has(label)) return { kind: 'term', label };
   return { kind: 'banned', label };

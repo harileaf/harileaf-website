@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { CONDITIONAL_TERMS } from '../../src/lib/store/claims';
 import { EMPTY_STORY, emptyStoryPage, type ProductStory } from '../../src/lib/store/story';
 import { checkProductStory, checkStoryPage, fieldLabel, intersectContexts, problemMessage, productContext, STRICTEST, textProblems, type ContextProduct } from '../../src/lib/store/story-claims';
 
@@ -194,6 +195,11 @@ describe('review fixes', () => {
     expect(msg).toMatch(/authorised-user registration number/);
     expect(msg).toContain("Remove 'chemical-free'.");
     expect(problemMessage(textProblems('Fake', ctx, { comparison: true }))).toBe("Describe the other process, not a competitor ('fake' isn't allowed).");
+  });
+
+  it('classifies every conditional term as kind term', () => {
+    const ctx = productContext(plain);
+    for (const term of CONDITIONAL_TERMS) expect(textProblems(`A ${term} spice`, ctx), term).toEqual([{ kind: 'term', label: term }]);
   });
 
   it('labels every story field, with the product in card blurbs', () => {

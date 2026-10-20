@@ -76,7 +76,9 @@ const HEALTH: Array<{ re: RegExp; label: string }> = [
 ];
 
 /** FSSAI Advertising & Claims Regulations 2018, Reg 4: conditional terms. */
-const CONDITIONAL_TERMS = ['natural', 'fresh', 'pure', 'traditional', 'authentic', 'genuine', 'real', 'original'] as const;
+export const CONDITIONAL_TERMS = ['natural', 'fresh', 'pure', 'traditional', 'authentic', 'genuine', 'real', 'original'] as const;
+/** Prefix findBannedPhrases puts on health-claim labels. */
+export const HEALTH_LABEL_PREFIX = 'health claim: ';
 const conditionalRe = (term: string) => new RegExp(`\\b${term}(?:ly)?\\b`, 'i');
 
 function hasEvidencedClaim(claims: ProcessClaim[], code: string): boolean {
@@ -110,7 +112,7 @@ export function findBannedPhrases(
   for (const term of CONDITIONAL_TERMS)
     if (conditionalRe(term).test(withoutBanned) && !hasEvidencedClaim(ctx.claims, term) && !ctx.allowedTerms?.includes(term)) found.push(term);
 
-  for (const { re, label } of HEALTH) if (re.test(text)) found.push(`health claim: ${label}`);
+  for (const { re, label } of HEALTH) if (re.test(text)) found.push(`${HEALTH_LABEL_PREFIX}${label}`);
   return found;
 }
 
