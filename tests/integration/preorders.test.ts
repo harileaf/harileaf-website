@@ -45,6 +45,13 @@ describe('pre-orders', () => {
     expect(await quoteCart(db, [{ variantId: pre, qty: 1 }, { variantId: rice, qty: 1 }], { today: NOW, settings })).toMatchObject({ ok: false, mixed: true });
     const later = await preorderVariant(5, '2027-05-15'); // one order is one parcel: different dispatch dates split too
     expect(await quoteCart(db, [{ variantId: pre, qty: 1 }, { variantId: later, qty: 1 }], { today: NOW, settings })).toMatchObject({ ok: false, mixed: true, groups: ['preorder'] });
+    // Fresh-produce pre-orders for two delivery zones, same date: no pincode is in both, so they split too.
+    const twoZones = JSON.stringify(['mmr', 'pune'].map((id) => ({ id, name: id, pincodes: [id === 'mmr' ? '400' : '411'], expressOnly: true, maxTransitDays: 2, enabled: true })));
+    const fresh = async (zone: string) => insertVariant(await insertProduct({ perishable: 1, cod_allowed: 0, delivery_zone: `{"zone":"${zone}"}`, season_start_md: '04-01', season_end_md: '06-30', off_season_mode: 'preorder', preorder_dispatch_date: '2027-04-10' }), { stock_qty: 5, price_paise: 90000, mrp_paise: 90000 });
+    const [mmr, pune] = [await fresh('mmr'), await fresh('pune')];
+    const zoned = await quoteCart(db, [{ variantId: mmr, qty: 1 }, { variantId: pune, qty: 1 }], { today: NOW, settings: { ...settings, delivery_zones: twoZones } });
+    expect(zoned).toMatchObject({ ok: false, mixed: true, groups: ['preorder'] });
+    expect(zoned.lines.map((l) => l.zone?.id)).toEqual(['mmr', 'pune']);
     const before = await dashboardMetrics(db, NOW);
     const id = await preorder(pre);
     const after = await dashboardMetrics(db, NOW);
