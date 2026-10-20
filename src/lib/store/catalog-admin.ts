@@ -353,34 +353,39 @@ export async function saveProduct(
   // Evidence can't be removed from under live copy. Only problems this save
   // introduces block it; ones already there come back as warnings, so price,
   // stock and name edits are never locked out by an old story or page problem.
+  // The checks and the batch below are not one transaction (single-owner
+  // admin; same trade-off as story-pages.ts).
+  const cols = productColumns(p);
   const warnings: FieldErrors = {};
   if (id !== null) {
     const [saved] = await loadContextProducts(db, [id]);
     if (saved) {
+      // Built from `cols`, exactly what the batch writes.
       const changed: ContextProduct = {
         ...saved,
-        name: p.name.trim(),
-        organic: { scheme: p.organicScheme, conversionSince: p.organicConversionSince, certNumber: trimOrNull(p.organicCertNumber) },
-        claims: p.processClaims,
-        perishable: p.perishable,
-        gi: { name: trimOrNull(p.giName), auRegNumber: trimOrNull(p.giAuRegNumber) },
+        name: cols.name,
+        organic: { scheme: cols.organic_scheme, conversionSince: cols.organic_conversion_since, certNumber: cols.organic_cert_number },
+        claims: parseProcessClaims(cols.process_claims),
+        perishable: cols.perishable === 1,
+        gi: { name: cols.gi_name, auRegNumber: cols.gi_au_reg_number },
       };
       if (saved.story) {
         const before = checkProductStory(saved.story, saved);
         const blocking: string[] = [];
         const old: string[] = [];
-        for (const [k, m] of Object.entries(checkProductStory(saved.story, changed))) (before[k] === m ? old : blocking).push(`${fieldLabel(k)}: ${m}`);
-        if (blocking.length) return { ok: false, errors: { story: `This change would break this product's story. ${blocking.join('; ')}. Edit the story first.` } };
-        if (old.length) warnings.story = `This product's story already has problems: ${old.join('; ')}. Edit the story to fix them.`;
+        for (const [k, m] of Object.entries(checkProductStory(saved.story, changed)))
+          (before[k] === m ? old : blocking).push(`${fieldLabel(k)}: ${m.replace(/\.$/, '')}`);
+        if (blocking.length)
+          return { ok: false, errors: { story: `This change leaves this product's story with wording its evidence no longer supports. ${blocking.join('; ')}. Edit the story first.` } };
+        if (old.length) warnings.story = `This product's story already has problems. ${old.join('; ')}. Edit the story to fix them.`;
       }
       const pages = await publishedPageConflicts(db, changed);
-      if (pages.blocking.length) return { ok: false, errors: { _pages: pages.blocking.join('\n') } };
-      if (pages.warnings.length) warnings._pages = pages.warnings.join('\n');
+      if (pages.blocking.length) return { ok: false, errors: { _pages: pages.blocking.join(' ') } };
+      if (pages.warnings.length) warnings._pages = pages.warnings.join(' ');
     }
   }
 
   const at = nowIso(now);
-  const cols = productColumns(p);
   const keys = Object.keys(cols);
   const stmts: D1PreparedStatement[] = [];
   // New products are referenced by their (category, slug), which is unique, so
