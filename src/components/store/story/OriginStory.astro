@@ -9,10 +9,10 @@ const { origin, eyebrow = 'The variety', attribution = null } = Astro.props;
 ---
 {origin && (
   <section class="py-14 px-6 text-white border-t border-white/10" style="background:#0c110c;" aria-labelledby="origin-heading">
-    <div class:list={['max-w-7xl mx-auto grid grid-cols-1 gap-8 lg:gap-12 items-center', { 'md:grid-cols-[1.3fr_1fr]': origin.photoKey }]}>
+    <div class:list={['max-w-7xl mx-auto grid grid-cols-1 gap-8 lg:gap-12 items-center', { 'md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]': origin.photoKey }]}>
       <div class="max-w-3xl">
         {eyebrow && <p class="text-xs uppercase tracking-widest font-extrabold mb-2" style="color:var(--accent,#9fb17d);">{eyebrow}</p>}
-        <h2 id="origin-heading" class="text-3xl font-extrabold tracking-tight mb-4">{origin.heading}</h2>
+        <h2 id="origin-heading" class="text-3xl font-extrabold tracking-tight mb-4 break-words">{origin.heading}</h2>
         <div class="leading-relaxed [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3 [&_strong]:text-white" style="color:rgba(240,240,238,.75);" set:html={renderBasicMarkdown(origin.bodyMd)} />
         <Attribution product={attribution} />
       </div>

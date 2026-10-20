@@ -9,23 +9,32 @@ import { mediaUrl } from '../../../lib/store/urls';
 interface Props { eyebrow: string; heading: string; steps: ProcessStep[]; variant?: 'list' | 'photos'; attribution?: { name: string; path: string } | null }
 const { eyebrow, heading, steps, variant = 'list', attribution = null } = Astro.props;
 const id = `timeline-${heading.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'steps'}`;
-// Literal class names so Tailwind keeps them; 7–8 steps wrap as two rows of 4.
-const cols: Record<number, string> = { 3: 'lg:grid-cols-3', 4: 'lg:grid-cols-4', 5: 'lg:grid-cols-5', 6: 'lg:grid-cols-6' };
-const photoCols = cols[steps.length] ?? 'lg:grid-cols-4';
+// A strip with only one or two photos reads as a broken grid: show the list instead.
+const photos = variant === 'photos' && steps.filter((s) => s.photoKey).length >= 3;
+// Columns per step count so no row is left with a lone card (literal class names so Tailwind keeps them).
+const cols: Record<number, string> = {
+  3: 'grid-cols-1 sm:grid-cols-3',
+  4: 'grid-cols-2 lg:grid-cols-4',
+  5: 'grid-cols-1 sm:grid-cols-3 lg:grid-cols-5',
+  6: 'grid-cols-2 md:grid-cols-3 lg:grid-cols-6',
+  7: 'grid-cols-1 md:grid-cols-4',
+  8: 'grid-cols-2 lg:grid-cols-4',
+};
+const photoCols = cols[steps.length] ?? 'grid-cols-2 lg:grid-cols-4';
 ---
 {steps.length > 0 && (
   <section class="py-14 px-6 text-white border-t border-white/10" style="background:#0c110c;" aria-labelledby={id}>
     <div class="max-w-7xl mx-auto">
       {eyebrow && <p class="text-xs uppercase tracking-widest font-extrabold mb-2" style="color:var(--accent,#9fb17d);">{eyebrow}</p>}
-      <h2 id={id} class="text-3xl font-extrabold tracking-tight mb-8">{heading}</h2>
-      {variant === 'photos' ? (
-        <ol class:list={['grid grid-cols-2 md:grid-cols-3 gap-4', photoCols]}>
+      <h2 id={id} class="text-3xl font-extrabold tracking-tight mb-8 break-words">{heading}</h2>
+      {photos ? (
+        <ol class:list={['grid gap-4', photoCols]}>
           {steps.map((s, i) => (
             <li class="rounded-2xl overflow-hidden border border-white/10 bg-white/[0.04]">
               {s.photoKey && <img src={mediaUrl(s.photoKey)} alt={s.photoAlt} width="400" height="300" loading="lazy" decoding="async" class="w-full aspect-[4/3] object-cover" />}
               <div class="p-4">
                 <p aria-hidden="true" class="text-xs font-extrabold" style="color:var(--accent,#9fb17d);">{i + 1}</p>
-                <h3 class="font-extrabold">{s.title}</h3>
+                <h3 class="font-extrabold break-words">{s.title}</h3>
                 <p class="mt-1 text-sm leading-relaxed" style="color:rgba(240,240,238,.72);">{s.text}</p>
               </div>
             </li>

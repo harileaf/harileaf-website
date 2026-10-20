@@ -6,7 +6,7 @@ const { use, recipes } = Astro.props;
 ---
 {use && (
   <section aria-labelledby="use-heading" class="rounded-3xl bg-white border border-black/5 p-7 max-w-3xl">
-    <h2 id="use-heading" class="text-2xl font-extrabold tracking-tight mb-3 text-on-surface">{use.heading}</h2>
+    <h2 id="use-heading" class="text-2xl font-extrabold tracking-tight mb-3 text-on-surface break-words">{use.heading}</h2>
     <ol class="list-decimal pl-5 flex flex-col gap-1.5 text-on-surface-variant leading-relaxed">{use.steps.map((s) => <li>{s}</li>)}</ol>
     {recipes.length > 0 && (
       <p class="mt-4 text-sm text-on-surface-variant">

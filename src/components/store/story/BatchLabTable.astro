@@ -10,12 +10,12 @@ const fmt = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateStrin
     <div class="max-w-7xl mx-auto">
       <p class="text-xs uppercase tracking-widest font-extrabold mb-2" style="color:var(--accent,#9fb17d);">Nothing to hide</p>
       <h2 id="lab-table-heading" class="text-3xl font-extrabold tracking-tight mb-6">Every batch, tested</h2>
-      <div class="max-w-4xl overflow-x-auto" tabindex="0" role="region" aria-labelledby="lab-table-heading">
+      <div class="max-w-4xl overflow-x-auto rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#8bd4c6]" tabindex="0" role="region" aria-labelledby="lab-table-caption">
         <table class="w-full text-sm">
-          <caption class="sr-only">Lab results per batch</caption>
+          <caption id="lab-table-caption" class="sr-only">Lab results per batch</caption>
           <thead>
             <tr class="text-left" style="color:rgba(240,240,238,.7);">
-              <th scope="col" class="py-2 pr-4 font-bold">Batch</th>
+              <th scope="col" class="py-2 pr-4 font-bold">Product / batch</th>
               {columns.map((c) => <th scope="col" class="py-2 pr-4 font-bold">{c}</th>)}
               <th scope="col" class="py-2 font-bold">Report</th>
             </tr>

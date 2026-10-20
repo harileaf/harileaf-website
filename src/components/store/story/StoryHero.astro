@@ -1,9 +1,10 @@
 ---
 /**
  * Landing-page hero: eyebrow, two-line headline (the second in the accent),
- * subtitle, resolved badges, CTA to the cards and an optional photo.
+ * subtitle, resolved badges, CTA to the cards and an optional photo. No
+ * FadeIn: [data-animate] starts hidden until a script runs, and the H1 is
+ * likely the page's largest content element.
  */
-import FadeIn from '../../animations/FadeIn.astro';
 import type { StoryPage } from '../../../lib/store/story';
 import { mediaUrl } from '../../../lib/store/urls';
 interface Props {
@@ -16,11 +17,11 @@ const { hero, badges, ctaHref } = Astro.props;
 const bg = 'background-color:#0c110c;background-image:radial-gradient(ellipse at 80% 0%, color-mix(in srgb, var(--accent,#9fb17d) 30%, transparent), transparent 60%), linear-gradient(135deg,#0e1a0e 0%,#0c110c 100%);padding:8rem 0 4.5rem;';
 ---
 <section class="relative overflow-hidden text-white" style={bg}>
-  <div class:list={['max-w-7xl mx-auto px-6 grid grid-cols-1 gap-10 items-center', { 'md:grid-cols-[1.2fr_1fr]': hero.photoKey }]}>
+  <div class:list={['max-w-7xl mx-auto px-6 grid grid-cols-1 gap-10 items-center', { 'md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]': hero.photoKey }]}>
     <div>
-      {hero.eyebrow && <FadeIn><p class="text-xs uppercase tracking-widest font-extrabold" style="color:var(--accent,#9fb17d);">{hero.eyebrow}</p></FadeIn>}
-      <FadeIn delay={100}><h1 class="text-5xl md:text-6xl font-extrabold tracking-tighter leading-[1.05] mt-4">{hero.line1}{hero.line2 && <><br /><span style="color:var(--accent,#9fb17d);">{hero.line2}</span></>}</h1></FadeIn>
-      {hero.subtitle && <FadeIn delay={200}><p class="mt-5 text-lg max-w-xl leading-relaxed" style="color:rgba(255,255,255,.7);">{hero.subtitle}</p></FadeIn>}
+      {hero.eyebrow && <p class="text-xs uppercase tracking-widest font-extrabold" style="color:var(--accent,#9fb17d);">{hero.eyebrow}</p>}
+      <h1 class="text-5xl md:text-6xl font-extrabold tracking-tighter leading-[1.05] mt-4 break-words">{hero.line1}{hero.line2 && <><br /><span style="color:var(--accent,#9fb17d);">{hero.line2}</span></>}</h1>
+      {hero.subtitle && <p class="mt-5 text-lg max-w-xl leading-relaxed" style="color:rgba(255,255,255,.7);">{hero.subtitle}</p>}
       {badges.length > 0 && <ul class="mt-6 flex flex-wrap gap-2" aria-label="Highlights">{badges.map((b) => <li class="rounded-full border border-white/20 bg-white/[0.06] px-3.5 py-1.5 text-xs font-bold">{b}</li>)}</ul>}
       {hero.ctaLabel && <a href={ctaHref} class="mt-7 inline-block rounded-full px-6 py-3 font-extrabold text-[#1a1205] hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white" style="background:var(--accent,#9fb17d);">{hero.ctaLabel} <span aria-hidden="true">↓</span></a>}
     </div>
