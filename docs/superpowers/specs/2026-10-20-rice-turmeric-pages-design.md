@@ -1,7 +1,7 @@
 # Rice & Turmeric Story Pages — Design Spec
 
 **Date:** 2026-10-20
-**Status:** Revised after two-model review (2026-10-20) · awaiting owner review
+**Status:** Approved by owner (2026-10-20), after two-model review
 **Branch:** `feat/rice-turmeric-pages` (from `main` @ `e7ed66d`)
 **Builds on:** [E-commerce design](2026-10-18-ecommerce-design.md) (claims policy, catalog, edge cache, admin), [Rice & spices pages](2026-08-23-rice-spices-pages-design.md) (honest-claims research)
 **Mockups:** `.superpowers/brainstorm/38284-1792493406/content/` (git-ignored): `turmeric-a-detailed.html` (right column, "Recommended"), `rice-wada-kolam.html`, `landing-pages.html`
