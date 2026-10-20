@@ -4,6 +4,7 @@
  */
 import { availability, inSeason, type Availability } from './availability';
 import type { OrganicScheme, ProcessClaim } from './claims';
+import { coerceProductStory, type ProductStory } from './story';
 import { formatUnitPrice, type Paise } from './money';
 import { publishedReviews, reviewSummary, type PublicReview, type ReviewSummary } from './reviews';
 import { mediaUrl, productPath } from './urls';
@@ -59,6 +60,9 @@ export interface ProductRow {
   created_at: string;
   updated_at: string;
   published_at: string | null;
+  story: string | null;
+  gi_name: string | null;
+  gi_au_reg_number: string | null;
 }
 
 export interface VariantRow {
@@ -95,7 +99,7 @@ export interface Variant {
   availability: Availability;
 }
 
-export interface Image { key: string; url: string; alt: string }
+export interface Image { key: string; url: string; alt: string; kind: 'photo' | 'infographic' }
 
 export interface LabReport {
   id: number;
@@ -150,6 +154,10 @@ export interface Product {
   seoDescription: string | null;
   relatedIds: number[];
   updatedAt: string;
+  /** Story sections (null: classic bento only). */
+  story: ProductStory | null;
+  /** Geographical Indication: the badge needs both values. */
+  gi: { name: string | null; auRegNumber: string | null };
 }
 
 export interface ProductCard {
@@ -240,6 +248,8 @@ export function mapProduct(r: ProductRow): Product {
     seoDescription: r.seo_description,
     relatedIds: json<unknown[]>(r.related_product_ids, []).filter((n): n is number => Number.isInteger(n)),
     updatedAt: r.updated_at,
+    story: coerceProductStory(json<unknown>(r.story, null)),
+    gi: { name: r.gi_name?.trim() || null, auRegNumber: r.gi_au_reg_number?.trim() || null },
   };
 }
 
@@ -327,11 +337,11 @@ async function imagesFor(db: D1Database, ids: number[]): Promise<Map<number, Ima
   for (const part of chunks(ids)) {
     if (!part.length) continue;
     const { results } = await db
-      .prepare(`SELECT product_id, r2_key, alt FROM product_images WHERE product_id IN (${part.map(() => '?').join(',')}) ORDER BY sort, id`)
+      .prepare(`SELECT product_id, r2_key, alt, kind FROM product_images WHERE product_id IN (${part.map(() => '?').join(',')}) ORDER BY sort, id`)
       .bind(...part)
-      .all<{ product_id: number; r2_key: string; alt: string }>();
+      .all<{ product_id: number; r2_key: string; alt: string; kind: 'photo' | 'infographic' }>();
     for (const i of results)
-      out.set(i.product_id, [...(out.get(i.product_id) ?? []), { key: i.r2_key, url: mediaUrl(i.r2_key), alt: i.alt }]);
+      out.set(i.product_id, [...(out.get(i.product_id) ?? []), { key: i.r2_key, url: mediaUrl(i.r2_key), alt: i.alt, kind: i.kind }]);
   }
   return out;
 }
@@ -411,6 +421,8 @@ export async function listActiveProductsWithVariants(
 export type ProductPageResult =
   | {
       kind: 'ok'; product: Product; variants: Variant[]; images: Image[]; batch: Batch | null; labReports: LabReport[]; related: ProductCard[];
+      /** Other active products in the same category (rice variety switcher). */
+      siblings: ProductCard[];
       /** Approved reviews only; `summary` is null (and nothing renders) until the first one. */
       reviews: { summary: ReviewSummary | null; items: PublicReview[] };
       /** The enabled zone a perishable is sold in (null: not perishable, or not on sale). */
@@ -510,5 +522,32 @@ export async function getProductPage(db: D1Database, categorySlug: string, slug:
   const picked = product.relatedIds.map((id) => others.find((c) => c.id === id)).filter((c): c is ProductCard => Boolean(c));
   const related = [...picked, ...others.filter((c) => c.categorySlug === product.category.slug && !picked.includes(c)), ...others.filter((c) => c.categorySlug !== product.category.slug && !picked.includes(c))].slice(0, 4);
 
-  return { kind: 'ok', product, variants, images, batch, labReports: labRows.map(mapLab), related, reviews: { summary, items: summary ? reviewItems : [] }, zone: sellableZone(product, zones).zone };
+  return { kind: 'ok', product, variants, images, batch, labReports: labRows.map(mapLab), related, siblings: others.filter((c) => c.categorySlug === product.category.slug), reviews: { summary, items: summary ? reviewItems : [] }, zone: sellableZone(product, zones).zone };
+}
+
+/** Active products by id (story pages: Story-from product, growers), in the given order. */
+export async function getProductsByIds(db: D1Database, ids: number[]): Promise<Product[]> {
+  const rows: ProductRow[] = [];
+  for (const part of chunks(ids))
+    if (part.length)
+      rows.push(...(await db.prepare(`${PRODUCT_SELECT} WHERE p.status = 'active' AND p.id IN (${part.map(() => '?').join(',')})`).bind(...part).all<ProductRow>()).results);
+  const byId = new Map(rows.map((r) => [r.id, mapProduct(r)]));
+  return ids.map((id) => byId.get(id)).filter((p): p is Product => Boolean(p));
+}
+
+/** Lab summaries of each product's active batch, only when that batch links a visible report (no fallback to older reports). */
+export async function activeLabSummaries(db: D1Database, ids: number[]): Promise<Map<number, Record<string, unknown>>> {
+  const out = new Map<number, Record<string, unknown>>();
+  for (const part of chunks(ids)) {
+    if (!part.length) continue;
+    const { results } = await db
+      .prepare(
+        `SELECT b.product_id, l.summary FROM batches b JOIN lab_reports l ON l.id = b.lab_report_id
+         WHERE b.active = 1 AND l.visible = 1 AND b.product_id IN (${part.map(() => '?').join(',')})`,
+      )
+      .bind(...part)
+      .all<{ product_id: number; summary: string }>();
+    for (const r of results) out.set(r.product_id, json<Record<string, unknown>>(r.summary, {}));
+  }
+  return out;
 }

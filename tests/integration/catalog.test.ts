@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getProductPage, listProducts } from '../../src/lib/store/catalog';
+import { activeLabSummaries, getProductPage, getProductsByIds, listProducts } from '../../src/lib/store/catalog';
 import { db, insertProduct, insertVariant } from '../helpers/fixtures';
 
 const TODAY = new Date('2026-10-18T06:30:00Z');
@@ -103,3 +103,34 @@ describe('getProductPage', () => {
   });
 });
 
+
+describe('story fields', () => {
+  it('maps story, GI and image kind; ignores a story that is not an object', async () => {
+    const id = await insertProduct({
+      category_id: 2, slug: 'turmeric-story', gi_name: null, gi_au_reg_number: null,
+      story: JSON.stringify({ icons: [{ icon: 'sun', label: 'Sun-cured' }], processSteps: [] }),
+    });
+    await insertVariant(id);
+    await db.prepare("INSERT INTO product_images (product_id, r2_key, alt, sort, kind) VALUES (?, 'products/t/info.webp', 'Comparison: stone mill vs high-speed mill', 0, 'infographic')").bind(id).run();
+    const res = await getProductPage(db, 'spices', 'turmeric-story', TODAY);
+    expect(res.kind).toBe('ok');
+    if (res.kind !== 'ok') return;
+    expect(res.product.story?.icons).toEqual([{ icon: 'sun', label: 'Sun-cured' }]);
+    expect(res.product.gi).toEqual({ name: null, auRegNumber: null });
+    expect(res.images[0].kind).toBe('infographic');
+    expect(res.siblings.every((c) => c.categorySlug === 'spices' && c.id !== id)).toBe(true);
+    const [p] = await getProductsByIds(db, [id]);
+    expect(p.story?.icons[0].label).toBe('Sun-cured');
+  });
+
+  it("reads lab values only from the active batch's visible report", async () => {
+    const id = await insertProduct({ category_id: 2, slug: 'turmeric-lab' });
+    const old = await db.prepare("INSERT INTO lab_reports (product_id, batch_code, tested_on, lab_name, test_scope, summary, visible) VALUES (?, 'T-00', '2026-01-01', 'Lab', 'x', '{\"Curcumin\":\"3.0 %\"}', 1)").bind(id).run();
+    const cur = await db.prepare("INSERT INTO lab_reports (product_id, batch_code, tested_on, lab_name, test_scope, summary, visible) VALUES (?, 'T-01', '2026-09-01', 'Lab', 'x', '{\"Curcumin\":\"5.1 %\"}', 0)").bind(id).run();
+    await db.prepare("INSERT INTO batches (product_id, batch_code, packed_on, lab_report_id, active) VALUES (?, 'T-01', '2026-09-02', ?, 1)").bind(id, cur.meta.last_row_id).run();
+    expect((await activeLabSummaries(db, [id])).get(id)).toBeUndefined(); // the active batch's report is hidden; no fallback to T-00
+    await db.prepare('UPDATE lab_reports SET visible = 1 WHERE id = ?').bind(cur.meta.last_row_id).run();
+    expect((await activeLabSummaries(db, [id])).get(id)).toEqual({ Curcumin: '5.1 %' });
+    expect(old.meta.last_row_id).toBeTypeOf('number');
+  });
+});
