@@ -10,5 +10,7 @@ if (/"n":\s*0\b/.test(out)) run('execute harileaf-store --local --file scripts/s
 // v2: a buyable perishable (Kesar mango, Mumbai MMR zone enabled); both files are safe to re-run.
 run('execute harileaf-store --local --file scripts/seed-v2-produce.sql');
 run('execute harileaf-store --local --file scripts/seed-dev-produce.sql');
+// Story sections for the turmeric and rice products and published /turmeric and /spices pages; /rice stays unpublished (safe to re-run).
+run('execute harileaf-store --local --file scripts/seed-dev-story.sql');
 run(`execute harileaf-store --local --command "UPDATE variants SET stock_qty = 50 WHERE sku IN ('KJ3-5KG', 'KJ3-1KG'); INSERT INTO settings (key, value) VALUES ('min_order_paise', '49900') ON CONFLICT(key) DO UPDATE SET value = excluded.value; INSERT OR IGNORE INTO coupons (code, kind, value, created_at, updated_at) VALUES ('E2ETEN', 'percent', 10, '2026-10-01T00:00:00.000Z', '2026-10-01T00:00:00.000Z')"`);
 console.log('e2e database ready');

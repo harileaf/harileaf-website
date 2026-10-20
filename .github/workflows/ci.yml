@@ -79,5 +79,6 @@ jobs:
           npx wrangler d1 execute harileaf-store --local --persist-to .wrangler/lhci --file scripts/seed-dev.sql
           npx wrangler d1 execute harileaf-store --local --persist-to .wrangler/lhci --file scripts/seed-v2-produce.sql
           npx wrangler d1 execute harileaf-store --local --persist-to .wrangler/lhci --file scripts/seed-dev-produce.sql
+          npx wrangler d1 execute harileaf-store --local --persist-to .wrangler/lhci --file scripts/seed-dev-story.sql
       - run: npx @lhci/cli@0.15 autorun
 
