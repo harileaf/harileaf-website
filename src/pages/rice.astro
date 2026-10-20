@@ -14,13 +14,13 @@ import PhotoGallery from '../components/produce/PhotoGallery.astro';
 
 // Stable canonical: the edge cache serves /rice and /rice/ from one entry.
 const canonicalURL = absolute(categoryPath('rice'));
-const pageTitle = 'Heritage Rice Online — Karjat 3, Wada Kolam & Red Rice | HariLeaf';
-const pageDesc  = 'Buy HariLeaf heritage rice — Karjat 3, Wada Kolam and Red Rice — grown on our farm and milled just enough to remove the husk, so the bran and germ stay on the grain.';
+const pageTitle = 'Heritage Rice Online — Karjat 3, Kolam from Wada & Red Rice | HariLeaf';
+const pageDesc  = 'Buy HariLeaf heritage rice — Karjat 3, Kolam from Wada and Red Rice — grown on our farm and milled just enough to remove the husk, so the bran and germ stay on the grain.';
 
 const galleryFilters = [
   { key: 'all', label: 'All' },
   { key: 'rice:karjat', label: 'Karjat 3' },
-  { key: 'rice:wada', label: 'Wada Kolam' },
+  { key: 'rice:wada', label: 'Kolam from Wada' },
   { key: 'rice:red', label: 'Red Rice' },
 ];
 // Live product grid (edge-cached); before any rice product is live the waitlist stays.
@@ -129,14 +129,14 @@ const selling = cards.length > 0;
         <FadeIn delay={80}>
           <div class="vcard rounded-2xl overflow-hidden border h-full" style="border-color:rgba(255,255,255,.08);background:rgba(255,255,255,.04);" data-gallery-cat="rice:wada">
             <div style="height:150px;overflow:hidden;border-bottom:1px solid rgba(255,255,255,.06);">
-              <img data-card-photo src="/images/placeholders/rice-wada.jpg" alt="HariLeaf Wada Kolam" loading="lazy" style="width:100%;height:100%;object-fit:cover;" />
+              <img data-card-photo src="/images/placeholders/rice-wada.jpg" alt="HariLeaf Kolam rice from Wada" loading="lazy" style="width:100%;height:100%;object-fit:cover;" />
             </div>
             <div class="p-6">
-              <h3 class="text-xl font-extrabold text-white">Wada Kolam</h3>
-              <p class="text-xs font-bold uppercase tracking-wide mb-3.5" style="color:#9fb17d;">Aromatic · GI-Tagged</p>
-              <p class="text-sm mb-3.5" style="color:rgba(240,240,238,.6);">The fine, fragrant "Basmati of Maharashtra." Slender grains that cook light, fluffy and separate. GI-tagged in 2021 for its protected heritage.</p>
+              <h3 class="text-xl font-extrabold text-white">Kolam from Wada</h3>
+              <p class="text-xs font-bold uppercase tracking-wide mb-3.5" style="color:#9fb17d;">Aromatic · Fine grain</p>
+              <p class="text-sm mb-3.5" style="color:rgba(240,240,238,.6);">A fine, fragrant Kolam grown in Wada, Palghar. Slender grains that cook light, fluffy and separate.</p>
               <div class="flex flex-wrap gap-1.5 mb-4">
-                {['GI-tagged','Aromatic','Fine grain'].map((c) => (<span class="text-[11px] font-bold px-2.5 py-1 rounded-full" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.82);">{c}</span>))}
+                {['Aromatic','Fine grain','Grown in Wada'].map((c) => (<span class="text-[11px] font-bold px-2.5 py-1 rounded-full" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.82);">{c}</span>))}
               </div>
               <span class="viewlink text-xs font-extrabold" style="color:#8bd4c6;display:none;">View photos →</span>
             </div>
