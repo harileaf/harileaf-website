@@ -46,11 +46,15 @@ export function validateZones(raw: string): { ok: true; value: Zone[] } | { ok: 
     if (out.some((x) => x.id === id)) return { ok: false, error: `${where}: id "${id}" is used twice` };
     if (name.length < 2 || name.length > 60) return { ok: false, error: `${where}: name it (2–60 characters)` };
     if (!pins.length || pins.some((p) => !/^[1-9]\d{0,5}$/.test(p))) return { ok: false, error: `${where}: pincodes must be 6-digit pincodes or 1–5 digit prefixes` };
+    if (new Set(pins).size > MAX_ZONE_PINCODES) return { ok: false, error: `${where}: at most ${MAX_ZONE_PINCODES} pincodes or prefixes (Google lists each as a shipping entry) — use prefixes such as 400 to cover a range` };
     if (!Number.isInteger(days) || days < 1 || days > 7) return { ok: false, error: `${where}: max transit days must be 1 to 7` };
     out.push({ id, name, pincodes: [...new Set(pins)], expressOnly: r.expressOnly !== false, maxTransitDays: days, enabled: r.enabled === true });
   }
   return { ok: true, value: out };
 }
+
+/** Merchant Center takes at most 100 `g:shipping` entries per item, and the feed writes one per pincode or prefix. */
+export const MAX_ZONE_PINCODES = 100;
 
 /** Zones from the stored setting (already validated on save); [] if unreadable. */
 export function parseZones(raw: string): Zone[] {
