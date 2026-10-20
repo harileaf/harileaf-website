@@ -9,10 +9,11 @@ import { env } from 'cloudflare:workers';
 import ProductPageView from '../../../components/store/ProductPageView.astro';
 import { idParam } from '../../../lib/admin-api';
 import { validateSession } from '../../../lib/auth';
-import { getProductPage } from '../../../lib/store/catalog';
+import { getProductPage, type ProductPageResult } from '../../../lib/store/catalog';
 import { getProductForAdmin } from '../../../lib/store/catalog-admin';
 import { loadPolicySettings } from '../../../lib/store/policy-settings';
-import { coerceProductStory, validateProductStory } from '../../../lib/store/story';
+import type { StoreSettings } from '../../../lib/store/settings';
+import { coerceProductStory, validateProductStory, type ProductStory } from '../../../lib/store/story';
 import { checkProductStory, fieldLabel } from '../../../lib/store/story-claims';
 import { loadContextProducts } from '../../../lib/store/story-pages';
 
@@ -20,7 +21,7 @@ const NO_CACHE = { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' };
 for (const [k, v] of Object.entries(NO_CACHE)) Astro.response.headers.set(k, v);
 
 if (!(await validateSession(env.HARILEAF_CMS, Astro.cookies))) return new Response('Unauthorised', { status: 401, headers: NO_CACHE });
-if (Astro.request.method !== 'POST') return new Response('Open the preview from the story editor.', { status: 405, headers: NO_CACHE });
+if (Astro.request.method !== 'POST') return new Response('Open the preview from the story editor.', { status: 405, headers: { ...NO_CACHE, Allow: 'POST' } });
 
 let payload: { productId?: unknown; story?: unknown } = {};
 try {
@@ -30,15 +31,23 @@ try {
   return new Response('Invalid preview', { status: 400, headers: NO_CACHE });
 }
 const id = idParam(String(payload.productId ?? ''));
-const admin = id ? await getProductForAdmin(env.STORE_DB, id) : null;
-if (!id || !admin) return new Response('Product not found', { status: 404, headers: NO_CACHE });
-const res = await getProductPage(env.STORE_DB, admin.product.category.slug, admin.product.slug, new Date(), { includeDraft: true });
-if (res.kind !== 'ok') return new Response('This product has no page to preview (discontinued?)', { status: 404, headers: NO_CACHE });
-const story = coerceProductStory(payload.story);
-const [ctx] = await loadContextProducts(env.STORE_DB, [id]);
-// The same checks a save runs, so the banner lists what would block saving.
-const errors = story ? { ...validateProductStory(story), ...(ctx ? checkProductStory(story, ctx) : {}) } : {};
-const messages = Object.entries(errors).map(([k, m]) => `${fieldLabel(k)}: ${m}`);
-const settings = await loadPolicySettings(env.STORE_DB);
+let view: { res: Extract<ProductPageResult, { kind: 'ok' }>; story: ProductStory | null; messages: string[]; settings: StoreSettings };
+try {
+  const admin = id ? await getProductForAdmin(env.STORE_DB, id) : null;
+  if (!id || !admin) return new Response('Product not found', { status: 404, headers: NO_CACHE });
+  const res = await getProductPage(env.STORE_DB, admin.product.category.slug, admin.product.slug, new Date(), { includeDraft: true });
+  if (res.kind !== 'ok') return new Response('This product has no page to preview (discontinued?)', { status: 404, headers: NO_CACHE });
+  const story = coerceProductStory(payload.story);
+  const [ctx] = await loadContextProducts(env.STORE_DB, [id]);
+  // The same checks a save runs, so the banner lists what would block saving; never "looks good" when they couldn't run.
+  const errors = story ? { ...validateProductStory(story), ...(ctx ? checkProductStory(story, ctx) : {}) } : {};
+  const messages = Object.entries(errors).map(([k, m]) => `${fieldLabel(k)}: ${m}`);
+  if (!story) messages.push("The story is empty or couldn't be read");
+  else if (!ctx) messages.push("Couldn't run the claims check");
+  view = { res, story, messages, settings: await loadPolicySettings(env.STORE_DB) };
+} catch (err) {
+  console.error(JSON.stringify({ msg: 'product preview failed', error: String(err) }));
+  return new Response("Couldn't load the preview. Try again.", { status: 500, headers: NO_CACHE });
+}
 ---
-<ProductPageView {...res} product={{ ...res.product, story }} settings={settings} preview={{ messages }} />
+<ProductPageView {...view.res} product={{ ...view.res.product, story: view.story }} settings={view.settings} preview={{ messages: view.messages }} />
