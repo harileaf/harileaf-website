@@ -92,3 +92,105 @@ describe('lab values', () => {
     expect(resolveProof([{ kind: 'lab', key: 'Curcumin', label: 'Curcumin' }], null)).toEqual([]);
   });
 });
+
+describe('hardening', () => {
+  it('accepts only plain positive integers for ids', () => {
+    const p = coerceStoryPage({ productIds: [7, '8', '0x10', '1e2', 2.5, '3.0', -1, 0, Number.MAX_SAFE_INTEGER + 1, ' 9', '99999999999999999999'] });
+    expect(p.productIds).toEqual([7, 8]);
+  });
+
+  it('coerces hostile input without polluting prototypes', () => {
+    const p = coerceStoryPage(JSON.parse('{"cardBlurbs":{"__proto__":"x","constructor":"y","7":"ok"},"productIds":[7]}'));
+    expect(p.cardBlurbs).toEqual({ '7': 'ok' });
+    expect(({} as Record<string, unknown>).x).toBeUndefined();
+    expect(Object.getPrototypeOf(p.cardBlurbs)).toBe(Object.prototype);
+    expect(Object.keys(Object.prototype)).toEqual([]);
+    for (const bad of [[], 'x', 5, true, null]) expect(coerceProductStory(bad)).toBeNull();
+  });
+
+  it('caps array sizes in coercion', () => {
+    const big = (n: number, f: (i: number) => unknown) => Array.from({ length: n }, (_, i) => f(i));
+    const p = coerceStoryPage({
+      faq: big(100_000, () => ({ q: 'q', a: 'a' })), facts: big(100, () => ({ title: 't', text: 'x' })),
+      productIds: big(100, (i) => i + 1), labColumns: big(50, (i) => `c${i}`),
+      hero: { proof: big(20, (i) => ({ productId: i + 1, key: 'k' })) },
+      cardBlurbs: Object.fromEntries(big(50, (i) => [String(i + 1), 'b'])),
+    });
+    expect(p.faq).toHaveLength(30);
+    expect(p.facts).toHaveLength(12);
+    expect(p.productIds).toHaveLength(12);
+    expect(p.labColumns).toHaveLength(8);
+    expect(p.hero.proof).toHaveLength(4);
+    expect(Object.keys(p.cardBlurbs)).toHaveLength(12);
+    const s = coerceProductStory({
+      proofLine: big(50, () => ({ kind: 'text', text: 't' })), icons: big(50, () => ({ icon: 'sun', label: 'x' })),
+      processSteps: big(50, () => ({ title: 't', text: 'x' })), use: { steps: big(50, () => 'step') },
+      comparison: { rows: big(50, () => ({ aspect: 'a', ours: 'b', theirs: 'c' })) },
+    });
+    expect([s?.proofLine.length, s?.icons.length, s?.processSteps.length, s?.use?.steps.length, s?.comparison?.rows.length]).toEqual([8, 6, 12, 12, 12]);
+  });
+
+  it('turns non-object sections into null', () => {
+    const s = coerceProductStory({ originStory: true, comparison: [], grower: 'x', use: 5 });
+    expect([s?.originStory, s?.comparison, s?.grower, s?.use]).toEqual([null, null, null, null]);
+    expect(coerceProductStory({ originStory: {} })?.originStory).not.toBeNull();
+  });
+
+  it('limits text length with friendly messages', () => {
+    const p = emptyStoryPage();
+    p.hero.line1 = 'x'.repeat(143);
+    p.facts = [{ title: 't', text: 'x'.repeat(601) }];
+    p.faq = [{ q: 'q', a: 'x'.repeat(3001) }];
+    p.closing = 'x'.repeat(601);
+    const e = validateStoryPageStructure('turmeric', p);
+    expect(e['hero.line1']).toBe("Keep this to 120 characters or fewer (it's 143).");
+    expect(e['facts.0.text']).toMatch(/600/);
+    expect(e['faq.0.a']).toMatch(/3000/);
+    expect(e.closing).toMatch(/600/);
+    p.hero.line1 = 'x'.repeat(120);
+    expect(validateStoryPageStructure('turmeric', p)['hero.line1']).toBeUndefined();
+    const long = 'y'.repeat(121);
+    const e2 = validateProductStory(story({
+      icons: [{ icon: 'sun', label: long }],
+      processSteps: [{ ...steps(1)[0], text: 'z'.repeat(601) }, ...steps(2)],
+      originStory: { heading: 'H', bodyMd: 'b'.repeat(3001), photoKey: null, photoAlt: '' },
+      grower: { names: long, place: 'p', since: '', bodyMd: '', photoKey: null, photoAlt: '' },
+      comparison: { heading: 'h', oursLabel: 'o', theirsLabel: 't', note: '', imageKey: null, imageAlt: '', rows: [{ aspect: 'a', ours: long, theirs: 't', source: '' }, { aspect: 'a', ours: 'o', theirs: 't', source: '' }] },
+    }));
+    expect(e2['icons.0']).toMatch(/120/);
+    expect(e2['processSteps.0.text']).toMatch(/600/);
+    expect(e2['originStory.bodyMd']).toMatch(/3000/);
+    expect(e2['grower.names']).toMatch(/120/);
+    expect(e2['comparison.rows.0.ours']).toMatch(/121/);
+  });
+
+  it('requires proof items and blurbs to point at linked products', () => {
+    const p = emptyStoryPage();
+    p.productIds = [3];
+    p.hero.proof = [{ productId: 3, key: 'k', label: 'K' }, { productId: 9, key: 'k', label: 'K' }];
+    p.cardBlurbs = { '3': 'ok', '9': 'stray' };
+    const e = validateStoryPageStructure('turmeric', p);
+    expect(e['hero.proof.0']).toBeUndefined();
+    expect(e['hero.proof.1']).toMatch(/Link this product under Products first/);
+    expect(e['cardBlurbs.3']).toBeUndefined();
+    expect(e['cardBlurbs.9']).toMatch(/isn't linked/);
+  });
+
+  it('rejects hidden sections the page layout does not have', () => {
+    const p = emptyStoryPage();
+    p.hidden = ['faq', 'origin'];
+    expect(validateStoryPageStructure('rice', p)).toEqual({});
+    const e = validateStoryPageStructure('turmeric', p);
+    expect(e['hidden.1']).toBe("This page has no 'origin' section");
+    expect(e['hidden.0']).toBeUndefined();
+    expect(validateStoryPageStructure('spices', p)['hidden.0']).toMatch(/'faq'/);
+  });
+
+  it('words the SEO limits inclusively', () => {
+    const p = emptyStoryPage();
+    p.seo = { title: 'x'.repeat(70), description: 'x'.repeat(171) };
+    const e = validateStoryPageStructure('rice', p);
+    expect(e['seo.title']).toBeUndefined();
+    expect(e['seo.description']).toBe('Keep it to 170 characters or fewer');
+  });
+});
