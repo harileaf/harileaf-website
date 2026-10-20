@@ -155,8 +155,8 @@ export async function quoteCart(
   const groups = (['preorder', 'perishable', 'regular'] as const).filter((g) => buyable.some((l) => l.group === g));
   // Pre-orders with different dispatch dates can't share an order either: one order is one parcel.
   const preorderDates = [...new Set(buyable.map((l) => l.preorderDate).filter((d): d is string => Boolean(d)))].sort();
-  // Nor can fresh produce from different delivery zones: no pincode is in both.
-  const perishableZones = new Set(buyable.filter((l) => l.group === 'perishable').map((l) => l.zone?.id ?? null));
+  // Nor can fresh produce from different delivery zones, pre-ordered or not: no pincode is in both.
+  const perishableZones = new Set(buyable.filter((l) => l.perishable).map((l) => l.zone?.id ?? null));
   const mixed = groups.length > 1 || preorderDates.length > 1 || perishableZones.size > 1;
   const codReason = !buyable.length
     ? 'Your cart is empty'
