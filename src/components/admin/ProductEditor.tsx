@@ -3,8 +3,12 @@
  * Prices are entered in rupees and sent as paise; stock is changed by an
  * adjustment (+/−) so concurrent sales are never overwritten.
  */
-import { cloneElement, isValidElement, useEffect, useId, useMemo, useState, type ReactElement, type ReactNode } from 'react';
-import { editorMedia, type AdminMediaRows } from '../../lib/store/editor-media';
+import { useEffect, useMemo, useState } from 'react';
+import { editorMedia, editorVariants, type AdminMediaRows, type AdminVariantRow } from '../../lib/store/editor-media';
+import { Batches, Images, type EditorBatch, type EditorImage, type EditorLab } from './ProductMedia';
+import { addBtn, box, btn, errStyle, Field, MessageList, row, sel, send, storyErrorLabel } from './story-ui';
+
+export type { EditorBatch, EditorImage, EditorLab };
 
 type Claim = { code: string; text: string; evidence_note: string };
 type Faq = { q: string; a: string };
@@ -27,10 +31,6 @@ export interface EditorVariant {
   weightG: number; lengthCm: number; breadthCm: number; heightCm: number; stockAdjust: number; lowStockThreshold: number;
   active: boolean; sort: number; currentStock?: number;
 }
-
-export interface EditorImage { id: number; url: string; key: string; alt: string; sort: number; kind: 'photo' | 'infographic' }
-export interface EditorBatch { id: number; batchCode: string; packedOn: string; groundOrMilledOn: string | null; labReportId: number | null; active: boolean }
-export interface EditorLab { id: number; batchCode: string; testedOn: string; labName: string; visible: boolean; pdfUrl: string | null }
 
 interface Props {
   id: number | null;
@@ -57,32 +57,50 @@ const GST_RATES = [
 const rupees = (p: number) => (Number.isFinite(p) ? String(p / 100) : '');
 const toPaise = (s: string) => (s.trim() === '' ? Number.NaN : Math.round(Number(s) * 100));
 
-const box: React.CSSProperties = { background: '#ebebea', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 16, padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' };
-const row: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' };
-const small: React.CSSProperties = { fontSize: '0.75rem', color: '#666', marginTop: '0.25rem' };
-const errStyle: React.CSSProperties = { color: '#c00', fontSize: '0.8rem', marginTop: '0.25rem' };
-const btn: React.CSSProperties = { background: 'none', border: '1px solid rgba(0,0,0,0.2)', borderRadius: 999, padding: '0.4rem 0.9rem', fontWeight: 700, cursor: 'pointer', fontSize: '0.8rem' };
+/** Claim types the claims policy knows. The first eight unlock that word in copy (FSSAI Reg 4) when the claim has an evidence note. */
+const CLAIM_TYPES: Array<[code: string, label: string]> = [
+  ['traditional', 'Traditional'], ['natural', 'Natural'], ['pure', 'Pure'], ['authentic', 'Authentic'], ['genuine', 'Genuine'], ['real', 'Real'],
+  ['original', 'Original'], ['fresh', 'Fresh'], ['stone_ground', 'Stone ground'], ['sun_dried', 'Sun dried'], ['sun_cured', 'Sun cured'],
+  ['hand_harvested', 'Hand harvested'], ['hand_picked', 'Hand picked'], ['unpolished', 'Unpolished'], ['single_pass_milled', 'Single-pass milled'],
+  ['no_synthetic_inputs', 'No synthetic inputs'],
+];
+const KNOWN_CLAIMS = new Set(CLAIM_TYPES.map(([c]) => c));
 
-function Field(props: { label: string; error?: string; hint?: string; children: ReactNode }) {
-  // Tie the label to a single control so screen readers announce it (groups keep their own aria-labels).
-  const id = useId();
-  const single = isValidElement(props.children) && ['input', 'select', 'textarea', IntInput].includes(props.children.type as never) ? (props.children as ReactElement<{ id?: string }>) : null;
-  const control = single && !single.props.id ? cloneElement(single, { id }) : props.children;
-  return (
-    <div>
-      <label htmlFor={single ? (single.props.id ?? id) : undefined}>{props.label}</label>
-      {control}
-      {props.hint && <p style={small}>{props.hint}</p>}
-      {props.error && <p style={errStyle} role="alert">{props.error}</p>}
-    </div>
-  );
+const PRODUCT_LABELS: Record<string, string> = {
+  _pages: 'Published pages', story: 'Product story', settings: 'Store settings', images: 'Photos', variants: 'Pack sizes',
+  categorySlug: 'Category', slug: 'URL slug', status: 'Status', replacementProductId: 'Redirect old URL to', name: 'Name',
+  shortDescription: 'One-line summary', descriptionMd: 'Description', processClaims: 'Process claims', organicScheme: 'Organic scheme',
+  organicCertNumber: 'Organic certificate number', organicConversionSince: 'In conversion since', giName: 'GI name',
+  giAuRegNumber: 'Authorised-user registration number', bestBeforeDays: 'Best before', ingredients: 'Ingredients',
+  storageInstructions: 'Storage instructions', nutrition: 'Nutrition', 'nutrition.source': 'Nutrition source', hsnCode: 'HSN code',
+  gstRateBp: 'GST rate', perishable: 'Perishable', deliveryZoneId: 'Delivery zone', codAllowed: 'Cash on delivery',
+  seasonStartMd: 'Season start', seasonEndMd: 'Season end', offSeasonMode: 'Out of season', preorderDispatchDate: 'Pre-order dispatch date',
+  seoTitle: 'SEO title', seoDescription: 'Meta description',
+};
+const VARIANT_LABELS: Record<string, string> = {
+  sku: 'SKU', label: 'label', netQtyLabel: 'net quantity', unitQtyG: 'pack grams', pricePaise: 'selling price', mrpPaise: 'MRP',
+  weightG: 'packed weight', lengthCm: 'box length', breadthCm: 'box breadth', heightCm: 'box height', stockAdjust: 'stock', lowStockThreshold: 'low-stock alert',
+};
+const LIST_LABELS: Record<string, string> = { howItsMade: "How it's made", harvestInfo: 'Harvest & freshness', attributes: 'Attributes' };
+
+/** A save message's field as the owner sees it on this screen; never an internal key when a name is known. */
+function productErrorLabel(key: string): string {
+  if (key === '_') return '';
+  if (PRODUCT_LABELS[key]) return PRODUCT_LABELS[key];
+  const v = key.match(/^variants\.(\d+)\.(\w+)$/);
+  if (v) return `Pack ${Number(v[1]) + 1}: ${VARIANT_LABELS[v[2]] ?? v[2]}`;
+  const n = key.match(/^nutrition\.(\d+)$/);
+  if (n) return `Nutrition row ${Number(n[1]) + 1}`;
+  const l = key.match(/^(howItsMade|harvestInfo|attributes)\.(.+)$/);
+  if (l) return `${LIST_LABELS[l[1]]}: ${l[2]}`;
+  return storyErrorLabel(key);
 }
 
 /**
  * Integer field that lets the admin type intermediate text ("-", "") — a
  * controlled type=number input coerces those to 0 and erases the minus sign.
  */
-function IntInput(props: { value: number; onChange: (n: number) => void; 'aria-label'?: string; id?: string }) {
+function IntInput(props: { value: number; onChange: (n: number) => void; 'aria-label'?: string; id?: string; 'aria-describedby'?: string; 'aria-invalid'?: boolean }) {
   const [text, setText] = useState(String(props.value));
   useEffect(() => {
     // Follow outside changes (e.g. reset to 0 after saving) without clobbering "-" mid-typing.
@@ -95,6 +113,8 @@ function IntInput(props: { value: number; onChange: (n: number) => void; 'aria-l
       pattern="-?[0-9]*"
       id={props.id}
       aria-label={props['aria-label']}
+      aria-describedby={props['aria-describedby']}
+      aria-invalid={props['aria-invalid']}
       value={text}
       onChange={(e) => {
         const t = e.target.value.replace(/[−–]/g, '-').trim();
@@ -106,6 +126,8 @@ function IntInput(props: { value: number; onChange: (n: number) => void; 'aria-l
     />
   );
 }
+
+IntInput.fieldControl = true;
 
 function KeyValues(props: { value: Record<string, string>; onChange: (v: Record<string, string>) => void; keyLabel: string; valueLabel: string }) {
   const [rows, setRows] = useState(() => Object.entries(props.value));
@@ -122,21 +144,18 @@ function KeyValues(props: { value: Record<string, string>; onChange: (v: Record<
           <button type="button" style={btn} onClick={() => push(rows.filter((_, j) => j !== i))} aria-label="Remove row">✕</button>
         </div>
       ))}
-      <button type="button" style={{ ...btn, alignSelf: 'flex-start' }} onClick={() => setRows([...rows, ['', '']])}>+ Add</button>
+      <button type="button" style={addBtn} onClick={() => setRows([...rows, ['', '']])}>+ Add</button>
     </div>
   );
-}
-
-async function send(url: string, init: RequestInit) {
-  const res = await fetch(url, init);
-  const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-  return { ok: res.ok, status: res.status, data };
 }
 
 export default function ProductEditor(props: Props) {
   const [p, setP] = useState<EditorProduct>(props.initial);
   const [variants, setVariants] = useState<EditorVariant[]>(props.variants);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saveWarnings, setSaveWarnings] = useState<Record<string, string>>({});
+  /** Saved, but the form couldn't be refreshed, so a second save could apply stock changes twice. */
+  const [stale, setStale] = useState(false);
   const [status, setStatus] = useState('');
   const [saving, setSaving] = useState(false);
   const [media, setMedia] = useState({ images: props.images, batches: props.batches, labReports: props.labReports });
@@ -148,6 +167,8 @@ export default function ProductEditor(props: Props) {
   }
   const set = <K extends keyof EditorProduct>(k: K, v: EditorProduct[K]) => setP((prev) => ({ ...prev, [k]: v }));
   const err = (k: string) => errors[k];
+  /** The first error for a list field (e.g. "faq.2", "howItsMade.Grinding"). */
+  const listErr = (k: string) => errors[k] ?? Object.entries(errors).find(([key]) => key.startsWith(`${k}.`))?.[1];
   const published = Boolean(props.publishedAt);
 
   const titlePreview = useMemo(() => {
@@ -160,6 +181,7 @@ export default function ProductEditor(props: Props) {
     setSaving(true);
     setStatus('Saving…');
     setErrors({});
+    setSaveWarnings({});
     const body = { product: p, variants: variants.map(({ currentStock: _cs, ...v }) => v) };
     const res = await send(props.id ? `/api/admin/products/${props.id}` : '/api/admin/products', {
       method: props.id ? 'PUT' : 'POST',
@@ -169,12 +191,27 @@ export default function ProductEditor(props: Props) {
     setSaving(false);
     if (res.ok) {
       const id = (res.data.id as number) ?? props.id;
+      const warnings = (res.data.warnings as Record<string, string> | undefined) ?? {};
+      if (props.id && Object.keys(warnings).length) {
+        // Stay so the owner can read what to fix. Reload the pack sizes first, so stock adjustments and new packs aren't saved twice.
+        const fresh = await send(`/api/admin/products/${props.id}`, { method: 'GET' });
+        const rows = fresh.ok ? (fresh.data as unknown as AdminMediaRows & { variants?: AdminVariantRow[] }) : null;
+        if (rows?.variants) {
+          setVariants(editorVariants(rows.variants));
+          setMedia(editorMedia(rows));
+        } else setStale(true);
+        setSaveWarnings(warnings);
+        setStatus(rows?.variants ? 'Saved, with things to fix (listed at the top).' : 'Saved, with things to fix (listed at the top). Reload the page before saving again.');
+        requestAnimationFrame(() => document.getElementById('product-warnings')?.focus());
+        return;
+      }
       setStatus('✓ Saved');
       window.location.href = `/admin/products/${id}?saved=1`;
     } else {
-      setErrors((res.data.errors as Record<string, string>) ?? { _: String(res.data.error ?? 'Save failed') });
-      setStatus('Not saved — check the highlighted fields');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      const e = (res.data.errors as Record<string, string> | undefined) ?? { _: String(res.data.error ?? 'Save failed') };
+      setErrors(e);
+      setStatus(`Not saved: ${Object.keys(e).length === 1 ? '1 thing' : `${Object.keys(e).length} things`} to fix (listed at the top).`);
+      requestAnimationFrame(() => document.getElementById('product-errors')?.focus());
     }
   }
 
@@ -182,21 +219,15 @@ export default function ProductEditor(props: Props) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      {Object.keys(errors).length > 0 && (
-        <div className="warn" role="alert">
-          <strong>Please fix:</strong>
-          <ul style={{ margin: '0.5rem 0 0 1.25rem' }}>
-            {Object.entries(errors).map(([k, m]) => (<li key={k}><code>{k}</code>: {m}</li>))}
-          </ul>
-        </div>
-      )}
+      <MessageList id="product-errors" kind="error" title="Not saved. Please fix:" messages={errors} label={productErrorLabel} />
+      <MessageList id="product-warnings" kind="warning" title="Saved, with things to fix:" messages={saveWarnings} label={productErrorLabel} />
       {props.shelfWarning && <p className="warn">{props.shelfWarning}</p>}
 
       <section style={box}>
         <h2 style={{ fontSize: '1rem', fontWeight: 800 }}>Basics</h2>
         <div style={row}>
           <Field label="Category" error={err('categorySlug')}>
-            <select value={p.categorySlug} disabled={published} onChange={(e) => set('categorySlug', e.target.value)} style={{ width: '100%', padding: '0.7rem', borderRadius: 8 }}>
+            <select value={p.categorySlug} disabled={published} onChange={(e) => set('categorySlug', e.target.value)} style={sel}>
               <option value="rice">Rice</option><option value="spices">Spices</option><option value="produce">Produce</option>
             </select>
           </Field>
@@ -204,14 +235,14 @@ export default function ProductEditor(props: Props) {
             <input type="text" value={p.slug} disabled={published} onChange={(e) => set('slug', e.target.value.toLowerCase())} />
           </Field>
           <Field label="Status" error={err('status')}>
-            <select value={p.status} onChange={(e) => set('status', e.target.value as EditorProduct['status'])} style={{ width: '100%', padding: '0.7rem', borderRadius: 8 }}>
+            <select value={p.status} onChange={(e) => set('status', e.target.value as EditorProduct['status'])} style={sel}>
               <option value="draft">Draft (hidden)</option><option value="active">Active (live)</option><option value="discontinued">Discontinued</option>
             </select>
           </Field>
         </div>
         {p.status === 'discontinued' && (
           <Field label="Redirect old URL to" error={err('replacementProductId')} hint="Without a replacement the page returns 410 Gone">
-            <select value={p.replacementProductId ?? ''} onChange={(e) => set('replacementProductId', e.target.value ? Number(e.target.value) : null)} style={{ width: '100%', padding: '0.7rem', borderRadius: 8 }}>
+            <select value={p.replacementProductId ?? ''} onChange={(e) => set('replacementProductId', e.target.value ? Number(e.target.value) : null)} style={sel}>
               <option value="">— none (410) —</option>
               {props.others.map((o) => (<option key={o.id} value={o.id}>{o.name}</option>))}
             </select>
@@ -226,25 +257,20 @@ export default function ProductEditor(props: Props) {
         <h2 style={{ fontSize: '1rem', fontWeight: 800 }}>Claims &amp; story</h2>
         <p className="muted">
           Only specific, evidenced claims (e.g. “Stone ground below 40 °C”). No “organic”, “chemical-free”, “naturally grown” or disease/health benefits.
-          “Natural”, “fresh”, “pure”, “traditional”, “authentic”, “genuine”, “real” and “original” need a claim with that exact code and evidence.
+          “Natural”, “fresh”, “pure”, “traditional”, “authentic”, “genuine”, “real” and “original” can appear in copy only with a claim of that type and an evidence note.
         </p>
         <Field label="Process claims" error={err('processClaims')}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {p.processClaims.map((c, i) => (
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 2fr auto', gap: '0.5rem' }}>
-                <input type="text" aria-label="Code" placeholder="code (stone_ground)" value={c.code} onChange={(e) => set('processClaims', p.processClaims.map((x, j) => (j === i ? { ...x, code: e.target.value } : x)))} />
-                <input type="text" aria-label="Claim text" placeholder="Shown to shoppers" value={c.text} onChange={(e) => set('processClaims', p.processClaims.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))} />
-                <input type="text" aria-label="Evidence" placeholder="Evidence (internal)" value={c.evidence_note} onChange={(e) => set('processClaims', p.processClaims.map((x, j) => (j === i ? { ...x, evidence_note: e.target.value } : x)))} />
-                <button type="button" style={btn} aria-label="Remove claim" onClick={() => set('processClaims', p.processClaims.filter((_, j) => j !== i))}>✕</button>
-              </div>
+              <ClaimRow key={i} index={i} claim={c} onChange={(next) => set('processClaims', p.processClaims.map((x, j) => (j === i ? next : x)))} onRemove={() => set('processClaims', p.processClaims.filter((_, j) => j !== i))} />
             ))}
-            <button type="button" style={{ ...btn, alignSelf: 'flex-start' }} onClick={() => set('processClaims', [...p.processClaims, { code: '', text: '', evidence_note: '' }])}>+ Add claim</button>
+            <button type="button" style={addBtn} onClick={() => set('processClaims', [...p.processClaims, { code: '', text: '', evidence_note: '' }])}>+ Add claim</button>
           </div>
         </Field>
-        <Field label="How it's made" hint="e.g. Grinding → Stone mill, below 40 °C"><KeyValues value={p.howItsMade} onChange={(v) => set('howItsMade', v)} keyLabel="Step" valueLabel="Detail" /></Field>
-        <Field label="Harvest & freshness" hint="e.g. Harvest → Kharif 2026"><KeyValues value={p.harvestInfo} onChange={(v) => set('harvestInfo', v)} keyLabel="Label" valueLabel="Value" /></Field>
-        <Field label="Attributes" hint="e.g. Grain → Short, bold"><KeyValues value={p.attributes} onChange={(v) => set('attributes', v)} keyLabel="Attribute" valueLabel="Value" /></Field>
-        <Field label="FAQ" hint="Facts only — no disease or health claims" error={Object.entries(errors).find(([k]) => k.startsWith('faq'))?.[1]}>
+        <Field label="How it's made" error={listErr('howItsMade')} hint="e.g. Grinding → Stone mill, below 40 °C"><KeyValues value={p.howItsMade} onChange={(v) => set('howItsMade', v)} keyLabel="Step" valueLabel="Detail" /></Field>
+        <Field label="Harvest & freshness" error={listErr('harvestInfo')} hint="e.g. Harvest → Kharif 2026"><KeyValues value={p.harvestInfo} onChange={(v) => set('harvestInfo', v)} keyLabel="Label" valueLabel="Value" /></Field>
+        <Field label="Attributes" error={listErr('attributes')} hint="e.g. Grain → Short, bold"><KeyValues value={p.attributes} onChange={(v) => set('attributes', v)} keyLabel="Attribute" valueLabel="Value" /></Field>
+        <Field label="FAQ" hint="Facts only — no disease or health claims" error={listErr('faq')}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             {p.faq.map((f, i) => (
               <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 2fr auto', gap: '0.5rem' }}>
@@ -253,7 +279,7 @@ export default function ProductEditor(props: Props) {
                 <button type="button" style={btn} aria-label="Remove question" onClick={() => set('faq', p.faq.filter((_, j) => j !== i))}>✕</button>
               </div>
             ))}
-            <button type="button" style={{ ...btn, alignSelf: 'flex-start' }} onClick={() => set('faq', [...p.faq, { q: '', a: '' }])}>+ Add question</button>
+            <button type="button" style={addBtn} onClick={() => set('faq', [...p.faq, { q: '', a: '' }])}>+ Add question</button>
           </div>
         </Field>
       </section>
@@ -262,7 +288,7 @@ export default function ProductEditor(props: Props) {
         <h2 style={{ fontSize: '1rem', fontWeight: 800 }}>Organic certification</h2>
         <div style={row}>
           <Field label="Scheme" error={err('organicScheme')}>
-            <select value={p.organicScheme} onChange={(e) => set('organicScheme', e.target.value as EditorProduct['organicScheme'])} style={{ width: '100%', padding: '0.7rem', borderRadius: 8 }}>
+            <select value={p.organicScheme} onChange={(e) => set('organicScheme', e.target.value as EditorProduct['organicScheme'])} style={sel}>
               <option value="none">None</option><option value="pgs_green">PGS-India Green (under conversion)</option>
               <option value="pgs_organic">PGS-India Organic</option><option value="npop">NPOP (India Organic)</option>
             </select>
@@ -274,18 +300,27 @@ export default function ProductEditor(props: Props) {
       </section>
 
       <section style={box}>
+        <h2 style={{ fontSize: '1rem', fontWeight: 800 }}>Geographical Indication</h2>
+        <p className="muted">Only if you are a registered authorised user of the GI. Without the registration number, GI wording and the registered name (e.g. “Wada Kolam”) can't be used anywhere on the product or its story.</p>
+        <div style={row}>
+          <Field label="GI name" error={err('giName')} hint="e.g. Wada Kolam"><input type="text" value={p.giName ?? ''} onChange={(e) => set('giName', e.target.value || null)} /></Field>
+          <Field label="Authorised-user registration number" error={err('giAuRegNumber')}><input type="text" value={p.giAuRegNumber ?? ''} onChange={(e) => set('giAuRegNumber', e.target.value || null)} /></Field>
+        </div>
+      </section>
+
+      <section style={box}>
         <h2 style={{ fontSize: '1rem', fontWeight: 800 }}>Listing information (shown on the product page)</h2>
         <div style={row}>
           <Field label="Best before (days from packing)" error={err('bestBeforeDays')}><input type="number" value={p.bestBeforeDays ?? ''} onChange={(e) => set('bestBeforeDays', e.target.value ? Number(e.target.value) : null)} /></Field>
           <Field label="Country of origin"><input type="text" value={p.countryOfOrigin} onChange={(e) => set('countryOfOrigin', e.target.value)} /></Field>
           <Field label="Vegetarian">
-            <select value={p.vegMark ? 'yes' : 'no'} onChange={(e) => set('vegMark', e.target.value === 'yes')} style={{ width: '100%', padding: '0.7rem', borderRadius: 8 }}><option value="yes">Yes (green mark)</option><option value="no">No</option></select>
+            <select value={p.vegMark ? 'yes' : 'no'} onChange={(e) => set('vegMark', e.target.value === 'yes')} style={sel}><option value="yes">Yes (green mark)</option><option value="no">No</option></select>
           </Field>
         </div>
         <Field label="Ingredients" error={err('ingredients')} hint="e.g. Turmeric (100%)"><input type="text" value={p.ingredients} onChange={(e) => set('ingredients', e.target.value)} /></Field>
         <Field label="Storage instructions" error={err('storageInstructions')}><input type="text" value={p.storageInstructions} onChange={(e) => set('storageInstructions', e.target.value)} /></Field>
         <Field label="Allergen information"><input type="text" value={p.allergenInfo ?? ''} onChange={(e) => set('allergenInfo', e.target.value || null)} /></Field>
-        <Field label={`Nutrition per ${p.nutrition.per}`} error={err('nutrition')} hint="Measured values only, with units (from a lab report)">
+        <Field label={`Nutrition per ${p.nutrition.per}`} error={listErr('nutrition')} hint="Measured values only, with units (from a lab report)">
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             <div style={row}>
               <input type="text" aria-label="Per" value={p.nutrition.per} onChange={(e) => set('nutrition', { ...p.nutrition, per: e.target.value })} />
@@ -298,7 +333,7 @@ export default function ProductEditor(props: Props) {
                 <button type="button" style={btn} aria-label="Remove nutrient" onClick={() => set('nutrition', { ...p.nutrition, rows: p.nutrition.rows.filter((_, j) => j !== i) })}>✕</button>
               </div>
             ))}
-            <button type="button" style={{ ...btn, alignSelf: 'flex-start' }} onClick={() => set('nutrition', { ...p.nutrition, rows: [...p.nutrition.rows, { name: '', amount: '' }] })}>+ Add nutrient</button>
+            <button type="button" style={addBtn} onClick={() => set('nutrition', { ...p.nutrition, rows: [...p.nutrition.rows, { name: '', amount: '' }] })}>+ Add nutrient</button>
           </div>
         </Field>
       </section>
@@ -308,30 +343,30 @@ export default function ProductEditor(props: Props) {
         <div style={row}>
           <Field label="HSN code" error={err('hsnCode')}><input type="text" value={p.hsnCode} onChange={(e) => set('hsnCode', e.target.value.replace(/\D/g, ''))} /></Field>
           <Field label="GST rate" error={err('gstRateBp')} hint="Confirm with your CA">
-            <select value={p.gstRateBp} onChange={(e) => set('gstRateBp', Number(e.target.value))} style={{ width: '100%', padding: '0.7rem', borderRadius: 8 }}>
+            <select value={p.gstRateBp} onChange={(e) => set('gstRateBp', Number(e.target.value))} style={sel}>
               {GST_RATES.map((g) => (<option key={g.bp} value={g.bp}>{g.label}</option>))}
             </select>
           </Field>
           <Field label="Perishable" error={err('perishable')}>
-            <select value={p.perishable ? 'yes' : 'no'} onChange={(e) => setP((prev) => ({ ...prev, perishable: e.target.value === 'yes', codAllowed: e.target.value === 'yes' ? false : prev.codAllowed }))} style={{ width: '100%', padding: '0.7rem', borderRadius: 8 }}><option value="no">No</option><option value="yes">Yes (prepaid only)</option></select>
+            <select value={p.perishable ? 'yes' : 'no'} onChange={(e) => setP((prev) => ({ ...prev, perishable: e.target.value === 'yes', codAllowed: e.target.value === 'yes' ? false : prev.codAllowed }))} style={sel}><option value="no">No</option><option value="yes">Yes (prepaid only)</option></select>
           </Field>
           {p.perishable && (
             <Field label="Delivery zone" error={err('deliveryZoneId')} hint="Zones are set in Store settings">
-              <select value={p.deliveryZoneId ?? ''} onChange={(e) => set('deliveryZoneId', e.target.value || null)} style={{ width: '100%', padding: '0.7rem', borderRadius: 8 }}>
+              <select value={p.deliveryZoneId ?? ''} onChange={(e) => set('deliveryZoneId', e.target.value || null)} style={sel}>
                 <option value="">Choose…</option>
                 {props.zones.map((z) => (<option key={z.id} value={z.id}>{z.name}{z.enabled ? '' : ' (not selling yet)'}</option>))}
               </select>
             </Field>
           )}
           <Field label="Cash on delivery" error={err('codAllowed')}>
-            <select value={p.codAllowed ? 'yes' : 'no'} disabled={p.perishable} onChange={(e) => set('codAllowed', e.target.value === 'yes')} style={{ width: '100%', padding: '0.7rem', borderRadius: 8 }}><option value="yes">Allowed</option><option value="no">Not allowed</option></select>
+            <select value={p.codAllowed ? 'yes' : 'no'} disabled={p.perishable} onChange={(e) => set('codAllowed', e.target.value === 'yes')} style={sel}><option value="yes">Allowed</option><option value="no">Not allowed</option></select>
           </Field>
         </div>
         <div style={row}>
           <Field label="Season start (MM-DD)" error={err('seasonStartMd')}><input type="text" placeholder="04-01" value={p.seasonStartMd ?? ''} onChange={(e) => set('seasonStartMd', e.target.value || null)} /></Field>
           <Field label="Season end (MM-DD)" error={err('seasonEndMd')}><input type="text" placeholder="06-30" value={p.seasonEndMd ?? ''} onChange={(e) => set('seasonEndMd', e.target.value || null)} /></Field>
           <Field label="Out of season" error={err('offSeasonMode')}>
-            <select value={p.offSeasonMode ?? ''} onChange={(e) => set('offSeasonMode', (e.target.value || null) as EditorProduct['offSeasonMode'])} style={{ width: '100%', padding: '0.7rem', borderRadius: 8 }}><option value="">Notify me</option><option value="notify">Notify me</option><option value="preorder">Pre-order</option></select>
+            <select value={p.offSeasonMode ?? ''} onChange={(e) => set('offSeasonMode', (e.target.value || null) as EditorProduct['offSeasonMode'])} style={sel}><option value="">Notify me</option><option value="notify">Notify me</option><option value="preorder">Pre-order</option></select>
           </Field>
           <Field label="Pre-order dispatch date" error={err('preorderDispatchDate')}><input type="text" placeholder="YYYY-MM-DD" value={p.preorderDispatchDate ?? ''} onChange={(e) => set('preorderDispatchDate', e.target.value || null)} /></Field>
         </div>
@@ -368,12 +403,12 @@ export default function ProductEditor(props: Props) {
                   </div>
                 </Field>
                 <Field label="On sale">
-                  <select value={v.active ? 'yes' : 'no'} onChange={(e) => updateVariant(i, { active: e.target.value === 'yes' })} style={{ width: '100%', padding: '0.7rem', borderRadius: 8 }}><option value="yes">Yes</option><option value="no">No (hidden)</option></select>
+                  <select value={v.active ? 'yes' : 'no'} onChange={(e) => updateVariant(i, { active: e.target.value === 'yes' })} style={sel}><option value="yes">Yes</option><option value="no">No (hidden)</option></select>
                 </Field>
               </div>
               {/* Only unsaved packs can be removed; saved ones have orders pointing at them, so they are hidden with "On sale: No". */}
               {!v.id && (
-                <button type="button" style={{ ...btn, alignSelf: 'flex-start' }} aria-label={`Remove pack ${v.label || i + 1}`} onClick={() => {
+                <button type="button" style={addBtn} aria-label={`Remove pack ${v.label || i + 1}`} onClick={() => {
                   setVariants((vs) => vs.filter((_, j) => j !== i));
                   // Pack errors are keyed by position, so they no longer line up.
                   setErrors((es) => Object.fromEntries(Object.entries(es).filter(([k]) => !k.startsWith('variants.'))));
@@ -382,7 +417,7 @@ export default function ProductEditor(props: Props) {
             </div>
           );
         })}
-        <button type="button" style={{ ...btn, alignSelf: 'flex-start' }} onClick={() => setVariants([...variants, { sku: '', label: '', netQtyLabel: '', unitQtyG: Number.NaN, pricePaise: Number.NaN, mrpPaise: Number.NaN, weightG: Number.NaN, lengthCm: Number.NaN, breadthCm: Number.NaN, heightCm: Number.NaN, stockAdjust: 0, lowStockThreshold: 5, active: true, sort: variants.length }])}>+ Add pack size</button>
+        <button type="button" style={addBtn} onClick={() => setVariants([...variants, { sku: '', label: '', netQtyLabel: '', unitQtyG: Number.NaN, pricePaise: Number.NaN, mrpPaise: Number.NaN, weightG: Number.NaN, lengthCm: Number.NaN, breadthCm: Number.NaN, heightCm: Number.NaN, stockAdjust: 0, lowStockThreshold: 5, active: true, sort: variants.length }])}>+ Add pack size</button>
       </section>
 
       <section style={box}>
@@ -397,7 +432,7 @@ export default function ProductEditor(props: Props) {
       </section>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', position: 'sticky', bottom: 0, background: '#f6f6f3', padding: '1rem 0', borderTop: '1px solid rgba(0,0,0,0.08)' }}>
-        <button type="button" className="brand-btn" style={{ padding: '0.75rem 2rem' }} onClick={save} disabled={saving}>{props.id ? 'Save product' : 'Create product'}</button>
+        <button type="button" className="brand-btn" style={{ padding: '0.75rem 2rem' }} onClick={save} disabled={saving || stale}>{props.id ? 'Save product' : 'Create product'}</button>
         <p className="muted" aria-live="polite">{status}</p>
         {props.id && p.status === 'active' && <a href={`/${p.categorySlug}/${p.slug}`} target="_blank" rel="noreferrer" style={{ marginLeft: 'auto', fontWeight: 700, color: '#196a5e' }}>View live page ↗</a>}
       </div>
@@ -405,7 +440,7 @@ export default function ProductEditor(props: Props) {
       {props.id ? (
         <>
           <Images productId={props.id} images={media.images} onChanged={refreshMedia} />
-          <Batches productId={props.id} batches={media.batches} labReports={media.labReports} onChanged={refreshMedia} />
+          <Batches productId={props.id} categorySlug={p.categorySlug} batches={media.batches} labReports={media.labReports} onChanged={refreshMedia} />
         </>
       ) : (
         <p className="muted">Save the product first to add photos, batches and lab reports.</p>
@@ -435,140 +470,35 @@ function Upload(props: { label: string; url: string; accept: string; current: st
   );
 }
 
-function Images(props: { productId: number; images: EditorImage[]; onChanged: () => Promise<void> }) {
-  const [images, setImages] = useState(props.images);
-  useEffect(() => setImages(props.images), [props.images]);
-  const [alt, setAlt] = useState('');
-  const [msg, setMsg] = useState('');
-  const base = `/api/admin/products/${props.productId}/images`;
-
-  async function upload(file: File) {
-    const fd = new FormData();
-    fd.append('file', file);
-    fd.append('alt', alt);
-    setMsg('Uploading…');
-    const res = await send(base, { method: 'POST', body: fd });
-    if (res.ok) {
-      await props.onChanged();
-      setAlt('');
-      setMsg('✓ Uploaded');
-    } else setMsg(String(res.data.error ?? 'Upload failed'));
-  }
-
-  async function move(i: number, dir: -1 | 1) {
-    const j = i + dir;
-    if (j < 0 || j >= images.length) return;
-    const next = [...images];
-    [next[i], next[j]] = [next[j], next[i]];
-    setImages(next);
-    await Promise.all(next.map((img, k) => send(base, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageId: img.id, sort: k }) })));
-  }
-
+/** One process claim: a claim type picker (or a custom type), the shopper-facing text and the internal evidence note. */
+function ClaimRow(props: { index: number; claim: { code: string; text: string; evidence_note: string }; onChange: (c: { code: string; text: string; evidence_note: string }) => void; onRemove: () => void }) {
+  const { claim: c, index: i } = props;
+  const [custom, setCustom] = useState(false);
+  const isCustom = custom || (c.code !== '' && !KNOWN_CLAIMS.has(c.code));
   return (
-    <section style={box}>
-      <h2 style={{ fontSize: '1rem', fontWeight: 800 }}>Photos</h2>
-      <p className="muted">The first photo is used in search results and the Google Shopping feed. JPEG/PNG/WebP/AVIF, up to 5 MB.</p>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.75rem' }}>
-        {images.map((img, i) => (
-          <figure key={img.id} style={{ background: '#fff', borderRadius: 12, overflow: 'hidden' }}>
-            <img src={img.url} alt={img.alt} style={{ width: '100%', aspectRatio: '4/3', objectFit: 'cover' }} />
-            <figcaption style={{ padding: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-              <input type="text" aria-label="Alt text" defaultValue={img.alt} onBlur={(e) => e.target.value !== img.alt && send(base, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageId: img.id, alt: e.target.value }) })} />
-              <div style={{ display: 'flex', gap: '0.25rem' }}>
-                <button type="button" style={btn} onClick={() => move(i, -1)} aria-label="Move earlier">←</button>
-                <button type="button" style={btn} onClick={() => move(i, 1)} aria-label="Move later">→</button>
-                <button type="button" style={{ ...btn, color: '#c00', marginLeft: 'auto' }} onClick={async () => {
-                  const res = await send(`${base}?imageId=${img.id}`, { method: 'DELETE' });
-                  if (res.ok) setImages(images.filter((x) => x.id !== img.id));
-                  else setMsg(String(res.data.error ?? 'Delete failed'));
-                }}>Delete</button>
-              </div>
-            </figcaption>
-          </figure>
-        ))}
-      </div>
-      <div style={row}>
-        <Field label="Alt text for the new photo" hint="Describe what's in it, e.g. “Karjat 3 rice grains in a steel bowl”"><input type="text" value={alt} onChange={(e) => setAlt(e.target.value)} /></Field>
-        <Field label="Upload"><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} /></Field>
-      </div>
-      <p className="muted" aria-live="polite">{msg}</p>
-    </section>
-  );
-}
-
-function Batches(props: { productId: number; batches: EditorBatch[]; labReports: EditorLab[]; onChanged: () => Promise<void> }) {
-  const [msg, setMsg] = useState('');
-  const [b, setB] = useState({ batchCode: '', packedOn: '', groundOrMilledOn: '', labReportId: '', makeActive: true });
-  const [lab, setLab] = useState({ batchCode: '', testedOn: '', labName: '', labAccreditation: '', testScope: '', summary: '{\n  "Pesticide residues": "Not detected (LOD 0.01 mg/kg)"\n}' });
-  const base = `/api/admin/products/${props.productId}`;
-
-  return (
-    <section style={box}>
-      <h2 style={{ fontSize: '1rem', fontWeight: 800 }}>Batches &amp; lab reports</h2>
-      <p className="muted">The active batch's packed-on date and code are shown in the buy box, with a “Lab tested” badge when it links a visible report.</p>
-      <table style={{ width: '100%', fontSize: '0.85rem', borderCollapse: 'collapse' }}>
-        <thead><tr style={{ textAlign: 'left' }}><th>Batch</th><th>Packed</th><th>Ground/milled</th><th>Lab report</th><th /></tr></thead>
-        <tbody>
-          {props.batches.map((x) => (
-            <tr key={x.id} style={{ borderTop: '1px solid rgba(0,0,0,0.08)' }}>
-              <td>{x.batchCode} {x.active && <strong style={{ color: '#196a5e' }}>· active</strong>}</td>
-              <td>{x.packedOn}</td>
-              <td>{x.groundOrMilledOn ?? '—'}</td>
-              <td>{props.labReports.find((l) => l.id === x.labReportId)?.labName ?? '—'}</td>
-              <td>{!x.active && <button type="button" style={btn} onClick={async () => {
-                const res = await send(`${base}/batches`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ batchId: x.id }) });
-                if (res.ok) { await props.onChanged(); setMsg('✓ Saved'); } else setMsg(String(res.data.error));
-              }}>Make active</button>}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <div style={row}>
-        <Field label="Batch code"><input type="text" value={b.batchCode} onChange={(e) => setB({ ...b, batchCode: e.target.value })} /></Field>
-        <Field label="Packed on"><input type="date" value={b.packedOn} onChange={(e) => setB({ ...b, packedOn: e.target.value })} /></Field>
-        <Field label="Ground / milled on"><input type="date" value={b.groundOrMilledOn} onChange={(e) => setB({ ...b, groundOrMilledOn: e.target.value })} /></Field>
-        <Field label="Lab report">
-          <select value={b.labReportId} onChange={(e) => setB({ ...b, labReportId: e.target.value })} style={{ width: '100%', padding: '0.7rem', borderRadius: 8 }}>
-            <option value="">None</option>
-            {props.labReports.map((l) => (<option key={l.id} value={l.id}>{l.batchCode} · {l.labName} · {l.testedOn}</option>))}
+    <fieldset style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: '0.75rem', margin: 0, background: '#fff' }}>
+      <legend style={{ fontWeight: 700, fontSize: '0.85rem', padding: '0 0.25rem' }}>Claim {i + 1}</legend>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr)) auto', gap: '0.5rem', alignItems: 'start' }}>
+        <Field label="Claim type">
+          <select style={sel} value={isCustom ? '__custom' : c.code} onChange={(e) => {
+            const v = e.target.value;
+            setCustom(v === '__custom');
+            props.onChange({ ...c, code: v === '__custom' ? '' : v });
+          }}>
+            <option value="">Choose…</option>
+            {CLAIM_TYPES.map(([code, label]) => <option key={code} value={code}>{label}</option>)}
+            <option value="__custom">Other (type it)</option>
           </select>
         </Field>
+        {isCustom && (
+          <Field label="Other claim type" hint="Lowercase words joined by _, e.g. slow_dried">
+            <input type="text" value={c.code} onChange={(e) => props.onChange({ ...c, code: e.target.value.toLowerCase().replace(/[\s-]+/g, '_') })} />
+          </Field>
+        )}
+        <Field label="Shown to shoppers" hint="e.g. “Stone ground below 40 °C”"><input type="text" value={c.text} onChange={(e) => props.onChange({ ...c, text: e.target.value })} /></Field>
+        <Field label="Evidence note (not shown)" hint="e.g. “Village records: used for 35+ years”"><input type="text" value={c.evidence_note} onChange={(e) => props.onChange({ ...c, evidence_note: e.target.value })} /></Field>
+        <button type="button" style={{ ...btn, color: '#c00', alignSelf: 'end' }} aria-label={`Remove claim ${i + 1}`} onClick={props.onRemove}>✕</button>
       </div>
-      <button type="button" style={{ ...btn, alignSelf: 'flex-start' }} onClick={async () => {
-        const res = await send(`${base}/batches`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...b, groundOrMilledOn: b.groundOrMilledOn || null, labReportId: b.labReportId ? Number(b.labReportId) : null }) });
-        if (res.ok) { await props.onChanged(); setMsg('✓ Saved'); } else setMsg(String(res.data.error));
-      }}>+ Add batch (make active)</button>
-
-      <h3 style={{ fontSize: '0.9rem', fontWeight: 800, marginTop: '1rem' }}>Lab reports</h3>
-      <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.85rem' }}>
-        {props.labReports.map((l) => (
-          <li key={l.id}>
-            {l.batchCode} · {l.labName} · {l.testedOn} {l.pdfUrl && <a href={l.pdfUrl} target="_blank" rel="noreferrer">PDF</a>}{' '}
-            <button type="button" style={btn} onClick={async () => {
-              const res = await send(`${base}/lab-reports`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reportId: l.id, visible: !l.visible }) });
-              if (res.ok) { await props.onChanged(); setMsg('✓ Saved'); } else setMsg(String(res.data.error));
-            }}>{l.visible ? 'Hide' : 'Show'}</button>
-          </li>
-        ))}
-      </ul>
-      <form onSubmit={async (e) => {
-        e.preventDefault();
-        const fd = new FormData(e.currentTarget);
-        const res = await send(`${base}/lab-reports`, { method: 'POST', body: fd });
-        if (res.ok) { await props.onChanged(); setMsg('✓ Saved'); } else setMsg(String(res.data.error));
-      }} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-        <div style={row}>
-          <Field label="Batch code"><input name="batchCode" type="text" value={lab.batchCode} onChange={(e) => setLab({ ...lab, batchCode: e.target.value })} /></Field>
-          <Field label="Tested on"><input name="testedOn" type="date" value={lab.testedOn} onChange={(e) => setLab({ ...lab, testedOn: e.target.value })} /></Field>
-          <Field label="Lab name"><input name="labName" type="text" value={lab.labName} onChange={(e) => setLab({ ...lab, labName: e.target.value })} /></Field>
-          <Field label="Accreditation (e.g. NABL TC-…)"><input name="labAccreditation" type="text" value={lab.labAccreditation} onChange={(e) => setLab({ ...lab, labAccreditation: e.target.value })} /></Field>
-        </div>
-        <Field label="What was tested"><input name="testScope" type="text" value={lab.testScope} onChange={(e) => setLab({ ...lab, testScope: e.target.value })} /></Field>
-        <Field label="Results (JSON: name → value with units)"><textarea name="summary" rows={4} value={lab.summary} onChange={(e) => setLab({ ...lab, summary: e.target.value })} style={{ fontFamily: 'ui-monospace, monospace' }} /></Field>
-        <Field label="Report PDF"><input name="pdf" type="file" accept="application/pdf" /></Field>
-        <button type="submit" style={{ ...btn, alignSelf: 'flex-start' }}>+ Add lab report</button>
-      </form>
-      <p className="muted" aria-live="polite">{msg}</p>
-    </section>
+    </fieldset>
   );
 }

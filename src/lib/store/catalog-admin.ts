@@ -380,8 +380,8 @@ export async function saveProduct(
         if (old.length) warnings.story = `This product's story already has problems. ${old.join('; ')}. Edit the story to fix them.`;
       }
       const pages = await publishedPageConflicts(db, changed);
-      if (pages.blocking.length) return { ok: false, errors: { _pages: pages.blocking.join(' ') } };
-      if (pages.warnings.length) warnings._pages = pages.warnings.join(' ');
+      if (pages.blocking.length) return { ok: false, errors: { _pages: pages.blocking.join('\n') } };
+      if (pages.warnings.length) warnings._pages = pages.warnings.join('\n');
     }
   }
 

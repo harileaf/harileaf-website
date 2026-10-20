@@ -14,3 +14,17 @@ export function editorMedia(a: AdminMediaRows) {
     labReports: a.labReports.map((l) => ({ id: l.id, batchCode: l.batch_code, testedOn: l.tested_on, labName: l.lab_name, visible: l.visible === 1, pdfUrl: l.pdf_r2_key ? mediaUrl(l.pdf_r2_key) : null })),
   };
 }
+
+export interface AdminVariantRow {
+  id: number; sku: string; label: string; net_qty_label: string; unit_qty_g: number; price_paise: number; mrp_paise: number;
+  weight_g: number; length_cm: number; breadth_cm: number; height_cm: number; stock_qty: number; low_stock_threshold: number; active: number; sort: number;
+}
+
+/** Pack sizes for the product editor; stock is changed by an adjustment, so it starts at 0 with the current stock beside it. */
+export function editorVariants(rows: AdminVariantRow[]) {
+  return rows.map((v) => ({
+    id: v.id, sku: v.sku, label: v.label, netQtyLabel: v.net_qty_label, unitQtyG: v.unit_qty_g, pricePaise: v.price_paise,
+    mrpPaise: v.mrp_paise, weightG: v.weight_g, lengthCm: v.length_cm, breadthCm: v.breadth_cm, heightCm: v.height_cm,
+    stockAdjust: 0, currentStock: v.stock_qty, lowStockThreshold: v.low_stock_threshold, active: v.active === 1, sort: v.sort,
+  }));
+}
