@@ -1,0 +1,67 @@
+name: Nightly D1 backup
+
+# Exports the store database (orders, invoices, customers) and uploads it to
+# the private R2 bucket `harileaf-backups`. Keep that bucket private (no
+# public access, no custom domain) and add a lifecycle rule to delete objects
+# after 90 days. Restore: see README → Store development → Backups.
+#
+# Uses its own token, CLOUDFLARE_BACKUP_API_TOKEN (D1 Edit — export needs it —
+# plus R2 Object Read & Write on harileaf-backups only) — not the deploy token. A failed run emails the repo
+# owner; GitHub pauses scheduled workflows after 60 days without repo activity
+# on public repos, so check Actions if the repo goes quiet.
+
+on:
+  schedule:
+    # 02:47 IST, between the store's */5 cron runs (an export briefly blocks other D1 requests).
+    - cron: '17 21 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: d1-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Export D1
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_BACKUP_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          stamp=$(date -u +%Y-%m-%dT%H%MZ)
+          echo "STAMP=$stamp" >> "$GITHUB_ENV"
+          npx wrangler d1 export harileaf-store --remote --output "store-$stamp.sql"
+          # Sanity checks: an export without the schema (or, once trading, without orders) is not a backup.
+          grep -q 'CREATE TABLE.*orders' "store-$stamp.sql"
+          grep -q 'CREATE TABLE.*invoices' "store-$stamp.sql"
+          echo "order rows: $(grep -c 'INSERT INTO "\?orders"\? ' "store-$stamp.sql" || true)"
+          gzip -9 "store-$stamp.sql"
+          gzip -t "store-$stamp.sql.gz"
+          ls -l "store-$stamp.sql.gz"
+
+      - name: Upload to R2
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_BACKUP_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          npx wrangler r2 object put "harileaf-backups/d1/store-$STAMP.sql.gz" \
+            --file "store-$STAMP.sql.gz" --content-type application/gzip --remote
+          # Read it back: the upload must be complete and intact.
+          npx wrangler r2 object get "harileaf-backups/d1/store-$STAMP.sql.gz" --remote --file check.sql.gz
+          cmp "store-$STAMP.sql.gz" check.sql.gz

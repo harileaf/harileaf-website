@@ -1,0 +1,12 @@
+---
+/** Five inline-SVG stars filled to `value` (0–5). Decorative — pass the text alongside. */
+import { starsHtml } from '../../scripts/store/stars';
+
+interface Props {
+  value: number;
+  size?: number;
+}
+const { value, size = 16 } = Astro.props;
+---
+
+<Fragment set:html={starsHtml(value, size)} />

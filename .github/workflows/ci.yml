@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - 'feat/**' # stacked PRs target feature branches
 
 jobs:
   build:
@@ -26,5 +27,57 @@ jobs:
       - name: Astro type-check
         run: npx astro check
 
+      - name: Store tests (Vitest in workerd + local D1)
+        run: npm test
+
       - name: Build
         run: npm run build
+
+  e2e:
+    name: Storefront end-to-end (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check:e2e
+      - run: npx playwright install --with-deps chromium
+      - name: Local secrets for the dev server
+        # wrangler.toml's Turnstile site key only works on harileaf.org; Cloudflare's
+        # always-pass test key lets checkout's security check run on localhost.
+        run: printf 'ORDER_TOKEN_SECRET=ci-only-%s\nPUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA\n' "$GITHUB_RUN_ID" > .dev.vars
+      - run: npm run test:e2e
+        env:
+          CI: 'true'
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  lighthouse:
+    name: Lighthouse (performance, accessibility, SEO)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build
+      - name: Seed local D1 for the built Worker
+        # Root config (its migrations_dir resolves correctly); same --persist-to as lighthouserc's server.
+        run: |
+          npx wrangler d1 migrations apply harileaf-store --local --persist-to .wrangler/lhci
+          npx wrangler d1 execute harileaf-store --local --persist-to .wrangler/lhci --file scripts/seed-dev.sql
+          npx wrangler d1 execute harileaf-store --local --persist-to .wrangler/lhci --file scripts/seed-v2-produce.sql
+          npx wrangler d1 execute harileaf-store --local --persist-to .wrangler/lhci --file scripts/seed-dev-produce.sql
+      - run: npx @lhci/cli@0.15 autorun
+

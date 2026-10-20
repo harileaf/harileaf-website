@@ -1,0 +1,86 @@
+---
+export const prerender = false;
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import { env } from 'cloudflare:workers';
+import SEO from '../../components/seo/SEO.astro';
+
+Astro.response.headers.set('Cache-Control', 'no-store');
+Astro.response.headers.set('X-Robots-Tag', 'noindex');
+// Also shown (with a 404) when an order link is missing or wrong — same page whether or not the order exists.
+if (Astro.originPathname !== '/order/find' && Astro.originPathname !== '/order/find/') Astro.response.status = 404;
+const fromPath = /^\/order\/(HL-\d{4}-\d{4,6})/.exec(Astro.originPathname)?.[1] ?? '';
+const title = 'Find your order | HariLeaf';
+const turnstileKey = env.PUBLIC_TURNSTILE_SITE_KEY ?? '';
+---
+
+<SiteLayout title={title} description="Get a fresh link to your HariLeaf order" noIndex>
+  <slot name="head" slot="head">
+    <SEO title={title} description="Get a fresh link to your HariLeaf order" noIndex />
+  </slot>
+  <div class="max-w-xl mx-auto px-6 pt-32 pb-24">
+    <h1 class="text-4xl font-extrabold tracking-tight">Find your order</h1>
+    <p class="mt-2 text-on-surface-variant">{fromPath ? 'That order link is incomplete or no longer valid. ' : ''}Enter your order number and the email you used, and we'll email you a new link (older links to the order stop working).</p>
+    <form id="find-form" class="mt-8 flex flex-col gap-4" novalidate>
+      <div>
+        <label class="block text-sm font-bold mb-1" for="f-no">Order number</label>
+        <input id="f-no" name="orderNo" value={fromPath} placeholder="HL-2610-0001" required autocomplete="off" class="w-full rounded-xl border border-black/15 px-4 py-3" />
+      </div>
+      <div>
+        <label class="block text-sm font-bold mb-1" for="f-email">Email</label>
+        <input id="f-email" name="email" type="email" required autocomplete="email" class="w-full rounded-xl border border-black/15 px-4 py-3" />
+      </div>
+      {turnstileKey && <div data-turnstile data-sitekey={turnstileKey}></div>}
+      <button class="rounded-full px-7 py-3 font-extrabold text-white self-start disabled:opacity-60" style="background:linear-gradient(135deg,#196a5e,#2d7a4f)">Email me the link</button>
+      <p id="find-status" role="status" aria-live="polite" class="font-bold"></p>
+      <button type="button" id="find-again" class="hidden self-start text-sm font-bold text-primary underline">Use a different order number or email</button>
+    </form>
+  </div>
+</SiteLayout>
+
+<script>
+  import { mountTurnstile } from '../../scripts/store/turnstile';
+
+  const form = document.getElementById('find-form') as HTMLFormElement;
+  const widget = mountTurnstile(form.querySelector<HTMLElement>('[data-turnstile]'));
+  const resetTurnstile = () => void widget.then((w) => w?.reset());
+  const out = document.getElementById('find-status')!;
+  const say = (text: string, kind: 'ok' | 'error') => {
+    out.textContent = text;
+    out.style.color = kind === 'ok' ? '#1d5f3a' : '#8a1c1c';
+  };
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(form);
+    const btn = form.querySelector<HTMLButtonElement>('button:not([type="button"])')!;
+    btn.disabled = true;
+    btn.textContent = 'Sending link…';
+    try {
+      const res = await fetch('/api/store/order/resend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderNo: String(fd.get('orderNo') ?? ''), email: String(fd.get('email') ?? ''), turnstileToken: fd.get('cf-turnstile-response') ? String(fd.get('cf-turnstile-response')) : null }) });
+      const data = (await res.json().catch(() => ({}))) as { message?: string; error?: string };
+      if (res.ok && data.message) {
+        say(data.message, 'ok');
+        // Sent (or nothing to send): lock the fields so repeated presses don't hit the limits,
+        // with a way back in for a mistyped email.
+        form.querySelectorAll<HTMLInputElement>('input').forEach((el) => (el.disabled = true));
+        btn.textContent = 'Email me the link';
+        again.classList.remove('hidden');
+        return;
+      }
+      say(data.error ?? 'Something went wrong — please try again.', 'error');
+      resetTurnstile();
+    } catch {
+      say('Network error — please try again.', 'error');
+    }
+    btn.textContent = 'Email me the link';
+    btn.disabled = false;
+  });
+
+  const again = document.getElementById('find-again')!;
+  again.addEventListener('click', () => {
+    form.querySelectorAll<HTMLInputElement | HTMLButtonElement>('input, button').forEach((el) => (el.disabled = false));
+    again.classList.add('hidden');
+    out.textContent = '';
+    resetTurnstile();
+    form.querySelector<HTMLInputElement>('#f-email')?.focus();
+  });
+</script>

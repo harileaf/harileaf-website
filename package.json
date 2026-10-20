@@ -9,7 +9,13 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "cms": "astro dev --config astro.config.cms.mjs --port 4322",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "astro check",
+    "check:e2e": "tsc -p e2e/tsconfig.json",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.8",
@@ -25,5 +31,11 @@
     "react-dom": "^19.2.5",
     "tailwindcss": "^3.4.19",
     "typescript": "^6.0.2"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.23.0",
+    "@cloudflare/workers-types": "^4.20260702.1",
+    "@playwright/test": "^1.64.1",
+    "vitest": "^4.1.12"
   }
 }

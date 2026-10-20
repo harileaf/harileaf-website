@@ -25,6 +25,7 @@
  *   logoSize    — 'sm' (default, h-10) | 'md' (h-12)
  */
 import navJson  from '../../content/navigation.json';
+import CartIcon from '../store/CartIcon.astro';
 import siteJson from '../../content/site-settings.json';
 
 interface Props {
@@ -58,9 +59,13 @@ const cta = {
 const logoSrc  = siteJson.logo  ?? '/images/brand/logo-color.png';
 const siteName = siteJson.title ?? 'HariLeaf';
 
-const currentPath = Astro.url.pathname;
-const isActive = (url: string) =>
-  url === '/' ? currentPath === '/' : currentPath === url || currentPath.startsWith(url + '/');
+// Compare without trailing slashes: nav links use the canonical /shop/ form, visitors may arrive at /shop.
+const trim = (p: string) => p.replace(/\/+$/, '') || '/';
+const currentPath = trim(Astro.url.pathname);
+const isActive = (url: string) => {
+  const u = trim(url);
+  return u === '/' ? currentPath === '/' : currentPath === u || currentPath.startsWith(u + '/');
+};
 const isItemActive = (item: { url: string; children?: { url: string }[] }) =>
   isActive(item.url) || (item.children?.some((c) => isActive(c.url)) ?? false);
 ---
@@ -144,11 +149,12 @@ const isItemActive = (item: { url: string; children?: { url: string }[] }) =>
       ))}
     </div>
 
-    <!-- Right: CTA + mobile hamburger -->
+    <!-- Right: cart + CTA + mobile hamburger -->
     <div class="flex items-center gap-3">
+      <CartIcon />
       <a
         href={cta.url}
-        class={ctaClass}
+        class:list={[ctaClass, 'hidden sm:inline-block whitespace-nowrap']}
       >
         {cta.label}
       </a>
@@ -186,6 +192,7 @@ const isItemActive = (item: { url: string; children?: { url: string }[] }) =>
   class="fixed inset-0 z-40 flex flex-col bg-surface md:hidden"
   aria-label="Mobile navigation"
   aria-hidden="true"
+  inert
 >
   <!-- Spacer matches header height (py-4 + h-10 logo ≈ 72px) -->
   <div class="h-[72px] shrink-0"></div>
@@ -280,6 +287,7 @@ const isItemActive = (item: { url: string; children?: { url: string }[] }) =>
       _menu.classList.add('is-open');
       _backdrop.classList.add('is-open');
       _menu.setAttribute('aria-hidden', 'false');
+      _menu.inert = false;
       _toggle.setAttribute('aria-expanded', 'true');
       _toggle.setAttribute('aria-label', 'Close navigation menu');
       hamburger?.classList.add('hidden');
@@ -293,6 +301,7 @@ const isItemActive = (item: { url: string; children?: { url: string }[] }) =>
       _menu.classList.remove('is-open');
       _backdrop.classList.remove('is-open');
       _menu.setAttribute('aria-hidden', 'true');
+      _menu.inert = true; // closed menu links must not be reachable with Tab
       _toggle.setAttribute('aria-expanded', 'false');
       _toggle.setAttribute('aria-label', 'Open navigation menu');
       hamburger?.classList.remove('hidden');

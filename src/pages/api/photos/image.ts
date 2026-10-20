@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
+import { r2Response } from '../../../lib/store/r2';
 
 // Serves a photo from R2. The object key (e.g. "photos/1699-mango.png") is passed
 // as a query parameter — NOT a path segment — because the key contains a slash.
@@ -18,10 +19,5 @@ export const GET: APIRoute = async ({ url }) => {
     return new Response('Not found', { status: 404 });
   }
 
-  const headers = new Headers();
-  object.writeHttpMetadata(headers);
-  headers.set('etag', object.httpEtag);
-  headers.set('cache-control', 'public, max-age=31536000, immutable');
-
-  return new Response(object.body, { headers });
+  return r2Response(object);
 };

@@ -2,6 +2,13 @@ name = "harileaf"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
+# Custom entry: Astro's fetch handler + scheduled() for store cron jobs.
+main = "src/worker.ts"
+
+# Only serve on the custom domains below. A *.workers.dev URL would bypass the
+# Cloudflare Access policy that protects /admin on harileaf.org.
+workers_dev = false
+
 routes = [
   { pattern = "harileaf.org", custom_domain = true },
   { pattern = "www.harileaf.org", custom_domain = true }
@@ -17,3 +24,30 @@ id = "985fdea1a9594db6a58c722d5f8fe88f"
 [[r2_buckets]]
 binding = "HARILEAF_MEDIA"
 bucket_name = "harileaf-media"
+
+[[d1_databases]]
+binding = "STORE_DB"
+database_name = "harileaf-store"
+database_id = "59357a9b-49d8-4e55-a4a4-ce2b457dbf0c"
+migrations_dir = "migrations"
+
+[triggers]
+# Every 5 min: payment reconciliation, reservation expiry, refund re-checks,
+# stuck-capture sweep, COD reminders, then the outbox drain (src/lib/store/scheduled.ts).
+crons = ["*/5 * * * *"]
+
+[vars]
+# Turnstile widget "HariLeaf Store" (public). .dev.vars overrides it with
+# Cloudflare's always-pass test key, since this one only works on harileaf.org.
+PUBLIC_TURNSTILE_SITE_KEY = "0x4AAAAAAFdgCACaacNRdXfz"
+
+# Workers Logs: keeps the JSON console logs (order, payment, webhook, outbox
+# failures) searchable in the dashboard. Included in Workers Paid.
+[observability]
+enabled = true
+
+# Per-IP limits for checkout, pincode lookups and payment retries (Workers Rate Limiting).
+[[ratelimits]]
+name = "STORE_RATE_LIMITER"
+namespace_id = "1001"
+simple = { limit = 30, period = 60 }

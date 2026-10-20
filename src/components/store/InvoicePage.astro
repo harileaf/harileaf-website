@@ -1,0 +1,42 @@
+---
+/** Standalone printable page holding an order's GST documents (invoice, then credit notes). */
+import InvoiceDoc from './InvoiceDoc.astro';
+import type { DocSnapshot } from '../../lib/store/invoices';
+
+interface Props {
+  title: string;
+  docs: Array<{ doc_no: string; issued_at: string; snapshot: string }>;
+  backHref: string;
+  /** Free replacement: its document is a delivery challan, not an invoice. */
+  replacement?: boolean;
+}
+const { title, docs, backHref, replacement = false } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en-IN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>{title}</title>
+    <style is:global>
+      body { margin: 0; background: #eef1f0; padding: 1rem; }
+      .bar { max-width: 820px; margin: 0 auto 1rem; display: flex; justify-content: space-between; gap: 1rem; font: 14px Arial, sans-serif; }
+      .bar a, .bar button { color: #196a5e; font-weight: 700; background: none; border: 0; cursor: pointer; font: inherit; text-decoration: underline; }
+      @media print { body { background: #fff; padding: 0; } .bar { display: none; } @page { size: A4; margin: 12mm; } }
+    </style>
+  </head>
+  <body>
+    <div class="bar"><a href={backHref}>← Back to order</a><button type="button" id="print-docs">Print / save as PDF</button></div>
+    {docs.length === 0 ? (
+      <p class="bar">{replacement ? 'The delivery challan is issued when your replacement is packed for dispatch.' : 'The invoice is issued when your order is packed for dispatch.'}</p>
+    ) : (
+      docs.map((d) => <InvoiceDoc snapshot={JSON.parse(d.snapshot) as DocSnapshot} docNo={d.doc_no} issuedAt={d.issued_at} />)
+    )}
+  </body>
+</html>
+
+<script>
+  document.getElementById('print-docs')?.addEventListener('click', () => window.print());
+</script>

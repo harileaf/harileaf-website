@@ -1,0 +1,246 @@
+---
+/**
+ * Product page — Layout C (Hybrid): light buy box above the fold, dark
+ * "From our farm" bento band, FAQ, related products, sticky mobile bar.
+ * Reviews render only when approved reviews exist.
+ */
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import SEO from '../seo/SEO.astro';
+import BuyBox from './BuyBox.astro';
+import ProductGrid from './ProductGrid.astro';
+import ReviewsSection from './ReviewsSection.astro';
+import type { Batch, Image, LabReport, Product, ProductCard, Variant } from '../../lib/store/catalog';
+import type { PublicReview, ReviewSummary } from '../../lib/store/reviews';
+import type { Zone } from '../../lib/store/zones';
+import { recipesUsing } from '../../content/store/recipes';
+import { articlesFor } from '../../content/store/articles';
+import { organicCopy } from '../../lib/store/claims';
+import { renderBasicMarkdown } from '../../lib/store/markdown';
+import { formatINR } from '../../lib/store/money';
+import type { StoreSettings } from '../../lib/store/settings';
+import { breadcrumbJsonLd, faqJsonLd, jsonLdString, productDescription, productGroupJsonLd, productTitle } from '../../lib/store/seo';
+import { absolute, categoryPath, productPath } from '../../lib/store/urls';
+import { displayPhone, orPending } from '../../lib/store/policy-settings';
+
+interface Props {
+  product: Product;
+  variants: Variant[];
+  images: Image[];
+  batch: Batch | null;
+  labReports: LabReport[];
+  related: ProductCard[];
+  reviews: { summary: ReviewSummary | null; items: PublicReview[] };
+  zone: Zone | null;
+  settings: StoreSettings;
+}
+
+const { product: p, variants, images, batch, labReports, related, reviews, zone, settings } = Astro.props;
+const initial = variants.find((v) => v.availability === 'buy') ?? variants.find((v) => v.availability === 'preorder') ?? variants[0];
+const mayUseOrganic = organicCopy({ organicScheme: p.organic.scheme, conversionSince: p.organic.conversionSince, certNumber: p.organic.certNumber }).mayUseOrganic;
+const title = productTitle(p, initial, { mayUseOrganic });
+const description = productDescription(p);
+const canonical = absolute(productPath(p.category.slug, p.slug));
+const crumbs = [
+  { name: 'Home', path: '/' },
+  { name: p.category.name, path: categoryPath(p.category.slug) },
+  { name: p.name, path: productPath(p.category.slug, p.slug) },
+];
+const schemas = [productGroupJsonLd({ product: p, variants, images, reviews }), breadcrumbJsonLd(crumbs), faqJsonLd(p.faq)].filter(
+  (s): s is Record<string, unknown> => s !== null,
+);
+const lab = batch?.labReport ?? labReports[0] ?? null;
+const description_html = renderBasicMarkdown(p.descriptionMd);
+const minOrder = /^\d+$/.test(settings.min_order_paise) ? Number(settings.min_order_paise) : null;
+const codMax = /^\d+$/.test(settings.cod_max_order_paise) ? Number(settings.cod_max_order_paise) : null;
+const howEntries = Object.entries(p.howItsMade);
+const harvestEntries = Object.entries(p.harvestInfo);
+const attrEntries = Object.entries(p.attributes);
+const fmtDate = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
+// Internal links (SEO §3.4): recipes that use this product, and the category's guide.
+const cookIt = recipesUsing(p.category.slug, p.slug);
+const readMore = articlesFor(p.category.slug);
+const hasBand = howEntries.length || harvestEntries.length || p.nutrition.rows.length || lab || description_html || attrEntries.length;
+---
+
+<SiteLayout title={title} description={description} ogImage={images[0] ? absolute(images[0].url) : undefined}>
+  <slot name="head" slot="head">
+    <SEO title={title} description={description} canonicalUrl={canonical} ogImage={images[0] ? absolute(images[0].url) : undefined} ogType="product" />
+    {schemas.map((s) => <script type="application/ld+json" is:inline set:html={jsonLdString(s)} />)}
+  </slot>
+
+  <div class="max-w-7xl mx-auto px-6 pt-28 pb-12">
+    <nav aria-label="Breadcrumb" class="text-xs text-on-surface-variant mb-5">
+      <ol class="flex flex-wrap gap-1.5">
+        {crumbs.map((c, i) => (
+          <li class="flex gap-1.5">
+            {i < crumbs.length - 1 ? <a href={c.path} class="font-bold text-primary hover:underline">{c.name}</a> : <span aria-current="page">{c.name}</span>}
+            {i < crumbs.length - 1 && <span aria-hidden="true">›</span>}
+          </li>
+        ))}
+      </ol>
+    </nav>
+
+    <div class="grid grid-cols-1 md:grid-cols-[1.1fr_1fr] gap-10 lg:gap-14 items-start">
+      <div>
+        <div class="rounded-3xl overflow-hidden aspect-[4/3] bg-surface-container">
+          {images[0] ? (
+            <img data-gallery-main src={images[0].url} alt={images[0].alt} width="1200" height="900" fetchpriority="high" class="w-full h-full object-cover" />
+          ) : (
+            <div class="w-full h-full flex items-center justify-center text-on-surface-variant text-sm">Photo coming soon</div>
+          )}
+        </div>
+        {images.length > 1 && (
+          <div class="flex gap-2 mt-3 overflow-x-auto" role="group" aria-label="More photos">
+            {images.map((img, i) => (
+              <button type="button" data-gallery-thumb data-src={img.url} data-alt={img.alt} aria-pressed={i === 0 ? 'true' : 'false'} class="shrink-0 rounded-xl overflow-hidden border-2 border-transparent aria-pressed:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                <img src={img.url} alt="" width="72" height="72" loading="lazy" class="w-[72px] h-[72px] object-cover" />
+                <span class="sr-only">Show photo {i + 1}: {img.alt}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <BuyBox product={p} variants={variants} batch={batch} minOrderPaise={minOrder} codMaxPaise={codMax} rating={reviews.summary} zone={zone} settings={settings}>
+        <details class="rounded-2xl bg-surface-container-low px-5 py-4">
+          <summary class="font-extrabold text-sm cursor-pointer">Product information</summary>
+          <dl class="mt-3 grid grid-cols-[9rem_1fr] gap-x-4 gap-y-1.5 text-sm text-on-surface-variant">
+            <dt class="font-bold text-on-surface">Product</dt><dd>{p.name}</dd>
+            <dt class="font-bold text-on-surface">Net quantity</dt><dd data-bb-netqty>{initial.netQtyLabel}</dd>
+            <dt class="font-bold text-on-surface">MRP</dt><dd><span data-bb-mrp>{formatINR(initial.mrp)}</span> (inclusive of all taxes)</dd>
+            <dt class="font-bold text-on-surface">Unit sale price</dt><dd data-bb-unit>{initial.unitPrice}</dd>
+            {p.listing.bestBeforeDays && <><dt class="font-bold text-on-surface">Best before</dt><dd>{p.listing.bestBeforeDays} days from packing{batch ? ` (packed ${fmtDate(batch.packedOn)})` : ''}</dd></>}
+            {p.listing.storage && <><dt class="font-bold text-on-surface">Storage</dt><dd>{p.listing.storage}</dd></>}
+            {p.listing.ingredients && <><dt class="font-bold text-on-surface">Ingredients</dt><dd>{p.listing.ingredients}</dd></>}
+            {p.listing.allergens && <><dt class="font-bold text-on-surface">Allergens</dt><dd>{p.listing.allergens}</dd></>}
+            <dt class="font-bold text-on-surface">Food type</dt>
+            <dd class="flex items-center gap-1.5">
+              <span aria-hidden="true" class:list={['inline-flex w-3.5 h-3.5 border-2 items-center justify-center', p.listing.veg ? 'border-[#1d7a3a]' : 'border-[#8a2a2a]']}><span class:list={['w-1.5 h-1.5 rounded-full', p.listing.veg ? 'bg-[#1d7a3a]' : 'bg-[#8a2a2a]']}></span></span>
+              {p.listing.veg ? 'Vegetarian' : 'Non-vegetarian'}
+            </dd>
+            <dt class="font-bold text-on-surface">Country of origin</dt><dd>{p.listing.countryOfOrigin}</dd>
+            <dt class="font-bold text-on-surface">Packed &amp; marketed by</dt><dd>{orPending(settings.legal_name)}{settings.address ? `, ${settings.address}` : ''}</dd>
+            <dt class="font-bold text-on-surface">FSSAI licence</dt><dd>{orPending(settings.fssai_license)}</dd>
+            <dt class="font-bold text-on-surface">Customer care</dt><dd>{displayPhone(settings.customer_care_phone)}{settings.customer_care_email ? ` · ${settings.customer_care_email}` : ''}</dd>
+          </dl>
+        </details>
+      </BuyBox>
+    </div>
+  </div>
+
+  {hasBand && (
+    <section style="background:#0c110c;" class="py-16 px-6 text-white" aria-labelledby="farm-heading">
+      <div class="max-w-7xl mx-auto">
+        <p class="text-xs uppercase tracking-widest font-extrabold mb-2" style="color:rgba(159,177,125,.85);">From our farm</p>
+        <h2 id="farm-heading" class="text-3xl font-extrabold tracking-tight mb-8 text-white">How {p.name} is made</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {description_html && (
+            <div class="md:col-span-2 rounded-3xl p-7 border border-white/10 bg-white/[0.04] leading-relaxed text-[15px] [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_strong]:text-white" style="color:rgba(240,240,238,.72);" set:html={description_html} />
+          )}
+          {howEntries.length > 0 && (
+            <div class="rounded-3xl p-7 border border-white/10 bg-white/[0.04]">
+              <h3 class="font-extrabold text-lg mb-3 text-white">How it's made</h3>
+              <dl class="text-sm flex flex-col gap-2" style="color:rgba(240,240,238,.7);">
+                {howEntries.map(([k, v]) => (<div><dt class="font-bold text-white">{k}</dt><dd>{v}</dd></div>))}
+              </dl>
+            </div>
+          )}
+          {(harvestEntries.length > 0 || batch) && (
+            <div class="rounded-3xl p-7 border border-white/10 bg-white/[0.04]">
+              <h3 class="font-extrabold text-lg mb-3 text-white">Harvest &amp; freshness</h3>
+              <dl class="text-sm flex flex-col gap-2" style="color:rgba(240,240,238,.7);">
+                {harvestEntries.map(([k, v]) => (<div><dt class="font-bold text-white">{k}</dt><dd>{v}</dd></div>))}
+                {batch && <div><dt class="font-bold text-white">Current batch</dt><dd>{batch.batchCode}, packed {fmtDate(batch.packedOn)}{batch.groundOrMilledOn ? ` (ground/milled ${fmtDate(batch.groundOrMilledOn)})` : ''}</dd></div>}
+              </dl>
+            </div>
+          )}
+          {p.nutrition.rows.length > 0 && (
+            <div class="rounded-3xl p-7 border border-white/10 bg-white/[0.04]">
+              <h3 class="font-extrabold text-lg mb-1 text-white">Nutrition per {p.nutrition.per}</h3>
+              {p.nutrition.source && <p class="text-xs mb-3" style="color:rgba(240,240,238,.5);">Source: {p.nutrition.source}</p>}
+              <table class="w-full text-sm" style="color:rgba(240,240,238,.78);">
+                <tbody>
+                  {p.nutrition.rows.map((r) => (<tr class="border-t border-white/10"><th scope="row" class="text-left font-normal py-1.5">{r.name}</th><td class="text-right font-bold text-white">{r.amount}</td></tr>))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {lab && (
+            <div id="lab-report" class="rounded-3xl p-7 border bg-white/[0.04]" style="border-color:rgba(139,212,198,.3);">
+              <h3 class="font-extrabold text-lg mb-1 text-white">Lab report · Batch {lab.batchCode}</h3>
+              <p class="text-xs mb-3" style="color:rgba(240,240,238,.55);">Tested {fmtDate(lab.testedOn)} by {lab.labName}{lab.labAccreditation ? ` (${lab.labAccreditation})` : ''}{lab.testScope ? ` · ${lab.testScope}` : ''}</p>
+              <dl class="text-sm flex flex-col gap-1.5" style="color:rgba(240,240,238,.78);">
+                {Object.entries(lab.summary).filter(([, v]) => typeof v === 'string').map(([k, v]) => (<div class="flex justify-between gap-3"><dt>{k}</dt><dd class="font-bold text-white text-right">{v as string}</dd></div>))}
+              </dl>
+              {lab.pdfUrl && <a href={lab.pdfUrl} class="inline-block mt-4 font-extrabold" style="color:#8bd4c6;" target="_blank" rel="noopener">Download the report (PDF) →</a>}
+            </div>
+          )}
+          {attrEntries.length > 0 && (
+            <div class="rounded-3xl p-7 border border-white/10 bg-white/[0.04]">
+              <h3 class="font-extrabold text-lg mb-3 text-white">Details</h3>
+              <dl class="text-sm grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5" style="color:rgba(240,240,238,.7);">
+                {attrEntries.map(([k, v]) => (<><dt class="font-bold text-white">{k}</dt><dd>{v}</dd></>))}
+              </dl>
+            </div>
+          )}
+        </div>
+        <p class="mt-6 text-sm"><a href="/our-process/" class="font-bold" style="color:#8bd4c6;">How we grow, mill and grind →</a></p>
+      </div>
+    </section>
+  )}
+
+  <div class="max-w-7xl mx-auto px-6 py-16 flex flex-col gap-16 pb-32 md:pb-16">
+    {reviews.summary && <ReviewsSection productId={p.id} summary={reviews.summary} items={reviews.items} />}
+
+    {(cookIt.length > 0 || readMore.length > 0) && (
+      <section aria-labelledby="more-heading" class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <h2 id="more-heading" class="sr-only">Recipes and guides</h2>
+        {cookIt.length > 0 && (
+          <div>
+            <p class="text-xs uppercase tracking-widest font-extrabold mb-2 text-secondary">Cook it</p>
+            <ul class="flex flex-col gap-3">
+              {cookIt.map((r) => (
+                <li><a href={`/recipes/${r.slug}/`} class="flex items-center gap-4 rounded-2xl bg-white border border-black/5 p-3 hover:shadow-sm">
+                  <img src={r.image.src} alt="" width="96" height="72" loading="lazy" decoding="async" class="w-24 h-[72px] shrink-0 rounded-xl object-cover" />
+                  <span><span class="font-extrabold block">{r.title}</span><span class="text-xs text-on-surface-variant">{r.prepMinutes + r.cookMinutes} min · serves {r.serves}</span></span>
+                </a></li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {readMore.length > 0 && (
+          <div>
+            <p class="text-xs uppercase tracking-widest font-extrabold mb-2 text-secondary">Read more</p>
+            <ul class="flex flex-col gap-3">
+              {readMore.map((a) => <li><a href={`/learn/${a.slug}/`} class="block rounded-2xl bg-white border border-black/5 p-4 hover:shadow-sm"><span class="font-extrabold block">{a.title}</span><span class="text-sm text-on-surface-variant">{a.summary}</span></a></li>)}
+            </ul>
+          </div>
+        )}
+      </section>
+    )}
+
+    {p.faq.length > 0 && (
+      <section aria-labelledby="faq-heading">
+        <p class="text-xs uppercase tracking-widest font-extrabold mb-2 text-secondary">Questions</p>
+        <h2 id="faq-heading" class="text-2xl font-extrabold tracking-tight mb-5">Frequently asked</h2>
+        <div class="flex flex-col gap-2 max-w-3xl">
+          {p.faq.map((f, i) => (
+            <details class="rounded-2xl bg-white px-5 py-4 border border-black/5" open={i === 0}>
+              <summary class="font-extrabold cursor-pointer">{f.q}</summary>
+              <p class="mt-2 text-on-surface-variant leading-relaxed">{f.a}</p>
+            </details>
+          ))}
+        </div>
+      </section>
+    )}
+
+    {related.length > 0 && (
+      <section aria-labelledby="related-heading">
+        <p class="text-xs uppercase tracking-widest font-extrabold mb-2 text-secondary">You may also like</p>
+        <h2 id="related-heading" class="text-2xl font-extrabold tracking-tight mb-5">More from the farm</h2>
+        <ProductGrid cards={related} />
+      </section>
+    )}
+  </div>
+</SiteLayout>
+

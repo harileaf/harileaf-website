@@ -1,7 +1,12 @@
 User-agent: *
 Allow: /
-Disallow: /admin/
-Disallow: /keystatic/
+Disallow: /admin
+Disallow: /keystatic
 Disallow: /api/
+Disallow: /cart
+Disallow: /checkout
+Disallow: /order
+Disallow: /review
 
 Sitemap: https://harileaf.org/sitemap-index.xml
+Sitemap: https://harileaf.org/sitemap-store.xml

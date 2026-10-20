@@ -1,0 +1,102 @@
+---
+export const prerender = false;
+import { env } from 'cloudflare:workers';
+import PolicyPage, { type PolicySection } from '../components/policy/PolicyPage.astro';
+import { POLICY_CACHE, displayPhone, loadPolicySettings, phoneHref, orPending, rupeesSetting } from '../lib/store/policy-settings';
+import { WEEKDAY_NAMES, parseCalendar, parseZones } from '../lib/store/zones';
+
+const s = await loadPolicySettings(env.STORE_DB);
+Astro.response.headers.set('Cache-Control', POLICY_CACHE);
+const minOrder = rupeesSetting(s.min_order_paise);
+const codMax = rupeesSetting(s.cod_max_order_paise);
+const zones = parseZones(s.delivery_zones).filter((z) => z.enabled);
+const cal = parseCalendar(s);
+const list = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}` : (xs[0] ?? ''));
+const cutoff = cal.cutoffHour === 0 ? 'midnight' : cal.cutoffHour < 12 ? `${cal.cutoffHour} am` : cal.cutoffHour === 12 ? 'noon' : `${cal.cutoffHour - 12} pm`;
+const freshParagraphs = zones.length
+  ? [
+      ...zones.map((z) => `${z.name}: pincodes starting ${list(z.pincodes)}, by ${z.expressOnly ? 'express (air) ' : ''}courier within ${z.maxTransitDays} day${z.maxTransitDays === 1 ? '' : 's'} of dispatch. Before you order, the product page and checkout check your pincode and show the dispatch day and expected delivery dates.`),
+      `We dispatch fresh produce only on ${list(cal.days.map((d) => WEEKDAY_NAMES[d - 1]))}, so it doesn't sit in a courier hub over the weekend. Orders paid before ${cutoff} (IST) on a dispatch day leave the same day${cal.blackouts.length ? `; we don't dispatch on ${list(cal.blackouts)}` : ''}.`,
+      'Fresh produce is prepaid only (no cash on delivery) and is checked out separately from rice and spices, because it ships differently. Delivery is free.',
+    ]
+  : ['Fresh produce such as mangoes is not available for delivery at the moment. Product pages say when it is in season.'];
+
+const sections: PolicySection[] = [
+  {
+    id: 'where',
+    title: 'Where we deliver',
+    paragraphs: [
+      'We deliver rice and spices across India to every pincode our courier partners serve. Enter your pincode at checkout to check delivery to your address before you order.',
+      'Fresh produce is delivered only within the areas listed below, so it reaches you fresh.',
+    ],
+  },
+  {
+    id: 'fresh',
+    title: 'Fresh produce (mangoes and other perishables)',
+    paragraphs: freshParagraphs,
+  },
+  {
+    id: 'charges',
+    title: 'Delivery charges and minimum order',
+    paragraphs: [
+      `Delivery is free. The minimum order value is ${minOrder}, and the price you see at checkout is the full amount you pay — there are no extra delivery or cash-on-delivery fees.`,
+    ],
+  },
+  {
+    id: 'dispatch',
+    title: 'Dispatch and delivery times',
+    paragraphs: [
+      'Rice and spices are packed and dispatched within 2 business days of confirmation (Sundays and public holidays excluded). Fresh produce follows its own dispatch days, above.',
+      'After dispatch, delivery usually takes 3–7 business days depending on your location. The estimated delivery date shown at checkout comes from our courier partner and may vary.',
+    ],
+  },
+  {
+    id: 'preorders',
+    title: 'Pre-orders',
+    paragraphs: [
+      'Some seasonal products can be ordered before the harvest. The product page and checkout show the date we expect to dispatch from. Pre-orders are prepaid and checked out separately from items that ship now.',
+      'We email you when your pre-order is packed and ready to leave the farm, and again with the tracking link. If the harvest is late, we email you the new date and you can cancel for a full refund. You can also cancel for a full refund any time until we pack it.',
+    ],
+  },
+  {
+    id: 'tracking',
+    title: 'Tracking your order',
+    paragraphs: [
+      'When your order ships we email you a tracking link. You can also see its status any time from the order link in your confirmation email.',
+    ],
+  },
+  {
+    id: 'cod',
+    title: 'Cash on delivery',
+    paragraphs: [
+      `Cash on delivery is available for rice and spices on orders up to ${codMax} at pincodes where our courier partner offers it. There is no fee for cash on delivery. Fresh produce is prepaid only.`,
+    ],
+  },
+  {
+    id: 'failed',
+    title: 'If a delivery fails',
+    paragraphs: [
+      'Our courier partner will attempt delivery and contact you if they cannot reach you. If a parcel comes back to us undelivered, we refund prepaid orders in full once it is received, and cancel cash-on-delivery orders.',
+    ],
+  },
+  {
+    id: 'contact',
+    title: 'Contact',
+    paragraphs: ['For any question about a delivery, contact our customer care team with your order number.'],
+    rows: [
+      { label: 'Phone', value: displayPhone(s.customer_care_phone), href: phoneHref(s.customer_care_phone) },
+      { label: 'Email', value: orPending(s.customer_care_email), href: s.customer_care_email ? `mailto:${s.customer_care_email}` : undefined },
+    ],
+  },
+];
+---
+
+<PolicyPage
+  title="Shipping Policy"
+  badge="Store"
+  subtitle="How and where we deliver your order."
+  updated="2026-10-19"
+  path="/shipping-policy"
+  description="Free delivery across India for rice and spices, fresh produce within its delivery area by express courier, dispatch days, tracking and cash on delivery at HariLeaf."
+  sections={sections}
+/>

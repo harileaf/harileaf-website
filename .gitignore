@@ -51,3 +51,13 @@ pnpm-debug.log*
 
 # brainstorm visual companion
 .superpowers/
+
+# Wrangler local secrets
+.dev.vars
+.dev.vars.*
+.playwright-mcp/
+
+# Local test/CI reports (Playwright, Lighthouse)
+playwright-report/
+test-results/
+.lighthouseci/

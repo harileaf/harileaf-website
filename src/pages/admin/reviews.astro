@@ -1,0 +1,98 @@
+---
+export const prerender = false;
+import { env } from 'cloudflare:workers';
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { validateSession } from '../../lib/auth';
+import { REJECT_REASONS, listReviewsForAdmin, reviewCounts, type AdminReview } from '../../lib/store/reviews';
+
+const authenticated = await validateSession(env.HARILEAF_CMS, Astro.cookies);
+const TABS = ['pending', 'approved', 'rejected', 'withdrawn'] as const;
+type Tab = (typeof TABS)[number];
+const tab: Tab = (TABS as readonly string[]).includes(Astro.url.searchParams.get('status') ?? '') ? (Astro.url.searchParams.get('status') as Tab) : 'pending';
+let reviews: AdminReview[] = [];
+let counts: Record<string, number> = {};
+if (authenticated) [reviews, counts] = await Promise.all([listReviewsForAdmin(env.STORE_DB, tab), reviewCounts(env.STORE_DB)]);
+const when = (iso: string) => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' });
+---
+
+<AdminLayout title="Reviews" active="reviews">
+  <div style="display:flex;flex-direction:column;gap:1.25rem;font-size:0.875rem;">
+    <section class="card" style="padding:1.25rem 1.5rem;background:#fff;">
+      <p><strong>Publish every honest review, positive or negative.</strong> Reject only for one of the listed reasons; a low rating or criticism is never a reason (Consumer Protection Act — no suppressing negative reviews; IS 19000:2022). Withdraw only when the reviewer asks. Every decision is logged with your email.</p>
+      <nav aria-label="Review status" style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.75rem;">
+        {TABS.map((t) => (
+          <a href={`/admin/reviews?status=${t}`} aria-current={t === tab ? 'page' : undefined} style={`padding:0.35rem 0.9rem;border-radius:999px;font-weight:700;text-decoration:none;${t === tab ? 'background:#196a5e;color:#fff;' : 'background:#ebebea;color:#333;'}`}>
+            {t[0].toUpperCase() + t.slice(1)} ({counts[t] ?? 0})
+          </a>
+        ))}
+      </nav>
+    </section>
+
+    {reviews.length === 0 ? <p class="muted">No {tab} reviews.</p> : (
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:1rem;">
+        {reviews.map((r) => (
+          <li class="card" style="padding:1.25rem 1.5rem;background:#fff;" data-review={r.id}>
+            <p style="display:flex;flex-wrap:wrap;gap:0.5rem;justify-content:space-between;">
+              <span><strong>{r.product_name}</strong> · <span aria-label={`${r.rating} out of 5 stars`}>{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span></span>
+              <span class="muted">{r.display_name} · <a href={`/admin/orders/${r.order_id}`} style="color:#196a5e;">{r.order_no}</a> · {when(r.created_at)}</span>
+            </p>
+            <p style="font-weight:800;margin-top:0.5rem;">{r.title}</p>
+            <p style="margin-top:0.25rem;white-space:pre-line;">{r.body}</p>
+            {r.moderated_at && <p class="muted" style="margin-top:0.5rem;">{r.status}{r.reject_reason && ` — ${REJECT_REASONS[r.reject_reason]}`} · {when(r.moderated_at)}{r.moderated_by && ` by ${r.moderated_by}`}</p>}
+            {(r.status === 'pending' || r.status === 'approved') && (
+              <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;margin-top:0.75rem;">
+                {r.status === 'pending' && (
+                  <>
+                    <button type="button" class="brand-btn" data-act="approve" style="padding:0.4rem 1rem;">Publish</button>
+                    <label class="sr-only" for={`reason-${r.id}`}>Reason to reject</label>
+                    <select id={`reason-${r.id}`} data-reason style="padding:0.4rem;border-radius:8px;border:1px solid rgba(0,0,0,0.15);">
+                      <option value="">Reject because…</option>
+                      {Object.entries(REJECT_REASONS).map(([k, v]) => <option value={k}>{v}</option>)}
+                    </select>
+                    <button type="button" class="brand-btn" data-act="reject" style="padding:0.4rem 1rem;background:#8a1c1c;">Reject</button>
+                  </>
+                )}
+                <button type="button" data-act="withdraw" style="padding:0.4rem 1rem;border-radius:999px;border:1px solid #999;background:#fff;font-weight:700;cursor:pointer;">Withdraw (reviewer asked)</button>
+                <span role="status" aria-live="polite" class="muted" data-status></span>
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+    )}
+  </div>
+</AdminLayout>
+
+<script>
+  import { showToast } from '../../scripts/admin/toast';
+
+  document.querySelectorAll<HTMLElement>('[data-review]').forEach((card) => {
+    card.querySelectorAll<HTMLButtonElement>('[data-act]').forEach((b) =>
+      b.addEventListener('click', async () => {
+        const action = b.dataset.act!;
+        const reason = card.querySelector<HTMLSelectElement>('[data-reason]')?.value ?? '';
+        if (action === 'reject' && !reason) {
+          showToast('Choose a reason to reject', 'error');
+          card.querySelector<HTMLSelectElement>('[data-reason]')?.focus();
+          return;
+        }
+        if ((action === 'withdraw' || action === 'reject') && b.dataset.sure !== '1') {
+          // No confirm() dialogs in admin: a second click confirms (neither can be undone here).
+          b.dataset.sure = '1';
+          b.textContent = action === 'reject' ? 'Click again to reject' : 'Click again to withdraw';
+          return;
+        }
+        card.querySelectorAll<HTMLButtonElement>('button').forEach((x) => (x.disabled = true));
+        const res = await fetch(`/api/admin/reviews/${card.dataset.review}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, reason }) });
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        if (res.ok) {
+          card.querySelector<HTMLElement>('[data-status]')!.textContent = action === 'approve' ? 'Published' : action === 'reject' ? 'Rejected' : 'Withdrawn';
+          setTimeout(() => card.remove(), 600);
+        } else {
+          card.querySelectorAll<HTMLButtonElement>('button').forEach((x) => (x.disabled = false));
+          showToast(data.error ?? 'Could not update', 'error');
+        }
+      }),
+    );
+  });
+</script>

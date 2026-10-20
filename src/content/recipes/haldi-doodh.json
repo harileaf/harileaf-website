@@ -1,0 +1,31 @@
+{
+  "title": "Haldi doodh (turmeric milk)",
+  "summary": "Warm milk with stone-ground turmeric, a pinch of pepper and jaggery — a classic Indian bedtime drink.",
+  "heroImage": "../../assets/recipes/haldi-doodh.jpg",
+  "heroImageAlt": "Stone-ground turmeric powder",
+  "published": "2026-10-18",
+  "updated": "2026-10-18",
+  "category": "Drink",
+  "prepMinutes": 2,
+  "cookMinutes": 5,
+  "serves": 1,
+  "ingredients": [
+    "1 cup milk (dairy or plant-based)",
+    "½ tsp HariLeaf turmeric powder",
+    "A pinch of black pepper",
+    "A small piece of cinnamon or a pinch of ground cardamom (optional)",
+    "1–2 tsp jaggery or honey, to taste"
+  ],
+  "steps": [
+    "Warm the milk in a small pan with the turmeric, pepper and cinnamon or cardamom.",
+    "Simmer gently for 3–4 minutes, stirring so the turmeric doesn't settle.",
+    "Take off the heat, stir in the jaggery or honey, strain if you used whole spices, and serve warm."
+  ],
+  "productsUsed": [
+    {
+      "product": "spices/turmeric-powder",
+      "label": "Turmeric powder"
+    }
+  ],
+  "tip": ""
+}

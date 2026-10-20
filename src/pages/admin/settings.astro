@@ -1,0 +1,247 @@
+---
+export const prerender = false;
+import { env } from 'cloudflare:workers';
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { validateSession } from '../../lib/auth';
+import { getSettings, type SettingKey } from '../../lib/store/settings';
+import { WEEKDAY_NAMES, parseZones } from '../../lib/store/zones';
+
+const authenticated = await validateSession(env.HARILEAF_CMS, Astro.cookies);
+let settings: Record<SettingKey, string> | null = null;
+let dbError = false;
+if (authenticated) {
+  try {
+    settings = await getSettings(env.STORE_DB);
+  } catch (err) {
+    dbError = true;
+    console.error(JSON.stringify({ msg: 'settings load failed', error: String(err) }));
+  }
+}
+
+type Field = { key: SettingKey; label: string; hint?: string; type?: 'text' | 'email' | 'tel' | 'rupees' | 'select'; multiline?: boolean; options?: Array<[string, string]> };
+const groups: Array<{ title: string; note?: string; fields: Field[] }> = [
+  {
+    title: 'Seller',
+    note: 'Shown on product pages, invoices and the grievance page (E-Commerce Rules, Legal Metrology).',
+    fields: [
+      { key: 'legal_name', label: 'Legal name', hint: 'As on the GST registration' },
+      { key: 'trade_name', label: 'Trade name' },
+      { key: 'address', label: 'Registered / packer address', multiline: true },
+      { key: 'state_code', label: 'GST state code', hint: '27 = Maharashtra' },
+      { key: 'gstin', label: 'GSTIN' },
+      { key: 'fssai_license', label: 'FSSAI licence number', hint: '14 digits' },
+    ],
+  },
+  {
+    title: 'Customer care',
+    fields: [
+      { key: 'customer_care_phone', label: 'Phone', type: 'tel' },
+      { key: 'customer_care_email', label: 'Email', type: 'email' },
+    ],
+  },
+  {
+    title: 'Grievance officer',
+    note: 'Required by the Consumer Protection (E-Commerce) Rules 2020. Complaints must be acknowledged within 48 hours and resolved within one month.',
+    fields: [
+      { key: 'grievance_officer_name', label: 'Name' },
+      { key: 'grievance_officer_email', label: 'Email', type: 'email' },
+      { key: 'grievance_officer_phone', label: 'Phone', type: 'tel' },
+    ],
+  },
+  {
+    title: 'Orders',
+    fields: [
+      { key: 'min_order_paise', label: 'Minimum order (₹)', type: 'rupees', hint: "Orders below this can't be placed; delivery is always free. Set it from courier rate cards." },
+      { key: 'cod_max_order_paise', label: 'Maximum COD order (₹)', type: 'rupees' },
+      { key: 'cod_confirmation', label: 'Confirm COD orders before shipping', type: 'select', options: [['on', 'On — customer confirms by email/order page, or you confirm after a call'], ['off', 'Off — ship COD orders straight away']], hint: 'Cuts fake orders and returns-to-origin. Unconfirmed orders get one reminder after 24 hours.' },
+      { key: 'cod_confirm_window_hours', label: 'Cancel unconfirmed COD orders after (hours)', hint: 'Releases the stock they hold — so nobody can tie up stock with fake orders. 0 = never (you cancel them by hand).' },
+    ],
+  },
+  {
+    title: 'Shipping (Shiprocket)',
+    note: 'Used to check delivery to a pincode at checkout and to create shipments.',
+    fields: [
+      { key: 'pickup_pincode', label: 'Pickup pincode', hint: 'Where couriers collect from' },
+      { key: 'shiprocket_pickup_location', label: 'Shiprocket pickup location name', hint: 'Exactly as named in Shiprocket → Settings → Pickup addresses' },
+      { key: 'shiprocket_auto_push', label: 'Send orders to Shiprocket automatically', type: 'select', options: [['on', 'On — every confirmed order is created in Shiprocket; assign AWBs there or from the order page'], ['off', 'Off — book each courier from the order page (Book courier)']], hint: 'Either way you can book the courier, print the label and the manifest from the order page.' },
+    ],
+  },
+  {
+    title: 'Notifications',
+    fields: [
+      { key: 'notify_email', label: 'New-order email', type: 'email' },
+      { key: 'low_stock_email', label: 'Low-stock email', type: 'email' },
+    ],
+  },
+];
+
+const zones = settings ? parseZones(settings.delivery_zones) : [];
+const dispatchDays = new Set((settings?.dispatch_days ?? '').split(',').map(Number));
+const rupees = (paise: string) => (/^\d+$/.test(paise) ? String(Number(paise) / 100) : paise);
+---
+
+<AdminLayout title="Store settings" active="settings">
+  {dbError && <p class="warn" role="alert">The store database isn't reachable yet. Create the D1 database and apply migrations (see README → Store development).</p>}
+  {settings && (
+    <form id="settings-form" novalidate style="display:flex;flex-direction:column;gap:2rem;max-width:640px;">
+      {groups.map((g) => (
+        <fieldset style="border:none;display:flex;flex-direction:column;gap:1rem;">
+          <legend style="font-size:1rem;font-weight:800;margin-bottom:0.25rem;">{g.title}</legend>
+          {g.note && <p class="muted">{g.note}</p>}
+          {g.fields.map((f) => (
+            <div>
+              <label for={`s-${f.key}`}>{f.label}</label>
+              {f.type === 'select' ? (
+                <select id={`s-${f.key}`} name={f.key} aria-describedby={`e-${f.key}`} style="background:#fff;border:1px solid rgba(0,0,0,0.12);border-radius:8px;padding:0.75rem 1rem;width:100%;">
+                  {(f.options ?? []).map(([v, label]) => <option value={v} selected={settings![f.key] === v}>{label}</option>)}
+                </select>
+              ) : f.multiline ? (
+                <textarea id={`s-${f.key}`} name={f.key} rows="3" style="resize:vertical;" aria-describedby={`e-${f.key}`}>{settings![f.key]}</textarea>
+              ) : (
+                <input
+                  id={`s-${f.key}`}
+                  name={f.key}
+                  type={f.type === 'rupees' ? 'number' : (f.type ?? 'text')}
+                  min={f.type === 'rupees' ? '0' : undefined}
+                  step={f.type === 'rupees' ? '0.01' : undefined}
+                  data-rupees={f.type === 'rupees' ? '' : undefined}
+                  value={f.type === 'rupees' ? rupees(settings![f.key]) : settings![f.key]}
+                  aria-describedby={`e-${f.key}`}
+                />
+              )}
+              {f.hint && <p class="muted" style="font-size:0.75rem;margin-top:0.375rem;">{f.hint}</p>}
+              <p id={`e-${f.key}`} class="error" data-error-for={f.key} aria-live="polite" style="margin-top:0.375rem;"></p>
+            </div>
+          ))}
+        </fieldset>
+      ))}
+      <fieldset style="border:none;display:flex;flex-direction:column;gap:1rem;">
+        <legend style="font-size:1rem;font-weight:800;margin-bottom:0.25rem;">Perishables: delivery zones and dispatch</legend>
+        <p class="muted">A perishable product is sold only to pincodes in its zone, only while the zone is enabled, and only when the courier offers delivery within the zone's days (air only when "express" is ticked). Enable a zone only after packaging trials and test shipments show a positive margin.</p>
+        <input type="hidden" name="delivery_zones" value={settings.delivery_zones} data-zones-json />
+        <div data-zones style="display:flex;flex-direction:column;gap:1rem;">
+          {[...zones, null].map((zone) => {
+            // The last card is the blank one "+ Add zone" copies, kept in a <template>.
+            const z = zone ?? { id: '', name: '', pincodes: [] as string[], maxTransitDays: 2, expressOnly: true, enabled: false };
+            const card = (
+              <div class="card" data-zone style="padding:1rem;background:#fff;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.75rem;">
+                <div><label>Zone name<input type="text" data-z="name" value={z.name} /></label></div>
+                <div><label>Zone id<input type="text" data-z="id" value={z.id} /></label></div>
+                <div style="grid-column:1/-1;"><label>Pincodes or prefixes<textarea data-z="pincodes" rows="2">{z.pincodes.join(', ')}</textarea></label><p class="muted" style="font-size:0.75rem;">e.g. 400, 401, 4102 — a prefix covers every pincode starting with it.</p></div>
+                <div><label>Max transit days<input type="number" min="1" max="7" data-z="maxTransitDays" value={z.maxTransitDays} /></label></div>
+                <label style="display:flex;gap:0.5rem;align-items:center;text-transform:none;letter-spacing:0;font-size:0.875rem;color:#1a1a1a;"><input type="checkbox" data-z="expressOnly" checked={z.expressOnly} /> Express (air) couriers only</label>
+                <label style="display:flex;gap:0.5rem;align-items:center;text-transform:none;letter-spacing:0;font-size:0.875rem;color:#1a1a1a;"><input type="checkbox" data-z="enabled" checked={z.enabled} /> Enabled (selling)</label>
+                <button type="button" data-remove-zone style="justify-self:start;align-self:center;background:none;border:0;color:#b3261e;font-weight:700;cursor:pointer;padding:0;">Remove zone</button>
+              </div>
+            );
+            return zone ? card : <template data-zone-template>{card}</template>;
+          })}
+        </div>
+        <button type="button" data-add-zone style="align-self:flex-start;padding:0.4rem 1rem;border-radius:999px;border:1px solid #196a5e;background:#fff;color:#196a5e;font-weight:700;cursor:pointer;">+ Add zone</button>
+        <p id="e-delivery_zones" class="error" data-error-for="delivery_zones" aria-live="polite"></p>
+        <div>
+          <span style="display:block;font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#666;margin-bottom:0.5rem;" id="dd-label">Dispatch days</span>
+          <div role="group" aria-labelledby="dd-label" style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+            {WEEKDAY_NAMES.map((d, i) => (
+              <label style="display:flex;gap:0.35rem;align-items:center;text-transform:none;letter-spacing:0;font-size:0.875rem;color:#1a1a1a;margin:0;"><input type="checkbox" data-dispatch-day={i + 1} checked={dispatchDays.has(i + 1)} /> {d.slice(0, 3)}</label>
+            ))}
+          </div>
+          <input type="hidden" name="dispatch_days" value={settings.dispatch_days} data-dispatch-days />
+          <p class="muted" style="font-size:0.75rem;margin-top:0.375rem;">Perishables leave the farm only on these days (avoid Friday–Sunday: parcels would sit in a hub over the weekend).</p>
+          <p class="error" data-error-for="dispatch_days" aria-live="polite"></p>
+        </div>
+        <div>
+          <label for="s-dispatch_blackouts">No-dispatch dates</label>
+          <input id="s-dispatch_blackouts" name="dispatch_blackouts" type="text" value={settings.dispatch_blackouts} placeholder="2027-04-14, 2027-05-01" aria-describedby="e-dispatch_blackouts" />
+          <p class="muted" style="font-size:0.75rem;margin-top:0.375rem;">Holidays and courier off-days, as YYYY-MM-DD separated by commas.</p>
+          <p id="e-dispatch_blackouts" class="error" data-error-for="dispatch_blackouts" aria-live="polite"></p>
+        </div>
+        <div>
+          <label for="s-dispatch_cutoff_hour">Same-day dispatch cutoff (hour, IST)</label>
+          <input id="s-dispatch_cutoff_hour" name="dispatch_cutoff_hour" type="number" min="0" max="23" value={settings.dispatch_cutoff_hour} aria-describedby="e-dispatch_cutoff_hour" />
+          <p class="muted" style="font-size:0.75rem;margin-top:0.375rem;">Orders paid after this hour dispatch on the next dispatch day.</p>
+          <p id="e-dispatch_cutoff_hour" class="error" data-error-for="dispatch_cutoff_hour" aria-live="polite"></p>
+        </div>
+      </fieldset>
+
+      <div style="display:flex;align-items:center;gap:1rem;padding-top:1rem;border-top:1px solid rgba(0,0,0,0.08);">
+        <button type="submit" class="brand-btn" style="padding:0.75rem 2rem;">Save settings</button>
+        <p id="settings-status" class="muted" aria-live="polite"></p>
+      </div>
+    </form>
+  )}
+</AdminLayout>
+
+<script>
+  import { showToast } from '../../scripts/admin/toast';
+
+  const form = document.getElementById('settings-form') as HTMLFormElement | null;
+
+  // A new zone is a blank card (express only, not yet selling); removing one takes effect on Save.
+  form?.querySelector('[data-add-zone]')?.addEventListener('click', () => {
+    const tpl = form.querySelector<HTMLTemplateElement>('[data-zone-template]')!;
+    const card = tpl.content.firstElementChild!.cloneNode(true) as HTMLElement;
+    tpl.before(card);
+    card.querySelector<HTMLInputElement>('[data-z="name"]')?.focus();
+  });
+  form?.querySelector('[data-zones]')?.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('[data-remove-zone]');
+    if (btn) btn.closest('[data-zone]')?.remove();
+  });
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+    const status = document.getElementById('settings-status')!;
+    form.querySelectorAll<HTMLElement>('[data-error-for]').forEach((el) => (el.textContent = ''));
+    form.querySelectorAll('[aria-invalid]').forEach((el) => el.removeAttribute('aria-invalid'));
+
+    // The zone cards and day boxes write their values into hidden fields first.
+    const zonesJson = form.querySelector<HTMLInputElement>('[data-zones-json]');
+    if (zonesJson) {
+      zonesJson.value = JSON.stringify([...form.querySelectorAll<HTMLElement>('[data-zone]')].map((card) => {
+        const v = (k: string) => card.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[data-z="${k}"]`)!;
+        return { id: v('id').value, name: v('name').value, pincodes: v('pincodes').value, maxTransitDays: Number(v('maxTransitDays').value), expressOnly: (v('expressOnly') as HTMLInputElement).checked, enabled: (v('enabled') as HTMLInputElement).checked };
+      }));
+    }
+    const days = form.querySelector<HTMLInputElement>('[data-dispatch-days]');
+    if (days) days.value = [...form.querySelectorAll<HTMLInputElement>('[data-dispatch-day]')].filter((c) => c.checked).map((c) => c.dataset.dispatchDay).join(',');
+
+    const body: Record<string, string> = {};
+    form.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('input[name], textarea[name], select[name]').forEach((el) => {
+      if (el instanceof HTMLInputElement && el.dataset.rupees !== undefined) {
+        const r = el.value.trim();
+        body[el.name] = r === '' || Number.isNaN(Number(r)) ? r : String(Math.round(Number(r) * 100));
+      } else {
+        body[el.name] = el.value;
+      }
+    });
+
+    btn.disabled = true;
+    status.textContent = 'Saving…';
+    const res = await fetch('/api/admin/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    btn.disabled = false;
+    const data = (await res.json().catch(() => ({}))) as { errors?: Record<string, string>; settings?: Record<string, string> };
+    if (res.ok) {
+      status.textContent = '✓ Saved';
+      showToast('Settings saved');
+      // Show the normalised values (e.g. GSTIN upper-cased, phone digits only).
+      for (const [k, v] of Object.entries(data.settings ?? {})) {
+        const el = form.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[name="${k}"]`);
+        if (el && !(el instanceof HTMLInputElement && el.dataset.rupees !== undefined)) el.value = v;
+      }
+    } else {
+      status.textContent = 'Not saved — check the highlighted fields';
+      for (const [k, msg] of Object.entries(data.errors ?? {})) {
+        const el = form.querySelector<HTMLElement>(`[data-error-for="${k}"]`);
+        if (el) el.textContent = msg;
+        form.querySelector(`[name="${k}"]`)?.setAttribute('aria-invalid', 'true');
+      }
+      // Move to the first invalid field in page order (not its hint), so keyboard users land on it too.
+      const first = form.querySelector<HTMLElement>('[data-error-for]:not(:empty)')?.dataset.errorFor;
+      const field = first ? form.querySelector<HTMLElement>(`[name="${first}"]`) : null;
+      field?.focus({ preventScroll: true });
+      field?.scrollIntoView({ block: 'center' });
+      showToast('Save failed', 'error');
+    }
+  });
+</script>

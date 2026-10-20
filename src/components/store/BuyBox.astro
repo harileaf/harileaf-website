@@ -1,0 +1,193 @@
+---
+/**
+ * Buy box (Hybrid layout, spec: Product page → Above the fold). Variant data is
+ * rendered into data-* attributes; src/scripts/store/buybox.ts handles
+ * selection, quantity, add to cart and the sticky mobile bar.
+ */
+import type { Batch, Product, Variant } from '../../lib/store/catalog';
+import { organicCopy } from '../../lib/store/claims';
+import { inSeason } from '../../lib/store/availability';
+import { formatINR } from '../../lib/store/money';
+import type { ReviewSummary } from '../../lib/store/reviews';
+import NotifyForm from './NotifyForm.astro';
+import ZoneCheck from './ZoneCheck.astro';
+import type { StoreSettings } from '../../lib/store/settings';
+import type { Zone } from '../../lib/store/zones';
+import Stars from './Stars.astro';
+
+interface Props {
+  product: Product;
+  variants: Variant[];
+  batch: Batch | null;
+  minOrderPaise: number | null;
+  codMaxPaise: number | null;
+  /** Approved reviews only; no rating line at all until the first one. */
+  rating?: ReviewSummary | null;
+  /** Perishables: the zone they're sold in (enables the delivery check). */
+  zone?: Zone | null;
+  settings?: StoreSettings;
+}
+
+const { product: p, variants, batch, minOrderPaise, codMaxPaise, rating, zone, settings } = Astro.props;
+const sellable = (v: Variant) => v.availability === 'buy' || v.availability === 'preorder';
+const initial = variants.find((v) => v.availability === 'buy') ?? variants.find(sellable) ?? variants[0];
+const fmtDay = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' });
+const preorderDate = p.season.preorderDispatchDate;
+const ctaLabel = (v: Variant) => (v.availability === 'buy' ? 'Add to cart' : v.availability === 'preorder' ? 'Pre-order' : unavailableLabel[v.availability]);
+const cert = organicCopy({ organicScheme: p.organic.scheme, conversionSince: p.organic.conversionSince, certNumber: p.organic.certNumber });
+const off = (v: Variant) => (v.mrp > v.price ? Math.round((1 - v.price / v.mrp) * 100) : 0);
+// A perishable in season whose delivery zone isn't selling yet reads "notify" too — but "out of season" would be untrue.
+const zoneClosed = p.perishable && !zone && inSeason(p.season.startMd, p.season.endMd, new Date());
+const unavailableLabel = { buy: '', sold_out: 'Sold out — back soon', preorder: 'Pre-order', notify: zoneClosed ? 'Not delivering yet' : 'Out of season' } as const;
+const fmtDate = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
+---
+
+<div data-buybox data-notify-label={unavailableLabel.notify} data-product-id={p.id} data-perishable={p.perishable ? '1' : '0'} class="flex flex-col gap-4">
+  <div>
+    <a href={`/${p.category.slug}/`} class="inline-block text-[11px] font-extrabold uppercase tracking-wider px-3 py-1.5 rounded-full bg-surface-container-high text-secondary">{p.category.name}</a>
+    <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight leading-tight mt-3 text-on-surface">{p.name}</h1>
+    {p.shortDescription && <p class="mt-2 text-on-surface-variant leading-relaxed">{p.shortDescription}</p>}
+    {rating && rating.count > 0 && (
+      <p class="mt-2 text-sm" data-rating-line>
+        <a href="#reviews" class="inline-flex items-center gap-2 font-bold text-on-surface hover:underline">
+          <Stars value={rating.average} /> {rating.average.toFixed(1)} out of 5 <span class="font-normal text-on-surface-variant">({rating.count} review{rating.count === 1 ? '' : 's'})</span>
+        </a>
+      </p>
+    )}
+    {batch && (
+      <p class="mt-2 text-sm text-on-surface-variant">
+        <strong class="text-on-surface">Packed {fmtDate(batch.packedOn)}</strong>
+        {' · '}Batch {batch.batchCode}
+        {batch.labReport && (
+          <>
+            {' · '}
+            <a href="#lab-report" class="font-bold" style="color:#1d7a3a">✓ Lab tested</a>
+          </>
+        )}
+      </p>
+    )}
+  </div>
+
+  <div>
+    <p class="flex flex-wrap items-baseline gap-x-2">
+      <span class="text-3xl font-extrabold tracking-tight text-on-surface" data-bb-price>{formatINR(initial.price)}</span>
+      <span class:list={['text-on-surface-variant line-through font-semibold', { hidden: !off(initial) }]} data-bb-mrp-wrap>
+        <span class="sr-only">MRP </span><span data-bb-mrp>{formatINR(initial.mrp)}</span>
+      </span>
+      <span class:list={['font-extrabold text-sm', { hidden: !off(initial) }]} style="color:#1d7a3a" data-bb-off>{off(initial)}% off</span>
+    </p>
+    <p class="text-xs text-on-surface-variant mt-1">
+      MRP inclusive of all taxes · <span data-bb-unit>{initial.unitPrice}</span> · <strong>Free delivery</strong>
+      {minOrderPaise ? <> · Minimum order {formatINR(minOrderPaise)}</> : null}
+    </p>
+    {preorderDate && variants.some((v) => v.availability === 'preorder') && (
+      <p class:list={['mt-2 text-sm font-bold rounded-xl px-3 py-2', { hidden: initial.availability !== 'preorder' }]} style="background:#efeafc;color:#3a2470" data-bb-preorder>
+        Pre-order · dispatches from {fmtDay(preorderDate)} · prepaid only · cancel for a full refund until we pack it
+      </p>
+    )}
+  </div>
+
+  <fieldset>
+    <legend class="text-sm font-extrabold text-on-surface mb-2">Pack size</legend>
+    <div role="radiogroup" aria-label="Pack size" class="flex flex-wrap gap-2.5" data-variants>
+      {variants.map((v) => (
+        <button
+          type="button"
+          role="radio"
+          aria-checked={v.id === initial.id ? 'true' : 'false'}
+          tabindex={v.id === initial.id ? 0 : -1}
+          data-variant
+          data-id={v.id}
+          data-sku={v.sku}
+          data-label={v.label}
+          data-netqty={v.netQtyLabel}
+          data-price={v.price}
+          data-mrp={v.mrp}
+          data-unit={v.unitPrice}
+          data-availability={v.availability}
+          class="min-w-[6.5rem] text-left rounded-xl border-2 px-3.5 py-2.5 bg-white transition-colors aria-checked:border-primary aria-checked:bg-[#eef8f5] border-surface-container-high focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        >
+          <span class="block font-bold text-on-surface">{v.label}</span>
+          <span class="block text-xs text-on-surface-variant">
+            {formatINR(v.price)} · {v.unitPrice}{v.availability !== 'buy' ? ` · ${v.availability === 'preorder' ? 'Pre-order' : unavailableLabel[v.availability]}` : ''}
+          </span>
+        </button>
+      ))}
+    </div>
+  </fieldset>
+
+  <div class="flex items-center gap-3">
+    <div class="inline-flex items-center rounded-full border-2 border-surface-container-high bg-white" data-qty>
+      <button type="button" class="w-10 h-11 font-extrabold text-lg rounded-l-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" data-qty-dec aria-label="Decrease quantity">−</button>
+      <input
+        type="number"
+        inputmode="numeric"
+        min="1"
+        max="20"
+        value="1"
+        aria-label="Quantity"
+        data-qty-input
+        class="w-10 text-center font-extrabold bg-transparent border-0 focus:outline-none [appearance:textfield]"
+      />
+      <button type="button" class="w-10 h-11 font-extrabold text-lg rounded-r-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" data-qty-inc aria-label="Increase quantity">+</button>
+    </div>
+    <button
+      type="button"
+      data-add
+      class="flex-1 rounded-full py-3.5 px-6 font-extrabold text-white cta-gradient disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+      disabled={!sellable(initial)}
+    >
+      {ctaLabel(initial)}
+    </button>
+  </div>
+  <p class="text-sm font-bold min-h-[1.25rem]" style="color:#1d7a3a" aria-live="polite" data-add-status></p>
+  {zone && settings && variants.some(sellable) && <ZoneCheck productName={p.name} zone={zone} settings={settings} preorderDate={variants.some((v) => v.availability === 'buy') ? null : preorderDate} />}
+  {!variants.some((v) => v.availability === 'buy' || v.availability === 'preorder') && (
+    <NotifyForm productId={p.id} productName={p.name} heading={zoneClosed ? 'Tell me when you deliver it' : variants.every((v) => v.availability === 'notify') ? 'Tell me when it’s in season' : 'Tell me when it’s back'} />
+  )}
+
+  <ul class="text-sm text-on-surface-variant flex flex-col gap-1">
+    {p.perishable
+      ? <li>Free delivery · prepaid only · checked out separately from other products</li>
+      : <li>Free delivery across India{codMaxPaise && p.codAllowed ? <> · Cash on delivery up to {formatINR(codMaxPaise)}</> : null}</li>}
+    <li>{p.perishable ? 'Fresh produce isn’t returnable. Arrived damaged? Send a photo within 24 hours of delivery for a replacement or refund' : 'Damaged or wrong item? Replacement or refund'} — <a href="/refund-policy" class="underline">refund policy</a></li>
+  </ul>
+
+  {p.claims.length > 0 && (
+    <ul class="grid grid-cols-2 gap-2" aria-label="How it's made">
+      {p.claims.slice(0, 4).map((c) => (
+        <li class="rounded-xl bg-surface-container-low px-3 py-2.5 text-sm font-bold text-on-surface">{c.text}</li>
+      ))}
+    </ul>
+  )}
+
+  {cert.certificationLine && (
+    <p class="text-sm text-on-surface-variant">
+      {cert.certificationLine}
+      {p.organic.certUrl && <> · <a href={p.organic.certUrl} class="underline" target="_blank" rel="noopener">View certificate</a></>}
+    </p>
+  )}
+
+  <slot />
+</div>
+
+<!-- Sticky mobile bar: mirrors the selected pack -->
+<div class="md:hidden fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 px-4 pt-3 bg-white/95 backdrop-blur border-t border-black/10 shadow-[0_-6px_20px_rgba(0,0,0,0.08)]" style="padding-bottom:calc(0.75rem + env(safe-area-inset-bottom))" data-sticky-bar>
+  <div class="leading-tight">
+    <p class="font-extrabold text-lg text-on-surface" data-bb-sticky-price>{formatINR(initial.price)}</p>
+    <p class="text-xs text-on-surface-variant" data-bb-sticky-meta>{initial.label} · {initial.unitPrice}</p>
+  </div>
+  <button type="button" data-add-sticky class="flex-1 rounded-full py-3 font-extrabold text-white cta-gradient disabled:opacity-50" disabled={!sellable(initial)}>
+    {ctaLabel(initial)}
+  </button>
+</div>
+
+<style>
+  .cta-gradient { background: linear-gradient(135deg, #196a5e 0%, #2d7a4f 100%); }
+</style>
+
+<script>
+  import { onEveryPage } from '../../scripts/page-load';
+  import { initBuyBox } from '../../scripts/store/buybox';
+  onEveryPage(initBuyBox); // also after view-transition navigations
+</script>

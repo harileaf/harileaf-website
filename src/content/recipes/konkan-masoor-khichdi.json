@@ -1,0 +1,46 @@
+{
+  "title": "Konkan-style masoor khichdi with Karjat 3 rice",
+  "summary": "A one-pot khichdi of unpolished short-grain rice and whole masoor, tempered with cumin, garlic and a pinch of turmeric.",
+  "heroImage": "../../assets/recipes/konkan-masoor-khichdi.jpg",
+  "heroImageAlt": "Karjat 3 rice grains",
+  "published": "2026-10-18",
+  "updated": "2026-10-18",
+  "category": "Main course",
+  "prepMinutes": 25,
+  "cookMinutes": 30,
+  "serves": 4,
+  "ingredients": [
+    "1 cup Karjat 3 unpolished rice, rinsed and soaked 20 minutes",
+    "½ cup whole masoor (brown lentils), soaked 1 hour",
+    "1 tbsp ghee or oil",
+    "1 tsp cumin seeds",
+    "4 cloves garlic, crushed",
+    "1 green chilli, slit",
+    "¼ tsp HariLeaf turmeric powder",
+    "½ tsp HariLeaf red chili powder",
+    "4½ cups water",
+    "Salt to taste",
+    "Chopped coriander to finish"
+  ],
+  "steps": [
+    "Heat the ghee in a pressure cooker or heavy pot. Add the cumin and let it splutter, then the garlic and green chilli; fry for a minute.",
+    "Stir in the turmeric and red chili powder, then add the drained rice and masoor and toss for two minutes.",
+    "Add the water and salt. Pressure-cook for 4 whistles, or simmer covered for about 30 minutes until soft, stirring now and then.",
+    "Rest for 5 minutes, loosen with a splash of hot water if you like it softer, and finish with coriander."
+  ],
+  "productsUsed": [
+    {
+      "product": "rice/karjat-3",
+      "label": "Karjat 3 rice"
+    },
+    {
+      "product": "spices/turmeric-powder",
+      "label": "Turmeric powder"
+    },
+    {
+      "product": "spices",
+      "label": "Red chili powder"
+    }
+  ],
+  "tip": "Unpolished rice needs a little more water and time than polished rice — the 20-minute soak makes up most of the difference."
+}

@@ -1,0 +1,18 @@
+---
+export const prerender = false;
+import { env } from 'cloudflare:workers';
+import InvoicePage from '../../../../components/store/InvoicePage.astro';
+import { validateSession } from '../../../../lib/auth';
+import { idParam } from '../../../../lib/admin-api';
+import { orderDocs } from '../../../../lib/store/invoice-docs';
+
+Astro.response.headers.set('Cache-Control', 'no-store');
+Astro.response.headers.set('X-Robots-Tag', 'noindex');
+const id = idParam(Astro.params.id);
+if (!(await validateSession(env.HARILEAF_CMS, Astro.cookies)) || !id) return Astro.redirect('/admin');
+const order = await env.STORE_DB.prepare('SELECT order_no FROM orders WHERE id = ?').bind(id).first<{ order_no: string }>();
+if (!order) return Astro.rewrite('/404');
+const docs = await orderDocs(env.STORE_DB, id);
+---
+
+<InvoicePage title={`Documents — ${order.order_no}`} docs={docs} backHref={`/admin/orders/${id}`} />

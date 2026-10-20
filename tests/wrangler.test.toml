@@ -1,0 +1,31 @@
+# Test-only Worker config for vitest-pool-workers. The real app entry
+# (src/worker.ts) pulls in the whole Astro build, so tests run against a stub
+# Worker that only provides the bindings the store modules need.
+name = "harileaf-test"
+main = "worker-stub.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "STORE_DB"
+database_name = "harileaf-store-test"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "../migrations"
+
+[[kv_namespaces]]
+binding = "HARILEAF_CMS"
+id = "00000000000000000000000000000000"
+
+[[r2_buckets]]
+binding = "HARILEAF_MEDIA"
+bucket_name = "harileaf-media-test"
+
+# Test-only secrets for the checkout/webhook route tests (not real keys).
+[vars]
+ORDER_TOKEN_SECRET = "test-order-token-secret"
+RAZORPAY_KEY_ID = "rzp_test_key"
+RAZORPAY_KEY_SECRET = "rzp_test_secret"
+RAZORPAY_WEBHOOK_SECRET = "rzp_test_webhook_secret"
+SHIPROCKET_WEBHOOK_TOKEN = "test-courier-token"
+SHIPROCKET_EMAIL = "api@harileaf.test"
+SHIPROCKET_PASSWORD = "test-password"

@@ -1,0 +1,43 @@
+---
+/** Header cart link; the count is filled in from localStorage on the client. */
+---
+
+<a
+  href="/cart"
+  class="relative inline-flex items-center justify-center w-11 h-11 rounded-full text-[#196A5E] hover:bg-[#196A5E]/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+  data-cart-link
+  aria-label="Cart"
+>
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M3 4h2l2.4 10.2a1 1 0 0 0 1 .8h8.9a1 1 0 0 0 1-.76L20 8H6.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+    <circle cx="9.5" cy="19" r="1.4" fill="currentColor" />
+    <circle cx="17" cy="19" r="1.4" fill="currentColor" />
+  </svg>
+  <span
+    data-cart-count
+    class="absolute -top-0.5 -right-0.5 min-w-[1.25rem] h-5 px-1 rounded-full bg-[#196A5E] text-white text-[11px] font-extrabold leading-5 text-center hidden"
+  ></span>
+  <span class="sr-only" data-cart-live aria-live="polite"></span>
+</a>
+
+<script>
+  import { onEveryPage } from '../../scripts/page-load';
+  import { onCartChange, readCart } from '../../scripts/store/cart';
+  import { itemCount, type CartLine } from '../../lib/store/cart-lines';
+
+  function updateBadges(lines: CartLine[]) {
+    const n = itemCount(lines);
+    document.querySelectorAll<HTMLElement>('[data-cart-link]').forEach((link) => {
+      const badge = link.querySelector<HTMLElement>('[data-cart-count]');
+      const live = link.querySelector<HTMLElement>('[data-cart-live]');
+      link.setAttribute('aria-label', n ? `Cart, ${n} item${n === 1 ? '' : 's'}` : 'Cart');
+      if (badge) {
+        badge.textContent = n > 99 ? '99+' : String(n);
+        badge.classList.toggle('hidden', n === 0);
+      }
+      if (live) live.textContent = n ? `${n} item${n === 1 ? '' : 's'} in cart` : '';
+    });
+  }
+  onCartChange(updateBadges); // global listeners, registered once; they query the current DOM
+  onEveryPage(() => updateBadges(readCart())); // a view transition swaps in a fresh, empty badge
+</script>

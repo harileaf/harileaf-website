@@ -1,0 +1,192 @@
+---
+export const prerender = false;
+import { env } from 'cloudflare:workers';
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { validateSession } from '../../lib/auth';
+import { couponLabel, couponUsage, getCoupon, istDate, listCoupons, normalizeCode, type CouponRow, type CouponUse } from '../../lib/store/coupons';
+import { formatINR } from '../../lib/store/money';
+
+const authenticated = await validateSession(env.HARILEAF_CMS, Astro.cookies);
+let coupons: CouponRow[] = [];
+let categories: Array<{ id: number; name: string }> = [];
+let usageFor: CouponRow | null = null;
+let usage: CouponUse[] = [];
+let editing: CouponRow | null = null;
+if (authenticated) {
+  [coupons, categories] = await Promise.all([
+    listCoupons(env.STORE_DB),
+    env.STORE_DB.prepare('SELECT id, name FROM categories ORDER BY sort, id').all<{ id: number; name: string }>().then((r) => r.results),
+  ]);
+  const code = normalizeCode(Astro.url.searchParams.get('code'));
+  if (code) {
+    usageFor = await getCoupon(env.STORE_DB, code);
+    if (usageFor) usage = await couponUsage(env.STORE_DB, code);
+  }
+  const edit = normalizeCode(Astro.url.searchParams.get('edit'));
+  if (edit) {
+    const c = await getCoupon(env.STORE_DB, edit);
+    if (c && !c.first_used_at) editing = c;
+  }
+}
+
+const now = new Date().toISOString();
+const statusOf = (c: CouponRow) =>
+  !c.active ? 'Paused'
+  : c.ends_at && now >= c.ends_at ? 'Ended'
+  : c.starts_at && now < c.starts_at ? 'Scheduled'
+  : c.usage_limit !== null && c.used_count >= c.usage_limit ? 'Used up'
+  : 'Active';
+const catName = new Map(categories.map((c) => [c.id, c.name]));
+const conditions = (c: CouponRow) => {
+  const parts: string[] = [];
+  if (c.min_order_paise) parts.push(`min ${formatINR(c.min_order_paise)}`);
+  if (c.category_ids) parts.push((JSON.parse(c.category_ids) as number[]).map((id) => catName.get(id) ?? `#${id}`).join(', ') + ' only');
+  if (c.starts_at) parts.push(`from ${istDate(c.starts_at)}`);
+  if (c.ends_at) parts.push(`until ${istDate(c.ends_at, 1)}`);
+  if (c.one_per_phone) parts.push('one per phone');
+  return parts.join(' · ') || 'none';
+};
+const day = (iso: string) => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' });
+const f = editing;
+const field = 'display:flex;flex-direction:column;gap:0.25rem;';
+---
+
+<AdminLayout title="Coupons" active="coupons">
+  <div style="display:flex;flex-direction:column;gap:1.25rem;font-size:0.875rem;">
+    {usageFor && (
+      <section class="card" style="padding:1.5rem;background:#fff;" aria-labelledby="usage-h">
+        <h2 id="usage-h" style="font-weight:800;margin-bottom:0.25rem;">{usageFor.code}: {couponLabel(usageFor)}</h2>
+        <p class="muted">{usageFor.used_count} use{usageFor.used_count === 1 ? '' : 's'} counted{usageFor.usage_limit !== null && ` of ${usageFor.usage_limit}`}. Orders whose payment failed or that were cancelled before dispatch gave their use back. Refunded orders keep it.</p>
+        {usage.length === 0 ? <p class="muted" style="margin-top:0.5rem;">No orders yet.</p> : (
+          <div style="overflow-x:auto;margin-top:0.75rem;">
+            <table style="width:100%;border-collapse:collapse;">
+              <thead><tr style="text-align:left;"><th>Order</th><th>Placed</th><th>Status</th><th style="text-align:right;">Discount</th><th style="text-align:right;">Total</th><th>Use</th></tr></thead>
+              <tbody>
+                {usage.map((u) => (
+                  <tr style="border-top:1px solid #eee;">
+                    <td><a href={`/admin/orders/${u.id}`} style="color:#196a5e;font-weight:700;">{u.order_no}</a></td>
+                    <td>{day(u.created_at)}</td><td>{u.status.replace('_', ' ')}</td>
+                    <td style="text-align:right;">{formatINR(u.discount_paise)}</td><td style="text-align:right;">{formatINR(u.total_paise)}</td>
+                    <td>{u.counted ? 'counted' : 'released'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p style="margin-top:0.75rem;"><a href="/admin/coupons" style="color:#196a5e;font-weight:700;">← All codes</a></p>
+      </section>
+    )}
+
+    <section class="card" style="padding:1.5rem;background:#fff;" aria-labelledby="list-h">
+      <h2 id="list-h" style="font-weight:800;margin-bottom:0.75rem;">Discount codes</h2>
+      {coupons.length === 0 ? <p class="muted">No codes yet. Create one below.</p> : (
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;">
+            <thead><tr style="text-align:left;"><th>Code</th><th>Discount</th><th>Conditions</th><th>Uses</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+              {coupons.map((c) => (
+                <tr style="border-top:1px solid #eee;vertical-align:top;">
+                  <td style="padding:0.5rem 0.5rem 0.5rem 0;"><strong>{c.code}</strong>{c.note && <><br /><span class="muted">{c.note}</span></>}</td>
+                  <td style="padding:0.5rem;">{couponLabel(c)}</td>
+                  <td style="padding:0.5rem;">{conditions(c)}</td>
+                  <td style="padding:0.5rem;"><a href={`/admin/coupons?code=${c.code}`} style="color:#196a5e;font-weight:700;">{c.used_count}{c.usage_limit !== null && ` / ${c.usage_limit}`}</a></td>
+                  <td style="padding:0.5rem;">{statusOf(c)}</td>
+                  <td style="padding:0.5rem 0;white-space:nowrap;">
+                    <button type="button" class="brand-btn" data-toggle={c.code} data-active={c.active ? '0' : '1'} style="padding:0.3rem 0.8rem;">{c.active ? 'Pause' : 'Resume'}</button>
+                    {c.first_used_at ? <span class="muted" style="margin-left:0.5rem;" title={`Locked since its first order on ${c.first_used_at.slice(0, 10)}`}>Locked</span> : <a href={`/admin/coupons?edit=${c.code}#form`} style="color:#196a5e;font-weight:700;margin-left:0.5rem;">Edit</a>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p class="muted" style="margin-top:0.75rem;">A code can be edited until its first use — including an order that was never paid, so test with a throwaway code. After that it can only be paused. Codes never change the prices shown on product pages, in Google listings or in the feed.</p>
+    </section>
+
+    <section id="form" class="card" style="padding:1.5rem;background:#fff;" aria-labelledby="form-h">
+      <h2 id="form-h" style="font-weight:800;margin-bottom:0.75rem;">{f ? `Edit ${f.code}` : 'New code'}</h2>
+      <form id="coupon-form" data-edit={f?.code} style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;" novalidate>
+        <div style={field}><label for="cf-code">Code</label><input id="cf-code" name="code" type="text" maxlength="20" autocapitalize="characters" value={f?.code ?? ''} disabled={Boolean(f)} required /><p class="error" data-err="code"></p></div>
+        <div style={field}>
+          <label for="cf-kind">Type</label>
+          <select id="cf-kind" name="kind" style="padding:0.75rem;border-radius:8px;border:1px solid rgba(0,0,0,0.12);">
+            <option value="percent" selected={!f || f.kind === 'percent'}>Percent off</option>
+            <option value="flat" selected={f?.kind === 'flat'}>Flat ₹ off</option>
+          </select>
+        </div>
+        <div style={field}><label for="cf-value">Discount (% or ₹)</label><input id="cf-value" name="value" type="text" inputmode="decimal" value={f ? (f.kind === 'flat' ? String(f.value / 100) : String(f.value)) : ''} required /><p class="error" data-err="value"></p></div>
+        <div style={field}><label for="cf-max">Cap for percent codes (₹, optional)</label><input id="cf-max" name="maxDiscount" type="text" inputmode="decimal" value={f?.max_discount_paise ? String(f.max_discount_paise / 100) : ''} /><p class="error" data-err="maxDiscount"></p></div>
+        <div style={field}><label for="cf-min">Minimum order (₹, optional)</label><input id="cf-min" name="minOrder" type="text" inputmode="decimal" value={f?.min_order_paise ? String(f.min_order_paise / 100) : ''} /><p class="error" data-err="minOrder"></p></div>
+        <div style={field}><label for="cf-limit">Total uses (optional)</label><input id="cf-limit" name="usageLimit" type="number" min="1" value={f?.usage_limit ?? ''} /><p class="error" data-err="usageLimit"></p></div>
+        <div style={field}><label for="cf-start">Valid from (optional)</label><input id="cf-start" name="startsOn" type="date" value={f?.starts_at ? istDate(f.starts_at) : ''} style="padding:0.65rem;border-radius:8px;border:1px solid rgba(0,0,0,0.12);" /><p class="error" data-err="startsOn"></p></div>
+        <div style={field}><label for="cf-end">Valid until, inclusive (optional)</label><input id="cf-end" name="endsOn" type="date" value={f?.ends_at ? istDate(f.ends_at, 1) : ''} style="padding:0.65rem;border-radius:8px;border:1px solid rgba(0,0,0,0.12);" /><p class="error" data-err="endsOn"></p></div>
+        <fieldset style="border:0;display:flex;flex-direction:column;gap:0.35rem;">
+          <legend style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#666;margin-bottom:0.5rem;">Categories (none ticked = all)</legend>
+          {categories.map((c) => (
+            <span style="display:flex;gap:0.4rem;align-items:center;"><input type="checkbox" id={`cf-cat-${c.id}`} name="categoryIds" value={c.id} checked={Boolean(f?.category_ids && (JSON.parse(f.category_ids) as number[]).includes(c.id))} /><label for={`cf-cat-${c.id}`} style="margin:0;text-transform:none;letter-spacing:0;font-size:0.875rem;color:#1a1a1a;">{c.name}</label></span>
+          ))}
+          <p class="error" data-err="categoryIds"></p>
+        </fieldset>
+        <div style="display:flex;gap:0.4rem;align-items:center;"><input type="checkbox" id="cf-phone" name="onePerPhone" checked={Boolean(f?.one_per_phone)} /><label for="cf-phone" style="margin:0;text-transform:none;letter-spacing:0;font-size:0.875rem;color:#1a1a1a;">One use per mobile number</label></div>
+        <div style={`${field}grid-column:1/-1;`}><label for="cf-note">Internal note (optional)</label><input id="cf-note" name="note" type="text" maxlength="200" value={f?.note ?? ''} /></div>
+        <div style="grid-column:1/-1;display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+          <button type="submit" class="brand-btn" style="padding:0.7rem 1.5rem;">{f ? 'Save changes' : 'Create code'}</button>
+          {f && <a href="/admin/coupons" style="color:#196a5e;font-weight:700;">Cancel</a>}
+          <p id="cf-status" role="status" aria-live="polite" class="muted"></p>
+        </div>
+      </form>
+      <p class="muted" style="margin-top:0.75rem;">The discount is shared across eligible items before GST is worked out, and invoices show it per line. A flat code needs a minimum order above its value. For a code limited to some categories, the minimum counts only those categories’ items. Don't run fake "ends tonight" urgency: dates you set here are shown to shoppers only as the plain reason a code doesn't work.</p>
+    </section>
+  </div>
+</AdminLayout>
+
+<script>
+  import { showToast } from '../../scripts/admin/toast';
+
+  document.querySelectorAll<HTMLButtonElement>('[data-toggle]').forEach((b) =>
+    b.addEventListener('click', async () => {
+      b.disabled = true;
+      const res = await fetch(`/api/admin/coupons/${encodeURIComponent(b.dataset.toggle!)}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ active: b.dataset.active === '1' }) });
+      if (res.ok) location.reload();
+      else {
+        b.disabled = false;
+        showToast(((await res.json().catch(() => ({}))) as { error?: string }).error ?? 'Could not update', 'error');
+      }
+    }),
+  );
+
+  const form = document.getElementById('coupon-form') as HTMLFormElement | null;
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(form);
+    const edit = form.dataset.edit;
+    const body = {
+      code: edit ?? String(fd.get('code') ?? ''),
+      kind: fd.get('kind'),
+      value: fd.get('value'),
+      maxDiscount: fd.get('maxDiscount'),
+      minOrder: fd.get('minOrder'),
+      usageLimit: fd.get('usageLimit'),
+      startsOn: fd.get('startsOn'),
+      endsOn: fd.get('endsOn'),
+      categoryIds: fd.getAll('categoryIds').map(Number),
+      onePerPhone: fd.get('onePerPhone') === 'on',
+      note: fd.get('note'),
+    };
+    const status = document.getElementById('cf-status')!;
+    status.textContent = 'Saving…';
+    const res = await fetch(edit ? `/api/admin/coupons/${encodeURIComponent(edit)}` : '/api/admin/coupons', { method: edit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const data = (await res.json().catch(() => ({}))) as { error?: string; errors?: Record<string, string> };
+    form.querySelectorAll<HTMLElement>('[data-err]').forEach((el) => (el.textContent = data.errors?.[el.dataset.err!] ?? ''));
+    if (res.ok) {
+      location.href = '/admin/coupons';
+      return;
+    }
+    status.textContent = '';
+    showToast(data.error ?? 'Could not save', 'error');
+    const first = data.errors && Object.keys(data.errors)[0];
+    if (first) form.querySelector<HTMLElement>(`[name="${first}"]`)?.focus();
+  });
+</script>

@@ -1,0 +1,234 @@
+/**
+ * Prices a cart from D1. The browser only ever sends {variantId, qty}; every
+ * price, stock level and rule here comes from the database. Used by the cart
+ * page, checkout and order creation (which re-quotes inside the request).
+ */
+import { mapProduct, mapVariant, type ProductRow, type VariantRow } from './catalog';
+import { sanitizeLines, type CartLine } from './cart-lines';
+import { evaluateCoupon, getCoupon, normalizeCode, phoneHasUsed, type CouponResult } from './coupons';
+import { splitTax, type TaxLine } from './gst';
+import type { Paise } from './money';
+import type { StoreSettings } from './settings';
+import { mediaUrl, productPath } from './urls';
+import { parseZones, sellableZone, type Zone } from './zones';
+
+export type LineProblem = 'unavailable' | 'out_of_stock' | 'limited';
+
+/**
+ * Goods that ship differently check out separately (spec: Product
+ * Availability Rules): perishables go prepaid, by express, to their zone only.
+ */
+export type CartGroup = 'preorder' | 'perishable' | 'regular';
+
+export interface QuoteLine {
+  variantId: number;
+  productId: number;
+  sku: string;
+  name: string;
+  label: string;
+  path: string;
+  image: { url: string; alt: string } | null;
+  categoryId: number;
+  requestedQty: number;
+  qty: number;
+  unitPrice: Paise;
+  mrp: Paise;
+  /** unitPrice × qty, before any coupon. */
+  grossTotal: Paise;
+  /** This line's share of the coupon discount (largest-remainder split). */
+  discount: Paise;
+  /** What the shopper pays for the line: grossTotal − discount. */
+  lineTotal: Paise;
+  gstRateBp: number;
+  hsnCode: string;
+  perishable: boolean;
+  group: CartGroup;
+  /** Pre-order lines: the day the product is due to be dispatched (YYYY-MM-DD). */
+  preorderDate: string | null;
+  /** The enabled delivery zone a perishable line ships in (null for regular goods). */
+  zone: Zone | null;
+  codAllowed: boolean;
+  weightG: number;
+  dims: { l: number; b: number; h: number };
+  problem: LineProblem | null;
+  available: number;
+}
+
+export interface Quote {
+  lines: QuoteLine[];
+  /** Before any discount. */
+  subtotal: Paise;
+  discount: Paise;
+  total: Paise;
+  /** The code the shopper applied and whether it worked (null = none applied). */
+  coupon: CouponResult | null;
+  itemCount: number;
+  minOrder: Paise;
+  meetsMinimum: boolean;
+  cod: { eligible: boolean; reason: string | null; max: Paise };
+  /** Groups present among the lines being bought; more than one means the cart must be split. */
+  groups: CartGroup[];
+  /** More than one group, pre-orders with different dispatch dates, or fresh produce from different delivery zones. */
+  mixed: boolean;
+  /** True when every line can be bought as asked, the minimum is met and the cart isn't mixed. */
+  ok: boolean;
+}
+
+const settingPaise = (v: string, d: number) => (/^\d+$/.test(v) ? Number(v) : d);
+
+export async function quoteCart(
+  db: D1Database,
+  raw: unknown,
+  opts: { today: Date; settings: StoreSettings; coupon?: unknown; phone?: string | null },
+): Promise<Quote> {
+  const wanted: CartLine[] = sanitizeLines(raw);
+  const minOrder = settingPaise(opts.settings.min_order_paise, 0);
+  const codMax = settingPaise(opts.settings.cod_max_order_paise, 0);
+  const lines: QuoteLine[] = [];
+  const zones = parseZones(opts.settings.delivery_zones);
+
+  if (wanted.length) {
+    const ids = wanted.map((l) => l.variantId);
+    const { results } = await db
+      .prepare(
+        `SELECT v.*, p.*, v.id AS v_id, v.active AS v_active, c.slug AS category_slug, c.name AS category_name, c.google_product_category AS category_google,
+                (SELECT r2_key FROM product_images i WHERE i.product_id = p.id ORDER BY sort, id LIMIT 1) AS image_key,
+                (SELECT alt FROM product_images i WHERE i.product_id = p.id ORDER BY sort, id LIMIT 1) AS image_alt
+         FROM variants v JOIN products p ON p.id = v.product_id JOIN categories c ON c.id = p.category_id
+         WHERE v.id IN (${ids.map(() => '?').join(',')})`,
+      )
+      .bind(...ids)
+      .all<ProductRow & VariantRow & { v_id: number; v_active: number; image_key: string | null; image_alt: string | null }>();
+    const byId = new Map(results.map((r) => [r.v_id, r]));
+
+    for (const want of wanted) {
+      const r = byId.get(want.variantId);
+      if (!r) continue; // unknown variant ids are dropped silently (stale cart)
+      const product = mapProduct(r);
+      const variantRow: VariantRow = { ...r, id: r.v_id, active: r.v_active };
+      const v = mapVariant(variantRow, product, opts.today, zones);
+      const buyable = v?.availability === 'buy' || v?.availability === 'preorder';
+      const available = buyable ? r.stock_qty : 0;
+      const qty = Math.min(want.qty, available);
+      const problem: LineProblem | null = !v || !buyable ? (v?.availability === 'sold_out' ? 'out_of_stock' : 'unavailable') : qty < want.qty ? 'limited' : null;
+      lines.push({
+        variantId: r.v_id,
+        productId: product.id,
+        sku: r.sku,
+        name: product.name,
+        label: r.label,
+        path: productPath(product.category.slug, product.slug),
+        image: r.image_key ? { url: mediaUrl(r.image_key), alt: r.image_alt ?? product.name } : null,
+        categoryId: product.category.id,
+        requestedQty: want.qty,
+        qty,
+        unitPrice: r.price_paise,
+        mrp: r.mrp_paise,
+        grossTotal: r.price_paise * qty,
+        discount: 0,
+        lineTotal: r.price_paise * qty,
+        gstRateBp: product.gstRateBp,
+        hsnCode: product.hsnCode,
+        perishable: product.perishable,
+        // Pre-orders first: a mango pre-order is a pre-order (prepaid, held until "Ready to dispatch")
+        // that still gets its perishable zone check at checkout.
+        group: v?.availability === 'preorder' ? 'preorder' : product.perishable ? 'perishable' : 'regular',
+        preorderDate: v?.availability === 'preorder' ? product.season.preorderDispatchDate : null,
+        zone: sellableZone(product, zones).zone,
+        codAllowed: product.codAllowed,
+        weightG: r.weight_g,
+        dims: { l: r.length_cm, b: r.breadth_cm, h: r.height_cm },
+        problem,
+        available,
+      });
+    }
+  }
+
+  const subtotal = lines.reduce((a, l) => a + l.grossTotal, 0);
+  const coupon = await applyCoupon(db, lines, opts);
+  const discount = coupon?.ok ? coupon.discount : 0;
+  const total = subtotal - discount; // no shipping or COD fee
+  const itemCount = lines.reduce((a, l) => a + l.qty, 0);
+  // The minimum is on the value of the goods before a coupon, so a code never invalidates a cart.
+  const meetsMinimum = subtotal >= minOrder;
+  const buyable = lines.filter((l) => l.qty > 0);
+  const groups = (['preorder', 'perishable', 'regular'] as const).filter((g) => buyable.some((l) => l.group === g));
+  // Pre-orders with different dispatch dates can't share an order either: one order is one parcel.
+  const preorderDates = [...new Set(buyable.map((l) => l.preorderDate).filter((d): d is string => Boolean(d)))].sort();
+  // Nor can fresh produce from different delivery zones, pre-ordered or not: no pincode is in both.
+  const perishableZones = new Set(buyable.filter((l) => l.perishable).map((l) => l.zone?.id ?? null));
+  const mixed = groups.length > 1 || preorderDates.length > 1 || perishableZones.size > 1;
+  const codReason = !buyable.length
+    ? 'Your cart is empty'
+    : groups.includes('preorder')
+      ? 'Pre-orders are prepaid'
+      : buyable.some((l) => !l.codAllowed)
+      ? 'Cash on delivery isn’t available for one or more items'
+      : codMax > 0 && total > codMax
+        ? `Cash on delivery is available on orders up to ₹${codMax / 100}`
+        : null;
+
+  return {
+    lines,
+    subtotal,
+    discount,
+    total,
+    coupon,
+    itemCount,
+    minOrder,
+    meetsMinimum,
+    cod: { eligible: codReason === null, reason: codReason, max: codMax },
+    groups,
+    mixed,
+    ok: lines.length > 0 && lines.every((l) => l.problem === null) && meetsMinimum && !mixed,
+  };
+}
+
+/** Validates the applied code against the priced lines and writes each line's share. */
+async function applyCoupon(db: D1Database, lines: QuoteLine[], opts: { today: Date; coupon?: unknown; phone?: string | null }): Promise<CouponResult | null> {
+  if (opts.coupon === undefined || opts.coupon === null || opts.coupon === '') return null;
+  const code = normalizeCode(opts.coupon);
+  if (!code) return { ok: false, code: typeof opts.coupon === 'string' ? opts.coupon.slice(0, 24).toUpperCase() : '', reason: 'not_found', message: 'This code isn’t valid.' };
+  const c = await getCoupon(db, code);
+  const phoneUsed = Boolean(c?.one_per_phone && opts.phone && (await phoneHasUsed(db, code, opts.phone)));
+  const result = evaluateCoupon(c, code, lines.map((l) => ({ lineTotal: l.grossTotal, categoryId: l.categoryId })), opts.today, { phoneUsed });
+  if (result.ok) {
+    lines.forEach((l, i) => {
+      l.discount = result.shares[i];
+      l.lineTotal = l.grossTotal - l.discount;
+    });
+  }
+  return result;
+}
+
+/** Per-line GST for the place of supply (delivery state vs seller state). */
+export function taxForQuote(quote: Quote, intraState: boolean): TaxLine[] {
+  return splitTax(
+    quote.lines.filter((l) => l.qty > 0).map((l) => ({ lineTotal: l.lineTotal, rateBp: l.gstRateBp })),
+    intraState,
+  );
+}
+
+/** Public shape for the cart/checkout pages (no internal fields). */
+export function publicQuote(q: Quote) {
+  return {
+    ok: q.ok,
+    subtotal: q.subtotal,
+    discount: q.discount,
+    total: q.total,
+    coupon: q.coupon && (q.coupon.ok ? { ok: true, code: q.coupon.code, discount: q.coupon.discount, label: q.coupon.label } : { ok: false, code: q.coupon.code, reason: q.coupon.reason, message: q.coupon.message }),
+    itemCount: q.itemCount,
+    minOrder: q.minOrder,
+    meetsMinimum: q.meetsMinimum,
+    cod: q.cod,
+    groups: q.groups,
+    mixed: q.mixed,
+    // Perishable lines' delivery zones: checkout checks the pincode against each.
+    zones: [...new Map(q.lines.filter((l) => l.zone).map((l) => [l.zone!.id, { id: l.zone!.id, name: l.zone!.name, maxTransitDays: l.zone!.maxTransitDays }])).values()],
+    weightG: q.lines.reduce((g, l) => g + l.weightG * l.qty, 0),
+    lines: q.lines.map((l) => ({
+      variantId: l.variantId, name: l.name, label: l.label, path: l.path, image: l.image, qty: l.qty, requestedQty: l.requestedQty,
+      unitPrice: l.unitPrice, mrp: l.mrp, grossTotal: l.grossTotal, discount: l.discount, lineTotal: l.lineTotal, problem: l.problem, group: l.group, preorderDate: l.preorderDate, zoneId: l.zone?.id ?? null, available: l.available, codAllowed: l.codAllowed,
+    })),
+  };
+}

@@ -1,0 +1,350 @@
+---
+export const prerender = false;
+import { env } from 'cloudflare:workers';
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { validateSession } from '../../../lib/auth';
+import { idParam } from '../../../lib/admin-api';
+import { availableActions, orderDetail } from '../../../lib/store/admin-orders';
+import { needsCodConfirmation } from '../../../lib/store/cod';
+import { isErasable } from '../../../lib/store/retention';
+import { formatINR } from '../../../lib/store/money';
+import { refundableLines } from '../../../lib/store/fulfilment';
+import { safeHttpsUrl } from '../../../lib/store/urls';
+import { istYmd } from '../../../lib/store/fy';
+
+const authenticated = await validateSession(env.HARILEAF_CMS, Astro.cookies);
+const id = idParam(Astro.params.id);
+const d = authenticated && id ? await orderDetail(env.STORE_DB, id) : null;
+if (authenticated && !d) return Astro.rewrite('/404');
+const o = d?.order;
+const awaitingCod = o ? needsCodConfirmation(o) : false;
+const refundLeft = o && ['shipped', 'delivered', 'returned', 'rto'].includes(o.status) ? await refundableLines(env.STORE_DB, o.id) : [];
+const actions = o ? availableActions(o, { awaitingCodConfirmation: awaitingCod, returnReceived: d!.events.some((e) => e.type === 'return_received') }) : [];
+const fmt = (iso: string) => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' });
+// A pre-order can only be pushed back: the earliest pick is the day after both today and its current date.
+const dayAfter = (ymd: string) => new Date(Date.parse(`${ymd}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+const minDelayDate = [dayAfter(istYmd(new Date())), o?.expected_dispatch_date ? dayAfter(o.expected_dispatch_date) : ''].sort().at(-1);
+const tracking = safeHttpsUrl(o?.tracking_url);
+const LABELS: Record<string, string> = {
+  pack: 'Mark packed (issues invoice)', ready_to_dispatch: 'Ready to dispatch (issues invoice, sends to Shiprocket, emails customer)', delay_preorder: 'Push back dispatch date (emails customer)', ship: 'Mark shipped', update_tracking: 'Update tracking', deliver: 'Mark delivered', rto: 'Mark RTO', returned: 'Mark returned',
+  confirm_cod: 'Confirm COD order (after calling the customer)', cancel: 'Cancel order', refund: 'Refund', receive_return: 'Return received (restock)', replacement: 'Send replacement',
+};
+const needs: Record<string, string[]> = { delay_preorder: ['date', 'reason'], ship: ['awb', 'courier', 'trackingUrl'], update_tracking: ['awb', 'courier', 'trackingUrl'], cancel: ['reason'], refund: o?.payment_method === 'cod' ? ['refundHow', 'reason', 'manualReference'] : ['refundHow', 'reason'], returned: ['note'], rto: ['note'], receive_return: ['note'], replacement: ['note'] };
+---
+
+<AdminLayout title={o ? `Order ${o.order_no}` : 'Order'} active="orders">
+  {d && o && (
+    <div class="od">
+      <p><a href="/admin/orders">← Orders</a></p>
+      <p id="toast" role="status" aria-live="polite" class="toast hidden"></p>
+      <header style="display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;align-items:flex-end;">
+        <div>
+          <h1 style="font-size:1.75rem;font-weight:800;">{o.order_no}</h1>
+          <p class="muted">Placed {fmt(o.created_at)} · <strong>{o.status}</strong> · {o.total_paise === 0 ? 'Free replacement' : <>{o.payment_method === 'cod' ? 'COD' : 'Online'} ({o.payment_status.replace('_', ' ')})</>}</p>
+          {d.original && <p class="warn" style="margin-top:0.5rem;">Free replacement for <a href={`/admin/orders/${d.original.id}`}>{d.original.order_no}</a> — no invoice is issued (no consideration). Confirm document treatment with your CA.</p>}
+          {o.is_preorder === 1 && <p class="warn" style="margin-top:0.5rem;">Pre-order · expected dispatch <strong>{o.expected_dispatch_date ?? '—'}</strong>{o.status === 'placed' ? ' — nothing goes to Shiprocket until you mark it Ready to dispatch.' : ''}</p>}
+          {awaitingCod && <p class="warn" style="margin-top:0.5rem;">Cash on delivery, <strong>not confirmed yet</strong> — it won't be sent to Shiprocket until the customer confirms (email / order page) or you confirm after calling {o.phone}.</p>}
+          {d.replacements.length > 0 && <p class="muted">Replacements: {d.replacements.map((r) => r.order_no).join(', ')}</p>}
+        </div>
+        <p style="font-size:1.5rem;font-weight:800;">{formatINR(o.total_paise)}</p>
+      </header>
+
+      {['packed', 'shipped'].includes(o.status) && o.total_paise >= 0 && (
+        <section class="box" id="courier" data-order={o.id} aria-labelledby="courier-h">
+          <h2 id="courier-h">Courier</h2>
+          {o.awb ? (
+            <p>Booked: <strong>{o.courier ?? 'Courier'}</strong> · AWB <strong>{o.awb}</strong>{!o.shiprocket_shipment_id && <span class="muted"> — not a Shiprocket shipment, so print the label and manifest from the courier’s own portal</span>}</p>
+          ) : (
+            <p class="muted">Not booked yet. Pick a courier from Shiprocket’s live rates{d.items.some((i) => i.perishable) ? ' (fresh produce: only express couriers within the delivery zone’s days — ship within 24 hours)' : ''}.</p>
+          )}
+          <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.5rem;">
+            {!o.awb && o.status === 'packed' && <button type="button" class="brand-btn" data-courier="find" style="padding:0.4rem 1rem;">Find couriers</button>}
+            {o.awb && o.shiprocket_shipment_id && <button type="button" class="brand-btn" data-courier="label" style="padding:0.4rem 1rem;">Print label</button>}
+            {o.awb && o.shiprocket_shipment_id && <button type="button" class="brand-btn" data-courier="manifest" style="padding:0.4rem 1rem;">Print manifest</button>}
+          </div>
+          <div data-courier-list style="margin-top:0.75rem;"></div>
+          <p data-courier-status role="status" aria-live="polite" class="muted" style="margin-top:0.5rem;"></p>
+        </section>
+      )}
+
+      <section class="box">
+        <h2>Actions</h2>
+        {actions.length === 0 ? <p class="muted">No actions for this status.</p> : (
+          <form id="action-form" data-id={o.id} style="display:flex;flex-direction:column;gap:0.75rem;">
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;" role="radiogroup" aria-label="Action">
+              {actions.map((a, i) => (
+                <label class="act"><input type="radio" name="action" value={a} checked={i === 0} data-needs={(needs[a] ?? []).join(' ')} /> {LABELS[a] ?? a}</label>
+              ))}
+            </div>
+            <div data-field="awb"><label for="f-awb">AWB</label><input id="f-awb" name="awb" type="text" value={o.awb ?? ''} /></div>
+            <div data-field="courier"><label for="f-courier">Courier</label><input id="f-courier" name="courier" type="text" value={o.courier ?? ''} /></div>
+            <div data-field="trackingUrl"><label for="f-tracking">Tracking link (https://…)</label><input id="f-tracking" name="trackingUrl" type="text" value={o.tracking_url ?? ''} /></div>
+            <div data-field="date"><label for="f-date">New dispatch date</label><input id="f-date" name="date" type="date" min={minDelayDate} /></div>
+            <fieldset data-field="refundHow" style="border:0;display:flex;flex-direction:column;gap:0.4rem;">
+              <legend class="muted">What to refund (still refundable: {formatINR(refundLeft.reduce((a, l) => a + l.leftPaise, 0))})</legend>
+              <label class="act"><input type="radio" name="refundMode" value="all" checked /> Everything still refundable</label>
+              <label class="act"><input type="radio" name="refundMode" value="lines" /> Some items</label>
+              <div data-refund-lines style="display:flex;flex-direction:column;gap:0.25rem;padding-left:1.5rem;">
+                {refundLeft.map((l) => (
+                  <p style="display:flex;gap:0.5rem;align-items:center;">
+                    <input type="number" min="0" max={l.leftQty} value="0" data-refund-item={l.item.id} data-spent={l.leftQty === 0 || l.leftPaise === 0 ? '' : undefined} aria-label={`Units of ${l.item.product_name} ${l.item.variant_label} to refund`} style="width:5rem;" disabled={l.leftQty === 0 || l.leftPaise === 0} />
+                    <span>{l.item.product_name} · {l.item.variant_label} — {l.leftQty} of {l.item.qty} left ({formatINR(l.leftPaise)})</span>
+                  </p>
+                ))}
+              </div>
+              <label class="act"><input type="radio" name="refundMode" value="amount" /> An amount (spread over the items, e.g. a goodwill refund)</label>
+              <div style="padding-left:1.5rem;"><label for="f-amount" class="sr-only">Amount in rupees</label><input id="f-amount" name="refundAmount" type="text" inputmode="decimal" placeholder="₹" style="width:9rem;" /></div>
+            </fieldset>
+            <div data-field="reason"><label for="f-reason">Reason (emailed to the customer{o.is_preorder ? '' : '; printed on the credit note'})</label><input id="f-reason" name="reason" type="text" maxlength="300" /></div>
+            <div data-field="manualReference"><label for="f-ref">COD refund — UPI / bank reference</label><input id="f-ref" name="manualReference" type="text" maxlength="80" /></div>
+            <div data-field="note"><label for="f-note">Note</label><input id="f-note" name="note" type="text" maxlength="300" /></div>
+            <fieldset data-field="replacement" style="border:0;">
+              <legend class="muted">Items to replace</legend>
+              {d.items.map((i) => (
+                <p style="display:flex;gap:0.5rem;align-items:center;margin-top:0.25rem;">
+                  <input type="number" min="0" max={i.qty} value="0" data-item={i.id} aria-label={`Quantity of ${i.product_name} ${i.variant_label}`} style="width:5rem;" />
+                  <span>{i.product_name} · {i.variant_label} (ordered {i.qty})</span>
+                </p>
+              ))}
+            </fieldset>
+            <div><button class="brand-btn" style="padding:0.7rem 1.5rem;">Apply</button></div>
+          </form>
+        )}
+      </section>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1rem;">
+        <section class="box">
+          <h2>Items</h2>
+          <table class="mini">
+            {d.items.map((i) => (
+              <tr><td>{i.product_name} · {i.variant_label} × {i.qty}<br /><span class="muted">{i.sku} · HSN {i.hsn_code} · GST {i.gst_rate_bp / 100}%{i.perishable ? ' · perishable' : ''}</span></td><td style="text-align:right;">{formatINR(i.line_total_paise)}{i.discount_paise > 0 && <><br /><span class="muted">−{formatINR(i.discount_paise)} discount</span></>}</td></tr>
+            ))}
+          </table>
+          {o.coupon_code && <p style="margin-top:0.5rem;">Discount code <a href={`/admin/coupons?code=${encodeURIComponent(o.coupon_code)}`} style="color:#196a5e;font-weight:700;">{o.coupon_code}</a>: −{formatINR(o.discount_paise)} (subtotal {formatINR(o.subtotal_paise)})</p>}
+        </section>
+        <section class="box">
+          <h2>Customer</h2>
+          <p>{o.customer_name}<br />{o.phone} · {o.email}</p>
+          <p style="margin-top:0.5rem;">{o.ship_line1}{o.ship_line2 && <><br />{o.ship_line2}</>}<br />{o.ship_city}, {o.ship_state} {o.ship_pincode}</p>
+          {o.buyer_gstin && <p style="margin-top:0.5rem;">B2B: {o.buyer_legal_name} · GSTIN {o.buyer_gstin}</p>}
+          <p class="muted" style="margin-top:0.5rem;">Marketing emails: {o.marketing_opt_in ? 'opted in' : 'no'}</p>
+          <p style="margin-top:0.5rem;display:flex;gap:0.5rem;flex-wrap:wrap;">
+            {o.marketing_opt_in ? <button type="button" class="brand-btn" data-quick="marketing_opt_out" data-confirm="Stop marketing emails to this customer (every order with this email)?" style="padding:0.3rem 0.8rem;">Stop marketing emails</button> : null}
+            {isErasable(o, d.docs.length, d.refunds.length)
+              ? <button type="button" class="brand-btn" data-quick="erase_personal_data" data-confirm="Erase this customer's personal data from this order? This can't be undone." style="padding:0.3rem 0.8rem;background:#8a1c1c;">Erase personal data (DPDP request)</button>
+              : <span class="muted">Tax record — personal data kept as CGST s.36 requires (erasure not possible).</span>}
+          </p>
+        </section>
+        <section class="box">
+          <h2>Shipping & documents</h2>
+          <p>Shiprocket order: {o.shiprocket_order_id ?? '—'}<br />AWB: {o.awb ?? '—'} {o.courier && `(${o.courier})`}</p>
+          {tracking && <p><a href={tracking} target="_blank" rel="noopener noreferrer">Tracking →</a></p>}
+          {d.docs.length > 0 ? (
+            <p style="margin-top:0.5rem;">{d.docs.map((x) => x.doc_no).join(', ')} · <a href={`/admin/orders/${o.id}/invoice`}>View / print</a></p>
+          ) : <p class="muted" style="margin-top:0.5rem;">No GST documents yet (issued on packing).</p>}
+          {d.remittances.map((r) => <p class="muted">COD remitted {formatINR(r.amount_paise)} {r.remitted_on && `on ${r.remitted_on}`} {r.utr && `· ${r.utr}`}</p>)}
+        </section>
+        {d.refunds.length > 0 && (
+          <section class="box">
+            <h2>Refunds</h2>
+            {d.refunds.map((r) => <p>{formatINR(r.amount_paise)} · <strong>{r.status}</strong> · {r.reason}{r.razorpay_refund_id && <span class="muted"> · {r.razorpay_refund_id}</span>}</p>)}
+            {d.refunds.some((r) => r.status === 'failed') && <button type="button" class="brand-btn" data-quick="retry_refund" style="padding:0.5rem 1rem;margin-top:0.5rem;">Retry failed refund</button>}
+          </section>
+        )}
+      </div>
+
+      <section class="box">
+        <h2>Timeline</h2>
+        <ol class="tl">
+          {d.events.map((e) => <li><span class="muted">{fmt(e.at)}</span> <strong>{e.type.replace('_', ' ')}</strong> <span class="muted">by {e.actor_email ?? e.actor}</span>{e.note && <> — {e.note}</>}</li>)}
+        </ol>
+        <form id="note-form" style="display:flex;gap:0.5rem;margin-top:0.75rem;"><input name="note" type="text" maxlength="1000" placeholder="Add an internal note" aria-label="Internal note" /><button class="brand-btn" style="padding:0.5rem 1rem;">Add</button></form>
+      </section>
+
+      <section class="box">
+        <h2>Background tasks</h2>
+        <table class="mini">
+          {d.outbox.map((t) => (
+            <tr>
+              <td>{t.kind}</td><td><strong>{t.state}</strong> ({t.attempts})</td>
+              <td class="muted" style="max-width:24rem;overflow-wrap:anywhere;">{t.last_error}</td>
+              <td>{t.state === 'dead' && <button type="button" data-quick="retry_task" data-task={t.id} class="brand-btn" style="padding:0.3rem 0.8rem;">Retry</button>}</td>
+            </tr>
+          ))}
+        </table>
+      </section>
+    </div>
+  )}
+</AdminLayout>
+
+<style is:global>
+  .od { display: flex; flex-direction: column; gap: 1rem; }
+  .od a { color: #196a5e; }
+  .box { background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 14px; padding: 1.25rem; font-size: 0.875rem; }
+  .box h2 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: #666; margin-bottom: 0.6rem; }
+  .act { display: inline-flex; gap: 0.4rem; align-items: center; text-transform: none; letter-spacing: 0; font-size: 0.875rem; color: #1a1a1a; border: 1px solid rgba(0,0,0,0.12); border-radius: 999px; padding: 0.4rem 0.8rem; margin: 0; cursor: pointer; }
+  .act:has(input:checked) { border-color: #196a5e; background: #eef8f5; }
+  table.mini { width: 100%; border-collapse: collapse; } table.mini td { padding: 0.4rem 0.25rem; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+  .toast { position: sticky; top: 0.5rem; z-index: 5; background: #1a1a1a; color: #fff; border-radius: 10px; padding: 0.6rem 1rem; font-weight: 700; }
+  .tl { list-style: none; display: flex; flex-direction: column; gap: 0.35rem; }
+</style>
+
+<script>
+  const form = document.getElementById('action-form') as HTMLFormElement | null;
+  const toast = document.getElementById('toast');
+  const say = (msg: string) => {
+    if (!toast) return;
+    toast.textContent = msg;
+    toast.classList.remove('hidden');
+  };
+  const orderId = form?.dataset.id ?? location.pathname.split('/').filter(Boolean).pop();
+
+  // One key per page load: a double click or retry can't create two replacements.
+  const requestKey = crypto.randomUUID();
+  let busy = false;
+
+  // Courier booking: live Shiprocket rates → choose → AWB + pickup; then label / manifest.
+  const courierBox = document.getElementById('courier');
+  if (courierBox) {
+    const status = courierBox.querySelector<HTMLElement>('[data-courier-status]')!;
+    const list = courierBox.querySelector<HTMLElement>('[data-courier-list]')!;
+    const url = `/api/admin/orders/${courierBox.dataset.order}/courier`;
+    const post = async (body: Record<string, unknown>) => {
+      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const data = (await res.json().catch(() => ({}))) as { error?: string; value?: unknown };
+      if (!res.ok) throw new Error(data.error ?? 'Failed');
+      return data.value;
+    };
+    courierBox.querySelectorAll<HTMLButtonElement>('[data-courier]').forEach((b) =>
+      b.addEventListener('click', async () => {
+        b.disabled = true;
+        status.textContent = 'Asking Shiprocket…';
+        // Open the tab now, inside the click: one opened after the request returns is blocked as a popup.
+        const tab = b.dataset.courier === 'find' ? null : window.open('', '_blank');
+        try {
+          if (b.dataset.courier === 'find') {
+            const res = await fetch(url);
+            const data = (await res.json().catch(() => ({}))) as { error?: string; options?: Array<{ id: number; name: string; rate: number | null; etaDays: number | null; air: boolean }>; perishable?: boolean };
+            if (!res.ok) throw new Error(data.error ?? 'Failed');
+            list.replaceChildren();
+            if (!data.options?.length) {
+              status.textContent = data.perishable ? 'No express courier can deliver within the zone’s days — don’t ship this parcel.' : 'No courier serves this pincode for this parcel.';
+              return;
+            }
+            const form = document.createElement('form');
+            form.style.cssText = 'display:flex;flex-direction:column;gap:0.35rem;';
+            for (const [i, opt] of data.options.entries()) {
+              const label = document.createElement('label');
+              label.className = 'act';
+              const radio = Object.assign(document.createElement('input'), { type: 'radio', name: 'courierId', value: String(opt.id), checked: i === 0 });
+              label.append(radio, ` ${opt.name} · ${opt.rate !== null ? `₹${(opt.rate / 100).toFixed(2)}` : 'rate n/a'} · ${opt.etaDays ? `${opt.etaDays} day${opt.etaDays === 1 ? '' : 's'}` : 'ETA n/a'} · ${opt.air ? 'air' : 'surface'}`);
+              form.append(label);
+            }
+            const book = Object.assign(document.createElement('button'), { type: 'submit', className: 'brand-btn', textContent: 'Book this courier' });
+            book.style.cssText = 'padding:0.4rem 1rem;align-self:flex-start;';
+            form.append(book);
+            form.addEventListener('submit', async (e) => {
+              e.preventDefault();
+              book.disabled = true;
+              status.textContent = 'Booking…';
+              try {
+                const v = (await post({ action: 'book', courierId: Number(new FormData(form).get('courierId')) })) as { awb: string; courier: string; pickup: string | null };
+                status.textContent = `Booked ${v.courier} · AWB ${v.awb}${v.pickup ? ` · pickup ${v.pickup}` : ' · request the pickup in Shiprocket'}`;
+                setTimeout(() => location.reload(), 1200);
+              } catch (err) {
+                status.textContent = String(err instanceof Error ? err.message : err);
+                book.disabled = false;
+              }
+            });
+            list.append(form);
+            status.textContent = `${data.options.length} courier${data.options.length === 1 ? '' : 's'} available`;
+          } else {
+            const link = (await post({ action: b.dataset.courier })) as string;
+            status.textContent = '';
+            if (tab) {
+              tab.opener = null;
+              tab.location.href = link;
+            } else {
+              // Popups blocked anyway: offer the link instead.
+              status.replaceChildren(Object.assign(document.createElement('a'), { href: link, target: '_blank', rel: 'noopener', textContent: `Open the ${b.dataset.courier} →` }));
+            }
+          }
+        } catch (err) {
+          tab?.close();
+          status.textContent = String(err instanceof Error ? err.message : err);
+        } finally {
+          b.disabled = false;
+        }
+      }),
+    );
+  }
+
+  async function send(body: Record<string, unknown>) {
+    if (busy) return;
+    busy = true;
+    document.querySelectorAll<HTMLButtonElement>('.od button').forEach((b) => (b.disabled = true));
+    say('Working…');
+    try {
+      const res = await fetch(`/api/admin/orders/${orderId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const data = (await res.json().catch(() => ({}))) as { error?: string; orderNo?: string };
+      if (!res.ok) throw new Error(data.error ?? 'Failed');
+      if (data.orderNo) say(`Replacement ${data.orderNo} created`);
+      location.reload();
+      return; // stay disabled until the page reloads
+    } catch (err) {
+      say(err instanceof TypeError ? 'Network error — try again' : String((err as Error).message));
+    }
+    busy = false;
+    document.querySelectorAll<HTMLButtonElement>('.od button').forEach((b) => (b.disabled = false));
+  }
+
+  function syncFields() {
+    if (!form) return;
+    const chosen = form.querySelector<HTMLInputElement>('input[name="action"]:checked');
+    const needs = new Set((chosen?.dataset.needs ?? '').split(' ').filter(Boolean));
+    if (chosen?.value === 'replacement') needs.add('replacement');
+    form.querySelectorAll<HTMLElement>('[data-field]').forEach((el) => el.classList.toggle('hidden', !needs.has(el.dataset.field!)));
+    // Refund: only the inputs of the chosen mode can be filled in (and are sent).
+    const mode = form.querySelector<HTMLInputElement>('input[name="refundMode"]:checked')?.value;
+    form.querySelectorAll<HTMLInputElement>('[data-refund-item]').forEach((i) => (i.disabled = mode !== 'lines' || i.hasAttribute('data-spent')));
+    const amount = form.querySelector<HTMLInputElement>('#f-amount');
+    if (amount) amount.disabled = mode !== 'amount';
+  }
+  form?.addEventListener('change', syncFields);
+  syncFields();
+
+  form?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fd = new FormData(form);
+    const action = String(fd.get('action'));
+    const ask: Record<string, string> = {
+      cancel: 'Cancel this order? Stock is restored and any payment refunded.',
+      refund: fd.get('refundMode') === 'all' ? 'Refund everything still refundable on this order?' : 'Refund the selected items / amount?',
+      // Can't be undone: the invoice is issued, the order goes to Shiprocket and the customer can no longer cancel online.
+      ready_to_dispatch: 'Mark this pre-order ready to dispatch? This issues the GST invoice, sends it to Shiprocket and emails the customer.',
+    };
+    if (ask[action] && !confirm(ask[action])) return;
+    const body: Record<string, unknown> = Object.fromEntries(fd.entries());
+    if (action === 'refund') {
+      body.requestKey = requestKey;
+      body.refundLines = Array.from(form.querySelectorAll<HTMLInputElement>('[data-refund-item]:not(:disabled)')).map((i) => ({ itemId: Number(i.dataset.refundItem), qty: Number(i.value) })).filter((l) => l.qty > 0);
+    }
+    if (action === 'replacement') {
+      body.requestKey = requestKey;
+      body.lines = Array.from(form.querySelectorAll<HTMLInputElement>('[data-item]')).map((i) => ({ itemId: Number(i.dataset.item), qty: Number(i.value) })).filter((l) => l.qty > 0);
+    }
+    void send(body);
+  });
+
+  document.querySelectorAll<HTMLButtonElement>('[data-quick]').forEach((b) =>
+    b.addEventListener('click', () => {
+      if (b.dataset.confirm && !confirm(b.dataset.confirm)) return;
+      void send({ action: b.dataset.quick, taskId: b.dataset.task ? Number(b.dataset.task) : undefined });
+    }),
+  );
+  const noteForm = document.getElementById('note-form') as HTMLFormElement | null;
+  noteForm?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    void send({ action: 'note', note: String(new FormData(noteForm).get('note') ?? '') });
+  });
+</script>

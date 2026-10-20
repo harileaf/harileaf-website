@@ -1,0 +1,263 @@
+---
+export const prerender = false;
+import { env } from 'cloudflare:workers';
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import SEO from '../../components/seo/SEO.astro';
+import { formatINR } from '../../lib/store/money';
+import { getOrderByNo } from '../../lib/store/orders';
+import { safeHttpsUrl } from '../../lib/store/urls';
+import { needsCodConfirmation } from '../../lib/store/cod';
+import { getSettings } from '../../lib/store/settings';
+import { checkViewToken } from '../../lib/store/tokens';
+
+Astro.response.headers.set('Cache-Control', 'no-store');
+Astro.response.headers.set('X-Robots-Tag', 'noindex');
+// The URL carries a secret token: never leak it to other sites.
+Astro.response.headers.set('Referrer-Policy', 'no-referrer');
+
+const token = Astro.url.searchParams.get('t') ?? '';
+let view: Awaited<ReturnType<typeof getOrderByNo>>;
+try {
+  view = await getOrderByNo(env.STORE_DB, Astro.params.orderNo ?? '');
+} catch (err) {
+  console.error(JSON.stringify({ msg: 'order page load failed', error: String(err) }));
+  return Astro.rewrite('/store-unavailable');
+}
+const allowed = Boolean(view && env.ORDER_TOKEN_SECRET && (await checkViewToken(env.ORDER_TOKEN_SECRET, token, view.order.view_token_hash)));
+if (!allowed) return Astro.rewrite('/order/find'); // same page (404) whether or not the order exists
+const { order: o, items, holdExpiresAt } = view!;
+
+const STATUS: Record<string, { title: string; body: string }> = {
+  pending_payment: { title: 'Waiting for payment', body: 'Your items are held for you. Complete the payment to place the order.' },
+  payment_failed: { title: 'Payment not completed', body: 'We didn’t receive a payment in time, so the items were released. You haven’t been charged. You can place a new order any time.' },
+  placed: { title: 'Order confirmed', body: 'Thank you! We’ll pack it within 2 business days and email you a tracking link when it ships.' },
+  packed: { title: 'Packed', body: 'Your order is packed and waiting for the courier.' },
+  shipped: { title: 'On the way', body: 'Your order has left our farm.' },
+  delivered: { title: 'Delivered', body: 'Your order has been delivered. Enjoy!' },
+  cancelled: { title: 'Cancelled', body: 'This order was cancelled.' },
+  rto: { title: 'Returning to us', body: 'The courier couldn’t deliver this order and it is coming back to us. We’ll be in touch.' },
+  returned: { title: 'Returned', body: 'This order was returned.' },
+};
+// A pre-order isn't packed within days: it waits for its dispatch date (shown in the banner below).
+const s =
+  o.is_preorder === 1 && o.status === 'placed'
+    ? { title: 'Pre-order confirmed', body: 'Thank you! Your pre-order is reserved. We’ll email you when it’s ready to dispatch, and again with a tracking link.' }
+    : STATUS[o.status] ?? { title: o.status, body: '' };
+// v2 partial refunds: what has gone back, and what is on its way.
+const { refunded: refundedPaise, pending: pendingPaise } = ['partially_refunded', 'refunded', 'refund_pending'].includes(o.payment_status)
+  ? ((await env.STORE_DB.prepare(
+      "SELECT COALESCE(SUM(CASE WHEN status = 'processed' THEN amount_paise END), 0) AS refunded, COALESCE(SUM(CASE WHEN status = 'pending' THEN amount_paise END), 0) AS pending FROM refunds WHERE order_id = ?",
+    ).bind(o.id).first<{ refunded: number; pending: number }>()) ?? { refunded: 0, pending: 0 })
+  : { refunded: 0, pending: 0 };
+// Part of the order is being refunded (not all of it).
+const partRefund = o.payment_status === 'refund_pending' && pendingPaise > 0 && refundedPaise + pendingPaise < o.total_paise;
+const canCancel = o.status === 'placed';
+const awaitingConfirm = needsCodConfirmation(o);
+const confirmHours = awaitingConfirm ? Number((await getSettings(env.STORE_DB)).cod_confirm_window_hours) : 0;
+const heading = awaitingConfirm ? { title: 'Almost done — please confirm', body: 'Thank you! Confirm your cash-on-delivery order below and we’ll pack it within 2 business days.' } : s;
+// Replacements carry a delivery challan, not an invoice (orders.invoice_id stays empty).
+const isReplacement = o.total_paise === 0;
+const hasDoc = Boolean(o.invoice_id) || (isReplacement && Boolean(await env.STORE_DB.prepare('SELECT 1 AS d FROM delivery_challans WHERE order_id = ?').bind(o.id).first()));
+const trackingUrl = safeHttpsUrl(o.tracking_url);
+const refundLine =
+  o.payment_status === 'refund_pending' ? `${partRefund ? `Refund of ${formatINR(pendingPaise)} in progress` : 'Refund in progress'} — usually 5–7 business days to reach you.` : o.payment_status === 'refunded' ? 'Refunded.' : null;
+const canPay = o.status === 'pending_payment' && o.payment_method === 'razorpay' && Boolean(holdExpiresAt && holdExpiresAt > new Date().toISOString());
+const fmt = (iso: string) => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' });
+const tax = items.reduce((a, i) => ({ cgst: a.cgst + i.cgst_paise, sgst: a.sgst + i.sgst_paise, igst: a.igst + i.igst_paise }), { cgst: 0, sgst: 0, igst: 0 });
+const paymentLine =
+  isReplacement
+    ? 'Free replacement — nothing to pay'
+    : o.payment_method === 'cod'
+    ? o.payment_status === 'paid'
+      ? 'Paid in cash on delivery'
+      : o.payment_status === 'refunded' || o.payment_status === 'partially_refunded'
+        ? o.payment_status === 'refunded' ? 'Refunded' : `Paid in cash on delivery · ${formatINR(refundedPaise)} refunded`
+        : o.status === 'cancelled'
+          ? 'Cash on delivery — nothing to pay (order cancelled)'
+          : o.status === 'rto'
+            ? 'Cash on delivery — nothing to pay (not delivered)'
+            : `Cash on delivery — ${formatINR(o.total_paise)} to pay on delivery`
+    : o.payment_status === 'paid' || o.payment_status === 'authorized'
+      ? `Paid online${o.paid_at ? ` on ${fmt(o.paid_at)}` : ''}`
+      : o.payment_status === 'refunded' ? 'Refunded'
+      : o.payment_status === 'partially_refunded' ? `Paid online · ${formatINR(refundedPaise)} refunded`
+      : o.payment_status === 'refund_pending'
+        ? partRefund ? `Paid online · ${formatINR(pendingPaise)} refund on its way${refundedPaise ? ` · ${formatINR(refundedPaise)} refunded` : ''}` : 'Refund on its way'
+        : 'Online payment';
+---
+
+<SiteLayout title={`Order ${o.order_no} | HariLeaf`} description="Your HariLeaf order" noIndex>
+  <slot name="head" slot="head"><SEO title={`Order ${o.order_no} | HariLeaf`} description="Your HariLeaf order" noIndex /></slot>
+  <div class="max-w-4xl mx-auto px-6 pt-32 pb-24">
+    <p class="text-sm text-on-surface-variant">Order {o.order_no} · placed {fmt(o.created_at)}</p>
+    <h1 class="text-4xl font-extrabold tracking-tight mt-1">{heading.title}</h1>
+    <p class="mt-2 text-on-surface-variant max-w-2xl">{heading.body}</p>
+    {o.is_preorder === 1 && o.expected_dispatch_date && ['placed', 'packed'].includes(o.status) && (
+      <p class="mt-4 rounded-2xl px-5 py-4 max-w-2xl" style="background:#efeafc;border:1px solid #cdbff2;color:#3a2470">
+        <strong>Pre-order</strong> · {o.status === 'packed' ? 'packed and ready to leave the farm' : <>expected to dispatch from <strong>{new Date(`${o.expected_dispatch_date}T00:00:00+05:30`).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' })}</strong>. You can cancel for a full refund until we pack it.</>}
+      </p>
+    )}
+
+    {canPay && (
+      <div class="mt-6 rounded-2xl p-5 flex flex-wrap items-center gap-4" style="background:#eef8f5;border:1px solid #8bd4c6">
+        <p class="flex-1 min-w-[14rem] text-sm">Your items are held until <strong>{fmt(holdExpiresAt!)}</strong>.</p>
+        <button id="pay-now" type="button" data-order={o.order_no} data-token={token} class="rounded-full px-7 py-3 font-extrabold text-white" style="background:linear-gradient(135deg,#196a5e,#2d7a4f)">Pay {formatINR(o.total_paise)} now</button>
+        <p id="pay-status" class="w-full text-sm font-bold" role="status" aria-live="polite"></p>
+      </div>
+    )}
+    {!['pending_payment', 'payment_failed', 'cancelled'].includes(o.status) && <span hidden data-settle-order={o.order_no}></span>}
+    {awaitingConfirm && (
+      <div id="confirm" class="mt-6 rounded-2xl p-5 flex flex-wrap items-center gap-4" style="background:#fff4e0;border:1px solid #e8c37a">
+        <p class="flex-1 min-w-[14rem] text-sm"><strong>Please confirm your order</strong> — cash on delivery orders ship once you confirm. You'll pay {formatINR(o.total_paise)} on delivery.{confirmHours > 0 && ` Unconfirmed orders are cancelled after ${confirmHours} hours.`}</p>
+        <button id="confirm-cod" type="button" data-order={o.order_no} data-token={token} class="rounded-full px-7 py-3 font-extrabold text-white" style="background:linear-gradient(135deg,#196a5e,#2d7a4f)">Confirm my order</button>
+        <p id="confirm-status" class="w-full text-sm font-bold" role="status" aria-live="polite"></p>
+      </div>
+    )}
+    {(trackingUrl || o.awb) && (
+      <p class="mt-6">
+        {o.courier && <span>Shipped with <strong>{o.courier}</strong>{o.awb && ' · '}</span>}
+        {o.awb && <span>AWB <strong>{o.awb}</strong></span>}
+        {trackingUrl && <a href={trackingUrl} class="ml-2 font-extrabold text-primary underline" rel="noopener noreferrer" target="_blank">Track your parcel →</a>}
+      </p>
+    )}
+
+    <div class="mt-10 grid md:grid-cols-[1.4fr_1fr] gap-8 items-start">
+      <section aria-labelledby="items-h" class="rounded-2xl bg-white border border-black/5 p-6">
+        <h2 id="items-h" class="text-lg font-extrabold mb-4">Items</h2>
+        <ul class="flex flex-col gap-3">
+          {items.map((i) => (
+            <li class="flex justify-between gap-4 text-sm">
+              <span><strong>{i.product_name}</strong> · {i.variant_label} × {i.qty}<span class="block text-xs text-on-surface-variant">{formatINR(i.unit_price_paise)} each · GST {i.gst_rate_bp / 100}%</span></span>
+              <span class="font-bold whitespace-nowrap">{formatINR(isReplacement ? i.line_total_paise : i.unit_price_paise * i.qty)}</span>
+            </li>
+          ))}
+        </ul>
+        <div class="border-t border-black/10 mt-4 pt-3 text-sm flex flex-col gap-1">
+          {o.coupon_code && o.discount_paise > 0 && (
+            <>
+              <p class="flex justify-between"><span>Subtotal</span><span>{formatINR(o.subtotal_paise)}</span></p>
+              <p class="flex justify-between" style="color:#1d6b3a"><span>Discount ({o.coupon_code})</span><span class="font-bold">−{formatINR(o.discount_paise)}</span></p>
+            </>
+          )}
+          <p class="flex justify-between"><span>Delivery</span><span>Free</span></p>
+          {tax.igst > 0 ? <p class="flex justify-between text-on-surface-variant"><span>includes IGST</span><span>{formatINR(tax.igst)}</span></p> : <p class="flex justify-between text-on-surface-variant"><span>includes CGST + SGST</span><span>{formatINR(tax.cgst)} + {formatINR(tax.sgst)}</span></p>}
+          <p class="flex justify-between text-lg font-extrabold mt-1"><span>Total</span><span>{formatINR(o.total_paise)}</span></p>
+        </div>
+      </section>
+      <section class="flex flex-col gap-4 text-sm">
+        <div class="rounded-2xl bg-surface-container-low p-5">
+          <h2 class="font-extrabold mb-1">Delivering to</h2>
+          <p>{o.customer_name}<br />{o.ship_line1}{o.ship_line2 ? <><br />{o.ship_line2}</> : null}<br />{o.ship_city}, {o.ship_state} {o.ship_pincode}<br />{o.phone}</p>
+        </div>
+        <div class="rounded-2xl bg-surface-container-low p-5">
+          <h2 class="font-extrabold mb-1">Payment</h2>
+          <p>{paymentLine}</p>
+          {refundLine && <p class="mt-1 font-bold">{refundLine}</p>}
+          {hasDoc
+            ? <p class="mt-2"><a href={`/order/${o.order_no}/invoice?t=${encodeURIComponent(token)}`} class="font-bold text-primary underline">{isReplacement ? 'View delivery challan' : 'View / download GST invoice'}</a></p>
+            : <p class="mt-2 text-xs text-on-surface-variant">{isReplacement ? 'The delivery challan is issued when we pack the replacement.' : 'Your GST invoice is issued when we pack your order.'}</p>}
+        </div>
+        {canCancel && (
+          <div id="cancel" class="rounded-2xl border border-black/10 p-5 scroll-mt-28">
+            <h2 class="font-extrabold mb-1">Need to cancel?</h2>
+            <p class="text-on-surface-variant">{o.is_preorder === 1 ? 'You can cancel free of charge until we pack it for dispatch; the amount you paid is refunded in full.' : 'You can cancel free of charge until we pack it.'}</p>
+            <label class="block mt-3 text-xs font-bold" for="cancel-reason">Reason (optional)</label>
+            <form id="cancel-form">
+              <input id="cancel-reason" type="text" maxlength="300" class="mt-1 w-full rounded-lg border border-black/15 px-3 py-2" />
+              <button id="cancel-order" type="submit" data-order={o.order_no} data-token={token} class="mt-3 rounded-full px-5 py-2 font-bold border-2 border-red-700 text-red-800 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 disabled:opacity-60">Cancel order</button>
+            </form>
+            <p id="cancel-status" class="mt-2 font-bold" role="status" aria-live="polite"></p>
+          </div>
+        )}
+        <p class="text-on-surface-variant">Questions? See our <a href="/refund-policy" class="underline">refund policy</a> or <a href="/grievance" class="underline">contact customer care</a> with your order number.</p>
+      </section>
+    </div>
+  </div>
+</SiteLayout>
+
+<script>
+  import { onEveryPage } from '../../scripts/page-load';
+  import { settleUnpaidOrder } from '../../scripts/store/cart';
+  import { setCoupon } from '../../scripts/store/coupon';
+  import { payForOrder } from '../../scripts/store/razorpay-checkout';
+
+  // With view transitions this script runs once per visit, so set the page up on every page load.
+  function initOrderPage() {
+    // The ?t= token stays in the address bar so refresh, bookmarks and Back keep working; the page
+    // is no-referrer, noindex and no-store, so the link isn't leaked to other sites or caches.
+    const reloadOrder = () => location.reload();
+
+    // Paid here after checkout left it unpaid: that cart (and its code) is done with.
+    const settled = document.querySelector<HTMLElement>('[data-settle-order]')?.dataset.settleOrder;
+    if (settled && settleUnpaidOrder(settled)) setCoupon(null);
+
+    const confirmBtn = document.getElementById('confirm-cod') as HTMLButtonElement | null;
+    confirmBtn?.addEventListener('click', async () => {
+      const out = document.getElementById('confirm-status');
+      confirmBtn.disabled = true;
+      const label = confirmBtn.textContent;
+      confirmBtn.textContent = 'Confirming…';
+      try {
+        const res = await fetch('/api/store/order/confirm-cod', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderNo: confirmBtn.dataset.order, token: confirmBtn.dataset.token }) });
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        if (res.ok) return reloadOrder();
+        if (out) out.textContent = data.error ?? 'Couldn’t confirm right now — please try again.';
+      } catch {
+        if (out) out.textContent = 'Network error — please try again.';
+      }
+      confirmBtn.textContent = label;
+      confirmBtn.disabled = false;
+    });
+
+    const cancelBtn = document.getElementById('cancel-order') as HTMLButtonElement | null;
+    // A form, so Enter in the reason field submits it too.
+    document.getElementById('cancel-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!cancelBtn || cancelBtn.disabled || !confirm('Cancel this order?')) return;
+      const out = document.getElementById('cancel-status');
+      cancelBtn.disabled = true;
+      cancelBtn.textContent = 'Cancelling…';
+      try {
+        const res = await fetch('/api/store/order/cancel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderNo: cancelBtn.dataset.order, token: cancelBtn.dataset.token, reason: (document.getElementById('cancel-reason') as HTMLInputElement | null)?.value ?? '' }),
+        });
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        if (res.ok) return reloadOrder();
+        if (out) out.textContent = data.error ?? 'Couldn’t cancel right now. Please contact customer care.';
+      } catch {
+        if (out) out.textContent = 'Network error — please try again.';
+      }
+      cancelBtn.disabled = false;
+      cancelBtn.textContent = 'Cancel order';
+    });
+
+    const btn = document.getElementById('pay-now') as HTMLButtonElement | null;
+    const status = document.getElementById('pay-status');
+    btn?.addEventListener('click', async () => {
+      btn.disabled = true;
+      if (status) status.textContent = 'Opening payment…';
+      const res = await fetch('/api/store/order/retry', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderNo: btn.dataset.order, token: btn.dataset.token }) });
+      const data = (await res.json().catch(() => ({}))) as { payment?: Record<string, unknown>; error?: string; status?: string };
+      if (res.ok && data.status === 'placed') {
+        reloadOrder(); // a payment had already gone through
+        return;
+      }
+      if (!res.ok || !data.payment) {
+        if (status) status.textContent = data.error ?? 'Payment can’t be opened right now.';
+        btn.disabled = false;
+        return;
+      }
+      try {
+        const outcome = await payForOrder(data.payment, { orderNo: btn.dataset.order!, token: btn.dataset.token! });
+        if (outcome.kind === 'paid') reloadOrder();
+        else if (status) status.textContent = outcome.kind === 'dismissed' ? 'Payment not completed.' : outcome.message;
+      } catch (err) {
+        if (status) status.textContent = err instanceof Error ? err.message : 'Payment can’t be opened right now.';
+      }
+      btn.disabled = false;
+    });
+  }
+  onEveryPage(initOrderPage);
+</script>

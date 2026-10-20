@@ -1,18 +1,35 @@
 ---
-export const prerender = true;
+// SSR + edge cache (v2): the live grid shows which produce can be ordered now.
+export const prerender = false;
+import { env } from 'cloudflare:workers';
 import SiteLayout from '../layouts/SiteLayout.astro';
+import ProductGrid from '../components/store/ProductGrid.astro';
+import { listProducts, type ProductCard } from '../lib/store/catalog';
+import { PAGE_CACHE_CONTROL } from '../lib/store/edge-cache';
+import { PRODUCE_SEASON } from '../content/store/produce-season';
 import FadeIn from '../components/animations/FadeIn.astro';
 import SEO from '../components/seo/SEO.astro';
 import contactJson from '../content/contact-page.json';
 import PhotoStrip from '../components/produce/PhotoStrip.astro';
 
 const web3formsKey = contactJson.form.web3formsKey;
-const success = Astro.url.searchParams.get('success') === 'true';
-const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://harileaf.org');
-const pageTitle = 'Organic Produce | HariLeaf Farm — Fruits, Vegetables & Flowers';
-const pageDesc  = 'Organically grown fruits, vegetables, herbs and flowers from HariLeaf Farm. Mangoes, Dragon Fruit, Roses and more — available in bulk, farm direct.';
+// One canonical for /produce and /produce/ (same form as the sitemap and navigation).
+const canonicalURL = new URL('/produce/', Astro.site ?? 'https://harileaf.org');
+const pageTitle = 'Fresh Produce from HariLeaf Farm — Fruits, Vegetables & Flowers';
+const pageDesc  = 'Fruits, vegetables, herbs and flowers grown on HariLeaf Farm. Mangoes, dragon fruit, roses and more — available in bulk, farm direct.';
 
 const mangoVarieties = ['Alphonso', 'Kesar Gir', 'Payri', 'Langda', 'Rajapuri', 'Badami'];
+
+// Produce products (edge-cached). Only products whose delivery zone is enabled can be bought;
+// the rest show "out of season" (or "not delivering yet" when in season) with "notify me" on their page.
+let cards: ProductCard[] = [];
+try {
+  cards = await listProducts(env.STORE_DB, { categorySlug: 'produce', today: new Date() });
+  Astro.response.headers.set('Cache-Control', PAGE_CACHE_CONTROL);
+} catch (err) {
+  Astro.response.headers.set('Cache-Control', 'no-store');
+  console.error(JSON.stringify({ msg: 'produce grid failed', error: String(err) }));
+}
 ---
 
 <style>
@@ -71,7 +88,7 @@ const mangoVarieties = ['Alphonso', 'Kesar Gir', 'Payri', 'Langda', 'Rajapuri', 
     <div class="relative z-10 max-w-7xl mx-auto px-6 w-full">
       <FadeIn>
         <span class="text-xs uppercase tracking-widest font-bold" style="color: rgba(159,177,125,0.9);">
-          HariLeaf Farm · Organic Produce
+          HariLeaf Farm · Fresh Produce
         </span>
       </FadeIn>
       <FadeIn delay={100}>
@@ -82,16 +99,16 @@ const mangoVarieties = ['Alphonso', 'Kesar Gir', 'Payri', 'Langda', 'Rajapuri', 
       </FadeIn>
       <FadeIn delay={200}>
         <p class="mt-5 text-lg max-w-xl leading-relaxed" style="color: rgba(255,255,255,0.55);">
-          18 varieties of fruits, vegetables, herbs and flowers — all organically grown on our farm, available for bulk orders.
+          18 varieties of fruits, vegetables, herbs and flowers — grown on our farm and available for bulk orders.
         </p>
       </FadeIn>
       <FadeIn delay={300}>
         <div class="mt-7 flex flex-wrap gap-3">
           {[
-            { icon: '🌱', label: '100% Organic' },
+            { icon: '🌱', label: 'Grown on Our Farm' },
             { icon: '🚜', label: 'Farm Direct' },
             { icon: '📦', label: 'Bulk Available' },
-            { icon: '🚫', label: 'No Chemicals' },
+            { icon: '🙌', label: 'Hand Picked' },
           ].map(b => (
             <span
               class="text-xs font-bold uppercase tracking-wider px-4 py-2 rounded-full"
@@ -108,6 +125,24 @@ const mangoVarieties = ['Alphonso', 'Kesar Gir', 'Payri', 'Langda', 'Rajapuri', 
   <!-- ══════════════════════════════════════════════════════
        BENTO CATALOGUE — dark section
        ══════════════════════════════════════════════════════ -->
+  {cards.length > 0 && (
+    <section style="background:#0c110c;" class="pt-16 px-6" aria-labelledby="season-heading">
+      <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[1fr_1.3fr] gap-10 items-start">
+        <div>
+          <p class="text-xs uppercase tracking-widest font-bold mb-2" style="color:rgba(255,180,80,0.85);">{PRODUCE_SEASON.eyebrow}</p>
+          <h2 id="season-heading" class="text-3xl font-extrabold tracking-tight mb-4" style="color:#f0f0ee;">{PRODUCE_SEASON.heading}</h2>
+          <p class="leading-relaxed" style="color:rgba(240,240,238,0.78);">{PRODUCE_SEASON.intro}</p>
+          <h3 class="mt-6 font-extrabold" style="color:#f0f0ee;">{PRODUCE_SEASON.howToTellHeading}</h3>
+          <ul class="mt-2 flex flex-col gap-2 text-sm list-disc pl-5" style="color:rgba(240,240,238,0.75);">
+            {PRODUCE_SEASON.howToTell.map((t) => <li>{t}</li>)}
+          </ul>
+          <p class="mt-4 text-sm" style="color:rgba(240,240,238,0.6);">{PRODUCE_SEASON.storage} {PRODUCE_SEASON.outOfSeason}</p>
+        </div>
+        <ProductGrid cards={cards} tone="dark" />
+      </div>
+    </section>
+  )}
+
   <section style="background: #0c110c;" class="py-16 px-6">
     <div class="max-w-7xl mx-auto">
 
@@ -270,8 +305,8 @@ const mangoVarieties = ['Alphonso', 'Kesar Gir', 'Payri', 'Langda', 'Rajapuri', 
             style="background:linear-gradient(135deg,rgba(25,106,94,0.25),rgba(84,100,55,0.15)); border-color:rgba(127,200,186,0.18);"
           >
             <div>
-              <span class="inline-block text-[10px] font-extrabold uppercase tracking-widest mb-2 px-3 py-1 rounded-full" style="color:#ffc878;background:rgba(255,180,80,.14);border:1px solid rgba(255,180,80,.3);">🛒 Online ordering — coming soon</span>
-              <p class="text-xs font-bold uppercase tracking-wider mb-1" style="color:#9fb17d;">All produce organically grown · No chemicals · No pesticides</p>
+              <span class="inline-block text-[10px] font-extrabold uppercase tracking-widest mb-2 px-3 py-1 rounded-full" style="color:#ffc878;background:rgba(255,180,80,.14);border:1px solid rgba(255,180,80,.3);">🛒 Fresh produce delivery — coming soon</span>
+              <p class="text-xs font-bold uppercase tracking-wider mb-1" style="color:#9fb17d;">Grown on our farm · Farm direct · Bulk orders welcome</p>
               <p class="text-base font-bold" style="color:#f0f0ee;">Interested in placing a bulk order?</p>
             </div>
             <a
@@ -294,25 +329,25 @@ const mangoVarieties = ['Alphonso', 'Kesar Gir', 'Payri', 'Langda', 'Rajapuri', 
       <FadeIn>
         <p class="text-xs uppercase tracking-widest font-extrabold mb-2" style="color:rgba(159,177,125,.7);">Explore more of the farm</p>
         <h2 class="text-3xl font-extrabold tracking-tight mb-2 text-white">Our ranges</h2>
-        <p class="mb-8 max-w-xl" style="color:rgba(240,240,238,.55);">Beyond fresh produce, HariLeaf now grows and makes two more ranges — each with its own story, nutrition and (soon) online ordering.</p>
+        <p class="mb-8 max-w-xl" style="color:rgba(240,240,238,.55);">Beyond fresh produce, HariLeaf grows and makes two more ranges — each with its own story, and both available to order online.</p>
       </FadeIn>
       <div class="grid md:grid-cols-2 gap-4">
         <FadeIn>
-          <a href="/rice" class="block relative overflow-hidden rounded-3xl p-9 border transition-transform duration-200 hover:-translate-y-1" style="background:linear-gradient(145deg,#1a2a1a 0%,#0e1a0e 100%);border-color:rgba(139,212,198,.22);min-height:210px;">
+          <a href="/rice/" class="block relative overflow-hidden rounded-3xl p-9 border transition-transform duration-200 hover:-translate-y-1" style="background:linear-gradient(145deg,#1a2a1a 0%,#0e1a0e 100%);border-color:rgba(139,212,198,.22);min-height:210px;">
             <div class="absolute top-3.5 right-4 text-[5.5rem] opacity-[0.14] pointer-events-none leading-none" aria-hidden="true">🌾</div>
             <div class="relative z-10 flex flex-col justify-end h-full" style="min-height:150px;">
               <h3 class="text-2xl font-extrabold text-white mb-2">HariLeaf Rice</h3>
-              <p class="text-sm mb-4 max-w-sm" style="color:rgba(240,240,238,.6);">Three heritage varieties — Karjat 3, Wada Kolam and antioxidant-rich Red Rice. Grown organically, milled gently.</p>
+              <p class="text-sm mb-4 max-w-sm" style="color:rgba(240,240,238,.6);">Three heritage varieties — Karjat 3, Wada Kolam and Red Rice. Grown on our farm, milled just enough to remove the husk.</p>
               <span class="text-[13px] font-extrabold" style="color:#8bd4c6;">Explore our rice →</span>
             </div>
           </a>
         </FadeIn>
         <FadeIn delay={80}>
-          <a href="/spices" class="block relative overflow-hidden rounded-3xl p-9 border transition-transform duration-200 hover:-translate-y-1" style="background:linear-gradient(145deg,#1a140b 0%,#1a0a08 100%);border-color:rgba(224,165,58,.24);min-height:210px;">
+          <a href="/spices/" class="block relative overflow-hidden rounded-3xl p-9 border transition-transform duration-200 hover:-translate-y-1" style="background:linear-gradient(145deg,#1a140b 0%,#1a0a08 100%);border-color:rgba(224,165,58,.24);min-height:210px;">
             <div class="absolute top-3.5 right-4 text-[5.5rem] opacity-[0.14] pointer-events-none leading-none" aria-hidden="true">🌶️</div>
             <div class="relative z-10 flex flex-col justify-end h-full" style="min-height:150px;">
               <h3 class="text-2xl font-extrabold text-white mb-2">Stone-Ground Spices</h3>
-              <p class="text-sm mb-4 max-w-sm" style="color:rgba(240,240,238,.6);">Turmeric &amp; red chili, stone-ground the traditional way so aroma and colour survive. Benefits &amp; nutrition inside.</p>
+              <p class="text-sm mb-4 max-w-sm" style="color:rgba(240,240,238,.6);">Turmeric &amp; red chili, sun-dried and slowly stone-ground so more of the aroma and colour stays in the powder.</p>
               <span class="text-[13px] font-extrabold" style="color:#e8b84a;">Explore our spices →</span>
             </div>
           </a>
@@ -334,20 +369,18 @@ const mangoVarieties = ['Alphonso', 'Kesar Gir', 'Payri', 'Langda', 'Rajapuri', 
         <span class="text-xs uppercase tracking-widest text-secondary font-bold">Bulk Orders</span>
         <h2 class="text-4xl font-extrabold tracking-tight mt-3 mb-3">Express your interest</h2>
         <p class="text-on-surface-variant leading-relaxed mb-8">
-          Tell us what you're looking for and we'll get back to you on WhatsApp. All produce is organic, farm-direct, and available in bulk.
+          Tell us what you're looking for and we'll get back to you on WhatsApp. All produce is farm-direct and available in bulk.
         </p>
       </FadeIn>
 
       <!-- Success banner -->
-      {success && (
-        <div class="mb-8 flex items-start gap-4 bg-primary-fixed/60 border border-primary/20 rounded-lg px-5 py-4">
-          <span class="material-symbols-outlined text-primary mt-0.5" style="font-variation-settings:'FILL' 1">check_circle</span>
-          <div>
-            <p class="font-bold text-on-surface">Thanks! We'll reach out within 24 hours.</p>
-            <p class="text-on-surface-variant text-sm mt-0.5">We'll contact you on WhatsApp or by email shortly.</p>
-          </div>
+      <div data-form-sent hidden class="[&[hidden]]:hidden mb-8 flex items-start gap-4 bg-primary-fixed/60 border border-primary/20 rounded-lg px-5 py-4">
+        <span class="material-symbols-outlined text-primary mt-0.5" style="font-variation-settings:'FILL' 1">check_circle</span>
+        <div>
+          <p class="font-bold text-on-surface">Thanks! We'll reach out within 24 hours.</p>
+          <p class="text-on-surface-variant text-sm mt-0.5">We'll contact you on WhatsApp or by email shortly.</p>
         </div>
-      )}
+      </div>
 
       <FadeIn delay={100}>
         <form
@@ -442,7 +475,7 @@ const mangoVarieties = ['Alphonso', 'Kesar Gir', 'Payri', 'Langda', 'Rajapuri', 
 </section>
 
 <!-- ══════════════════════════════════════════════════════
-     ORGANIC PROMISE BANNER
+     FARM PROMISE BANNER
      ══════════════════════════════════════════════════════ -->
 <section class="relative overflow-hidden py-14 px-6" style="background:#2e3a2e;">
   <!-- Decorative eco icon -->
@@ -452,10 +485,10 @@ const mangoVarieties = ['Alphonso', 'Kesar Gir', 'Payri', 'Langda', 'Rajapuri', 
     <FadeIn>
       <p class="text-xs uppercase tracking-widest font-bold mb-2" style="color:rgba(159,177,125,0.7);">Our promise</p>
       <h2 class="text-3xl font-extrabold tracking-tight mb-5" style="color:#f0f0ee;">
-        Everything we grow is 100% organic.<br />No chemicals, ever.
+        Grown on our farm.<br />Sold by us, direct to you.
       </h2>
       <div class="flex flex-wrap gap-2">
-        {['No Pesticides', 'No Synthetic Fertilisers', 'Traditional Methods', 'Farm Direct'].map(b => (
+        {['Farm Direct', 'Hand Picked', 'Bulk Orders', 'Batch-dated Packs'].map(b => (
           <span
             class="text-xs font-bold uppercase tracking-wider px-4 py-2 rounded-full"
             style="background:rgba(159,177,125,0.12); border:1px solid rgba(159,177,125,0.22); color:rgba(159,177,125,0.9);"
@@ -469,6 +502,9 @@ const mangoVarieties = ['Alphonso', 'Kesar Gir', 'Payri', 'Langda', 'Rajapuri', 
 </section>
 
 <script>
+  import { onEveryPage } from '../scripts/page-load';
+  import '../scripts/form-sent';
+
   async function hydrateBento() {
     const res = await fetch('/api/produce');
     if (!res.ok) return;
@@ -504,7 +540,7 @@ const mangoVarieties = ['Alphonso', 'Kesar Gir', 'Payri', 'Langda', 'Rajapuri', 
       .join('');
   }
 
-  hydrateBento();
+  onEveryPage(() => void hydrateBento());
 </script>
 
 </SiteLayout>

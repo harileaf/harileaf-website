@@ -1,0 +1,24 @@
+---
+export const prerender = false;
+import { env } from 'cloudflare:workers';
+import ProductPageView from '../../components/store/ProductPageView.astro';
+import { getProductPage } from '../../lib/store/catalog';
+import { PAGE_CACHE_CONTROL } from '../../lib/store/edge-cache';
+import { loadPolicySettings } from '../../lib/store/policy-settings';
+
+let res: Awaited<ReturnType<typeof getProductPage>>;
+try {
+  res = await getProductPage(env.STORE_DB, 'produce', Astro.params.slug ?? '', new Date());
+} catch (err) {
+  console.error(JSON.stringify({ msg: 'product page load failed', path: Astro.url.pathname, error: String(err) }));
+  return Astro.rewrite('/store-unavailable');
+}
+// Explicit 301 with the page cache policy so the edge cache can store it (Astro.redirect sets none).
+if (res.kind === 'redirect') return new Response(null, { status: 301, headers: { Location: res.to, 'Cache-Control': PAGE_CACHE_CONTROL } });
+if (res.kind === 'gone') return new Response('This product is no longer available.', { status: 410, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': PAGE_CACHE_CONTROL } });
+if (res.kind === 'not_found') return Astro.rewrite('/404');
+const settings = await loadPolicySettings(env.STORE_DB);
+Astro.response.headers.set('Cache-Control', PAGE_CACHE_CONTROL);
+---
+
+<ProductPageView {...res} settings={settings} />

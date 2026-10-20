@@ -1,0 +1,40 @@
+{
+  "title": "Red rice vegetable pulao",
+  "summary": "Nutty unpolished red rice cooked with whole spices and seasonal vegetables — a hearty one-pot meal.",
+  "heroImage": "../../assets/recipes/red-rice-pulao.jpg",
+  "heroImageAlt": "Unpolished red rice grains",
+  "published": "2026-10-18",
+  "updated": "2026-10-18",
+  "category": "Main course",
+  "prepMinutes": 40,
+  "cookMinutes": 35,
+  "serves": 4,
+  "ingredients": [
+    "1½ cups HariLeaf red rice, rinsed and soaked 30 minutes",
+    "2 tbsp oil or ghee",
+    "1 bay leaf, 4 cloves, 1 small stick cinnamon, 2 green cardamom",
+    "1 onion, sliced",
+    "1 tsp ginger-garlic paste",
+    "2 cups mixed vegetables (carrot, beans, peas)",
+    "¼ tsp HariLeaf turmeric powder",
+    "3¼ cups water",
+    "Salt to taste"
+  ],
+  "steps": [
+    "Heat the oil and fry the whole spices until fragrant. Add the onion and cook until golden.",
+    "Add the ginger-garlic paste, then the vegetables and turmeric; stir for 2–3 minutes.",
+    "Add the drained red rice, water and salt. Bring to a boil, then cover and cook on low for 30–35 minutes (or 3 whistles in a pressure cooker).",
+    "Let it rest covered for 10 minutes before fluffing with a fork."
+  ],
+  "productsUsed": [
+    {
+      "product": "rice",
+      "label": "Red rice"
+    },
+    {
+      "product": "spices/turmeric-powder",
+      "label": "Turmeric powder"
+    }
+  ],
+  "tip": ""
+}

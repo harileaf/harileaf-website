@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Product page mockups — HariLeaf</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --primary:#196a5e; --primary-2:#2d7a4f; --primary-fixed-dim:#8bd4c6; --olive:#546437; --olive-light:#9fb17d;
+    --surface:#f7faf4; --s-low:#f1f5ee; --s-mid:#ecefe8; --s-high:#e6e9e3; --ink:#181d19; --muted:#5b625c;
+    --dark:#0c110c; --dark-2:#0e1a0e; --gold:#e8b84a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Manrope,system-ui,sans-serif;background:#2a2e2b;color:var(--ink)}
+  img{display:block;max-width:100%}
+  /* ── mockup chrome ── */
+  .chrome{position:sticky;top:0;z-index:50;background:#111;color:#eee;padding:10px 16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-size:13px}
+  .chrome b{font-weight:800}
+  .seg{display:inline-flex;background:#222;border-radius:999px;padding:3px}
+  .seg button{background:none;border:0;color:#bbb;font:700 12px Manrope;padding:7px 14px;border-radius:999px;cursor:pointer}
+  .seg button.on{background:#8bd4c6;color:#00201b}
+  .pick{margin-left:auto;background:#2d7a4f;color:#fff;border:0;border-radius:999px;font:800 12px Manrope;padding:8px 16px;cursor:pointer}
+  .pick.picked{background:#e8b84a;color:#25190d}
+  .note{color:#999;font-size:12px}
+  .stagewrap{padding:24px 0 60px;display:flex;justify-content:center}
+  .stage{container-type:inline-size;width:100%;max-width:1280px;background:var(--surface);overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+  .stage.mobile{max-width:390px;border-radius:28px;border:10px solid #000}
+  .layout{display:none}
+  .layout.on{display:block}
+
+  /* ── shared site parts ── */
+  .wrap{max-width:1200px;margin:0 auto;padding:0 20px}
+  .hdr{display:flex;align-items:center;gap:22px;padding:14px 20px;background:rgba(247,250,244,.95);border-bottom:1px solid rgba(0,0,0,.06)}
+  .hdr img{height:28px}
+  .hdr nav{display:flex;gap:18px;font-weight:700;font-size:14px;color:var(--muted)}
+  .hdr nav a.act{color:var(--primary)}
+  .hdr .cart{margin-left:auto;font-weight:800;font-size:14px;background:var(--s-mid);padding:8px 14px;border-radius:999px}
+  .hdr.dark{background:rgba(12,17,12,.92);border-color:rgba(255,255,255,.06)}
+  .hdr.dark nav{color:rgba(255,255,255,.6)} .hdr.dark nav a.act{color:var(--primary-fixed-dim)}
+  .hdr.dark .cart{background:rgba(255,255,255,.08);color:#fff}
+  .burger{display:none;font-size:20px}
+  .crumb{font-size:12px;color:var(--muted);padding:14px 0}
+  .crumb a{color:var(--primary);font-weight:700}
+  .btn{display:inline-flex;justify-content:center;align-items:center;gap:8px;border:0;border-radius:999px;font:800 15px Manrope;padding:15px 22px;cursor:pointer;background:linear-gradient(135deg,#196a5e,#2d7a4f);color:#fff;width:100%}
+  .btn.ghost{background:transparent;color:var(--primary);border:2px solid var(--primary)}
+  .chip{display:inline-flex;align-items:center;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:6px 11px;border-radius:999px;background:var(--s-high);color:var(--olive)}
+  .stars{color:#e3a72f;letter-spacing:1px}
+  .price{font-size:30px;font-weight:800;letter-spacing:-.02em}
+  .mrp{color:#8a908a;text-decoration:line-through;font-weight:600;font-size:16px;margin-left:8px}
+  .off{color:#1d7a3a;font-weight:800;font-size:14px;margin-left:8px}
+  .tiny{font-size:12px;color:var(--muted)}
+  .opts{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 16px}
+  .opt{border:2px solid var(--s-high);background:#fff;border-radius:12px;padding:10px 14px;font-weight:700;font-size:14px;cursor:pointer;min-width:96px}
+  .opt small{display:block;font-weight:600;color:var(--muted);font-size:12px}
+  .opt.sel{border-color:var(--primary);background:#eef8f5}
+  .qty{display:inline-flex;align-items:center;border:2px solid var(--s-high);border-radius:999px;background:#fff}
+  .qty span{padding:10px 14px;font-weight:800}
+  .pin{display:flex;gap:8px;margin:14px 0}
+  .pin input{flex:1;border:1.5px solid rgba(0,0,0,.14);border-radius:10px;padding:11px 12px;font:600 14px Manrope;background:#fff}
+  .pin button{border:0;background:none;color:var(--primary);font:800 14px Manrope;cursor:pointer}
+  .ok{color:#1d7a3a;font-weight:700;font-size:13px}
+  .trust{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:16px}
+  .trust div{background:var(--s-low);border-radius:10px;padding:10px;font-size:12px;font-weight:700;color:var(--muted)}
+  .trust div b{display:block;color:var(--ink);font-size:13px}
+  .h2{font-size:28px;font-weight:800;letter-spacing:-.03em;margin-bottom:6px}
+  .lbl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.14em;color:var(--olive);margin-bottom:8px}
+  .sec{padding:56px 0}
+  .card{background:#fff;border-radius:18px;padding:22px}
+  .grid3{display:grid;grid-template-columns:1fr;gap:14px}
+  .rev{background:#fff;border-radius:16px;padding:18px}
+  .rev p{font-size:14px;color:var(--muted);margin-top:6px;line-height:1.55}
+  .rev .who{font-size:12px;font-weight:800;margin-top:10px}
+  .verified{color:#1d7a3a;font-size:11px;font-weight:800}
+  details{background:#fff;border-radius:12px;padding:14px 16px;margin-bottom:8px}
+  summary{font-weight:800;cursor:pointer;font-size:15px}
+  details p{color:var(--muted);font-size:14px;margin-top:8px;line-height:1.55}
+  .rel{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+  .rel .p{background:#fff;border-radius:14px;overflow:hidden}
+  .rel .p img{height:120px;width:100%;object-fit:cover}
+  .rel .p div{padding:10px 12px;font-size:13px;font-weight:800}
+  .rel .p small{display:block;color:var(--muted);font-weight:700}
+  .foot{background:var(--dark);color:rgba(255,255,255,.55);padding:36px 20px;font-size:13px}
+  .foot b{color:#fff}
+  .sticky{display:none}
+  .bar{height:8px;border-radius:5px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:6px}
+  .bar span{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,#196a5e,#8bd4c6)}
+  .gallery-main{border-radius:20px;overflow:hidden;aspect-ratio:4/3;background:#ddd;position:relative}
+  .gallery-main img{width:100%;height:100%;object-fit:cover}
+  .thumbs{display:flex;gap:8px;margin-top:8px}
+  .thumbs img{width:64px;height:64px;object-fit:cover;border-radius:10px;border:2px solid transparent;cursor:pointer}
+  .thumbs img.on{border-color:var(--primary)}
+  .badge-abs{position:absolute;top:12px;left:12px;background:rgba(12,17,12,.75);color:#fff;font-size:11px;font-weight:800;padding:6px 10px;border-radius:999px;letter-spacing:.05em}
+
+  /* ── Layout A: classic ── */
+  .A .top{display:grid;grid-template-columns:1fr;gap:24px}
+  .A .tabs{display:flex;gap:4px;border-bottom:2px solid var(--s-high);margin-top:40px;overflow-x:auto}
+  .A .tabs span{padding:12px 16px;font-weight:800;font-size:14px;color:var(--muted);white-space:nowrap}
+  .A .tabs span.on{color:var(--primary);border-bottom:3px solid var(--primary);margin-bottom:-2px}
+  .A .tabbody{padding:24px 0;display:grid;grid-template-columns:1fr;gap:20px}
+  .A .spec{width:100%;border-collapse:collapse;font-size:14px}
+  .A .spec td{padding:10px 0;border-bottom:1px solid var(--s-high)} .A .spec td:first-child{color:var(--muted);font-weight:700;width:45%}
+
+  /* ── Layout B: editorial ── */
+  .B{background:var(--dark);color:#eee}
+  .B .hero{position:relative;min-height:440px;display:flex;align-items:flex-end;overflow:hidden}
+  .B .hero img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.55}
+  .B .hero::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(12,17,12,.2),rgba(12,17,12,.95))}
+  .B .hero .wrap{position:relative;z-index:2;padding-bottom:36px;width:100%}
+  .B h1{font-size:44px;font-weight:800;letter-spacing:-.04em;line-height:1.02;color:#fff;margin-top:10px}
+  .B .grad{background:linear-gradient(90deg,#8bd4c6,#9fb17d);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .B .lead{color:rgba(255,255,255,.6);font-size:17px;max-width:560px;margin-top:12px;line-height:1.55}
+  .B .split{display:grid;grid-template-columns:1fr;gap:20px;padding:32px 0}
+  .B .buy{background:rgba(255,255,255,.04);border:1px solid rgba(139,212,198,.25);border-radius:20px;padding:22px}
+  .B .opt{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.12);color:#eee}
+  .B .opt small{color:rgba(255,255,255,.5)} .B .opt.sel{border-color:var(--primary-fixed-dim);background:rgba(139,212,198,.1)}
+  .B .pin input{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.15);color:#fff}
+  .B .pin button{color:var(--primary-fixed-dim)} .B .ok{color:#8bd4c6} .B .tiny{color:rgba(255,255,255,.5)}
+  .B .bento{display:grid;grid-template-columns:1fr;gap:14px}
+  .B .bcell{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:22px;overflow:hidden}
+  .B .bcell p{color:rgba(240,240,238,.6);font-size:14px;line-height:1.6;margin-top:6px}
+  .B .lbl{color:rgba(159,177,125,.85)} .B .h2{color:#fff}
+  .B .chip{background:rgba(255,255,255,.08);color:rgba(255,255,255,.82);border:1px solid rgba(255,255,255,.12)}
+  .B .rev{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)} .B .rev p{color:rgba(255,255,255,.6)}
+  .B details{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)} .B details p{color:rgba(255,255,255,.6)}
+  .B .rel .p{background:rgba(255,255,255,.04)} .B .rel .p small{color:rgba(255,255,255,.5)}
+  .B .price{color:#fff} .B .qty{background:transparent;border-color:rgba(255,255,255,.15);color:#fff}
+  .B .trust div{background:rgba(255,255,255,.05);color:rgba(255,255,255,.55)} .B .trust div b{color:#fff}
+  .B .crumb{color:rgba(255,255,255,.5)} .B .crumb a{color:var(--primary-fixed-dim)}
+
+  /* ── Layout C: hybrid ── */
+  .C .top{display:grid;grid-template-columns:1fr;gap:24px}
+  .C .band{background:var(--dark);color:#eee;margin-top:48px;padding:56px 0}
+  .C .band .h2{color:#fff} .C .band .lbl{color:rgba(159,177,125,.85)}
+  .C .bento{display:grid;grid-template-columns:1fr;gap:14px;margin-top:22px}
+  .C .bcell{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:22px;overflow:hidden}
+  .C .bcell p{color:rgba(240,240,238,.6);font-size:14px;line-height:1.6;margin-top:6px}
+  .C .bcell h3{color:#fff}
+
+  /* ── desktop (container ≥ 820px) ── */
+  @container (min-width:820px){
+    .A .top,.C .top{grid-template-columns:1.1fr 1fr;gap:48px}
+    .A .tabbody{grid-template-columns:1.4fr 1fr}
+    .grid3{grid-template-columns:repeat(3,1fr)}
+    .rel{grid-template-columns:repeat(4,1fr)}
+    .B .split{grid-template-columns:1.3fr 1fr;gap:40px}
+    .B .buy{position:sticky;top:20px;align-self:start}
+    .B .bento,.C .bento{grid-template-columns:repeat(3,1fr)}
+    .B .bento .wide,.C .bento .wide{grid-column:span 2}
+    .B h1{font-size:64px}
+    .trust{grid-template-columns:repeat(4,1fr)}
+  }
+  /* ── mobile (container < 820px) ── */
+  @container (max-width:819px){
+    .hdr nav{display:none} .burger{display:block}
+    .sticky{display:flex;position:sticky;bottom:0;z-index:20;gap:10px;align-items:center;padding:12px 14px;background:rgba(255,255,255,.97);border-top:1px solid rgba(0,0,0,.08);box-shadow:0 -6px 20px rgba(0,0,0,.08)}
+    .sticky .btn{width:auto;flex:1;padding:13px}
+    .sticky .p{font-weight:800;font-size:17px;line-height:1.1}
+    .B .sticky{background:rgba(12,17,12,.97);border-color:rgba(255,255,255,.08);color:#fff}
+    .h2{font-size:23px} .price{font-size:26px}
+    .sec{padding:40px 0}
+  }
+</style>
+</head>
+<body>
+
+<div class="chrome">
+  <b>Product page — full mockups</b>
+  <div class="seg" id="lay">
+    <button data-l="A" class="on">A · Classic store</button>
+    <button data-l="B">B · Editorial</button>
+    <button data-l="C">C · Hybrid</button>
+  </div>
+  <div class="seg" id="dev">
+    <button data-d="desktop" class="on">🖥 Desktop</button>
+    <button data-d="mobile">📱 Mobile</button>
+  </div>
+  <span class="note">Prices, ratings &amp; reviews are sample data for the mockup.</span>
+  <button class="pick" id="pickbtn" >Choose A</button>
+</div>
+
+<div class="stagewrap"><div class="stage" id="stage">
+
+<!-- ════════════════════════ A · CLASSIC ════════════════════════ -->
+<div class="layout A on" data-layout="A">
+  <header class="hdr"><img src="../../../../public/images/brand/logo-color.png" alt="HariLeaf"><nav><a>Shop</a><a class="act">Rice</a><a>Spices</a><a>Produce</a><a>Recipes</a><a>About</a></nav><span class="cart">🛒 2</span><span class="burger">☰</span></header>
+  <div class="wrap">
+    <div class="crumb"><a>Home</a> › <a>Rice</a> › Karjat 3</div>
+    <div class="top">
+      <div>
+        <div class="gallery-main"><img src="../../../../public/images/placeholders/rice-karjat.jpg" alt=""><span class="badge-abs">🌱 ORGANIC · UNPOLISHED</span></div>
+        <div class="thumbs"><img class="on" src="../../../../public/images/placeholders/rice-karjat.jpg"><img src="../../../../public/images/general/hero-field.png"><img src="../../../../public/images/general/organic-farm.png"><img src="../../../../public/images/placeholders/rice-wada.jpg"></div>
+      </div>
+      <div>
+        <span class="chip">Everyday · Bold grain</span>
+        <h1 style="font-size:34px;font-weight:800;letter-spacing:-.03em;margin:10px 0 6px">Karjat 3 Unpolished Rice</h1>
+        <div style="font-size:14px"><span class="stars">★★★★★</span> <b>4.8</b> <a style="color:var(--primary);font-weight:700">· 37 reviews</a></div>
+        <div style="margin:16px 0 2px"><span class="price">₹699</span><span class="mrp">₹799</span><span class="off">12% off</span></div>
+        <div class="tiny">Inclusive of all taxes · <b>Free shipping across India</b></div>
+        <div style="margin-top:18px;font-weight:800;font-size:14px">Pack size</div>
+        <div class="opts">
+          <div class="opt">1 kg<small>₹149</small></div>
+          <div class="opt sel">5 kg<small>₹699 · ₹140/kg</small></div>
+          <div class="opt">10 kg<small>₹1,349 · ₹135/kg</small></div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <div class="qty"><span>−</span><span>1</span><span>+</span></div>
+          <button class="btn" style="flex:1">Add to cart</button>
+        </div>
+        <button class="btn ghost" style="margin-top:10px">Buy now</button>
+        <div class="pin"><input value="400092"><button>Check</button></div>
+        <div class="ok">✓ Delivers to Borivali, Mumbai by Thu 22 Oct · Cash on delivery available</div>
+        <div class="trust">
+          <div><b>🌱 Organic</b>No chemical inputs</div>
+          <div><b>🌾 Unpolished</b>Bran &amp; germ kept</div>
+          <div><b>🚚 Free delivery</b>All India</div>
+          <div><b>💵 COD</b>Pay on delivery</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tabs"><span class="on">Description</span><span>How it's grown</span><span>Nutrition</span><span>Cooking &amp; storage</span><span>Reviews (37)</span><span>FAQ</span></div>
+    <div class="tabbody">
+      <div style="font-size:15px;line-height:1.7;color:var(--muted)">
+        <p>A dependable, hearty short-grain rice bred at a respected rice research station. Versatile and satisfying — built for everyday cooking. We grow it organically on our farm and mill it gently, so the bran, germ, fiber and minerals stay in the grain instead of being polished away.</p>
+        <p style="margin-top:12px">Cooks soft and separate, holds well for dal-chawal, khichdi and lunch-box rice.</p>
+      </div>
+      <table class="spec">
+        <tr><td>Variety</td><td>Karjat 3</td></tr>
+        <tr><td>Grain</td><td>Short, bold</td></tr>
+        <tr><td>Processing</td><td>Unpolished, minimally milled</td></tr>
+        <tr><td>Grown at</td><td>HariLeaf Farm, Maharashtra</td></tr>
+        <tr><td>Harvest</td><td>Kharif 2026</td></tr>
+        <tr><td>Shelf life</td><td>9 months</td></tr>
+      </table>
+    </div>
+
+    <div class="sec" style="padding-top:20px">
+      <div class="lbl">Customer reviews</div>
+      <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:16px"><span class="h2">4.8</span><span class="stars">★★★★★</span><span class="tiny">37 verified buyers</span></div>
+      <div class="grid3">
+        <div class="rev"><span class="stars">★★★★★</span> <b>Tastes like rice used to</b><p>Soft, filling and my kids didn't even notice it's unpolished. Reordering the 10 kg.</p><div class="who">Priya S. · Thane <span class="verified">✓ Verified buyer</span></div></div>
+        <div class="rev"><span class="stars">★★★★★</span> <b>Great for khichdi</b><p>Holds shape, nice nutty smell. Packaging was sturdy, arrived in 3 days to Pune.</p><div class="who">Rahul M. · Pune <span class="verified">✓ Verified buyer</span></div></div>
+        <div class="rev"><span class="stars">★★★★☆</span> <b>Good everyday rice</b><p>Needs a 20 min soak for best texture. Otherwise excellent value.</p><div class="who">Anita K. · Bengaluru <span class="verified">✓ Verified buyer</span></div></div>
+      </div>
+    </div>
+
+    <div class="sec" style="padding-top:0">
+      <div class="lbl">Questions</div>
+      <details open><summary>Why is unpolished rice higher in fiber?</summary><p>Polishing removes the bran and germ layers. Unpolished rice keeps them, so it has more fiber and minerals than polished white rice.</p></details>
+      <details><summary>How long should I soak it?</summary><p>15–20 minutes, then cook 1 cup rice to 2¼ cups water.</p></details>
+      <details><summary>Do you deliver outside Maharashtra?</summary><p>Yes — free delivery to all serviceable pincodes in India.</p></details>
+    </div>
+
+    <div class="sec" style="padding-top:0">
+      <div class="lbl">You may also like</div>
+      <div class="rel">
+        <div class="p"><img src="../../../../public/images/placeholders/rice-wada.jpg"><div>Wada Kolam<small>from ₹179</small></div></div>
+        <div class="p"><img src="../../../../public/images/placeholders/rice-red.jpg"><div>Red Rice<small>from ₹189</small></div></div>
+        <div class="p"><img src="../../../../public/images/placeholders/spice-turmeric.jpg"><div>Turmeric Powder<small>from ₹129</small></div></div>
+        <div class="p"><img src="../../../../public/images/placeholders/spice-chili.jpg"><div>Red Chili Powder<small>from ₹119</small></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="sticky"><div class="p">₹699<br><span class="tiny">5 kg · free delivery</span></div><button class="btn">Add to cart</button></div>
+  <footer class="foot"><b>HariLeaf</b> · Shop · Rice · Spices · Produce · Shipping policy · Refund policy · Privacy · Terms</footer>
+</div>
+
+<!-- ════════════════════════ B · EDITORIAL ════════════════════════ -->
+<div class="layout B" data-layout="B">
+  <header class="hdr dark"><img src="../../../../public/images/brand/logo-white.png" alt="HariLeaf"><nav><a>Shop</a><a class="act">Rice</a><a>Spices</a><a>Produce</a><a>Recipes</a><a>About</a></nav><span class="cart">🛒 2</span><span class="burger" style="color:#fff">☰</span></header>
+  <section class="hero">
+    <img src="../../../../public/images/placeholders/rice-karjat.jpg" alt="">
+    <div class="wrap">
+      <div class="crumb" style="padding:0 0 10px"><a>Home</a> › <a>Rice</a> › Karjat 3</div>
+      <span class="lbl" style="display:block">HariLeaf Farm · Kharif 2026 harvest</span>
+      <h1>Karjat 3 —<br><span class="grad">everyday rice, goodness left in.</span></h1>
+      <p class="lead">A hearty short-grain rice, grown organically and milled gently so the fiber, minerals and nutrition stay in the grain.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px"><span class="chip">🌱 Organic</span><span class="chip">✨ Unpolished</span><span class="chip">🙌 Hand-harvested</span><span class="chip"><span class="stars">★</span>&nbsp;4.8 · 37 reviews</span></div>
+    </div>
+  </section>
+  <div class="wrap">
+    <div class="split">
+      <div>
+        <div class="lbl">The story</div>
+        <div class="h2">Bred for the everyday table</div>
+        <p style="color:rgba(240,240,238,.6);font-size:15px;line-height:1.7;margin-top:8px">Karjat 3 was developed at a rice research station in the Konkan to be dependable in the field and satisfying on the plate. We grow it without chemical inputs, harvest by hand and mill it just enough to remove the husk — keeping the bran and germ where the nutrition lives.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:20px">
+          <img src="../../../../public/images/general/hero-field.png" style="border-radius:16px;height:150px;width:100%;object-fit:cover">
+          <img src="../../../../public/images/general/organic-farm.png" style="border-radius:16px;height:150px;width:100%;object-fit:cover">
+        </div>
+      </div>
+      <div class="buy">
+        <div style="font-weight:800;font-size:18px;color:#fff">Karjat 3 Unpolished Rice</div>
+        <div style="margin:10px 0 2px"><span class="price">₹699</span><span class="mrp">₹799</span><span class="off" style="color:#8bd4c6">12% off</span></div>
+        <div class="tiny">Incl. all taxes · Free shipping across India</div>
+        <div class="opts">
+          <div class="opt">1 kg<small>₹149</small></div>
+          <div class="opt sel">5 kg<small>₹140/kg</small></div>
+          <div class="opt">10 kg<small>₹135/kg</small></div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center"><div class="qty"><span>−</span><span>1</span><span>+</span></div><button class="btn" style="flex:1">Add to cart</button></div>
+        <div class="pin"><input value="400092"><button>Check</button></div>
+        <div class="ok">✓ Delivers by Thu 22 Oct · COD available</div>
+      </div>
+    </div>
+
+    <div class="bento">
+      <div class="bcell wide">
+        <div class="lbl">Why unpolished</div>
+        <div class="h2" style="font-size:22px">What polishing takes away</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;font-size:13px">
+          <div style="color:rgba(255,255,255,.55)"><b style="color:#fff">⚪ Polished</b><br>✗ Bran removed<br>✗ Germ removed<br>✗ Most fiber gone</div>
+          <div style="color:rgba(255,255,255,.7)"><b style="color:#fff">🟢 Ours</b><br>✓ Bran intact<br>✓ Germ intact<br>✓ Fiber &amp; minerals kept</div>
+        </div>
+      </div>
+      <div class="bcell">
+        <div class="lbl">Per 100 g (sample)</div>
+        <div style="font-size:13px;color:rgba(255,255,255,.7)">Fiber<div class="bar"><span style="width:62%"></span></div></div>
+        <div style="font-size:13px;color:rgba(255,255,255,.7);margin-top:10px">Protein<div class="bar"><span style="width:48%"></span></div></div>
+        <div style="font-size:13px;color:rgba(255,255,255,.7);margin-top:10px">Magnesium<div class="bar"><span style="width:70%"></span></div></div>
+      </div>
+      <div class="bcell"><div class="lbl">Cook it</div><p><b style="color:#fff">Soak 20 min.</b> 1 cup rice : 2¼ cups water. Simmer 18 min, rest 5.</p></div>
+      <div class="bcell"><div class="lbl">Store it</div><p>Airtight jar, cool &amp; dry. Best within 9 months of milling.</p></div>
+      <div class="bcell"><div class="lbl">Recipe</div><p><b style="color:#fff">Konkan-style masoor khichdi →</b><br>One-pot, 30 minutes.</p></div>
+    </div>
+
+    <div class="sec">
+      <div class="lbl">From people who cook it</div>
+      <div class="grid3">
+        <div class="rev"><span class="stars">★★★★★</span> <b style="color:#fff">Tastes like rice used to</b><p>Soft, filling and my kids didn't even notice it's unpolished.</p><div class="who">Priya S. · Thane <span class="verified" style="color:#8bd4c6">✓ Verified</span></div></div>
+        <div class="rev"><span class="stars">★★★★★</span> <b style="color:#fff">Great for khichdi</b><p>Holds shape, nice nutty smell. Arrived in 3 days to Pune.</p><div class="who">Rahul M. · Pune <span class="verified" style="color:#8bd4c6">✓ Verified</span></div></div>
+        <div class="rev"><span class="stars">★★★★☆</span> <b style="color:#fff">Good everyday rice</b><p>Needs a 20 min soak for best texture.</p><div class="who">Anita K. · Bengaluru <span class="verified" style="color:#8bd4c6">✓ Verified</span></div></div>
+      </div>
+    </div>
+    <div style="padding-bottom:40px">
+      <div class="lbl">Questions</div>
+      <details open><summary>Why is unpolished rice higher in fiber?</summary><p>Polishing removes the bran and germ layers. Unpolished rice keeps them, so it has more fiber and minerals than polished white rice.</p></details>
+      <details><summary>Do you deliver outside Maharashtra?</summary><p>Yes — free delivery to all serviceable pincodes in India.</p></details>
+    </div>
+    <div style="padding-bottom:56px">
+      <div class="lbl">More from the farm</div>
+      <div class="rel">
+        <div class="p"><img src="../../../../public/images/placeholders/rice-wada.jpg"><div style="color:#fff">Wada Kolam<small>from ₹179</small></div></div>
+        <div class="p"><img src="../../../../public/images/placeholders/rice-red.jpg"><div style="color:#fff">Red Rice<small>from ₹189</small></div></div>
+        <div class="p"><img src="../../../../public/images/placeholders/spice-turmeric.jpg"><div style="color:#fff">Turmeric<small>from ₹129</small></div></div>
+        <div class="p"><img src="../../../../public/images/placeholders/spice-chili.jpg"><div style="color:#fff">Red Chili<small>from ₹119</small></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="sticky"><div class="p">₹699<br><span class="tiny">5 kg · free delivery</span></div><button class="btn">Add to cart</button></div>
+  <footer class="foot" style="border-top:1px solid rgba(255,255,255,.06)"><b>HariLeaf</b> · Shop · Rice · Spices · Produce · Shipping policy · Refund policy · Privacy · Terms</footer>
+</div>
+
+<!-- ════════════════════════ C · HYBRID ════════════════════════ -->
+<div class="layout C" data-layout="C">
+  <header class="hdr"><img src="../../../../public/images/brand/logo-color.png" alt="HariLeaf"><nav><a>Shop</a><a class="act">Rice</a><a>Spices</a><a>Produce</a><a>Recipes</a><a>About</a></nav><span class="cart">🛒 2</span><span class="burger">☰</span></header>
+  <div class="wrap">
+    <div class="crumb"><a>Home</a> › <a>Rice</a> › Karjat 3</div>
+    <div class="top">
+      <div>
+        <div class="gallery-main"><img src="../../../../public/images/placeholders/rice-karjat.jpg" alt=""><span class="badge-abs">🌾 KHARIF 2026 HARVEST</span></div>
+        <div class="thumbs"><img class="on" src="../../../../public/images/placeholders/rice-karjat.jpg"><img src="../../../../public/images/general/hero-field.png"><img src="../../../../public/images/general/organic-farm.png"><img src="../../../../public/images/placeholders/rice-wada.jpg"></div>
+      </div>
+      <div>
+        <span class="chip">Everyday · Bold grain</span>
+        <h1 style="font-size:34px;font-weight:800;letter-spacing:-.03em;margin:10px 0 6px">Karjat 3 Unpolished Rice</h1>
+        <p style="color:var(--muted);font-size:15px;line-height:1.6">Hearty short-grain rice, grown without synthetic pesticides or fertilisers and milled just enough to remove the husk, so the bran and germ stay on the grain.</p>
+        <!-- Proof line: packed-on date + batch + lab badge (lab badge only when a visible lab report exists) -->
+        <div class="tiny" style="margin-top:8px"><b style="color:var(--ink)">Packed 12 Oct 2026</b> · Batch KJ-2610 · <b style="color:#1d7a3a">✓ Lab tested</b></div>
+        <!-- Rating line renders only when ≥1 approved review exists; launch-day state has no rating line -->
+        <div style="font-size:14px;margin-top:6px"><span class="stars">★★★★★</span> <b>4.8</b> <a style="color:var(--primary);font-weight:700">· 37 reviews</a></div>
+        <div style="margin:14px 0 2px"><span class="price">₹699</span><span class="mrp">₹799</span><span class="off">12% off</span></div>
+        <div class="tiny">MRP inclusive of all taxes · ₹140/kg · <b>Free shipping</b> · Minimum order ₹499</div>
+        <!-- Variants: a radiogroup; every chip shows pack price + unit price -->
+        <div class="opts" role="radiogroup" aria-label="Pack size">
+          <div class="opt" role="radio" aria-checked="false" tabindex="-1">1 kg<small>₹149 · ₹149/kg</small></div>
+          <div class="opt sel" role="radio" aria-checked="true" tabindex="0">5 kg<small>₹699 · ₹140/kg</small></div>
+          <div class="opt" role="radio" aria-checked="false" tabindex="-1">10 kg<small>₹1,349 · ₹135/kg</small></div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center"><div class="qty"><span>−</span><span>1</span><span>+</span></div><button class="btn" style="flex:1">Add to cart</button></div>
+        <div class="pin"><input value="400092" aria-label="Delivery pincode"><button>Check</button></div>
+        <div class="ok">✓ Delivers to Borivali, Mumbai by Thu 22 Oct · COD available</div>
+        <div class="tiny" style="margin-top:4px">Damaged or wrong item? Replacement or refund — see refund policy.</div>
+        <div class="trust">
+          <div><b>🌾 Unpolished</b>Bran &amp; germ kept</div>
+          <div><b>🌱 No synthetic sprays</b>Or fertilisers</div>
+          <div><b>🚚 Free delivery</b>Orders over ₹499</div>
+          <div><b>💵 COD</b>Orders up to ₹3,000</div>
+        </div>
+        <!-- Organic certification line: shown only when products.organic_scheme is set, e.g. "Under conversion to organic (PGS-India Green)". Not shown here. -->
+        <details style="margin-top:14px;background:var(--s-low)"><summary style="font-weight:800;font-size:14px">Product information</summary>
+          <p>Net quantity: 5 kg · Best before: 9 months from packing · Storage: cool, dry, airtight · Country of origin: India<br>
+          Packed by: HariLeaf Farms, &lt;address&gt; · FSSAI Lic. No. &lt;14 digits&gt; · Customer care: &lt;phone&gt; / &lt;email&gt;</p>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <section class="band">
+    <div class="wrap">
+      <div class="lbl">From our farm</div>
+      <div class="h2">Bred for the everyday table, grown without shortcuts.</div>
+      <div class="bento">
+        <div class="bcell wide" style="padding:0;display:grid;grid-template-columns:1fr 1fr">
+          <img src="../../../../public/images/general/hero-field.png" style="height:100%;min-height:200px;object-fit:cover">
+          <div style="padding:22px"><h3>How it's grown</h3><p>Developed at a Konkan rice research station. We grow it without synthetic pesticides or fertilisers, harvest by hand and mill it just enough to remove the husk.</p></div>
+        </div>
+        <div class="bcell">
+          <h3>Per 100 g <span style="font-size:11px;color:rgba(255,255,255,.4)">(sample — replace with lab values)</span></h3>
+          <p style="display:grid;grid-template-columns:1fr auto;gap:6px 16px;color:rgba(255,255,255,.75)">
+            <span>Dietary fibre</span><b style="color:#fff">3.2 g</b>
+            <span>Protein</span><b style="color:#fff">7.9 g</b>
+            <span>Magnesium</span><b style="color:#fff">110 mg</b>
+          </p>
+        </div>
+        <div class="bcell"><h3>Lab report · Batch KJ-2610</h3><p>Tested 14 Oct 2026 by &lt;NABL lab&gt;. Pesticide residues: not detected (sample).<br><b style="color:#8bd4c6">Download report (PDF) →</b></p></div>
+        <div class="bcell"><h3>Why unpolished</h3><p>Polishing strips the bran and germ — where most of the fiber and minerals live. Ours keeps them.</p></div>
+        <div class="bcell"><h3>Cook it</h3><p>Soak 20 min · 1 : 2¼ water · simmer 18 min, rest 5.</p></div>
+        <div class="bcell"><h3>Recipe</h3><p><b style="color:#8bd4c6">Konkan-style masoor khichdi →</b><br>One-pot, 30 minutes.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="wrap">
+    <div class="sec">
+      <div class="lbl">Customer reviews</div>
+      <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:16px"><span class="h2">4.8</span><span class="stars">★★★★★</span><span class="tiny">37 verified buyers</span></div>
+      <div class="grid3">
+        <div class="rev"><span class="stars">★★★★★</span> <b>Tastes like rice used to</b><p>Soft, filling and my kids didn't even notice it's unpolished. Reordering the 10 kg.</p><div class="who">Priya S. · Thane <span class="verified">✓ Verified buyer</span></div></div>
+        <div class="rev"><span class="stars">★★★★★</span> <b>Great for khichdi</b><p>Holds shape, nice nutty smell. Arrived in 3 days to Pune.</p><div class="who">Rahul M. · Pune <span class="verified">✓ Verified buyer</span></div></div>
+        <div class="rev"><span class="stars">★★★★☆</span> <b>Good everyday rice</b><p>Needs a 20 min soak for best texture.</p><div class="who">Anita K. · Bengaluru <span class="verified">✓ Verified buyer</span></div></div>
+      </div>
+    </div>
+    <div class="sec" style="padding-top:0">
+      <div class="lbl">Questions</div>
+      <details open><summary>Why is unpolished rice higher in fiber?</summary><p>Polishing removes the bran and germ layers. Unpolished rice keeps them, so it has more fiber and minerals than polished white rice.</p></details>
+      <details><summary>How long should I soak it?</summary><p>15–20 minutes, then cook 1 cup rice to 2¼ cups water.</p></details>
+      <details><summary>Do you deliver outside Maharashtra?</summary><p>Yes — free delivery to serviceable pincodes across India (minimum order ₹499).</p></details>
+    </div>
+    <div class="sec" style="padding-top:0">
+      <div class="lbl">You may also like</div>
+      <div class="rel">
+        <div class="p"><img src="../../../../public/images/placeholders/rice-wada.jpg"><div>Wada Kolam<small>from ₹179</small></div></div>
+        <div class="p"><img src="../../../../public/images/placeholders/rice-red.jpg"><div>Red Rice<small>from ₹189</small></div></div>
+        <div class="p"><img src="../../../../public/images/placeholders/spice-turmeric.jpg"><div>Turmeric Powder<small>from ₹129</small></div></div>
+        <div class="p"><img src="../../../../public/images/placeholders/spice-chili.jpg"><div>Red Chili Powder<small>from ₹119</small></div></div>
+      </div>
+    </div>
+  </div>
+  <!-- Sticky bar mirrors the selected variant (label, price, unit price) -->
+  <div class="sticky"><div class="p">₹699<br><span class="tiny">5 kg · ₹140/kg</span></div><button class="btn">Add to cart</button></div>
+  <footer class="foot"><b>HariLeaf</b> · Shop · Rice · Spices · Produce · Shipping policy · Refund policy · Privacy · Terms · Grievance officer</footer>
+</div>
+
+</div></div>
+
+<script>
+  const stage = document.getElementById('stage');
+  const pick = document.getElementById('pickbtn');
+  let current = 'A', chosen = null;
+  const names = {A:'A · Classic store',B:'B · Editorial',C:'C · Hybrid'};
+  function syncPick(){
+    pick.dataset.choice = current;
+    pick.textContent = chosen === current ? '✓ ' + names[current] + ' chosen' : 'Choose ' + current;
+    pick.classList.toggle('picked', chosen === current);
+  }
+  document.querySelectorAll('#lay button').forEach(b => b.onclick = () => {
+    document.querySelectorAll('#lay button').forEach(x => x.classList.toggle('on', x === b));
+    current = b.dataset.l;
+    document.querySelectorAll('.layout').forEach(l => l.classList.toggle('on', l.dataset.layout === current));
+    stage.scrollIntoView({block:'start'}); window.scrollTo(0,0);
+    syncPick();
+  });
+  document.querySelectorAll('#dev button').forEach(b => b.onclick = () => {
+    document.querySelectorAll('#dev button').forEach(x => x.classList.toggle('on', x === b));
+    stage.classList.toggle('mobile', b.dataset.d === 'mobile');
+  });
+  pick.addEventListener('click', () => { chosen = current; syncPick(); });
+  document.querySelectorAll('.opt').forEach(o => o.onclick = () => {
+    o.parentElement.querySelectorAll('.opt').forEach(x => x.classList.toggle('sel', x === o));
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,108 @@
+---
+export const prerender = false;
+import { env } from 'cloudflare:workers';
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { validateSession } from '../../lib/auth';
+import { getSettings, missingForLaunch } from '../../lib/store/settings';
+import { getContent } from '../../lib/cms';
+import { contentClaimProblems } from '../../lib/store/content-claims';
+import { dashboardMetrics } from '../../lib/store/admin-orders';
+import { formatINR } from '../../lib/store/money';
+
+const authenticated = await validateSession(env.HARILEAF_CMS, Astro.cookies);
+const accessConfigured = Astro.locals.accessConfigured !== false;
+let missing: string[] = [];
+let dbError = false;
+let deadOutbox = 0;
+let m: Record<string, number> = {};
+let contentProblems: Record<string, string> = {};
+if (authenticated) {
+  contentProblems = contentClaimProblems((await getContent(env.HARILEAF_CMS)) as unknown as Record<string, unknown>);
+  try {
+    missing = missingForLaunch(await getSettings(env.STORE_DB));
+    deadOutbox = (await env.STORE_DB.prepare("SELECT count(*) AS n FROM outbox WHERE state = 'dead'").first<{ n: number }>())?.n ?? 0;
+    m = await dashboardMetrics(env.STORE_DB, new Date());
+  } catch (err) {
+    dbError = true;
+    console.error(JSON.stringify({ msg: 'dashboard load failed', error: String(err) }));
+  }
+}
+
+const labels: Record<string, string> = {
+  legal_name: 'Legal name', address: 'Address', gstin: 'GSTIN', fssai_license: 'FSSAI licence',
+  customer_care_phone: 'Customer care phone', customer_care_email: 'Customer care email',
+  grievance_officer_name: 'Grievance officer name', grievance_officer_email: 'Grievance officer email',
+  grievance_officer_phone: 'Grievance officer phone',
+  pickup_pincode: 'Pickup pincode',
+};
+
+const sections = [
+  { href: '/admin/orders', title: 'Orders', body: 'Pack, ship, cancel, refund and print invoices.' },
+  { href: '/admin/products', title: 'Products', body: 'Listings, prices, stock, batches and lab reports.' },
+  { href: '/admin/remittance', title: 'COD remittance', body: 'Import Shiprocket remittance reports.' },
+  { href: '/admin/photos', title: 'Photos', body: 'Upload and remove farm photos.' },
+  { href: '/admin/produce', title: 'Produce', body: 'Edit the produce catalogue on /produce.' },
+  { href: '/admin/content', title: 'Content', body: 'Edit text on the produce page.' },
+  { href: '/admin/settings', title: 'Store settings', body: 'Seller details, grievance officer, order limits.' },
+];
+---
+
+<AdminLayout title="Dashboard" active="dashboard">
+  <div style="display:flex;flex-direction:column;gap:1rem;margin-bottom:2rem;">
+    {!accessConfigured && (
+      <p class="warn" role="status">
+        <strong>Cloudflare Access isn't configured.</strong> Admin is protected by the passphrase only. Set
+        <code>CF_ACCESS_TEAM_DOMAIN</code> and <code>CF_ACCESS_AUD</code> once the Access application exists.
+      </p>
+    )}
+    {dbError && <p class="warn" role="status">The store database isn't reachable yet. Create the D1 database and apply migrations (README → Store development).</p>}
+    {Object.keys(contentProblems).length > 0 && (
+      <p class="warn" role="status">
+        <strong>Produce page text uses wording the claims policy doesn't allow</strong> ({Object.values(contentProblems).join(', ')}).
+        <a href="/admin/content" style="color:inherit;">Edit it in Content</a>.
+      </p>
+    )}
+    {deadOutbox > 0 && <p class="warn" role="status"><strong>{deadOutbox} background task(s) failed permanently.</strong> Open the order to see the error and retry.</p>}
+    {(m.refunds_failed ?? 0) > 0 && <p class="warn" role="status"><strong>{m.refunds_failed} refund(s) failed at Razorpay.</strong> Retry them from the order page.</p>}
+    {(m.reviews_pending ?? 0) > 0 && <p class="warn" role="status"><strong>{m.reviews_pending} review(s) waiting for a check.</strong> <a href="/admin/reviews" style="color:#196a5e;font-weight:700;">Open reviews</a> — publish every honest review, good or bad.</p>}
+    {(m.ndr_open ?? 0) > 0 && <p class="warn" role="status"><strong>{m.ndr_open} shipment(s) had a failed delivery attempt</strong> this week. Call the customer, then act in Shiprocket → NDR.</p>}
+    {(m.courier_problems ?? 0) > 0 && <p class="warn" role="status"><strong>{m.courier_problems} order(s) have courier updates that need you</strong> (lost parcel, or a scan that didn't match the order — e.g. a pickup of a cancelled order). See the order timeline.</p>}
+    {(m.cod_unconfirmed_old ?? 0) > 0 && <p class="warn" role="status"><a href="/admin/orders?status=placed" style="color:inherit;"><strong>{m.cod_unconfirmed_old} COD order(s) unconfirmed for over 2 days.</strong> Call the customer, then confirm or cancel (their stock is held).</a></p>}
+    {(m.extra_payments ?? 0) > 0 && <p class="warn" role="status"><strong>{m.extra_payments} extra payment authorisation(s)</strong> this week were not captured and will auto-release. Let the customer know if they ask.</p>}
+    {(m.cod_unremitted ?? 0) > 0 && <p class="warn" role="status"><a href="/admin/remittance" style="color:inherit;"><strong>{m.cod_unremitted} COD order(s)</strong> delivered over 2 weeks ago have no remittance recorded.</a></p>}
+    {missing.length > 0 && (
+      <div class="warn" role="status">
+        <strong>Needed before launch:</strong>
+        <a href="/admin/settings" style="color:inherit;">{missing.map((k) => labels[k] ?? k).join(', ')}</a>
+      </div>
+    )}
+  </div>
+
+  {authenticated && !dbError && (
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:0.75rem;margin-bottom:2rem;">
+      {[
+        { label: 'To pack', value: m.to_pack ?? 0, href: '/admin/orders?status=placed' },
+        { label: 'Pre-orders waiting', value: m.preorders_open ?? 0, href: '/admin/orders?status=preorders' },
+        { label: 'To ship', value: m.to_ship ?? 0, href: '/admin/orders?status=packed' },
+        { label: 'RTO', value: m.rto ?? 0, href: '/admin/orders?status=rto' },
+        { label: 'Orders today', value: m.orders_today ?? 0, href: '/admin/orders?status=all' },
+        { label: 'Last 7 days', value: `${formatINR(m.revenue_7d ?? 0)} · ${m.orders_7d ?? 0}`, href: '/admin/orders?status=all' },
+        { label: 'Open refunds', value: m.refunds_open ?? 0, href: '/admin/orders?status=all' },
+      ].map((k) => (
+        <a href={k.href} class="card" style="padding:1rem;text-decoration:none;color:inherit;background:#fff;">
+          <p class="muted" style="font-size:0.75rem;">{k.label}</p>
+          <p style="font-size:1.35rem;font-weight:800;">{k.value}</p>
+        </a>
+      ))}
+    </div>
+  )}
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem;">
+    {sections.map((s) => (
+      <a href={s.href} class="card" style="text-decoration:none;color:inherit;padding:1.5rem;">
+        <p style="font-weight:800;margin-bottom:0.375rem;">{s.title}</p>
+        <p class="muted">{s.body}</p>
+      </a>
+    ))}
+  </div>
+</AdminLayout>

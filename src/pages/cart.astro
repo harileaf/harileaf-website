@@ -1,0 +1,261 @@
+---
+export const prerender = false;
+import SiteLayout from '../layouts/SiteLayout.astro';
+import SEO from '../components/seo/SEO.astro';
+
+Astro.response.headers.set('Cache-Control', 'no-store');
+Astro.response.headers.set('X-Robots-Tag', 'noindex');
+---
+
+<SiteLayout title="Your cart | HariLeaf" description="Your HariLeaf cart" noIndex>
+  <slot name="head" slot="head"><SEO title="Your cart | HariLeaf" description="Your HariLeaf cart" noIndex /></slot>
+  <div class="max-w-5xl mx-auto px-6 pt-32 pb-24">
+    <h1 class="text-4xl font-extrabold tracking-tight">Your cart</h1>
+    <div id="cart-root" class="mt-8 min-h-[60vh]" aria-live="polite" aria-busy="true">
+      <p class="text-on-surface-variant">Loading your cart…</p>
+    </div>
+    <noscript><p class="mt-6 text-on-surface-variant">Your cart needs JavaScript to work.</p></noscript>
+  </div>
+</SiteLayout>
+
+<script>
+  import { onEveryPage } from '../scripts/page-load';
+  import { formatINR } from '../lib/store/money';
+  import { readCart, readLater, removeFromCart, restoreLater, saveForLater, setCartQty } from '../scripts/store/cart';
+  import { couponBox, discountRow, focusCouponBox, isDeadCoupon, readCoupon, setCoupon, type QuoteCoupon } from '../scripts/store/coupon';
+  import { h } from '../scripts/store/dom';
+
+  type Group = 'preorder' | 'perishable' | 'regular';
+  interface Line { variantId: number; name: string; label: string; path: string; image: { url: string; alt: string } | null; qty: number; requestedQty: number; unitPrice: number; mrp: number; grossTotal: number; lineTotal: number; problem: string | null; available: number; group: Group; preorderDate: string | null; zoneId: string | null }
+  interface Quote { ok: boolean; total: number; subtotal: number; discount: number; coupon: QuoteCoupon | null; itemCount: number; minOrder: number; meetsMinimum: boolean; mixed: boolean; groups: Group[]; zones: Array<{ id: string; name: string }>; cod: { eligible: boolean; reason: string | null }; lines: Line[] }
+
+  const GROUP_NAME: Record<Group, string> = { preorder: 'pre-orders', perishable: 'fresh produce', regular: 'rice and spices' };
+
+  // With view transitions this script runs once per visit, so set the page up on every page load.
+  function initCart() {
+    const found = document.getElementById('cart-root');
+    if (!found) return;
+    const root = found;
+
+    // Only the newest quote may render: rapid +/− clicks can make responses arrive out of order.
+    let latest = 0;
+    // A code the server refused for good (shown under the box until the shopper acts).
+    let rejected: { code: string; message: string } | null = null;
+    let focusCoupon = false;
+    async function load() {
+      const seq = ++latest;
+      root.setAttribute('aria-busy', 'true');
+      const lines = readCart();
+      if (!lines.length) return renderEmpty();
+      const coupon = readCoupon();
+      const res = await fetch('/api/store/cart/quote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lines, coupon }) });
+      if (seq !== latest) return;
+      if (res.status === 429 && coupon) {
+        rejected = { code: coupon, message: 'Too many tries — please wait a minute and try again.' };
+        setCoupon(null);
+        return load();
+      }
+      if (!res.ok) {
+        root.replaceChildren(h('p', { class: 'text-on-surface-variant' }, 'We couldn’t load your cart. Please refresh the page.'));
+        return;
+      }
+      const q = (await res.json()) as Quote;
+      if (seq === latest) render(q);
+    }
+
+    function renderEmpty() {
+      root.setAttribute('aria-busy', 'false');
+      root.replaceChildren(
+        h('p', { class: 'text-on-surface-variant text-lg' }, 'Your cart is empty.'),
+        h('a', { href: '/shop/', class: 'inline-block mt-6 rounded-full px-7 py-3.5 font-extrabold text-white', style: 'background:linear-gradient(135deg,#196a5e,#2d7a4f)' }, 'Shop the farm'),
+        laterSection() ?? '',
+      );
+    }
+
+    // Goods saved for the next order (from an earlier split), always shown with a way back.
+    function laterSection() {
+      const later = readLater();
+      if (!later.length) return null;
+      const back = h('button', { type: 'button', class: 'mt-3 text-sm font-bold text-primary underline' }, 'Move them back to the cart');
+      back.addEventListener('click', () => { restoreLater(); load(); });
+      return h('section', { class: 'mt-8 rounded-2xl border border-dashed border-black/20 p-5', 'aria-labelledby': 'later-h' },
+        h('h2', { id: 'later-h', class: 'font-extrabold' }, 'Saved for your next order'),
+        h('p', { class: 'text-sm text-on-surface-variant mt-1' }, 'These go back into your cart once this order is placed.'),
+        h('ul', { class: 'mt-2 text-sm flex flex-col gap-1' }, ...later.map((l) => h('li', {}, `${l.name || 'Item'}${l.label ? ` · ${l.label}` : ''} × ${l.qty}`))),
+        back,
+      );
+    }
+
+    // A cart can't mix groups that ship differently (nor pre-orders dispatching on different dates, nor fresh
+    // produce from different delivery zones): the shopper picks one to check out now; the rest is saved for later.
+    const batchOf = (l: Line) => (l.group === 'preorder' ? `preorder:${l.preorderDate}:${l.zoneId ?? ''}` : l.group === 'perishable' ? `perishable:${l.zoneId}` : l.group);
+    const shortDay = (ymd: string, year = false) => new Date(`${ymd}T00:00:00+05:30`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', ...(year ? { year: 'numeric' } : {}), timeZone: 'Asia/Kolkata' });
+    function splitNotice(q: Quote) {
+      const live = q.lines.filter((l) => l.qty > 0);
+      const batches = [...new Map(live.map((l) => [batchOf(l), l])).values()];
+      const preorderDates = new Set(live.filter((l) => l.group === 'preorder').map((l) => l.preorderDate));
+      // Fresh produce, pre-ordered or not, is delivered only within its zone.
+      const zoneCount = new Set(live.filter((l) => l.zoneId).map((l) => l.zoneId)).size;
+      const buttons = batches.map((first) => {
+        const zone = zoneCount > 1 ? q.zones.find((z) => z.id === first.zoneId) : undefined;
+        const what = first.group === 'regular' ? GROUP_NAME.regular
+          : `${GROUP_NAME[first.group]}${zone ? ` for ${zone.name}` : ''}${first.group === 'preorder' && preorderDates.size > 1 ? ` dispatching ${shortDay(first.preorderDate!)}` : ''}`;
+        const b = h('button', { type: 'button', class: 'rounded-full px-5 py-2.5 font-extrabold text-white', style: 'background:linear-gradient(135deg,#196a5e,#2d7a4f)' }, `Check out ${what} now`);
+        b.addEventListener('click', () => {
+          saveForLater(q.lines.filter((l) => batchOf(l) !== batchOf(first)).map((l) => ({ variantId: l.variantId, qty: l.requestedQty, name: l.name, label: l.label })));
+          load();
+        });
+        return b;
+      });
+      const datesOnly = q.groups.length === 1 && preorderDates.size > 1;
+      const zonesOnly = q.groups.length === 1 && zoneCount > 1 && !datesOnly;
+      return h('div', { class: 'mb-6 rounded-2xl px-5 py-4', role: 'status', style: 'background:#fff4e0;border:1px solid #e8c37a;color:#6b4a07' },
+        h('p', { class: 'font-bold' }, datesOnly ? 'Pre-orders for different dates are checked out separately' : zonesOnly ? 'Fresh produce for different areas is checked out separately' : q.groups.includes('preorder') ? 'Pre-orders are checked out separately' : 'Fresh produce is checked out separately'),
+        h('p', { class: 'text-sm mt-1' }, datesOnly
+          ? 'Each order ships as one parcel, so pre-orders dispatching on different dates need their own orders. Choose what to check out now — the rest is saved for your next order, not removed.'
+          : zonesOnly
+          ? 'Each fresh-produce item is delivered only within its own area, so items for different areas need their own orders. Choose what to check out now — the rest is saved for your next order, not removed.'
+          : q.groups.includes('preorder')
+          ? 'Pre-orders are prepaid and dispatched later, when the harvest is in, so they can’t share an order with items that ship now. Choose what to check out now — the rest is saved for your next order, not removed.'
+          : 'It ships by express courier within its delivery area and is prepaid only, so it can’t share an order with rice and spices. Choose what to check out now — the rest is saved for your next order, not removed.'),
+        h('div', { class: 'mt-3 flex flex-wrap gap-2' }, ...buttons),
+      );
+    }
+
+    function problemText(l: Line): string | null {
+      if (l.problem === 'limited') return `Only ${l.available} left — we've set the quantity to ${l.available}.`;
+      if (l.problem === 'out_of_stock') return 'Sold out — please remove it.';
+      if (l.problem === 'unavailable') return 'No longer available — please remove it.';
+      return null;
+    }
+
+    function render(q: Quote) {
+      root.setAttribute('aria-busy', 'false');
+      if (!q.lines.length) return renderEmpty();
+      if (isDeadCoupon(q.coupon)) {
+        rejected = { code: q.coupon!.code, message: q.coupon!.message ?? 'This code can’t be used.' };
+        setCoupon(null);
+        q.coupon = null;
+      }
+      // Quietly correct quantities the server limited.
+      for (const l of q.lines) if (l.problem === 'limited' && l.available > 0) setCartQty(l.variantId, l.available);
+
+      const list = h('ul', { class: 'flex flex-col divide-y divide-black/5 rounded-2xl bg-white border border-black/5' });
+      for (const l of q.lines) {
+        const problem = problemText(l);
+        const qtyLabel = `Quantity for ${l.name} ${l.label}`;
+        list.append(
+          h('li', { class: 'flex gap-4 p-4' },
+            l.image ? h('img', { src: l.image.url, alt: '', width: 88, height: 88, class: 'w-[88px] h-[88px] rounded-xl object-cover bg-surface-container' }) : h('div', { class: 'w-[88px] h-[88px] rounded-xl bg-surface-container' }),
+            h('div', { class: 'flex-1 min-w-0' },
+              h('a', { href: l.path, class: 'font-extrabold hover:underline' }, l.name),
+              h('p', { class: 'text-sm text-on-surface-variant' }, `${l.label} · ${formatINR(l.unitPrice)} each`),
+              l.preorderDate ? h('p', { class: 'text-sm font-bold mt-1', style: 'color:#3a2470' }, `Pre-order · dispatches from ${shortDay(l.preorderDate, true)} · prepaid`) : null,
+              problem ? h('p', { class: 'text-sm font-bold mt-1', style: 'color:#8a4b00', role: 'status' }, problem) : null,
+              h('div', { class: 'mt-3 flex items-center gap-3' },
+                l.qty > 0
+                  ? h('div', { class: 'inline-flex items-center rounded-full border-2 border-surface-container-high' },
+                      btn('−', `Decrease ${qtyLabel}`, () => step(l.variantId, -1, l.available)),
+                      qtySpin(l, qtyLabel),
+                      btn('+', `Increase ${qtyLabel}`, () => step(l.variantId, 1, l.available), l.qty >= Math.min(20, l.available)),
+                    )
+                  : null,
+                linkBtn('Remove', `Remove ${l.name} ${l.label} from cart`, () => { removeFromCart(l.variantId); load(); }),
+              ),
+            ),
+            h('p', { class: 'font-extrabold whitespace-nowrap' }, formatINR(l.grossTotal)),
+          ),
+        );
+      }
+
+      const blocked = !q.ok;
+      // A code that can't apply to this cart yet (below its minimum, no eligible items): say so at the button
+      // and let the shopper carry on without it, rather than reach a checkout that won't place the order.
+      const couponStuck = Boolean(q.coupon && !q.coupon.ok);
+      const cta = h('a', {
+        href: blocked ? undefined : '/checkout',
+        role: blocked ? 'link' : undefined,
+        'aria-disabled': blocked ? 'true' : undefined,
+        class: `mt-2 text-center rounded-full py-3.5 font-extrabold text-white ${blocked ? 'opacity-50 pointer-events-none' : ''}`,
+        style: 'background:linear-gradient(135deg,#196a5e,#2d7a4f)',
+      }, couponStuck ? 'Check out without the code' : 'Proceed to checkout');
+      if (couponStuck) cta.addEventListener('click', () => setCoupon(null));
+      const summary = h('aside', { class: 'rounded-2xl bg-surface-container-low p-6 flex flex-col gap-3', 'aria-label': 'Order summary' },
+        couponBox({
+          applied: q.coupon,
+          rejected,
+          open: focusCoupon,
+          onApply: (code) => { rejected = null; focusCoupon = true; setCoupon(code.replace(/[\s-]/g, '').toUpperCase()); load(); },
+          onRemove: () => { rejected = null; focusCoupon = true; setCoupon(null); load(); },
+        }),
+        row('Subtotal', formatINR(q.subtotal)),
+        discountRow(q.coupon, q.discount),
+        row('Delivery', 'Free'),
+        h('div', { class: 'border-t border-black/10 pt-3' }, row('Total', formatINR(q.total), true)),
+        h('p', { class: 'text-xs text-on-surface-variant' }, 'Inclusive of all taxes.'),
+        !q.meetsMinimum ? h('p', { class: 'text-sm font-bold', style: 'color:#8a4b00' }, `Add ${formatINR(q.minOrder - q.subtotal)} more to reach the minimum order of ${formatINR(q.minOrder)}.`) : null,
+        couponStuck ? h('p', { class: 'text-sm', style: 'color:#8a4b00' }, `${q.coupon!.code} isn’t applied to this order (see above). You can check out without it.`) : null,
+        cta,
+        h('p', { class: 'text-xs text-on-surface-variant' }, q.cod.eligible ? 'Cash on delivery available.' : (q.cod.reason ?? '')),
+      );
+      // Re-rendering replaces the controls; keep keyboard focus on the one in use.
+      const active = document.activeElement;
+      const refocus = active && root.contains(active) ? active.getAttribute('aria-label') : null;
+      root.replaceChildren(q.mixed ? splitNotice(q) : '', h('div', { class: 'grid grid-cols-1 md:grid-cols-[1.6fr_1fr] gap-8 items-start' }, list, summary), laterSection() ?? '');
+      if (focusCoupon) {
+        focusCouponBox(root);
+        focusCoupon = false;
+      } else if (refocus) root.querySelector<HTMLElement>(`[aria-label="${CSS.escape(refocus)}"]`)?.focus();
+    }
+
+    function row(label: string, value: string, strong = false) {
+      return h('p', { class: `flex justify-between ${strong ? 'text-lg font-extrabold' : ''}` }, h('span', {}, label), h('span', {}, value));
+    }
+    function btn(text: string, label: string, onClick: () => void, disabled = false) {
+      const b = h('button', { type: 'button', class: 'w-9 h-10 font-extrabold text-lg disabled:opacity-40', 'aria-label': label, disabled }, text);
+      b.addEventListener('click', onClick);
+      return b;
+    }
+    function linkBtn(text: string, label: string, onClick: () => void) {
+      const b = h('button', { type: 'button', class: 'text-sm font-bold text-primary underline', 'aria-label': label }, text);
+      b.addEventListener('click', onClick);
+      return b;
+    }
+    // The quantity is a spinbutton, so screen readers announce it as adjustable (arrow keys step it).
+    function qtySpin(l: Line, label: string) {
+      const max = Math.max(1, Math.min(20, l.available));
+      const el = h('span', {
+        class: 'w-8 text-center font-extrabold rounded focus-visible:outline-2 focus-visible:outline-primary',
+        role: 'spinbutton', tabindex: '0', 'aria-label': label,
+        'aria-valuenow': String(l.qty), 'aria-valuemin': '1', 'aria-valuemax': String(max),
+        'data-qty-for': String(l.variantId),
+      }, String(l.qty));
+      el.addEventListener('keydown', (e) => {
+        const delta = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1 }[e.key];
+        if (delta === undefined) return;
+        e.preventDefault();
+        const now = Number(el.getAttribute('aria-valuenow'));
+        if (now + delta >= 1 && now + delta <= max) step(l.variantId, delta, l.available);
+      });
+      return el;
+    }
+    // Each click adjusts the cart's current quantity (so quick clicks add up), shows it at once,
+    // and re-quotes once the clicking stops.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    function step(id: number, delta: number, available: number) {
+      const current = readCart().find((x) => x.variantId === id)?.qty ?? 0;
+      const qty = Math.max(0, Math.min(current + delta, 20, Math.max(available, 0)));
+      setCartQty(id, qty);
+      const shown = root.querySelector<HTMLElement>(`[data-qty-for="${id}"]`);
+      if (shown) {
+        shown.textContent = String(qty);
+        shown.setAttribute('aria-valuenow', String(qty));
+      }
+      clearTimeout(timer);
+      timer = setTimeout(load, 250);
+    }
+
+    load();
+  }
+  onEveryPage(initCart);
+</script>
