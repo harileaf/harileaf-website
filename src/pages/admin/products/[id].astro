@@ -15,7 +15,7 @@ const id = isNew ? null : Number(Astro.params.id);
 
 const blank: EditorProduct = {
   categorySlug: 'rice', slug: '', name: '', shortDescription: '', descriptionMd: '', status: 'draft', replacementProductId: null,
-  organicScheme: 'none', organicConversionSince: null, organicCertNumber: null, processClaims: [], howItsMade: {}, harvestInfo: {},
+  organicScheme: 'none', organicConversionSince: null, organicCertNumber: null, giName: null, giAuRegNumber: null, processClaims: [], howItsMade: {}, harvestInfo: {},
   attributes: {}, faq: [], bestBeforeDays: null, storageInstructions: '', countryOfOrigin: 'India', ingredients: '', allergenInfo: null,
   vegMark: true, nutrition: { per: '100 g', source: null, rows: [] }, hsnCode: '', gstRateBp: 500, perishable: false, deliveryZoneId: null, codAllowed: true,
   seasonStartMd: null, seasonEndMd: null, offSeasonMode: null, preorderDispatchDate: null, seoTitle: null, seoDescription: null, relatedProductIds: [],
@@ -40,7 +40,7 @@ if (authenticated) {
         initial: {
           categorySlug: p.category.slug, slug: p.slug, name: p.name, shortDescription: p.shortDescription, descriptionMd: p.descriptionMd,
           status: p.status, replacementProductId: a.replacementProductId, organicScheme: p.organic.scheme,
-          organicConversionSince: p.organic.conversionSince, organicCertNumber: p.organic.certNumber, processClaims: p.claims,
+          organicConversionSince: p.organic.conversionSince, organicCertNumber: p.organic.certNumber, giName: p.gi.name, giAuRegNumber: p.gi.auRegNumber, processClaims: p.claims,
           howItsMade: p.howItsMade, harvestInfo: p.harvestInfo, attributes: p.attributes, faq: p.faq,
           bestBeforeDays: p.listing.bestBeforeDays, storageInstructions: p.listing.storage, countryOfOrigin: p.listing.countryOfOrigin,
           ingredients: p.listing.ingredients, allergenInfo: p.listing.allergens, vegMark: p.listing.veg, nutrition: p.nutrition,

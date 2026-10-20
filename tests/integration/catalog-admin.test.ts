@@ -2,7 +2,7 @@ import { env } from 'cloudflare:workers';
 import { describe, expect, it } from 'vitest';
 import {
   activateBatch, addBatch, addImage, addLabReport, deleteImage, getProductForAdmin, saveProduct,
-  setLabReportVisible, shelfLifeWarning, type ProductInput, type VariantInput,
+  setLabReportVisible, shelfLifeWarning, updateImage, type ProductInput, type VariantInput,
 } from '../../src/lib/store/catalog-admin';
 import { SETTING_DEFAULTS, putSettings } from '../../src/lib/store/settings';
 import { beforeAll } from 'vitest';
@@ -23,6 +23,7 @@ function input(over: Partial<ProductInput> = {}): ProductInput {
   return {
     categorySlug: 'rice', slug: `rice-${n}`, name: `Rice ${n}`, shortDescription: 'Hearty short-grain rice.', descriptionMd: '',
     status: 'draft', replacementProductId: null, organicScheme: 'none', organicConversionSince: null, organicCertNumber: null,
+    giName: null, giAuRegNumber: null,
     processClaims: [{ code: 'unpolished', text: 'Unpolished', evidence_note: 'Mill setting log' }],
     howItsMade: { Milling: 'Husk removed only' }, harvestInfo: {}, attributes: { Grain: 'Short, bold' },
     faq: [{ q: 'How long to soak?', a: '20 minutes.' }], bestBeforeDays: 270, storageInstructions: 'Cool, dry, airtight',
@@ -184,5 +185,43 @@ describe('listing helpers', () => {
     expect(shelfLifeWarning('2026-10-01', 270, NOW)).toBeNull();
     expect(shelfLifeWarning('2026-02-01', 270, NOW)).toMatch(/too little shelf life/);
     expect(shelfLifeWarning(null, 270, NOW)).toBeNull();
+  });
+});
+
+describe('Geographical Indication', () => {
+  it('blocks GI wording and the registered name without an authorised-user number', async () => {
+    const res = await saveProduct(db, null, input({ name: 'Wada Kolam Rice', slug: 'wada-kolam' }), [v()], NOW);
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.errors.name).toMatch(/authorised-user registration number/);
+    expect(res.errors.slug).toMatch(/authorised-user registration number/);
+    const gi = await saveProduct(db, null, input({ name: 'Rice', giName: 'Wada Kolam', giAuRegNumber: null }), [v()], NOW);
+    expect(!gi.ok && gi.errors.giAuRegNumber).toMatch(/registration number, or clear the GI name/);
+  });
+
+  it('allows the name and stores GI fields once registered', async () => {
+    const res = await saveProduct(db, null, input({ name: 'Wada Kolam Rice', slug: 'wada-kolam-registered', giName: 'Wada Kolam', giAuRegNumber: 'AU-77' }), [v()], NOW);
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(await scalar(`SELECT gi_au_reg_number FROM products WHERE id = ${res.id}`)).toBe('AU-77');
+  });
+
+  it('rejects GI wording in image alt text', async () => {
+    const res = await saveProduct(db, null, input({ slug: 'kolam-alt' }), [v()], NOW);
+    if (!res.ok) throw new Error('setup');
+    const up = await addImage(db, r2, res.id, png(), 'GI-tagged rice in a bowl', NOW);
+    expect(!up.ok && up.error).toMatch(/authorised-user registration number/);
+  });
+});
+
+describe('image kind', () => {
+  it('marks an image as an infographic', async () => {
+    const res = await saveProduct(db, null, input({ slug: 'turmeric-kind', categorySlug: 'spices' }), [v()], NOW);
+    if (!res.ok) throw new Error('setup');
+    const up = await addImage(db, r2, res.id, png(), 'Turmeric powder in a brass bowl', NOW);
+    if (!up.ok) throw new Error('setup');
+    const imageId = Number(await scalar(`SELECT id FROM product_images WHERE product_id = ${res.id}`));
+    expect(await updateImage(db, res.id, imageId, { kind: 'infographic' }, NOW)).toEqual({ ok: true });
+    expect(await scalar(`SELECT kind FROM product_images WHERE id = ${imageId}`)).toBe('infographic');
   });
 });

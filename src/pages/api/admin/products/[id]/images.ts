@@ -21,9 +21,9 @@ export const POST: APIRoute = async ({ params, request, cookies, locals }) => {
 export const PATCH: APIRoute = async ({ params, request, cookies, locals }) => {
   if (!(await isAdmin(env, cookies))) return unauthorised();
   const id = idParam(params.id);
-  const body = (await readJson(request)) as { imageId?: number; alt?: string; sort?: number } | undefined;
+  const body = (await readJson(request)) as { imageId?: number; alt?: string; sort?: number; kind?: 'photo' | 'infographic' } | undefined;
   if (!id || !body || !Number.isInteger(body.imageId)) return json({ error: 'Invalid request' }, 400);
-  const res = await updateImage(env.STORE_DB, id, body.imageId as number, { alt: body.alt, sort: body.sort });
+  const res = await updateImage(env.STORE_DB, id, body.imageId as number, { alt: body.alt, sort: body.sort, kind: body.kind });
   if (!res.ok) return json({ error: res.error }, 400);
   drainSoon(env, locals);
   return json(res);

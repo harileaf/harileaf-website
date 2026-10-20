@@ -13,7 +13,7 @@ type NutRow = { name: string; amount: string };
 export interface EditorProduct {
   categorySlug: string; slug: string; name: string; shortDescription: string; descriptionMd: string;
   status: 'draft' | 'active' | 'discontinued'; replacementProductId: number | null;
-  organicScheme: 'none' | 'pgs_green' | 'pgs_organic' | 'npop'; organicConversionSince: number | null; organicCertNumber: string | null;
+  organicScheme: 'none' | 'pgs_green' | 'pgs_organic' | 'npop'; organicConversionSince: number | null; organicCertNumber: string | null; giName: string | null; giAuRegNumber: string | null;
   processClaims: Claim[]; howItsMade: Record<string, string>; harvestInfo: Record<string, string>; attributes: Record<string, string>;
   faq: Faq[]; bestBeforeDays: number | null; storageInstructions: string; countryOfOrigin: string; ingredients: string;
   allergenInfo: string | null; vegMark: boolean; nutrition: { per: string; source: string | null; rows: NutRow[] };
@@ -28,7 +28,7 @@ export interface EditorVariant {
   active: boolean; sort: number; currentStock?: number;
 }
 
-export interface EditorImage { id: number; url: string; alt: string; sort: number }
+export interface EditorImage { id: number; url: string; key: string; alt: string; sort: number; kind: 'photo' | 'infographic' }
 export interface EditorBatch { id: number; batchCode: string; packedOn: string; groundOrMilledOn: string | null; labReportId: number | null; active: boolean }
 export interface EditorLab { id: number; batchCode: string; testedOn: string; labName: string; visible: boolean; pdfUrl: string | null }
 
