@@ -138,7 +138,7 @@ Astro.response.headers.set('X-Robots-Tag', 'noindex');
         row('Delivery', 'Free'),
         h('div', { class: 'border-t border-black/10 pt-3' }, row('Total', formatINR(q.total), true)),
         h('p', { class: 'text-xs text-on-surface-variant' }, 'Inclusive of all taxes.'),
-        !q.meetsMinimum ? h('p', { class: 'text-sm font-bold', style: 'color:#8a4b00' }, `Add ${formatINR(q.minOrder - q.total)} more to reach the minimum order of ${formatINR(q.minOrder)}.`) : null,
+        !q.meetsMinimum ? h('p', { class: 'text-sm font-bold', style: 'color:#8a4b00' }, `Add ${formatINR(q.minOrder - q.subtotal)} more to reach the minimum order of ${formatINR(q.minOrder)}.`) : null,
         couponStuck ? h('p', { class: 'text-sm', style: 'color:#8a4b00' }, `${q.coupon!.code} isn’t applied to this order (see above). You can check out without it.`) : null,
         cta,
         h('p', { class: 'text-xs text-on-surface-variant' }, q.cod.eligible ? 'Cash on delivery available.' : (q.cod.reason ?? '')),
