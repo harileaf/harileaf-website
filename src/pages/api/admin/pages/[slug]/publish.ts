@@ -6,6 +6,7 @@ import { isStoryPageSlug } from '../../../../../lib/store/urls';
 
 export const prerender = false;
 
+/** POST: make the saved draft live after the full checks. */
 export const POST: APIRoute = async ({ params, cookies, locals }) => {
   if (!(await isAdmin(env, cookies))) return unauthorised();
   const slug = params.slug ?? '';
