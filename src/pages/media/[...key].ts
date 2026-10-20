@@ -1,7 +1,8 @@
 /**
- * Public media from R2: product photos, lab-report PDFs and organic
- * certificates. Only these prefixes are served — nothing else in the bucket
- * (e.g. future invoice exports) is reachable through this route.
+ * Public media from R2: product photos, lab-report PDFs, organic
+ * certificates and photo-library photos (already public via /api/photos/image). Only these prefixes are served —
+ * nothing else in the bucket (e.g. future invoice exports) is reachable
+ * through this route.
  */
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
@@ -9,7 +10,7 @@ import { r2Response } from '../../lib/store/r2';
 
 export const prerender = false;
 
-const PUBLIC_PREFIXES = ['products/', 'lab-reports/', 'certificates/'];
+const PUBLIC_PREFIXES = ['products/', 'lab-reports/', 'certificates/', 'photos/'];
 
 export const GET: APIRoute = async ({ params }) => {
   const key = params.key ?? '';

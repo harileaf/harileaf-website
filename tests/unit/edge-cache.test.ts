@@ -83,3 +83,14 @@ describe('purge', () => {
     await expect(makePurgeHandler(fake)({ urls: ['https://harileaf.org/rice'] }, { env: { ...env, CF_ZONE_ID: 'z', CF_PURGE_API_TOKEN: 't' } as Env, row })).rejects.toThrow(/purge failed: 403/);
   });
 });
+
+describe('story pages', () => {
+  it('caches /turmeric and purges it with every spices product', () => {
+    expect(isEdgeCacheable('/turmeric')).toBe(true);
+    expect(isEdgeCacheable('/turmeric/')).toBe(true);
+    expect(isEdgeCacheable('/turmeric/extra')).toBe(false);
+    expect(productPurgePaths('spices', 'turmeric-powder')).toContain('/turmeric');
+    expect(productPurgePaths('rice', 'karjat-3')).not.toContain('/turmeric');
+    expect(productPurgePaths('rice', 'karjat-3')).toContain('/rice');
+  });
+});

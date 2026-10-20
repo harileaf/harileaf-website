@@ -21,7 +21,7 @@ const HOSTS = ['harileaf.org', 'www.harileaf.org'];
 export const PAGE_TTL_SECONDS = 3600;
 export const PAGE_CACHE_CONTROL = `public, max-age=0, s-maxage=${PAGE_TTL_SECONDS}, stale-while-revalidate=60`;
 
-const CACHED_EXACT = new Set(['/shop', '/our-process', '/sitemap-store.xml', '/feeds/google.xml', '/recipes']);
+const CACHED_EXACT = new Set(['/shop', '/our-process', '/sitemap-store.xml', '/feeds/google.xml', '/recipes', '/turmeric']);
 
 export function normalisePath(pathname: string): string {
   const p = pathname.replace(/\/+$/, '');
@@ -98,6 +98,8 @@ export function productPurgePaths(categorySlug: string, productSlug: string | nu
   return [
     ...(productSlug ? [`/${categorySlug}/${productSlug}`] : []),
     `/${categorySlug}`,
+    // The /turmeric landing page shows spices products' cards, lab values and badges.
+    ...(categorySlug === 'spices' ? ['/turmeric'] : []),
     '/shop',
     '/sitemap-store.xml',
     '/feeds/google.xml',

@@ -313,7 +313,7 @@ export async function allStorePaths(db: D1Database): Promise<string[]> {
 /** Statements that purge the whole storefront (used after store settings change). */
 export async function purgeStorefrontStmts(db: D1Database, at: string): Promise<D1PreparedStatement[]> {
   const products = await allStorePaths(db);
-  return purgeStmts(db, ['/shop', '/rice', '/spices', '/produce', '/sitemap-store.xml', '/feeds/google.xml'], at, products);
+  return purgeStmts(db, ['/shop', '/rice', '/spices', '/turmeric', '/produce', '/sitemap-store.xml', '/feeds/google.xml'], at, products);
 }
 
 /**
