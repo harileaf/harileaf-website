@@ -139,3 +139,60 @@ export function validateProcessClaims(
   });
   return errors;
 }
+
+// ── Geographical Indication (spec: GI) ───────────────────────────────────
+
+/** Registered GI names we must not use without authorised-user registration. */
+export const REGISTERED_GI_NAMES = ['Wada Kolam'] as const;
+
+export const GI_MESSAGE =
+  "GI wording and the name 'Wada Kolam' need the authorised-user registration number (Products → Geographical Indication)";
+
+const giNameRe = (name: string) => new RegExp(name.trim().split(/\s+/).join('[\\s-]*'), 'i');
+
+/** GI words ("GI" as an uppercase word, "GI-tagged", "geographical indication") and registered GI names. */
+export function findGiProblems(text: string, ctx: { giRegistered: boolean }): string[] {
+  if (ctx.giRegistered) return [];
+  const found: string[] = [];
+  if (/\bGI\b/.test(text) || /\bgi[\s-]*tagged\b/i.test(text) || /geographical\s+indication/i.test(text)) found.push('GI wording');
+  for (const name of REGISTERED_GI_NAMES) if (giNameRe(name).test(text)) found.push(`GI name: ${name}`);
+  return found;
+}
+
+// ── comparisons (spec: Claims 7) ─────────────────────────────────────────
+
+const COMPARISON_BANNED: Array<{ re: RegExp; label: string }> = [
+  { re: /\bfake\b/i, label: 'fake' },
+  { re: /\badulterat\w*/i, label: 'adulterated' },
+  { re: /\btoxic\b/i, label: 'toxic' },
+  { re: /\bharmful\b/i, label: 'harmful' },
+  { re: /\bdangerous\b/i, label: 'dangerous' },
+  { re: /\bpoison\w*/i, label: 'poison' },
+  { re: /\bcheap\b/i, label: 'cheap' },
+];
+
+/** Words a comparison with another process may not use (describe the process, not a competitor). */
+export function findComparisonProblems(text: string): string[] {
+  return COMPARISON_BANNED.filter(({ re }) => re.test(text)).map(({ label }) => label);
+}
+
+// ── certification words (spec: Claims 5) ─────────────────────────────────
+
+export interface CertContext { scheme: OrganicScheme; certified: boolean }
+
+const CERT_WORDS: Array<{ re: RegExp; label: string; ok: (c: CertContext) => boolean; ignore?: RegExp }> = [
+  { re: /\bPGS\b/i, label: 'PGS', ok: (c) => c.certified && (c.scheme === 'pgs_green' || c.scheme === 'pgs_organic') },
+  // "PGS-India Organic" is the PGS scheme's own name, not NPOP's "India Organic" (no lookbehind: this module also ships to browsers).
+  { re: /\bNPOP\b|\bindia\s+organic\b/i, ignore: /\bPGS[\s-]+india\s+organic\b/gi, label: 'NPOP / India Organic', ok: (c) => c.certified && c.scheme === 'npop' },
+  { re: /\bjaivik\s+bharat\b/i, label: 'Jaivik Bharat', ok: (c) => c.certified && (c.scheme === 'pgs_organic' || c.scheme === 'npop') },
+  { re: /\bcertified\s+organic\b/i, label: 'certified organic', ok: (c) => c.certified && (c.scheme === 'pgs_organic' || c.scheme === 'npop') },
+];
+
+/**
+ * Certification words typed into copy are allowed only when every product in
+ * the text's context holds that certification (badges themselves always come
+ * from organicCopy()).
+ */
+export function findCertificationWords(text: string, certs: CertContext[]): string[] {
+  return CERT_WORDS.filter((w) => w.re.test(w.ignore ? text.replace(w.ignore, ' ') : text) && !(certs.length > 0 && certs.every(w.ok))).map((w) => `certification wording: ${w.label}`);
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findBannedPhrases, organicCopy, validateProcessClaims, type ProcessClaim } from '../../src/lib/store/claims';
+import { findBannedPhrases, findCertificationWords, findComparisonProblems, findGiProblems, GI_MESSAGE, organicCopy, validateProcessClaims, type ProcessClaim } from '../../src/lib/store/claims';
 
 const none = { organicScheme: 'none' as const, claims: [] as ProcessClaim[] };
 const noOrganic = { organicScheme: 'none' as const, mayUseOrganic: false };
@@ -69,4 +69,52 @@ it('validateProcessClaims requires code, text and evidence, unique codes and cle
     { code: 'unpolished', text: 'Unpolished', evidence_note: 'Mill setting' },
     { code: 'unpolished', text: 'Chemical-free', evidence_note: 'x' },
   ], noOrganic)).toEqual(['Claim 2 duplicates code "unpolished"', 'Claim 2 ("unpolished") uses banned wording: chemical-free']);
+});
+
+describe('GI wording', () => {
+  it('needs an authorised-user registration for GI words and registered GI names', () => {
+    for (const t of ['GI-tagged rice', 'A geographical indication', 'Wada Kolam rice', 'wada-kolam', 'WADA  KOLAM', 'gi tagged']) {
+      expect([t, findGiProblems(t, { giRegistered: false }).length > 0]).toEqual([t, true]);
+      expect([t, findGiProblems(t, { giRegistered: true })]).toEqual([t, []]);
+    }
+  });
+
+  it("matches 'GI' only as an uppercase whole word", () => {
+    for (const t of ['Ginger and gin', 'gigantic grains', 'Kolam rice from Wada, Palghar']) expect(findGiProblems(t, { giRegistered: false })).toEqual([]);
+    expect(GI_MESSAGE).toMatch(/authorised-user registration number/);
+  });
+});
+
+describe('comparison wording', () => {
+  it('rejects disparaging words in comparisons', () => {
+    expect(findComparisonProblems('Fake, adulterated and toxic powder')).toEqual(['fake', 'adulterated', 'toxic']);
+    expect(findComparisonProblems('Cheap blends; harmful, dangerous, poisonous')).toEqual(['harmful', 'dangerous', 'poison', 'cheap']);
+    expect(findComparisonProblems('High-speed mill; friction heats the powder')).toEqual([]);
+  });
+});
+
+describe('certification words', () => {
+  const pgs = { scheme: 'pgs_organic' as const, certified: true };
+  const none = { scheme: 'none' as const, certified: false };
+  it('allows certification words only when every product in context holds that certification', () => {
+    expect(findCertificationWords('PGS-India Organic certified organic turmeric', [pgs, pgs])).toEqual([]);
+    expect(findCertificationWords('PGS-India Organic', [pgs, none])).toEqual(['certification wording: PGS']);
+    expect(findCertificationWords('NPOP India Organic', [pgs])).toEqual(['certification wording: NPOP / India Organic']);
+    expect(findCertificationWords('Jaivik Bharat logo', [])).toEqual(['certification wording: Jaivik Bharat']);
+    expect(findCertificationWords('Tested by a NABL-accredited lab', [none])).toEqual([]);
+  });
+});
+
+describe('claims word-list edge cases', () => {
+  const gi = (x: string) => findGiProblems(x, { giRegistered: false });
+  it('GI: uppercase whole word only; name tolerant of spacing and hyphens', () => {
+    for (const x of ['Gift box', 'GIs', 'origin', 'Gi fts']) expect([x, gi(x)]).toEqual([x, []]);
+    for (const x of ['Low GI rice', '(GI)', 'GI.', 'Wada-Kolam', 'wada  kolam', 'wada-kolam']) expect([x, gi(x).length > 0]).toEqual([x, true]);
+    expect(gi('GI-tagged Wada Kolam')).toEqual(['GI wording', 'GI name: Wada Kolam']);
+  });
+  it('certification: PGS-India Organic does not trip the NPOP rule, but bare India Organic does', () => {
+    const pgs = { scheme: 'pgs_organic' as const, certified: true };
+    expect(findCertificationWords('PGS-India Organic', [pgs])).toEqual([]);
+    expect(findCertificationWords('pgs india organic and India Organic', [pgs])).toEqual(['certification wording: NPOP / India Organic']);
+  });
 });
