@@ -7,6 +7,12 @@ export type CategorySlug = (typeof CATEGORY_SLUGS)[number];
 
 export const isCategorySlug = (s: string): s is CategorySlug => (CATEGORY_SLUGS as readonly string[]).includes(s);
 
+/** Landing pages edited in /admin/pages (fixed templates; a new one is a code change). */
+export const STORY_PAGE_SLUGS = ['rice', 'turmeric', 'spices'] as const;
+export type StoryPageSlug = (typeof STORY_PAGE_SLUGS)[number];
+
+export const isStoryPageSlug = (s: string): s is StoryPageSlug => (STORY_PAGE_SLUGS as readonly string[]).includes(s);
+
 export const categoryPath = (category: string) => `/${category}/`;
 export const productPath = (category: string, slug: string) => `/${category}/${slug}`;
 export const variantPath = (category: string, slug: string, sku: string) =>
