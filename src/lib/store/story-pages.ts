@@ -190,7 +190,7 @@ export async function publishedPageConflicts(db: D1Database, changed: ContextPro
 
 // ── landing pages ─────────────────────────────────────────────────────────
 
-export const STALE_DRAFT = 'This page was changed in another tab or window. Reload to see the latest version.';
+export const STALE_DRAFT = 'This page was changed in another tab or window. Copy anything you want to keep, then reload to see the latest version.';
 
 export type DraftSave = { ok: true; warnings: FieldErrors; savedAt: string } | { ok: false; errors: FieldErrors; conflict?: true };
 
