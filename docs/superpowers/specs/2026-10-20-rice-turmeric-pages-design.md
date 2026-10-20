@@ -108,7 +108,7 @@ Differences from turmeric (marked "RICE" in the mockup):
 
 Page-owned fields are marked **(page)**. Everything else comes from the "Story from" product (turmeric powder) or from the linked products' catalog data.
 
-1. **Hero (page)**: eyebrow, two-line headline ("Haldi the slow way." / "Boiled, sun-cured, stone-ground."), subtitle, CTA "Buy turmeric ↓", optional hero photo. Badges: the certification line from `organicCopy()` (shown only when every linked product has the same line) plus up to two lab proof items, **each attributed to a product** (`{ productId, key }`) and resolved from that product's active batch report.
+1. **Hero (page)**: eyebrow, two-line headline ("Haldi the slow way." / "Boiled, sun-cured, stone-ground."), subtitle, CTA "Buy turmeric ↓", optional hero photo. Badges: the certification line from `organicCopy()` (shown only when every linked **active** product has the same line; inactive products are not on the page) plus up to two lab proof items, **each attributed to a product** (`{ productId, key }`) and resolved from that product's active batch report.
 2. **Product cards**: powder and whole dried fingers (both sold, both under the PGS-India Organic certificate), using `ProductGrid` (price "from ₹…", link to product page) and a one-line **card blurb (page)** each.
 3. **Photo strip** "A year in the field": the Story-from product's `processSteps`, in the photo variant (4–8 steps with photos).
 4. **Comparison block**: the Story-from product's comparison + its note.
@@ -324,7 +324,7 @@ All checks reuse `findBannedPhrases()` / `organicCopy()` from `src/lib/store/cla
      - `process_claims`
      - `gi_name` / `gi_au_reg_number`
      - the product's story, when that product is a page's Story-from product
-   - If a page would fail, **the product save is blocked**. The message names the page and the wording, e.g. "/turmeric uses 'organic' in Hero line 2; edit and republish the page first". Nothing is unpublished silently.
+   - If the save **introduces** a failure on a page (a field's message is new or changed compared with the check before the save), **the product save is blocked**. The message names the page and the wording, e.g. "/turmeric uses 'organic' in Hero line 2; edit and republish the page first". A failure that was already there (e.g. after a word-list update) is returned as a **warning** and doesn't block, so the owner is never locked out of editing a product. Nothing is unpublished silently.
    - The owner fixes the page draft, publishes it, then saves the product.
    - With three pages this is three JSON parses per save, and needs no index.
 5. **Certification wording is never typed.**
