@@ -47,7 +47,9 @@ jobs:
       - run: npm run check:e2e
       - run: npx playwright install --with-deps chromium
       - name: Local secrets for the dev server
-        run: printf 'ORDER_TOKEN_SECRET=ci-only-%s\n' "$GITHUB_RUN_ID" > .dev.vars
+        # wrangler.toml's Turnstile site key only works on harileaf.org; Cloudflare's
+        # always-pass test key lets checkout's security check run on localhost.
+        run: printf 'ORDER_TOKEN_SECRET=ci-only-%s\nPUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA\n' "$GITHUB_RUN_ID" > .dev.vars
       - run: npm run test:e2e
         env:
           CI: 'true'

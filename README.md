@@ -16,7 +16,7 @@ Marketing site and (in progress) online store for HariLeaf — Astro 6 (SSR) on 
 | `npm run check` | `astro check` (types) |
 | `npm test` | Store tests — Vitest running inside workerd with a real local D1 |
 
-Local secrets go in `.dev.vars` (git-ignored), e.g. `ADMIN_PASSPHRASE=…`. `.env.example` lists every secret the Worker reads.
+Local secrets go in `.dev.vars` (git-ignored), e.g. `ADMIN_PASSPHRASE=…`. Add `PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA` (Cloudflare's always-pass test key): the real key in `wrangler.toml` only works on harileaf.org, and checkout waits for its token. `.env.example` lists every secret the Worker reads.
 
 ## Store development
 
