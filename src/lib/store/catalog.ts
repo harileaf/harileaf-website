@@ -448,12 +448,13 @@ const mapLab = (r: LabRow): LabReport => ({
   pdfUrl: r.pdf_r2_key ? mediaUrl(r.pdf_r2_key) : null,
 });
 
-export async function getProductPage(db: D1Database, categorySlug: string, slug: string, today: Date): Promise<ProductPageResult> {
+/** `includeDraft` (admin preview only): a draft loads, and a product without pack sizes still returns `ok` with no variants. */
+export async function getProductPage(db: D1Database, categorySlug: string, slug: string, today: Date, opts: { includeDraft?: boolean } = {}): Promise<ProductPageResult> {
   const row = await db
     .prepare(`${PRODUCT_SELECT} WHERE c.slug = ? AND p.slug = ?`)
     .bind(categorySlug, slug)
     .first<ProductRow>();
-  if (!row || row.status === 'draft') return { kind: 'not_found' };
+  if (!row || (row.status === 'draft' && !opts.includeDraft)) return { kind: 'not_found' };
 
   if (row.status === 'discontinued') {
     if (row.replacement_product_id) {
@@ -494,7 +495,7 @@ export async function getProductPage(db: D1Database, categorySlug: string, slug:
   ]);
 
   const variants = variantRows.map((v) => mapVariant(v, product, today, zones)).filter((v): v is Variant => v !== null);
-  if (variants.length === 0) return { kind: 'not_found' };
+  if (variants.length === 0 && !opts.includeDraft) return { kind: 'not_found' };
 
   const batch: Batch | null = batchRow
     ? {

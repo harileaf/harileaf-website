@@ -195,3 +195,13 @@ describe('activeLabSummaries', () => {
     expect(got.get(b)).toEqual({ Moisture: '11 %' });
   });
 });
+
+describe('getProductPage includeDraft', () => {
+  it('loads a draft product page only when asked (admin preview), even without pack sizes', async () => {
+    const id = await insertProduct({ category_id: 2, slug: 'turmeric-draft', status: 'draft' });
+    expect((await getProductPage(db, 'spices', 'turmeric-draft', TODAY)).kind).toBe('not_found');
+    const res = await getProductPage(db, 'spices', 'turmeric-draft', TODAY, { includeDraft: true });
+    expect(res.kind).toBe('ok');
+    if (res.kind === 'ok') expect([res.product.id, res.variants]).toEqual([id, []]);
+  });
+});
