@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { emptyStoryPage } from '../../src/lib/store/story';
 import { getProductsByIds } from '../../src/lib/store/catalog';
 import { getStoryPageRow, listStoryPages, loadContextProducts, loadStoryPageView, publishedPageConflicts, publishStoryPage, saveProductStory, saveStoryPageDraft, storyLinkFor } from '../../src/lib/store/story-pages';
+import { GET as sitemap } from '../../src/pages/sitemap-store.xml';
 import { db, insertProduct, insertVariant, scalar } from '../helpers/fixtures';
 
 const NOW = new Date('2026-10-20T06:00:00Z');
@@ -113,6 +114,22 @@ describe('landing-page drafts and publish', () => {
     expect((await publishStoryPage(db, 'turmeric', NOW)).ok).toBe(true);
     expect(await lastPurgeUrls()).toContain(`https://harileaf.org/spices/${await slugOf(b)}`);
     expect(await storyLinkFor(db, b)).toBeNull();
+  });
+});
+
+describe('sitemap', () => {
+  it('lists /turmeric only once it is published, with the publish date; /rice and /spices always', async () => {
+    const get = async () => (await sitemap({} as any)).text();
+    let xml = await get();
+    expect(xml).not.toContain('/turmeric/');
+    for (const p of ['/rice/', '/spices/']) expect(xml).toContain(`<loc>https://harileaf.org${p}</loc>`);
+    const [a, b] = await turmericProducts();
+    const draft = { ...emptyStoryPage(), seo, hero: hero({ line1: 'Haldi the slow way.', line2: 'Certified organic, stone-ground.' }), productIds: [a, b], storyFromProductId: a, labColumns: ['Curcumin'] };
+    expect((await saveStoryPageDraft(db, 'turmeric', draft, NOW)).ok).toBe(true);
+    expect(await get()).not.toContain('/turmeric/');
+    expect(await publishStoryPage(db, 'turmeric', NOW)).toEqual({ ok: true });
+    xml = await get();
+    expect(xml).toContain('<url><loc>https://harileaf.org/turmeric/</loc><lastmod>2026-10-20</lastmod></url>');
   });
 });
 
