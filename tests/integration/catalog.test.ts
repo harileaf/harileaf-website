@@ -34,6 +34,9 @@ describe('listProducts', () => {
       image: { key: 'products/1/a.jpg', url: '/media/products/1/a.jpg', alt: 'alt products/1/a.jpg' },
     });
     expect(card.claims[0].code).toBe('unpolished');
+    // Recipe pages ask for just the products they name.
+    expect((await listProducts(db, { keys: ['rice/karjat-3', 'rice/draft-thing', 'spices/karjat-3'], today: TODAY })).map((c) => c.slug)).toEqual(['karjat-3']);
+    expect(await listProducts(db, { keys: [], today: TODAY })).toEqual([]);
   });
 
 

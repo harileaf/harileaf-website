@@ -357,10 +357,20 @@ function toCard(p: Product, vs: Variant[], images: Image[], zoneClosed = false):
 }
 
 /** Active products (optionally one category) that have at least one active variant. */
-export async function listProducts(db: D1Database, opts: { categorySlug?: string; today: Date }): Promise<ProductCard[]> {
-  const where = opts.categorySlug ? `WHERE p.status = 'active' AND c.slug = ?` : `WHERE p.status = 'active'`;
-  const stmt = db.prepare(`${PRODUCT_SELECT} ${where} ORDER BY c.sort, p.name`);
-  const { results } = await (opts.categorySlug ? stmt.bind(opts.categorySlug) : stmt).all<ProductRow>();
+/** Active product cards: all, one category's, or just the `keys` named ("category/slug", at most a few dozen). */
+export async function listProducts(db: D1Database, opts: { categorySlug?: string; keys?: string[]; today: Date }): Promise<ProductCard[]> {
+  const where = ["p.status = 'active'"];
+  const binds: string[] = [];
+  if (opts.categorySlug) {
+    where.push('c.slug = ?');
+    binds.push(opts.categorySlug);
+  }
+  if (opts.keys) {
+    if (!opts.keys.length) return [];
+    where.push(`c.slug || '/' || p.slug IN (${opts.keys.map(() => '?').join(', ')})`);
+    binds.push(...opts.keys);
+  }
+  const { results } = await db.prepare(`${PRODUCT_SELECT} WHERE ${where.join(' AND ')} ORDER BY c.sort, p.name`).bind(...binds).all<ProductRow>();
   const products = results.map(mapProduct);
   const ids = products.map((p) => p.id);
   const [variants, images, zones] = await Promise.all([variantsFor(db, ids), imagesFor(db, ids), loadZones(db)]);
