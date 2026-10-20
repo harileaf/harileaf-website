@@ -20,19 +20,19 @@ import { loadContextProducts } from '../../../lib/store/story-pages';
 const NO_CACHE = { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' };
 for (const [k, v] of Object.entries(NO_CACHE)) Astro.response.headers.set(k, v);
 
-if (!(await validateSession(env.HARILEAF_CMS, Astro.cookies))) return new Response('Unauthorised', { status: 401, headers: NO_CACHE });
-if (Astro.request.method !== 'POST') return new Response('Open the preview from the story editor.', { status: 405, headers: { ...NO_CACHE, Allow: 'POST' } });
-
-let payload: { productId?: unknown; story?: unknown } = {};
-try {
-  const parsed: unknown = JSON.parse(String((await Astro.request.formData()).get('payload') ?? '{}'));
-  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) payload = parsed;
-} catch {
-  return new Response('Invalid preview', { status: 400, headers: NO_CACHE });
-}
-const id = idParam(String(payload.productId ?? ''));
 let view: { res: Extract<ProductPageResult, { kind: 'ok' }>; story: ProductStory | null; messages: string[]; settings: StoreSettings };
 try {
+  // Inside the try: a session-store error is a no-store, noindex 500 too.
+  if (!(await validateSession(env.HARILEAF_CMS, Astro.cookies))) return new Response('Unauthorised', { status: 401, headers: NO_CACHE });
+  if (Astro.request.method !== 'POST') return new Response('Open the preview from the story editor.', { status: 405, headers: { ...NO_CACHE, Allow: 'POST' } });
+  let payload: { productId?: unknown; story?: unknown } = {};
+  try {
+    const parsed: unknown = JSON.parse(String((await Astro.request.formData()).get('payload') ?? '{}'));
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) payload = parsed;
+  } catch {
+    return new Response('Invalid preview', { status: 400, headers: NO_CACHE });
+  }
+  const id = idParam(String(payload.productId ?? ''));
   const admin = id ? await getProductForAdmin(env.STORE_DB, id) : null;
   if (!id || !admin) return new Response('Product not found', { status: 404, headers: NO_CACHE });
   const res = await getProductPage(env.STORE_DB, admin.product.category.slug, admin.product.slug, new Date(), { includeDraft: true });

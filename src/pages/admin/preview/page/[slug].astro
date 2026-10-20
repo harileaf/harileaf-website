@@ -15,11 +15,11 @@ import { loadContextProducts, loadStoryPageView, type StoryPageViewModel } from 
 const NO_CACHE = { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' };
 for (const [k, v] of Object.entries(NO_CACHE)) Astro.response.headers.set(k, v);
 
-if (!(await validateSession(env.HARILEAF_CMS, Astro.cookies))) return new Response('Unauthorised', { status: 401, headers: NO_CACHE });
-
 let view: StoryPageViewModel | null;
 let messages: string[];
 try {
+  // Inside the try: a session-store error is a no-store, noindex 500 too.
+  if (!(await validateSession(env.HARILEAF_CMS, Astro.cookies))) return new Response('Unauthorised', { status: 401, headers: NO_CACHE });
   view = await loadStoryPageView(env.STORE_DB, Astro.params.slug ?? '', 'draft', new Date());
   if (!view) return new Response('Page not found', { status: 404, headers: NO_CACHE });
   const errors = {

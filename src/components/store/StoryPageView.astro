@@ -43,6 +43,8 @@ const schemas = [breadcrumbJsonLd(crumbs), faqJsonLd(shown('faq') ? page.faq : [
 const recipes = from ? recipesUsing(from.product.category.slug, from.product.slug) : [];
 // The hub's hero is words only: it speaks for chilli too, so no certification, GI or lab badges.
 const hero = hub ? { certLine: null, certUrl: null, giBadge: null, badges: [] } : { certLine: v.certificationLine, certUrl: v.certUrl, giBadge: v.giBadge, badges: v.heroProof };
+// No cards to jump to (rice/turmeric with no active product): no CTA. The hub always has its two cards.
+const heroCopy = hub || v.cards.length > 0 ? page.hero : { ...page.hero, ctaLabel: '' };
 // /spices hub: the turmeric card goes to /turmeric once it's published (else its product page); other linked products are chilli.
 const turmericCard = hub ? (v.cards.find((x) => x.id === page.storyFromProductId) ?? null) : null;
 const turmericCert = turmericCard ? (v.certifications[String(turmericCard.id)]?.line ?? null) : null;
@@ -75,7 +77,7 @@ const hasLight = Boolean(light.facts.length || use || light.note || light.faq.le
   )}
 
   <div style={`--accent:${c.accent}`}>
-    <StoryHero hero={page.hero} {...hero} ctaHref="#cards" />
+    <StoryHero hero={heroCopy} {...hero} ctaHref="#cards" />
 
     {hub ? (
       <section id="cards" class="py-16 px-6 text-white scroll-mt-24" style="background:#0c110c;" aria-labelledby="cards-heading">
