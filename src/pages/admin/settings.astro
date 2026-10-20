@@ -18,7 +18,7 @@ if (authenticated) {
   }
 }
 
-type Field = { key: SettingKey; label: string; hint?: string; type?: 'text' | 'email' | 'tel' | 'rupees' | 'select'; multiline?: boolean; options?: Array<[string, string]> };
+type Field = { key: SettingKey; label: string; hint?: string; type?: 'text' | 'email' | 'tel' | 'url' | 'rupees' | 'select'; multiline?: boolean; options?: Array<[string, string]> };
 const groups: Array<{ title: string; note?: string; fields: Field[] }> = [
   {
     title: 'Seller',
@@ -64,6 +64,13 @@ const groups: Array<{ title: string; note?: string; fields: Field[] }> = [
       { key: 'pickup_pincode', label: 'Pickup pincode', hint: 'Where couriers collect from' },
       { key: 'shiprocket_pickup_location', label: 'Shiprocket pickup location name', hint: 'Exactly as named in Shiprocket → Settings → Pickup addresses' },
       { key: 'shiprocket_auto_push', label: 'Send orders to Shiprocket automatically', type: 'select', options: [['on', 'On — every confirmed order is created in Shiprocket; assign AWBs there or from the order page'], ['off', 'Off — book each courier from the order page (Book courier)']], hint: 'Either way you can book the courier, print the label and the manifest from the order page.' },
+    ],
+  },
+  {
+    title: 'Google',
+    note: 'After Google verifies the Business Profile, copy its review link (Business Profile → Ask for reviews) here. The "delivered" email then asks the customer to review us on Google too. Reviews on Google help people near Mumbai find the farm.',
+    fields: [
+      { key: 'google_review_url', label: 'Google review link', type: 'url', hint: 'Starts with https://g.page/r/ — leave empty until the profile is verified' },
     ],
   },
   {

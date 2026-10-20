@@ -16,7 +16,8 @@
  *
  * OG Image:
  *   - Pass ogImage (root-relative or absolute URL).
- *   - Falls back to /images/brand/og-default.png from site-settings.
+ *   - Falls back to /images/brand/og-farm.png on farm-produce pages, else
+ *     /images/brand/og-default.png from site-settings.
  *
  * Props:
  *   title        — page title (raw or fully formatted)
@@ -75,16 +76,17 @@ const canonical = canonicalUrl
   ? String(canonicalUrl)
   : String(new URL(Astro.url.pathname, SITE_BASE));
 
-// ── OG Image — must be absolute URL ──────────────────────────────────────────
+// ── OG Image — must be absolute URL; farm-produce pages default to the farm card ──
+const PRODUCE_PATH = /^\/(rice|spices|turmeric|produce|shop|recipes|learn|our-process|international)(\/|$)/;
+const FARM_OG = '/images/brand/og-farm.png';
 const resolveImage = (img: string | URL | undefined): string => {
-  if (!img) return `${SITE_BASE}${DEFAULT_OG}`;
+  if (!img) return `${SITE_BASE}${PRODUCE_PATH.test(Astro.url.pathname) ? FARM_OG : DEFAULT_OG}`;
   const s = String(img);
   return s.startsWith('http') ? s : `${SITE_BASE}${s}`;
 };
 const ogImageUrl = resolveImage(ogImage);
 
 // ── Keywords — the farm-produce pages get produce terms, the rest the agritech ones ──
-const PRODUCE_PATH = /^\/(rice|spices|turmeric|produce|shop|recipes|learn|our-process)(\/|$)/;
 const pageKeywords = keywords ?? (PRODUCE_PATH.test(Astro.url.pathname)
   ? 'heritage rice, unpolished rice, red rice, Karjat 3 rice, Kolam rice, stone-ground turmeric, PGS-certified turmeric, turmeric fingers, hay-ripened Kesar mango, carbide-free mango, pesticide-free, farm direct, Wada Palghar, India'
   : 'precision agriculture, agritech, smart farming, soil sensors, IoT farming, sustainable agriculture, drip irrigation, crop monitoring, farm intelligence, India agritech');
