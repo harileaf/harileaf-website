@@ -26,6 +26,7 @@
  *   noIndex      — add noindex, nofollow
  *   ogType       — OG type (default: 'website')
  *   twitterCard  — Twitter card type (default: 'summary_large_image')
+ *   keywords     — meta keywords (default: produce or agritech terms by path)
  */
 import siteJson from '../../content/site-settings.json';
 
@@ -37,6 +38,7 @@ interface Props {
   noIndex?: boolean;
   ogType?: string;
   twitterCard?: 'summary' | 'summary_large_image';
+  keywords?: string;
 }
 
 const {
@@ -47,6 +49,7 @@ const {
   noIndex = false,
   ogType = 'website',
   twitterCard = 'summary_large_image',
+  keywords,
 } = Astro.props;
 
 // ── Site defaults from CMS ────────────────────────────────────────────────────
@@ -79,6 +82,12 @@ const resolveImage = (img: string | URL | undefined): string => {
   return s.startsWith('http') ? s : `${SITE_BASE}${s}`;
 };
 const ogImageUrl = resolveImage(ogImage);
+
+// ── Keywords — the farm-produce pages get produce terms, the rest the agritech ones ──
+const PRODUCE_PATH = /^\/(rice|spices|turmeric|produce|shop|recipes|learn|our-process)(\/|$)/;
+const pageKeywords = keywords ?? (PRODUCE_PATH.test(Astro.url.pathname)
+  ? 'heritage rice, unpolished rice, red rice, Karjat 3 rice, Kolam rice, stone-ground turmeric, PGS-certified turmeric, turmeric fingers, hay-ripened Kesar mango, carbide-free mango, pesticide-free, farm direct, Wada Palghar, India'
+  : 'precision agriculture, agritech, smart farming, soil sensors, IoT farming, sustainable agriculture, drip irrigation, crop monitoring, farm intelligence, India agritech');
 ---
 
 <!-- Primary -->
@@ -91,7 +100,7 @@ const ogImageUrl = resolveImage(ogImage);
   <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
 )}
 <meta name="author" content="HariLeaf Agritech" />
-<meta name="keywords" content="precision agriculture, agritech, smart farming, soil sensors, IoT farming, sustainable agriculture, drip irrigation, crop monitoring, farm intelligence, India agritech" />
+<meta name="keywords" content={pageKeywords} />
 
 <!-- Open Graph -->
 <meta property="og:type"         content={ogType} />

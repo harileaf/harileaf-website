@@ -161,6 +161,15 @@ export function breadcrumbJsonLd(items: Array<{ name: string; path: string }>): 
   };
 }
 
+/** ItemList for an index page (/learn, /recipes): Google reads it as the page's list of items, in order. */
+export function itemListJsonLd(items: Array<{ name: string; path: string }>): Record<string, unknown> {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    itemListElement: items.map((it, i) => ({ '@type': 'ListItem', position: i + 1, name: it.name, url: absolute(it.path) })),
+  };
+}
+
 export function faqJsonLd(faq: Faq[]): Record<string, unknown> | null {
   if (!faq.length) return null;
   return {

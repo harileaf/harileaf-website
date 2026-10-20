@@ -1,0 +1,113 @@
+---
+// Overseas visitors find the rice and turmeric through the guides; the shop ships only within
+// India, so this page says so plainly and collects their interest (Web3Forms, like /contact).
+export const prerender = true;
+import SiteLayout from '../layouts/SiteLayout.astro';
+import SEO from '../components/seo/SEO.astro';
+import contactJson from '../content/contact-page.json';
+import { breadcrumbJsonLd, jsonLdString } from '../lib/store/seo';
+import { absolute } from '../lib/store/urls';
+
+const path = '/international/';
+const title = 'Buy Indian Heritage Rice & Stone-Ground Turmeric Abroad | HariLeaf';
+const description = 'HariLeaf ships within India today. Living outside India, or buying for a shop or importer? Tell us what you want and where, and we will write when we can ship.';
+const products = ['Karjat 3 rice', 'Kolam rice from Wada', 'Red rice', 'Turmeric powder', 'Whole turmeric fingers'];
+const field = 'w-full bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary/40 focus:border-primary focus:outline-none text-on-surface transition-all placeholder:text-outline/40';
+const label = 'block text-xs font-bold uppercase tracking-widest text-on-surface-variant';
+---
+
+<SiteLayout title={title} description={description}>
+  <slot name="head" slot="head">
+    <SEO title={title} description={description} canonicalUrl={absolute(path)} />
+    <script type="application/ld+json" is:inline set:html={jsonLdString(breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Buying from outside India', path }]))} />
+  </slot>
+
+  <div class="max-w-3xl mx-auto px-6 pt-32 pb-24">
+    <h1 class="text-4xl md:text-5xl font-extrabold tracking-tighter">Buying from outside India</h1>
+    <p class="mt-4 text-lg text-on-surface-variant">
+      We grow heritage rice and turmeric on our own farm in Wada, Palghar, without synthetic pesticides or fertilisers.
+      The rice is milled once, only to take off the husk, so the bran and germ stay on the grain. The turmeric is boiled, sun-cured and slowly
+      stone-ground so more of its aromatic oils stay in the powder. Read <a href="/our-process/" class="font-bold text-primary underline">how we grow, mill and grind</a>.
+    </p>
+
+    <h2 class="mt-12 text-2xl font-extrabold">Where we ship today</h2>
+    <p class="mt-3 text-on-surface-variant">
+      Our shop delivers across India. We don't ship overseas yet: food exports need their own certification and paperwork for each
+      country, and we would rather do that properly than quickly. If you have family or a friend in India, you can
+      <a href="/shop/" class="font-bold text-primary underline">order to their address</a>.
+    </p>
+
+    <h2 class="mt-12 text-2xl font-extrabold">Tell us what you want</h2>
+    <p class="mt-3 text-on-surface-variant">
+      Every request tells us which countries to prepare for first. We will write to you when we can ship to your country, and only about that.
+      Shops, restaurants and importers: say roughly how much you need and we will reply personally.
+    </p>
+
+    <form method="POST" action="https://api.web3forms.com/submit" class="mt-8 space-y-6">
+      <input type="hidden" name="access_key" value={contactJson.form.web3formsKey} />
+      <input type="hidden" name="subject" value="International enquiry — HariLeaf" />
+      <input type="hidden" name="redirect" value={`${absolute(path)}?success=true`} />
+      <input type="checkbox" name="botcheck" class="hidden" style="display:none" />
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="space-y-2">
+          <label for="intl-name" class={label}>Name</label>
+          <input id="intl-name" name="name" type="text" required autocomplete="name" class={field} />
+        </div>
+        <div class="space-y-2">
+          <label for="intl-email" class={label}>Email</label>
+          <input id="intl-email" name="email" type="email" required autocomplete="email" class={field} />
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="space-y-2">
+          <label for="intl-country" class={label}>Country</label>
+          <input id="intl-country" name="country" type="text" required autocomplete="country-name" class={field} />
+        </div>
+        <div class="space-y-2">
+          <label for="intl-buyer" class={label}>Buying for</label>
+          <select id="intl-buyer" name="buying_for" class={`${field} appearance-none`}>
+            <option>My household</option>
+            <option>A shop or restaurant</option>
+            <option>Import / distribution</option>
+          </select>
+        </div>
+      </div>
+
+      <fieldset class="space-y-2">
+        <legend class={label}>Interested in</legend>
+        <div class="flex flex-wrap gap-3 pt-1">
+          {products.map((p) => (
+            <label class="inline-flex items-center gap-2 rounded-full border border-outline-variant/40 px-4 py-2 text-sm">
+              <input type="checkbox" name="products" value={p} /> {p}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <div class="space-y-2">
+        <label for="intl-message" class={label}>Anything else (quantity, how often, questions)</label>
+        <textarea id="intl-message" name="message" rows={4} class={`${field} resize-none`}></textarea>
+      </div>
+
+      <button type="submit" class="rounded-full bg-primary px-8 py-3 font-bold text-white hover:opacity-90 transition-opacity">Send</button>
+      <p class="text-xs text-on-surface-variant">We use your details only to answer this request. See our <a href="/privacy/" class="underline">privacy policy</a>.</p>
+    </form>
+
+    <p id="intl-thanks" class="hidden mt-6 rounded-lg bg-primary/10 px-4 py-3 text-sm font-semibold text-primary" role="status">Thank you — we have your request and will write when we can ship to you.</p>
+
+    <p class="mt-12 text-sm">
+      <a href="/learn/" class="font-bold text-primary underline">Guides</a> ·
+      <a href="/recipes/" class="font-bold text-primary underline">Recipes</a> ·
+      <a href="/rice/" class="font-bold text-primary underline">Our rice</a> ·
+      <a href="/spices/" class="font-bold text-primary underline">Our spices</a>
+    </p>
+  </div>
+</SiteLayout>
+
+<script>
+  document.addEventListener('astro:page-load', () => {
+    if (new URLSearchParams(location.search).get('success') === 'true') document.getElementById('intl-thanks')?.classList.remove('hidden');
+  });
+</script>
