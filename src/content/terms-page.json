@@ -1,23 +1,53 @@
 {
   "seo": {
     "metaTitle": "Terms of Service | HariLeaf Agritech",
-    "metaDescription": "Read the terms governing your use of HariLeaf Agritech's platform, software, and services."
+    "metaDescription": "The terms for buying from the HariLeaf shop on harileaf.org and for using HariLeaf Agritech's platform and services."
   },
   "hero": {
     "badge": "Legal",
     "title": "Terms of Service",
-    "subtitle": "The rules that govern your use of the HariLeaf platform.",
-    "effectiveDate": "Effective 1 January 2026"
+    "subtitle": "The terms for buying from our shop and for using the HariLeaf platform.",
+    "effectiveDate": "Last updated 19 October 2026"
   },
   "sections": [
     {
       "id": "acceptance",
       "title": "Acceptance of Terms",
-      "body": "By accessing or using any HariLeaf Agritech product, platform, or service, you agree to be bound by these Terms of Service and our Privacy Policy. If you are using HariLeaf on behalf of an organisation, you represent that you have authority to bind that organisation to these terms. If you do not agree, you may not use our services."
+      "body": "These terms apply when you buy from the HariLeaf shop on harileaf.org and when you use any HariLeaf Agritech product, platform or service. By placing an order or using our services you agree to them and to our Privacy Policy. If you use the HariLeaf platform on behalf of an organisation, you confirm that you can bind that organisation to these terms. Our registered name, postal address and Grievance Officer are listed at harileaf.org/grievance. If you do not agree, please do not use our services."
+    },
+    {
+      "id": "orders",
+      "title": "Orders From Our Shop",
+      "body": "Placing an order is an offer to buy. It is accepted when we email you the order confirmation; for cash on delivery we may first ask you to confirm the order from your order page, and an order that is not confirmed may be cancelled. We may decline or cancel an order — for example if an item is out of stock, we cannot deliver to the address, or the order looks fraudulent — and we refund in full anything you have already paid. You do not need an account: your order page is protected by a private link sent to your email."
+    },
+    {
+      "id": "prices-payment",
+      "title": "Prices and Payment",
+      "body": "Prices are in Indian rupees and include GST. Delivery is free and there is no fee for cash on delivery, so the total shown at checkout is the full amount you pay. You can pay online through Razorpay (UPI, cards, net banking or wallets) or, where available, in cash on delivery. We issue a GST invoice for every order when we pack it, and a credit note if an invoiced order is refunded."
+    },
+    {
+      "id": "delivery",
+      "title": "Delivery",
+      "body": "We deliver across India to the pincodes our courier partners serve. Dispatch and delivery times, tracking and what happens if a delivery fails are set out in our Shipping Policy at harileaf.org/shipping-policy; delivery dates shown at checkout are estimates. The goods become yours, and at your risk, when they are delivered to you."
+    },
+    {
+      "id": "cancellations-refunds",
+      "title": "Cancellations, Returns and Refunds",
+      "body": "You can cancel an order free of charge until it is packed. If an item arrives damaged, defective, wrong or not as described, tell us within 48 hours of delivery and we will replace it or refund it. Because our products are food, opened packs cannot otherwise be returned. The details, and how and when refunds are paid, are in our Refund & Cancellation Policy at harileaf.org/refund-policy."
+    },
+    {
+      "id": "products",
+      "title": "Our Products",
+      "body": "Our rice and spices are farm produce: colour, grain size and aroma vary naturally between harvests and batches, and photos are illustrative. Each product page shows the current batch and its packed-on date; please store the product as its label says."
+    },
+    {
+      "id": "complaints",
+      "title": "Complaints",
+      "body": "For any problem with an order, contact our customer care with your order number. If you are not satisfied with the response, write to our Grievance Officer (details at harileaf.org/grievance), who acknowledges every complaint within 48 hours and resolves it within one month. Nothing in these terms limits your rights as a consumer under the Consumer Protection Act, 2019."
     },
     {
       "id": "use-of-service",
-      "title": "Use of Service",
+      "title": "Using the HariLeaf Platform",
       "body": "HariLeaf grants you a limited, non-exclusive, non-transferable licence to access and use our platform for your internal agricultural operations. You must not resell, sublicence, or commercialise any portion of the platform without written consent. You are responsible for maintaining the security of your account credentials and for all activity that occurs under your account. Prohibited uses include reverse engineering, automated scraping, or any use that violates applicable law."
     },
     {
@@ -33,7 +63,7 @@
     {
       "id": "limitation-of-liability",
       "title": "Limitation of Liability",
-      "body": "HariLeaf's platform is provided on an 'as-is' basis. To the maximum extent permitted by law, HariLeaf Agritech shall not be liable for any indirect, incidental, consequential, or punitive damages arising from your use of the platform, including crop losses, yield shortfalls, or decisions made in reliance on platform outputs. Our total aggregate liability shall not exceed the fees paid by you in the 12 months preceding the claim. Some jurisdictions do not permit limitation of implied warranties — in those cases, the above may not apply to you."
+      "body": "This section applies to the HariLeaf platform, not to goods you buy from our shop. The platform is provided on an 'as-is' basis. To the maximum extent permitted by law, HariLeaf Agritech shall not be liable for any indirect, incidental, consequential, or punitive damages arising from your use of the platform, including crop losses, yield shortfalls, or decisions made in reliance on platform outputs. Our total aggregate liability shall not exceed the fees paid by you in the 12 months preceding the claim. Some jurisdictions do not permit limitation of implied warranties — in those cases, the above may not apply to you."
     },
     {
       "id": "termination",
@@ -43,7 +73,7 @@
     {
       "id": "governing-law",
       "title": "Governing Law",
-      "body": "These terms are governed by the laws of the Republic of India. Any disputes arising under these terms shall be subject to the exclusive jurisdiction of the courts located in Mumbai, Maharashtra. If any provision of these terms is held unenforceable, the remaining provisions continue in full force. These terms constitute the entire agreement between you and HariLeaf Agritech regarding use of the platform."
+      "body": "These terms are governed by the laws of the Republic of India. Any disputes arising under these terms shall be subject to the exclusive jurisdiction of the courts located in Mumbai, Maharashtra. If any provision of these terms is held unenforceable, the remaining provisions continue in full force. These terms constitute the entire agreement between you and HariLeaf Agritech regarding your purchases from our shop and your use of our services."
     }
   ]
 }
