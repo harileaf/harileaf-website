@@ -56,7 +56,7 @@ const field = 'display:flex;flex-direction:column;gap:0.25rem;';
     {usageFor && (
       <section class="card" style="padding:1.5rem;background:#fff;" aria-labelledby="usage-h">
         <h2 id="usage-h" style="font-weight:800;margin-bottom:0.25rem;">{usageFor.code}: {couponLabel(usageFor)}</h2>
-        <p class="muted">{usageFor.used_count} use{usageFor.used_count === 1 ? '' : 's'} counted{usageFor.usage_limit !== null && ` of ${usageFor.usage_limit}`}. Orders whose payment failed gave their use back. Cancelled and refunded orders keep it.</p>
+        <p class="muted">{usageFor.used_count} use{usageFor.used_count === 1 ? '' : 's'} counted{usageFor.usage_limit !== null && ` of ${usageFor.usage_limit}`}. Orders whose payment failed or that were cancelled before dispatch gave their use back. Refunded orders keep it.</p>
         {usage.length === 0 ? <p class="muted" style="margin-top:0.5rem;">No orders yet.</p> : (
           <div style="overflow-x:auto;margin-top:0.75rem;">
             <table style="width:100%;border-collapse:collapse;">

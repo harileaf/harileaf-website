@@ -36,6 +36,11 @@ migrations_dir = "migrations"
 # stuck-capture sweep, COD reminders, then the outbox drain (src/lib/store/scheduled.ts).
 crons = ["*/5 * * * *"]
 
+[vars]
+# Turnstile widget "HariLeaf Store" (public). .dev.vars overrides it with
+# Cloudflare's always-pass test key, since this one only works on harileaf.org.
+PUBLIC_TURNSTILE_SITE_KEY = "0x4AAAAAAFdgCACaacNRdXfz"
+
 # Workers Logs: keeps the JSON console logs (order, payment, webhook, outbox
 # failures) searchable in the dashboard. Included in Workers Paid.
 [observability]
