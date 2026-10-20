@@ -75,6 +75,12 @@ Work through this in order. Use one Google account for Search Console, Merchant 
 
    Google picks these up on its next crawl; you don't need to do anything.
 9. **Bing Webmaster Tools** (bing.com/webmasters): *Import from Google Search Console*. One click, and it also covers DuckDuckGo, Yahoo and ChatGPT search.
+10. **IndexNow** (Bing, Yandex, Seznam, Naver): the key file is `public/3011935841540ca23e334fff3226a171.txt`. After publishing new or changed pages, tell the engines straight away instead of waiting for a crawl:
+    ```sh
+    curl -s -X POST https://api.indexnow.org/indexnow -H 'Content-Type: application/json' \
+      -d '{"host":"harileaf.org","key":"3011935841540ca23e334fff3226a171","keyLocation":"https://harileaf.org/3011935841540ca23e334fff3226a171.txt","urlList":["https://harileaf.org/learn/new-guide/"]}'
+    ```
+    A 200 or 202 means accepted. Google doesn't use IndexNow; use *Request indexing* in Search Console for Google.
 
 ### 3. Merchant Center (merchants.google.com), once products are live
 
