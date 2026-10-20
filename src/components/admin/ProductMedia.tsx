@@ -11,6 +11,7 @@ export interface EditorImage { id: number; url: string; key: string; alt: string
 export interface EditorBatch { id: number; batchCode: string; packedOn: string; groundOrMilledOn: string | null; labReportId: number | null; active: boolean }
 export interface EditorLab { id: number; batchCode: string; testedOn: string; labName: string; visible: boolean; pdfUrl: string | null }
 
+const failed = (res: { data: Record<string, unknown> }, fallback = "Couldn't save. Try again.") => (typeof res.data.error === 'string' && res.data.error ? res.data.error : fallback);
 const json = (body: unknown): RequestInit => ({ method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 const INFOGRAPHIC_HINT = "Infographic: describe what the image says in a full sentence. Every fact in it must also appear in the page's sections.";
 
@@ -19,6 +20,8 @@ export function Images(props: { productId: number; images: EditorImage[]; onChan
   useEffect(() => setImages(props.images), [props.images]);
   const [alt, setAlt] = useState('');
   const [msg, setMsg] = useState('');
+  /** Images whose alt text didn't save; the typed text stays in the box so blurring it again retries. */
+  const [altFailed, setAltFailed] = useState<Set<number>>(new Set());
   const base = `/api/admin/products/${props.productId}/images`;
   const hintId = useId();
 
@@ -32,7 +35,7 @@ export function Images(props: { productId: number; images: EditorImage[]; onChan
       await props.onChanged();
       setAlt('');
       setMsg('✓ Uploaded');
-    } else setMsg(String(res.data.error ?? 'Upload failed'));
+    } else setMsg(failed(res, 'Upload failed. Try again.'));
   }
 
   async function move(i: number, dir: -1 | 1) {
@@ -41,7 +44,28 @@ export function Images(props: { productId: number; images: EditorImage[]; onChan
     const next = [...images];
     [next[i], next[j]] = [next[j], next[i]];
     setImages(next);
-    await Promise.all(next.map((img, k) => send(base, json({ imageId: img.id, sort: k }))));
+    const results = await Promise.all(next.map((img, k) => send(base, json({ imageId: img.id, sort: k }))));
+    const bad = results.find((r) => !r.ok);
+    if (bad) {
+      setMsg(`${failed(bad, "Couldn't save the new order.")} The photos are shown in their saved order.`);
+      await props.onChanged();
+    } else setMsg(`✓ Moved image ${i + 1} ${dir < 0 ? 'earlier' : 'later'}`);
+  }
+
+  async function saveAlt(img: EditorImage, alt: string) {
+    if (alt === img.alt && !altFailed.has(img.id)) return;
+    const res = await send(base, json({ imageId: img.id, alt }));
+    const n = images.findIndex((x) => x.id === img.id) + 1;
+    setAltFailed((prev) => {
+      const next = new Set(prev);
+      if (res.ok) next.delete(img.id);
+      else next.add(img.id);
+      return next;
+    });
+    if (res.ok) {
+      setImages((xs) => xs.map((x) => (x.id === img.id ? { ...x, alt } : x)));
+      setMsg(`✓ Saved the description of image ${n}`);
+    } else setMsg(`Image ${n}: ${failed(res, "Couldn't save the description.")} Click into the box and out again to retry.`);
   }
 
   async function setKind(img: EditorImage, kind: EditorImage['kind']) {
@@ -50,7 +74,7 @@ export function Images(props: { productId: number; images: EditorImage[]; onChan
     if (res.ok) setMsg(`✓ Image ${images.findIndex((x) => x.id === img.id) + 1} is now ${kind === 'infographic' ? 'an infographic' : 'a photo'}`);
     else {
       setImages((xs) => xs.map((x) => (x.id === img.id ? { ...x, kind: img.kind } : x)));
-      setMsg(String(res.data.error ?? "Couldn't change the image type"));
+      setMsg(failed(res, "Couldn't change the image type. Try again."));
     }
   }
 
@@ -66,7 +90,8 @@ export function Images(props: { productId: number; images: EditorImage[]; onChan
               <select aria-label={`Image ${i + 1} type`} value={img.kind} onChange={(e) => setKind(img, e.target.value === 'infographic' ? 'infographic' : 'photo')} style={{ ...sel, padding: '0.4rem' }}>
                 <option value="photo">Photo</option><option value="infographic">Infographic</option>
               </select>
-              <input type="text" aria-label={`Image ${i + 1} alt text`} aria-describedby={img.kind === 'infographic' ? `${hintId}-${img.id}` : undefined} defaultValue={img.alt} onBlur={(e) => e.target.value !== img.alt && send(base, json({ imageId: img.id, alt: e.target.value }))} />
+              <input type="text" aria-label={`Image ${i + 1} alt text`} aria-describedby={img.kind === 'infographic' ? `${hintId}-${img.id}` : undefined} aria-invalid={altFailed.has(img.id) || undefined} defaultValue={img.alt} onBlur={(e) => saveAlt(img, e.target.value)} />
+              {altFailed.has(img.id) && <p style={{ ...small, color: '#c00' }}>Not saved yet</p>}
               {img.kind === 'infographic' && <p id={`${hintId}-${img.id}`} style={small}>{INFOGRAPHIC_HINT}</p>}
               <div style={{ display: 'flex', gap: '0.25rem' }}>
                 <button type="button" style={btn} onClick={() => move(i, -1)} aria-label={`Move image ${i + 1} earlier`}>←</button>
@@ -74,7 +99,7 @@ export function Images(props: { productId: number; images: EditorImage[]; onChan
                 <button type="button" style={{ ...btn, color: '#c00', marginLeft: 'auto' }} aria-label={`Delete image ${i + 1}`} onClick={async () => {
                   const res = await send(`${base}?imageId=${img.id}`, { method: 'DELETE' });
                   if (res.ok) setImages(images.filter((x) => x.id !== img.id));
-                  else setMsg(String(res.data.error ?? 'Delete failed'));
+                  else setMsg(failed(res, 'Delete failed. Try again.'));
                 }}>Delete</button>
               </div>
             </figcaption>
@@ -92,10 +117,15 @@ export function Images(props: { productId: number; images: EditorImage[]; onChan
 
 export function Batches(props: { productId: number; categorySlug: string; batches: EditorBatch[]; labReports: EditorLab[]; onChanged: () => Promise<void> }) {
   const [msg, setMsg] = useState('');
-  const [b, setB] = useState({ batchCode: '', packedOn: '', groundOrMilledOn: '', labReportId: '', makeActive: true });
-  const [lab, setLab] = useState({ batchCode: '', testedOn: '', labName: '', labAccreditation: '', testScope: '' });
+  const emptyBatch = { batchCode: '', packedOn: '', groundOrMilledOn: '', labReportId: '', makeActive: true };
+  const emptyLab = { batchCode: '', testedOn: '', labName: '', labAccreditation: '', testScope: '' };
+  const [b, setB] = useState(emptyBatch);
+  const [lab, setLab] = useState(emptyLab);
   const standardKeys = LAB_KEYS[props.categorySlug] ?? [];
-  const [results, setResults] = useState<Array<[string, string]>>(() => (standardKeys.length ? standardKeys : ['']).map((k) => [k, '']));
+  const emptyResults = (): Array<[string, string]> => (standardKeys.length ? standardKeys : ['']).map((k) => [k, '']);
+  const [results, setResults] = useState<Array<[string, string]>>(emptyResults);
+  /** One request at a time, so a double click can't add a batch or report twice. */
+  const [busy, setBusy] = useState(false);
   const listId = useId();
   const base = `/api/admin/products/${props.productId}`;
   const summary = Object.fromEntries(results.filter(([k, v]) => k.trim() && v.trim()).map(([k, v]) => [k.trim(), v.trim()]));
@@ -115,7 +145,7 @@ export function Batches(props: { productId: number; categorySlug: string; batche
               <td>{props.labReports.find((l) => l.id === x.labReportId)?.labName ?? '—'}</td>
               <td>{!x.active && <button type="button" style={btn} aria-label={`Make batch ${x.batchCode} active`} onClick={async () => {
                 const res = await send(`${base}/batches`, json({ batchId: x.id }));
-                if (res.ok) { await props.onChanged(); setMsg('✓ Saved'); } else setMsg(String(res.data.error));
+                if (res.ok) { await props.onChanged(); setMsg('✓ Saved'); } else setMsg(failed(res));
               }}>Make active</button>}</td>
             </tr>
           ))}
@@ -132,10 +162,13 @@ export function Batches(props: { productId: number; categorySlug: string; batche
           </select>
         </Field>
       </div>
-      <button type="button" style={addBtn} onClick={async () => {
+      <button type="button" style={addBtn} disabled={busy} onClick={async () => {
+        setBusy(true);
+        setMsg('Saving…');
         const res = await send(`${base}/batches`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...b, groundOrMilledOn: b.groundOrMilledOn || null, labReportId: b.labReportId ? Number(b.labReportId) : null }) });
-        if (res.ok) { await props.onChanged(); setMsg('✓ Saved'); } else setMsg(String(res.data.error));
-      }}>+ Add batch (make active)</button>
+        if (res.ok) { await props.onChanged(); setB(emptyBatch); setMsg('✓ Saved the batch'); } else setMsg(failed(res));
+        setBusy(false);
+      }}>{busy ? 'Saving…' : '+ Add batch (make active)'}</button>
 
       <h3 style={{ fontSize: '0.9rem', fontWeight: 800, marginTop: '1rem' }}>Lab reports</h3>
       <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.85rem' }}>
@@ -144,17 +177,28 @@ export function Batches(props: { productId: number; categorySlug: string; batche
             {l.batchCode} · {l.labName} · {l.testedOn} {l.pdfUrl && <a href={l.pdfUrl} target="_blank" rel="noreferrer">PDF</a>}{' '}
             <button type="button" style={btn} aria-label={`${l.visible ? 'Hide' : 'Show'} the ${l.batchCode} report from ${l.labName}`} onClick={async () => {
               const res = await send(`${base}/lab-reports`, json({ reportId: l.id, visible: !l.visible }));
-              if (res.ok) { await props.onChanged(); setMsg('✓ Saved'); } else setMsg(String(res.data.error));
+              if (res.ok) { await props.onChanged(); setMsg('✓ Saved'); } else setMsg(failed(res));
             }}>{l.visible ? 'Hide' : 'Show'}</button>
           </li>
         ))}
       </ul>
       <form onSubmit={async (e) => {
         e.preventDefault();
-        const fd = new FormData(e.currentTarget);
+        if (busy) return;
+        const form = e.currentTarget;
+        const fd = new FormData(form);
         fd.set('summary', JSON.stringify(summary));
+        setBusy(true);
+        setMsg('Saving…');
         const res = await send(`${base}/lab-reports`, { method: 'POST', body: fd });
-        if (res.ok) { await props.onChanged(); setMsg('✓ Saved'); } else setMsg(String(res.data.error));
+        if (res.ok) {
+          await props.onChanged();
+          form.reset(); // clears the PDF picker; the other fields follow state
+          setLab(emptyLab);
+          setResults(emptyResults());
+          setMsg('✓ Saved the lab report');
+        } else setMsg(failed(res));
+        setBusy(false);
       }} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         <div style={row}>
           <Field label="Batch code"><input name="batchCode" type="text" value={lab.batchCode} onChange={(e) => setLab({ ...lab, batchCode: e.target.value })} /></Field>
@@ -177,7 +221,7 @@ export function Batches(props: { productId: number; categorySlug: string; batche
           <button type="button" style={addBtn} onClick={() => setResults([...results, ['', '']])}>+ Add result</button>
         </fieldset>
         <Field label="Report PDF"><input name="pdf" type="file" accept="application/pdf" /></Field>
-        <button type="submit" style={addBtn}>+ Add lab report</button>
+        <button type="submit" style={addBtn} disabled={busy}>{busy ? 'Saving…' : '+ Add lab report'}</button>
       </form>
       <p className="muted" aria-live="polite">{msg}</p>
     </section>

@@ -109,8 +109,13 @@ function certMessage(label: string): string {
   return m ? `'${m[1]}' can only appear ${m[2]} ${m[3]}.` : `'${label}' isn't allowed here.`;
 }
 
-/** A next-step message for the admin, grouped by kind; never internal codes. */
-export function problemMessage(problems: Problem[]): string {
+/**
+ * A next-step message for the admin, grouped by kind; never internal codes.
+ * `scope` 'product' is a product's own story (checked against that product
+ * alone); 'page' is landing-page copy (checked against every linked product).
+ */
+export function problemMessage(problems: Problem[], scope: 'page' | 'product' = 'page'): string {
+  const where = scope === 'product' ? 'this product' : 'every product here';
   const of = (kind: ProblemKind) => problems.filter((p) => p.kind === kind).map((p) => p.label);
   const parts: string[] = [];
   if (of('gi').length) parts.push(GI_MESSAGE);
@@ -118,10 +123,10 @@ export function problemMessage(problems: Problem[]): string {
   if (cmp.length) parts.push(`Describe the other process, not a competitor (${quoted(cmp)} isn't allowed).`);
   const health = of('health');
   if (health.length) parts.push(`Health claims aren't allowed: remove ${quoted(health)}.`);
-  for (const label of new Set(of('cert'))) parts.push(certMessage(label));
-  if (of('organic').length) parts.push("'organic' can only appear when every product here has an organic scheme and certificate number (Products → Organic certification).");
+  for (const label of new Set(of('cert'))) parts.push(scope === 'product' ? certMessage(label).replace(/every product here/g, where) : certMessage(label));
+  if (of('organic').length) parts.push(`'organic' can only appear when ${where} has an organic scheme and certificate number (Products → Organic certification).`);
   const terms = of('term');
-  if (terms.length) parts.push(`${quoted(terms)} ${terms.length > 1 ? 'need' : 'needs'} a matching process claim with an evidence note on every product here (Products → Claims).`);
+  if (terms.length) parts.push(`${quoted(terms)} ${terms.length > 1 ? 'need' : 'needs'} a matching process claim with an evidence note on ${where} (Products → Claims).`);
   const banned = of('banned');
   if (banned.length) parts.push(`Remove ${quoted(banned)}.`);
   return parts.join(' ');
@@ -136,7 +141,7 @@ export function problemWording(p: Problem): string {
 
 type FieldProblems = Record<string, Problem[]>;
 
-const messages = (fp: FieldProblems): FieldErrors => Object.fromEntries(Object.entries(fp).map(([k, ps]) => [k, problemMessage(ps)]));
+const messages = (fp: FieldProblems, scope: 'page' | 'product' = 'page'): FieldErrors => Object.fromEntries(Object.entries(fp).map(([k, ps]) => [k, problemMessage(ps, scope)]));
 
 /** Claims problems per story field, in the product's own context. */
 export function productStoryProblems(story: ProductStory, p: ContextProduct): FieldProblems {
@@ -150,7 +155,7 @@ export function productStoryProblems(story: ProductStory, p: ContextProduct): Fi
 }
 
 export function checkProductStory(story: ProductStory, p: ContextProduct): FieldErrors {
-  return messages(productStoryProblems(story, p));
+  return messages(productStoryProblems(story, p), 'product');
 }
 
 /**

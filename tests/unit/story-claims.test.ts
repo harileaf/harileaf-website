@@ -169,6 +169,13 @@ describe('review fixes', () => {
     expect(checkProductStory(story({ processSteps: steps('The traditional way') }), weak)['processSteps.0']).toMatch(/traditional/);
   });
 
+  it("a product's own story says 'this product', not 'every product here'", () => {
+    const m = checkProductStory(story({ processSteps: steps('Organic, the traditional way') }), cp({ claims: [], organic: { scheme: 'none', conversionSince: null, certNumber: null } }))['processSteps.0'];
+    expect(m).toContain('evidence note on this product (Products → Claims)');
+    expect(m).toContain("'organic' can only appear when this product has");
+    expect(m).not.toMatch(/every product here/);
+  });
+
   it("'fresh' is allowed page-wide only when every product is perishable", () => {
     const page = { ...emptyStoryPage(), productIds: [1, 2], storyFromProductId: 1, note: 'Fresh from the field' };
     const a = cp({ perishable: true });

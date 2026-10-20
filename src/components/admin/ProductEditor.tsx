@@ -3,10 +3,10 @@
  * Prices are entered in rupees and sent as paise; stock is changed by an
  * adjustment (+/−) so concurrent sales are never overwritten.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type SetStateAction } from 'react';
 import { editorMedia, editorVariants, type AdminMediaRows, type AdminVariantRow } from '../../lib/store/editor-media';
 import { Batches, Images, type EditorBatch, type EditorImage, type EditorLab } from './ProductMedia';
-import { addBtn, box, btn, errStyle, Field, MessageList, row, sel, send, storyErrorLabel } from './story-ui';
+import { addBtn, box, btn, errStyle, Field, focusFirstError, GI_DIRTY_EVENT, MessageList, row, sel, send, storyErrorLabel } from './story-ui';
 
 export type { EditorBatch, EditorImage, EditorLab };
 
@@ -150,14 +150,32 @@ function KeyValues(props: { value: Record<string, string>; onChange: (v: Record<
 }
 
 export default function ProductEditor(props: Props) {
-  const [p, setP] = useState<EditorProduct>(props.initial);
-  const [variants, setVariants] = useState<EditorVariant[]>(props.variants);
+  const [p, setPState] = useState<EditorProduct>(props.initial);
+  const [variants, setVariantsState] = useState<EditorVariant[]>(props.variants);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saveWarnings, setSaveWarnings] = useState<Record<string, string>>({});
-  /** Saved, but the form couldn't be refreshed, so a second save could apply stock changes twice. */
+  /**
+   * Saved, but the form wasn't refreshed from the server (a redirect is on its
+   * way, or the refresh failed): saving again could apply stock changes twice.
+   */
   const [stale, setStale] = useState(false);
+  /** Unsaved form edits. A ref, so a redirect right after a save isn't stopped by the leave prompt. */
+  const dirty = useRef(false);
+  const markDirty = () => { dirty.current = true; };
+  const setP = (v: SetStateAction<EditorProduct>) => { markDirty(); setPState(v); };
+  const setVariants = (v: SetStateAction<EditorVariant[]>) => { markDirty(); setVariantsState(v); };
+  useEffect(() => {
+    const warn = (e: BeforeUnloadEvent) => { if (dirty.current) e.preventDefault(); };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, []);
+  /** The GI fields as last saved; the story editor hints "save the product first" while they differ. */
+  const [savedGi, setSavedGi] = useState({ name: props.initial.giName ?? '', reg: props.initial.giAuRegNumber ?? '' });
+  const giDirty = (p.giName ?? '') !== savedGi.name || (p.giAuRegNumber ?? '') !== savedGi.reg;
+  useEffect(() => { window.dispatchEvent(new CustomEvent(GI_DIRTY_EVENT, { detail: giDirty })); }, [giDirty]);
   const [status, setStatus] = useState('');
   const [saving, setSaving] = useState(false);
+  const [reloadTo, setReloadTo] = useState<string | null>(null);
   const [media, setMedia] = useState({ images: props.images, batches: props.batches, labReports: props.labReports });
   /** Re-reads photos, batches and lab reports after a change — without a page reload, so unsaved form edits survive. */
   async function refreshMedia() {
@@ -188,37 +206,44 @@ export default function ProductEditor(props: Props) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    setSaving(false);
     if (res.ok) {
       const id = (res.data.id as number) ?? props.id;
       const warnings = (res.data.warnings as Record<string, string> | undefined) ?? {};
+      dirty.current = false;
+      setSavedGi({ name: p.giName ?? '', reg: p.giAuRegNumber ?? '' });
       if (props.id && Object.keys(warnings).length) {
         // Stay so the owner can read what to fix. Reload the pack sizes first, so stock adjustments and new packs aren't saved twice.
         const fresh = await send(`/api/admin/products/${props.id}`, { method: 'GET' });
         const rows = fresh.ok ? (fresh.data as unknown as AdminMediaRows & { variants?: AdminVariantRow[] }) : null;
         if (rows?.variants) {
-          setVariants(editorVariants(rows.variants));
+          setVariantsState(editorVariants(rows.variants));
           setMedia(editorMedia(rows));
         } else setStale(true);
+        setSaving(false);
         setSaveWarnings(warnings);
-        setStatus(rows?.variants ? 'Saved, with things to fix (listed at the top).' : 'Saved, with things to fix (listed at the top). Reload the page before saving again.');
+        setStatus(rows?.variants ? 'Saved, with things to fix (listed at the top).' : 'Saved, with things to fix (listed at the top). Reload the page to keep editing.');
         requestAnimationFrame(() => document.getElementById('product-warnings')?.focus());
         return;
       }
-      setStatus('✓ Saved');
+      // Locked until the reload: if the owner cancels the leave prompt (unsaved story edits), this form must not be saved again.
+      setStale(true);
+      setSaving(false);
+      setStatus('✓ Saved. Reload the page to keep editing.');
+      setReloadTo(`/admin/products/${id}?saved=1`);
       window.location.href = `/admin/products/${id}?saved=1`;
     } else {
-      const e = (res.data.errors as Record<string, string> | undefined) ?? { _: String(res.data.error ?? 'Save failed') };
+      setSaving(false);
+      const e = (res.data.errors as Record<string, string> | undefined) ?? { _: String(res.data.error ?? "Couldn't save. Try again.") };
       setErrors(e);
       setStatus(`Not saved: ${Object.keys(e).length === 1 ? '1 thing' : `${Object.keys(e).length} things`} to fix (listed at the top).`);
-      requestAnimationFrame(() => document.getElementById('product-errors')?.focus());
+      focusFirstError('product-editor', 'product-errors');
     }
   }
 
   const updateVariant = (i: number, patch: Partial<EditorVariant>) => setVariants((vs) => vs.map((v, j) => (j === i ? { ...v, ...patch } : v)));
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div id="product-editor" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <MessageList id="product-errors" kind="error" title="Not saved. Please fix:" messages={errors} label={productErrorLabel} />
       <MessageList id="product-warnings" kind="warning" title="Saved, with things to fix:" messages={saveWarnings} label={productErrorLabel} />
       {props.shelfWarning && <p className="warn">{props.shelfWarning}</p>}
@@ -434,6 +459,7 @@ export default function ProductEditor(props: Props) {
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', position: 'sticky', bottom: 0, background: '#f6f6f3', padding: '1rem 0', borderTop: '1px solid rgba(0,0,0,0.08)' }}>
         <button type="button" className="brand-btn" style={{ padding: '0.75rem 2rem' }} onClick={save} disabled={saving || stale}>{props.id ? 'Save product' : 'Create product'}</button>
         <p className="muted" aria-live="polite">{status}</p>
+        {stale && <a href={reloadTo ?? window.location.href} style={{ fontWeight: 700, color: '#196a5e' }}>Reload to continue editing</a>}
         {props.id && p.status === 'active' && <a href={`/${p.categorySlug}/${p.slug}`} target="_blank" rel="noreferrer" style={{ marginLeft: 'auto', fontWeight: 700, color: '#196a5e' }}>View live page ↗</a>}
       </div>
 
@@ -461,7 +487,7 @@ function Upload(props: { label: string; url: string; accept: string; current: st
           fd.append('file', f);
           setMsg('Uploading…');
           const res = await send(props.url, { method: 'POST', body: fd });
-          setMsg(res.ok ? '✓ Uploaded' : String(res.data.error ?? 'Upload failed'));
+          setMsg(res.ok ? '✓ Uploaded' : typeof res.data.error === 'string' && res.data.error ? res.data.error : 'Upload failed. Try again.');
         }} />
         {props.current && <a href={props.current} target="_blank" rel="noreferrer">View current</a>}
         <span className="muted" aria-live="polite">{msg}</span>

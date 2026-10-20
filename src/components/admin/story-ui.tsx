@@ -18,6 +18,9 @@ export const h2: CSSProperties = { fontSize: '1rem', fontWeight: 800 };
 export const addBtn: CSSProperties = { ...btn, alignSelf: 'flex-start' };
 export const removeBtn: CSSProperties = { ...btn, alignSelf: 'flex-start', color: '#c00' };
 
+/** Fired on window by the product editor with `detail: boolean` while its GI fields have unsaved changes (read by the story editor). */
+export const GI_DIRTY_EVENT = 'harileaf:product-gi-dirty';
+
 export async function send(url: string, init: RequestInit) {
   try {
     const res = await fetch(url, init);
@@ -69,7 +72,11 @@ export function Field(props: { label: string; error?: string; warning?: string; 
  * the ends); after a removal it goes to the next row's ✕, or to the list's
  * add button (`${idPrefix}-add`).
  */
-export function MoveButtons(props: { idPrefix: string; index: number; count: number; noun: string; onMove: (from: number, to: number) => void; onRemove: () => void }) {
+export function MoveButtons(props: {
+  idPrefix: string; index: number; count: number; noun: string; onMove: (from: number, to: number) => void; onRemove: () => void;
+  /** Ask before removing (e.g. a row that has text in it). */
+  confirmRemove?: string;
+}) {
   const { idPrefix, index, count, noun } = props;
   const focus = (...ids: string[]) =>
     requestAnimationFrame(() => {
@@ -89,6 +96,7 @@ export function MoveButtons(props: { idPrefix: string; index: number; count: num
       <button type="button" id={`${idPrefix}-${index}-up`} style={btn} aria-label={`Move ${noun} ${index + 1} up`} disabled={index === 0} onClick={() => move(index - 1)}>↑</button>
       <button type="button" id={`${idPrefix}-${index}-down`} style={btn} aria-label={`Move ${noun} ${index + 1} down`} disabled={index === count - 1} onClick={() => move(index + 1)}>↓</button>
       <button type="button" id={`${idPrefix}-${index}-remove`} style={{ ...btn, color: '#c00' }} aria-label={`Remove ${noun} ${index + 1}`} onClick={() => {
+        if (props.confirmRemove && !window.confirm(props.confirmRemove)) return;
         props.onRemove();
         focus(`${idPrefix}-${index}-remove`, `${idPrefix}-${index - 1}-remove`, `${idPrefix}-add`);
       }}>✕</button>
@@ -198,7 +206,7 @@ export function ImagePicker(props: {
       setPhotos(null);
       setMsg('');
       choose(res.data.key, '');
-    } else setMsg(String(res.data.error ?? 'Upload failed'));
+    } else setMsg(typeof res.data.error === 'string' && res.data.error ? res.data.error : 'Upload failed. Try again.');
   }
 
   const choices: Array<{ key: string; label: string; alt: string }> = [
@@ -243,7 +251,13 @@ export function ImagePicker(props: {
               ))}
             </ul>
             <Field label="Or upload a new photo to the library (up to 8 MB)">
-              <input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
+              <input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={async (e) => {
+                const input = e.currentTarget;
+                const file = input.files?.[0];
+                if (!file) return;
+                await upload(file);
+                input.value = ''; // so the same file can be picked again after a failed upload
+              }} />
             </Field>
             <p className="muted" aria-live="polite">{msg}</p>
           </div>

@@ -4,9 +4,10 @@
  * claims errors block; warnings (e.g. a proof item without a lab value) don't.
  * Preview posts the unsaved story to /admin/preview/product in a new tab.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { GI_MESSAGE } from '../../lib/store/claims';
 import { coerceProductStory, EMPTY_STORY, labValue, STORY_ICONS, type Comparison, type ProductStory, type StoryIcon } from '../../lib/store/story';
-import { addBtn, box, btn, Field, focusFirstError, h2, ImagePicker, MessageList, MoveButtons, moved, Msg, removeBtn, row, sel, send, small, storyErrorLabel, type PickerImage } from './story-ui';
+import { addBtn, box, btn, Field, focusFirstError, GI_DIRTY_EVENT, h2, ImagePicker, MessageList, MoveButtons, moved, Msg, removeBtn, row, sel, send, small, storyErrorLabel, type PickerImage } from './story-ui';
 
 interface Props {
   productId: number;
@@ -33,6 +34,15 @@ export default function ProductStoryEditor(props: Props) {
   const [status, setStatus] = useState('');
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  /** Bumped on every edit, so a save only clears `dirty` when nothing changed while it was in flight. */
+  const version = useRef(0);
+  /** The product form above has unsaved GI changes (its event); the story is checked against the saved product. */
+  const [giUnsaved, setGiUnsaved] = useState(false);
+  useEffect(() => {
+    const on = (e: Event) => setGiUnsaved(Boolean((e as CustomEvent<boolean>).detail));
+    window.addEventListener(GI_DIRTY_EVENT, on);
+    return () => window.removeEventListener(GI_DIRTY_EVENT, on);
+  }, []);
 
   useEffect(() => {
     if (!dirty) return;
@@ -41,9 +51,17 @@ export default function ProductStoryEditor(props: Props) {
     return () => window.removeEventListener('beforeunload', warn);
   }, [dirty]);
 
+  const edited = () => {
+    version.current += 1;
+    setDirty(true);
+  };
   const set = <K extends keyof ProductStory>(k: K, v: ProductStory[K]) => {
     setS((prev) => ({ ...prev, [k]: v }));
-    setDirty(true);
+    edited();
+  };
+  /** Removing a whole section asks first. */
+  const removeSection = (k: 'comparison' | 'originStory' | 'grower' | 'use', what: string) => {
+    if (window.confirm(`Remove ${what}? Its text is lost when you save.`)) set(k, null);
   };
   /** Row errors are keyed by position, so they no longer line up after a move or removal. */
   const reorder = <K extends keyof ProductStory>(k: K, v: ProductStory[K], prefix: string) => {
@@ -61,6 +79,7 @@ export default function ProductStoryEditor(props: Props) {
     // Save what the server stores (trimmed, empty rows dropped), so error positions match the rows on screen.
     const story = enabled ? (coerceProductStory(s) ?? EMPTY_STORY) : null;
     if (story) setS(story);
+    const sent = version.current;
     setSaving(true);
     setStatus('Saving…');
     const res = await send(`/api/admin/products/${props.productId}/story`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ story }) });
@@ -69,14 +88,14 @@ export default function ProductStoryEditor(props: Props) {
       const w = (res.data.warnings as Record<string, string> | undefined) ?? {};
       setErrors({});
       setWarnings(w);
-      setDirty(false);
+      if (version.current === sent) setDirty(false);
       const n = Object.keys(w).length;
       if (n) {
         setStatus(`Saved, with ${plural(n, 'thing', 'things')} to check (listed above).`);
         requestAnimationFrame(() => document.getElementById('story-warnings')?.focus());
       } else setStatus(story ? '✓ Saved. Live pages refresh within a minute.' : '✓ Story sections removed. Live pages refresh within a minute.');
     } else {
-      const e = (res.data.errors as Record<string, string> | undefined) ?? { _: String(res.data.error ?? 'Save failed') };
+      const e = (res.data.errors as Record<string, string> | undefined) ?? { _: String(res.data.error ?? "Couldn't save. Try again.") };
       setErrors(e);
       setWarnings({});
       setStatus(`Not saved: ${plural(Object.keys(e).length, 'thing', 'things')} to fix.`);
@@ -100,10 +119,13 @@ export default function ProductStoryEditor(props: Props) {
         <h2 id="story-h" style={h2}>Story sections</h2>
         <p className="muted">Proof line, timeline, comparison, origin, grower and how to cook/use for {props.productName}. Shown on the product page and, when this is a landing page's “Story from” product, on that page too. Checked against the claims policy when you save. This part has its own Save button.</p>
         <label style={{ textTransform: 'none', letterSpacing: 0, fontSize: '0.9rem', color: 'inherit' }}>
-          <input type="checkbox" checked={enabled} onChange={(e) => { setEnabled(e.target.checked); setDirty(true); }} /> This product has story sections
+          <input type="checkbox" checked={enabled} onChange={(e) => { setEnabled(e.target.checked); edited(); }} /> This product has story sections
         </label>
         {!enabled && props.initial && <p style={small}>Saving now removes the story sections from the product page.</p>}
         <MessageList id="story-errors" kind="error" title="Not saved. Please fix:" messages={errors} label={storyErrorLabel} />
+        {giUnsaved && Object.values(errors).some((m) => m.includes(GI_MESSAGE)) && (
+          <p className="warn">You've changed the Geographical Indication fields above but not saved them. Save the product first, then save the story.</p>
+        )}
         <MessageList id="story-warnings" kind="warning" title="Saved, with things to check:" messages={warnings} label={storyErrorLabel} />
       </section>
 
@@ -169,7 +191,7 @@ export default function ProductStoryEditor(props: Props) {
               <div key={i} style={{ ...box, background: '#f6f6f3', padding: '1rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <h3 style={{ fontSize: '0.9rem', fontWeight: 800 }}>Step {i + 1}</h3>
-                  <MoveButtons idPrefix="story-step" index={i} count={s.processSteps.length} noun="step" onMove={(a, b) => reorder('processSteps', moved(s.processSteps, a, b), 'processSteps')} onRemove={() => reorder('processSteps', s.processSteps.filter((_, j) => j !== i), 'processSteps')} />
+                  <MoveButtons idPrefix="story-step" index={i} count={s.processSteps.length} noun="step" confirmRemove={x.title || x.text || x.photoKey ? `Remove step ${i + 1}${x.title ? ` (“${x.title}”)` : ''}?` : undefined} onMove={(a, b) => reorder('processSteps', moved(s.processSteps, a, b), 'processSteps')} onRemove={() => reorder('processSteps', s.processSteps.filter((_, j) => j !== i), 'processSteps')} />
                 </div>
                 {rowMsg(`processSteps.${i}`)}
                 <div style={row}>
@@ -210,7 +232,7 @@ export default function ProductStoryEditor(props: Props) {
                           <input type="text" value={r[k]} onChange={(e) => setCmp({ rows: at(cmp.rows, i, { [k]: e.target.value }) })} />
                         </Field>
                       ))}
-                      <MoveButtons idPrefix="story-crow" index={i} count={cmp.rows.length} noun="comparison row" onMove={(a, b) => reorder('comparison', { ...cmp, rows: moved(cmp.rows, a, b) }, 'comparison.rows')} onRemove={() => reorder('comparison', { ...cmp, rows: cmp.rows.filter((_, j) => j !== i) }, 'comparison.rows')} />
+                      <MoveButtons idPrefix="story-crow" index={i} count={cmp.rows.length} noun="comparison row" confirmRemove={r.aspect || r.ours || r.theirs || r.source ? `Remove comparison row ${i + 1}${r.aspect ? ` (“${r.aspect}”)` : ''}?` : undefined} onMove={(a, b) => reorder('comparison', { ...cmp, rows: moved(cmp.rows, a, b) }, 'comparison.rows')} onRemove={() => reorder('comparison', { ...cmp, rows: cmp.rows.filter((_, j) => j !== i) }, 'comparison.rows')} />
                     </div>
                   </fieldset>
                 ))}
@@ -221,7 +243,7 @@ export default function ProductStoryEditor(props: Props) {
                   error={err('comparison.imageKey')} altError={err('comparison.imageAlt')} altHint="Describe what the image says in a full sentence. Every fact in it must also be in the table."
                   onChange={(k, a) => setCmp({ imageKey: k, imageAlt: a })}
                 />
-                <button type="button" style={removeBtn} onClick={() => set('comparison', null)}>Remove comparison</button>
+                <button type="button" style={removeBtn} onClick={() => removeSection('comparison', 'the comparison')}>Remove comparison</button>
               </>
             )}
           </section>
@@ -234,7 +256,7 @@ export default function ProductStoryEditor(props: Props) {
                 <Field label="Origin heading" error={err('originStory.heading')} invalid={!!err('originStory')} describedBy={msgId('originStory')}><input type="text" value={s.originStory.heading} onChange={(e) => set('originStory', { ...s.originStory!, heading: e.target.value })} /></Field>
                 <Field label="Origin story" error={err('originStory.bodyMd')} invalid={!!err('originStory')} describedBy={msgId('originStory')} hint="Basic markdown: **bold**, *italic*, blank line for a new paragraph."><textarea rows={4} value={s.originStory.bodyMd} onChange={(e) => set('originStory', { ...s.originStory!, bodyMd: e.target.value })} /></Field>
                 <ImagePicker label="Origin photo (optional)" value={s.originStory.photoKey} alt={s.originStory.photoAlt} productImages={props.productImages} error={err('originStory.photoKey')} altError={err('originStory.photoAlt')} onChange={(k, a) => set('originStory', { ...s.originStory!, photoKey: k, photoAlt: a })} />
-                <button type="button" style={removeBtn} onClick={() => set('originStory', null)}>Remove origin story</button>
+                <button type="button" style={removeBtn} onClick={() => removeSection('originStory', 'the origin story')}>Remove origin story</button>
               </>
             )}
             {!s.grower ? <button type="button" style={addBtn} onClick={() => set('grower', { names: '', place: '', since: '', bodyMd: '', photoKey: null, photoAlt: '' })}>+ Add the grower</button> : (
@@ -249,7 +271,7 @@ export default function ProductStoryEditor(props: Props) {
                 </div>
                 <Field label="A few lines (optional)" error={err('grower.bodyMd')} hint="Basic markdown."><textarea rows={3} value={s.grower.bodyMd} onChange={(e) => set('grower', { ...s.grower!, bodyMd: e.target.value })} /></Field>
                 <ImagePicker label="Grower photo (optional)" value={s.grower.photoKey} alt={s.grower.photoAlt} productImages={props.productImages} error={err('grower.photoKey')} onChange={(k, a) => set('grower', { ...s.grower!, photoKey: k, photoAlt: a })} />
-                <button type="button" style={removeBtn} onClick={() => set('grower', null)}>Remove grower</button>
+                <button type="button" style={removeBtn} onClick={() => removeSection('grower', 'the grower')}>Remove grower</button>
               </>
             )}
           </section>
@@ -270,7 +292,7 @@ export default function ProductStoryEditor(props: Props) {
                   </div>
                 ))}
                 {s.use.steps.length < 8 && <button type="button" id="story-use-add" style={addBtn} onClick={() => set('use', { ...s.use!, steps: [...s.use!.steps, ''] })}>+ Add step</button>}
-                <button type="button" style={removeBtn} onClick={() => set('use', null)}>Remove how to cook/use</button>
+                <button type="button" style={removeBtn} onClick={() => removeSection('use', 'how to cook/use')}>Remove how to cook/use</button>
               </>
             )}
           </section>
