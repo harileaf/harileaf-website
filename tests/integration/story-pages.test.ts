@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { emptyStoryPage } from '../../src/lib/store/story';
-import { listStoryPages, loadStoryPageView, publishStoryPage, saveProductStory, saveStoryPageDraft, storyLinkFor } from '../../src/lib/store/story-pages';
+import { getProductsByIds } from '../../src/lib/store/catalog';
+import { getStoryPageRow, listStoryPages, loadContextProducts, loadStoryPageView, publishedPageConflicts, publishStoryPage, saveProductStory, saveStoryPageDraft, storyLinkFor } from '../../src/lib/store/story-pages';
 import { db, insertProduct, insertVariant, scalar } from '../helpers/fixtures';
 
 const NOW = new Date('2026-10-20T06:00:00Z');
@@ -53,6 +54,18 @@ describe('landing-page drafts and publish', () => {
     const bad = await saveStoryPageDraft(db, 'turmeric', { ...emptyStoryPage(), seo: { title: 'x'.repeat(80), description: '' } }, NOW);
     expect(!bad.ok && bad.errors['seo.title']).toMatch(/70/);
     expect(await scalar("SELECT draft_saved_at FROM story_pages WHERE slug = 'turmeric'")).toBe(savedAt);
+  });
+
+  it('reports a missing seeded row instead of pretending to save', async () => {
+    const row = await db.prepare("SELECT * FROM story_pages WHERE slug = 'rice'").first<Record<string, unknown>>();
+    await db.prepare("DELETE FROM story_pages WHERE slug = 'rice'").run();
+    try {
+      expect(await saveStoryPageDraft(db, 'rice', emptyStoryPage(), NOW)).toEqual({ ok: false, errors: { _: 'This page is missing. Run the latest migration.' } });
+      expect(await publishStoryPage(db, 'rice', NOW)).toEqual({ ok: false, errors: { _: 'Page not found' } });
+    } finally {
+      const cols = Object.keys(row!);
+      await db.prepare(`INSERT INTO story_pages (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`).bind(...Object.values(row!)).run();
+    }
   });
 
   it('refuses to publish without a search title and description (the live page would have an empty <title>)', async () => {
@@ -115,28 +128,60 @@ describe('product story', () => {
     const ok = await saveProductStory(db, a, { proofLine: [{ kind: 'lab', key: 'Curcumin', label: 'Curcumin' }], icons: [{ icon: 'sun', label: 'Sun-cured' }] }, NOW);
     expect(ok.ok).toBe(true);
     if (!ok.ok) return;
-    expect(ok.warnings['proofLine.0']).toMatch(/no 'Curcumin'/);
+    expect(ok.warnings['proofLine.0']).toBe("There's no active batch with a lab report yet, so lab items are hidden on the page");
     expect(JSON.parse(String(await scalar(`SELECT story FROM products WHERE id = ${a}`))).icons).toEqual([{ icon: 'sun', label: 'Sun-cured' }]);
     expect(await purgeCount()).toBe(before + 2);
     const urls = await lastPurgeUrls();
     for (const p of [`/spices/${await slugOf(a)}`, '/spices', '/turmeric']) expect(urls).toContain(`https://harileaf.org${p}`);
+
+    const rep = await db
+      .prepare("INSERT INTO lab_reports (product_id, batch_code, tested_on, lab_name, test_scope, summary, visible) VALUES (?, 'T-09', '2026-09-01', 'Lab', 'x', ?, 1)")
+      .bind(a, JSON.stringify({ Moisture: '8 %' }))
+      .run();
+    await db.prepare("INSERT INTO batches (product_id, batch_code, packed_on, lab_report_id, active) VALUES (?, 'T-09', '2026-09-02', ?, 1)").bind(a, rep.meta.last_row_id).run();
+    const withBatch = await saveProductStory(db, a, { proofLine: [{ kind: 'lab', key: 'Curcumin', label: 'Curcumin' }, { kind: 'lab', key: 'moisture', label: 'Moisture' }] }, NOW);
+    expect(withBatch.ok && withBatch.warnings).toEqual({ 'proofLine.0': "The active batch's lab report has no 'Curcumin', so this item is hidden on the page" });
+
     expect((await saveProductStory(db, a, null, NOW)).ok).toBe(true);
     expect(await scalar(`SELECT story FROM products WHERE id = ${a}`)).toBeNull();
     expect(await saveProductStory(db, 999_999, null, NOW)).toEqual({ ok: false, errors: { _: 'Product not found' } });
   });
 
-  it('is blocked, naming the page and the wording, while a published page using the product would fail its checks', async () => {
+  it('saves despite a problem the published page already had, and returns it as a warning', async () => {
     const [a] = await turmericProducts();
     const page = { ...emptyStoryPage(), seo, hero: hero({ line1: 'Haldi', line2: 'Boosts immunity' }), productIds: [a], storyFromProductId: a };
     await db.prepare("UPDATE story_pages SET published = json(?), published_at = ? WHERE slug = 'turmeric'").bind(JSON.stringify(page), NOW.toISOString()).run();
-    const before = await purgeCount();
     const res = await saveProductStory(db, a, { icons: [{ icon: 'sun', label: 'Sun-cured' }] }, NOW);
-    expect(res.ok).toBe(false);
-    expect(!res.ok && res.errors._pages).toMatch(/\/turmeric would break in Hero line 2/);
-    expect(!res.ok && res.errors._pages).toMatch(/immunity/);
-    expect(await scalar(`SELECT story FROM products WHERE id = ${a}`)).toBeNull();
-    expect(await purgeCount()).toBe(before);
+    expect(res).toEqual({ ok: true, warnings: { _pages: "/turmeric already uses 'immunity' in Hero line 2; edit and republish the page to fix it." } });
+    expect(JSON.parse(String(await scalar(`SELECT story FROM products WHERE id = ${a}`))).icons).toHaveLength(1);
     expect(await scalar("SELECT published FROM story_pages WHERE slug = 'turmeric'")).not.toBeNull();
+  });
+});
+
+describe('published-page re-check', () => {
+  it('blocks only the problems a change introduces, naming the page, the wording and the field', async () => {
+    const [a, b] = await turmericProducts();
+    const page = {
+      ...emptyStoryPage(), seo, productIds: [a, b], storyFromProductId: a, cardBlurbs: { [b]: 'Whole organic fingers' },
+      hero: hero({ line1: 'Haldi', line2: 'Certified organic, stone-ground.', subtitle: 'Good for immunity' }),
+    };
+    await db.prepare("UPDATE story_pages SET published = json(?), published_at = ? WHERE slug = 'turmeric'").bind(JSON.stringify(page), NOW.toISOString()).run();
+    const [saved] = await loadContextProducts(db, [b]);
+    const unchanged = await publishedPageConflicts(db, saved);
+    expect(unchanged).toEqual({ blocking: [], warnings: ["/turmeric already uses 'immunity' in Hero subtitle; edit and republish the page to fix it."] });
+
+    const lapsed = await publishedPageConflicts(db, { ...saved, organic: { scheme: 'none', conversionSince: null, certNumber: null } });
+    expect(lapsed.blocking).toEqual([
+      "/turmeric uses 'organic' and 'certified organic' in Hero line 2; edit and republish the page first.",
+      "/turmeric uses 'organic' in Card blurb (Turmeric fingers); edit and republish the page first.",
+    ]);
+    expect(lapsed.warnings).toEqual(unchanged.warnings);
+    for (const m of lapsed.blocking) expect(m).not.toMatch(/would break|: .*:/);
+
+    // A page that doesn't link the product is not checked.
+    const other = await insertProduct({ category_id: 2 });
+    const [o] = await loadContextProducts(db, [other]);
+    expect(await publishedPageConflicts(db, { ...o, organic: { scheme: 'none', conversionSince: null, certNumber: null } })).toEqual({ blocking: [], warnings: [] });
   });
 });
 
@@ -184,5 +229,43 @@ describe('view model', () => {
     expect(v?.growers).toEqual([]);
     expect(v?.labTable.rows).toEqual([]);
     expect(v?.certificationLine).toBe('Certified organic (PGS-India Organic) · Certificate PGS-1');
+  });
+
+  it('tells the other pages whether /turmeric is live', async () => {
+    const [a] = await turmericProducts();
+    expect((await loadStoryPageView(db, 'spices', 'draft', NOW))?.turmericPublished).toBe(false);
+    expect((await saveStoryPageDraft(db, 'turmeric', { ...emptyStoryPage(), seo, hero: hero({ line1: 'Haldi' }), productIds: [a], storyFromProductId: a }, NOW)).ok).toBe(true);
+    expect((await publishStoryPage(db, 'turmeric', NOW)).ok).toBe(true);
+    expect((await loadStoryPageView(db, 'spices', 'draft', NOW))?.turmericPublished).toBe(true);
+    expect((await loadStoryPageView(db, 'rice', 'draft', NOW))?.turmericPublished).toBe(true);
+    expect((await loadStoryPageView(db, 'turmeric', 'published', NOW))?.turmericPublished).toBe(true);
+  });
+});
+
+describe('robustness', () => {
+  it('treats unreadable published JSON as unpublished', async () => {
+    await db.prepare("UPDATE story_pages SET published = '{}', published_at = ? WHERE slug = 'turmeric'").bind(NOW.toISOString()).run();
+    await db.exec('PRAGMA ignore_check_constraints = ON');
+    try {
+      await db.prepare("UPDATE story_pages SET published = '{\"seo\":' WHERE slug = 'turmeric'").run();
+    } finally {
+      await db.exec('PRAGMA ignore_check_constraints = OFF');
+    }
+    const row = await getStoryPageRow(db, 'turmeric');
+    expect(row?.published).toBeNull();
+    expect(row?.publishedAt).toBeNull();
+    expect(await loadStoryPageView(db, 'turmeric', 'published', NOW)).toBeNull();
+    expect((await listStoryPages(db)).find((p) => p.slug === 'turmeric')?.status).toBe('never');
+  });
+
+  it('ignores malformed process_claims entries instead of throwing', async () => {
+    const claims = JSON.stringify([1, null, 'traditional', { code: 'traditional' }, { code: 'natural', text: 5, evidence_note: 'x' }, { code: 'pure', text: 'Pure', evidence_note: 'Lab' }]);
+    const id = await insertProduct({ category_id: 2, process_claims: claims });
+    await insertVariant(id);
+    const [ctx] = await loadContextProducts(db, [id]);
+    expect(ctx.claims).toEqual([{ code: 'pure', text: 'Pure', evidence_note: 'Lab' }]);
+    const [p] = await getProductsByIds(db, [id]);
+    expect(p.claims).toEqual([{ code: 'pure', text: 'Pure', evidence_note: 'Lab' }]);
+    expect((await saveStoryPageDraft(db, 'turmeric', { ...emptyStoryPage(), productIds: [id], storyFromProductId: id, hero: hero({ line1: 'Pure haldi' }) }, NOW)).ok).toBe(true);
   });
 });

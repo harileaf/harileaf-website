@@ -127,14 +127,54 @@ export function problemMessage(problems: Problem[]): string {
   return parts.join(' ');
 }
 
-export function checkProductStory(story: ProductStory, p: ContextProduct): FieldErrors {
+/** The words a problem is about, as the owner typed them: 'organic', 'immunity', 'Wada Kolam', 'PGS'. */
+export function problemWording(p: Problem): string {
+  if (p.kind === 'gi') return p.label === 'GI wording' ? 'GI' : p.label.replace(/^GI name: /, '');
+  if (p.kind === 'cert') return p.label.replace(/ \(only (?:when|with) .*\)$/, '');
+  return p.label;
+}
+
+type FieldProblems = Record<string, Problem[]>;
+
+const messages = (fp: FieldProblems): FieldErrors => Object.fromEntries(Object.entries(fp).map(([k, ps]) => [k, problemMessage(ps)]));
+
+/** Claims problems per story field, in the product's own context. */
+export function productStoryProblems(story: ProductStory, p: ContextProduct): FieldProblems {
   const ctx = productContext(p);
-  const e: FieldErrors = {};
+  const out: FieldProblems = {};
   for (const [field, text] of storyTexts(story)) {
     const problems = textProblems(text, ctx, { comparison: field.startsWith('comparison.') });
-    if (problems.length) e[field] = problemMessage(problems);
+    if (problems.length) out[field] = problems;
   }
-  return e;
+  return out;
+}
+
+export function checkProductStory(story: ProductStory, p: ContextProduct): FieldErrors {
+  return messages(productStoryProblems(story, p));
+}
+
+/**
+ * Claims problems per text field of a landing page: page-wide copy, card
+ * blurbs and (rice, turmeric) the Story-from product's story under `storyFrom.`.
+ */
+export function storyPageProblems(slug: StoryPageSlug, page: StoryPage, products: ContextProduct[]): FieldProblems {
+  const out: FieldProblems = {};
+  const linked = page.productIds.map((id) => products.find((p) => p.id === id)).filter((p): p is ContextProduct => Boolean(p));
+  const dangling = linked.length < page.productIds.length;
+  // Hub copy, and any page with a missing product, is checked as strictly as possible (never loosened).
+  const pageCtx = slug === 'spices' || dangling ? STRICTEST : intersectContexts(linked);
+  for (const [field, text] of pageWideTexts(page)) {
+    const problems = textProblems(text, pageCtx);
+    if (problems.length) out[field] = problems;
+  }
+  for (const [id, text] of Object.entries(page.cardBlurbs)) {
+    const p = linked.find((x) => String(x.id) === id);
+    const problems = textProblems(text, slug === 'spices' || !p ? STRICTEST : productContext(p));
+    if (problems.length) out[`cardBlurbs.${id}`] = problems;
+  }
+  const from = linked.find((p) => p.id === page.storyFromProductId);
+  if (from?.story && slug !== 'spices') for (const [k, ps] of Object.entries(productStoryProblems(from.story, from))) out[`storyFrom.${k}`] = ps;
+  return out;
 }
 
 /**
@@ -144,21 +184,9 @@ export function checkProductStory(story: ProductStory, p: ContextProduct): Field
 export function checkStoryPage(slug: StoryPageSlug, page: StoryPage, products: ContextProduct[], opts: { completeness: boolean }): FieldErrors {
   const e: FieldErrors = {};
   const linked = page.productIds.map((id) => products.find((p) => p.id === id)).filter((p): p is ContextProduct => Boolean(p));
-  const dangling = linked.length < page.productIds.length;
-  // Hub copy, and any page with a missing product, is checked as strictly as possible (never loosened).
-  const pageCtx = slug === 'spices' || dangling ? STRICTEST : intersectContexts(linked);
-  if (dangling) e.productIds = 'A linked product no longer exists. Remove it from Products';
-  for (const [field, text] of pageWideTexts(page)) {
-    const problems = textProblems(text, pageCtx);
-    if (problems.length) e[field] = problemMessage(problems);
-  }
-  for (const [id, text] of Object.entries(page.cardBlurbs)) {
-    const p = linked.find((x) => String(x.id) === id);
-    const problems = textProblems(text, slug === 'spices' || !p ? STRICTEST : productContext(p));
-    if (problems.length) e[`cardBlurbs.${id}`] = problemMessage(problems);
-  }
+  if (linked.length < page.productIds.length) e.productIds = 'A linked product no longer exists. Remove it from Products';
+  Object.assign(e, messages(storyPageProblems(slug, page, products)));
   const from = linked.find((p) => p.id === page.storyFromProductId);
-  if (from?.story && slug !== 'spices') for (const [k, m] of Object.entries(checkProductStory(from.story, from))) e[`storyFrom.${k}`] = m;
 
   if (opts.completeness) {
     if (!page.seo.title) e['seo.title'] ??= 'Add a search title';

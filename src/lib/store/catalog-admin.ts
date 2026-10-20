@@ -11,7 +11,7 @@
  */
 import type { Faq, Nutrition, ProductRow, VariantRow } from './catalog';
 import { mapProduct } from './catalog';
-import { GI_MESSAGE, RAW_PRODUCE_TERMS, findBannedPhrases, findGiProblems, organicCopy, validateProcessClaims, type OrganicScheme, type ProcessClaim } from './claims';
+import { GI_MESSAGE, RAW_PRODUCE_TERMS, findBannedPhrases, findGiProblems, organicCopy, parseProcessClaims, validateProcessClaims, type OrganicScheme, type ProcessClaim } from './claims';
 import { classifyD1Error, nowIso } from './db';
 import { productPurgePaths } from './edge-cache';
 import { purgeStmts } from './purge';
@@ -431,12 +431,7 @@ async function textProblems(db: D1Database, productId: number, text: string): Pr
     .bind(productId)
     .first<{ organic_scheme: OrganicScheme; organic_conversion_since: number | null; organic_cert_number: string | null; process_claims: string; perishable: number; gi_name: string | null; gi_au_reg_number: string | null }>();
   if (!row) return null;
-  let claims: ProcessClaim[] = [];
-  try {
-    claims = JSON.parse(row.process_claims);
-  } catch {
-    claims = [];
-  }
+  const claims = parseProcessClaims(row.process_claims);
   const mayUseOrganic = organicCopy({ organicScheme: row.organic_scheme, conversionSince: row.organic_conversion_since, certNumber: row.organic_cert_number }).mayUseOrganic;
   const banned = findBannedPhrases(text, { organicScheme: row.organic_scheme, claims, mayUseOrganic, allowedTerms: row.perishable ? RAW_PRODUCE_TERMS : [] });
   if (findGiProblems(text, { giRegistered: Boolean(row.gi_name && row.gi_au_reg_number) }).length) return { kind: 'gi' };

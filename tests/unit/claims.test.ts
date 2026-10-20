@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findBannedPhrases, findCertificationWords, findComparisonProblems, findGiProblems, GI_MESSAGE, organicCopy, validateProcessClaims, type ProcessClaim } from '../../src/lib/store/claims';
+import { findBannedPhrases, findCertificationWords, findComparisonProblems, findGiProblems, GI_MESSAGE, organicCopy, parseProcessClaims, validateProcessClaims, type ProcessClaim } from '../../src/lib/store/claims';
 
 const none = { organicScheme: 'none' as const, claims: [] as ProcessClaim[] };
 const noOrganic = { organicScheme: 'none' as const, mayUseOrganic: false };
@@ -163,5 +163,12 @@ describe('certification words', () => {
   it('PGS-India Organic (any dash) is exempt from the NPOP rule, but a bare India Organic is not', () => {
     for (const t of ['PGS-India Organic', 'PGS–India Organic', 'pgs india organic']) expect([t, findCertificationWords(t, [pgs])]).toEqual([t, []]);
     expect(findCertificationWords('pgs india organic and India Organic', [pgs])).toEqual([NPOP]);
+  });
+});
+
+describe('parseProcessClaims', () => {
+  it('keeps only well-formed entries of a stored array and never throws', () => {
+    expect(parseProcessClaims('[{"code":"pure","text":"Pure","evidence_note":"Lab","extra":1},{"code":"x"},null,7]')).toEqual([{ code: 'pure', text: 'Pure', evidence_note: 'Lab' }]);
+    for (const raw of ['{"code":"pure"}', 'not json', '', null, undefined, '"[]"']) expect(parseProcessClaims(raw)).toEqual([]);
   });
 });

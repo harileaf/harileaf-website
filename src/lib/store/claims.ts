@@ -20,6 +20,26 @@ export interface ProcessClaim {
   evidence_note: string;
 }
 
+/**
+ * Process claims from the stored `process_claims` JSON. Never throws: only an
+ * array counts, and only entries whose code, text and evidence_note are all
+ * strings are kept.
+ */
+export function parseProcessClaims(raw: string | null | undefined): ProcessClaim[] {
+  let v: unknown;
+  try {
+    v = raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(v)) return [];
+  return v.flatMap((c): ProcessClaim[] => {
+    if (!c || typeof c !== 'object') return [];
+    const { code, text, evidence_note } = c as Record<string, unknown>;
+    return typeof code === 'string' && typeof text === 'string' && typeof evidence_note === 'string' ? [{ code, text, evidence_note }] : [];
+  });
+}
+
 export interface OrganicCopy {
   certificationLine: string | null;
   mayUseOrganic: boolean;

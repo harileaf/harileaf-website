@@ -5,17 +5,23 @@
  * and the view model the public routes and previews render.
  *
  * Every write and its cache purges go in one `db.batch` (one transaction).
+ *
+ * Races: a check and the write it guards are separate D1 calls, not one
+ * transaction (publish reads the products, product saves read the published
+ * pages). A publish and an evidence change made at the same moment could in
+ * theory both pass their checks. With a single owner editing, that window is
+ * negligible, so there are no extra guards.
  */
 import { activeLabSummaries, getProductsByIds, listProducts, type Product, type ProductCard } from './catalog';
-import { organicCopy, type OrganicScheme, type ProcessClaim } from './claims';
+import { organicCopy, parseProcessClaims, type OrganicScheme } from './claims';
 import { nowIso } from './db';
 import { productPurgePaths } from './edge-cache';
 import { purgeStmts } from './purge';
 import {
-  coerceProductStory, coerceStoryPage, labValue, validateProductStory, validateStoryPageStructure,
+  coerceProductStory, coerceStoryPage, emptyStoryPage, labValue, validateProductStory, validateStoryPageStructure,
   type Grower, type ProductStory, type StoryPage,
 } from './story';
-import { checkProductStory, checkStoryPage, fieldLabel, type ContextProduct } from './story-claims';
+import { checkProductStory, checkStoryPage, fieldLabel, problemWording, storyPageProblems, type ContextProduct } from './story-claims';
 import { STORY_PAGE_SLUGS, isStoryPageSlug, mediaUrl, productPath, type StoryPageSlug } from './urls';
 
 type FieldErrors = Record<string, string>;
@@ -36,20 +42,48 @@ const placeholders = (n: number) => Array.from({ length: n }, () => '?').join(',
 
 export interface StoryPageRow { slug: StoryPageSlug; draft: StoryPage; published: StoryPage | null; draftSavedAt: string; publishedAt: string | null }
 
-type RawPageRow = { slug: string; draft: string; published: string | null; draft_saved_at: string; published_at: string | null };
+export type RawPageRow = { slug: string; draft: string; published: string | null; draft_saved_at: string; published_at: string | null };
 
-const toPageRow = (r: RawPageRow & { slug: StoryPageSlug }): StoryPageRow => ({
-  slug: r.slug,
-  draft: coerceStoryPage(parse(r.draft)),
-  published: r.published ? coerceStoryPage(parse(r.published)) : null,
-  draftSavedAt: r.draft_saved_at,
-  publishedAt: r.published_at,
-});
+/** JSON.parse that reports failure instead of throwing. */
+function readJson(raw: string): { ok: true; value: unknown } | { ok: false } {
+  try {
+    return { ok: true, value: JSON.parse(raw) };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/** The live version of a page, or null when unpublished or unreadable (logged). */
+function readPublished(slug: string, raw: string | null): StoryPage | null {
+  if (raw === null) return null;
+  const pub = readJson(raw);
+  if (pub.ok) return coerceStoryPage(pub.value);
+  console.error(JSON.stringify({ msg: 'story page published JSON unreadable; treated as unpublished', slug }));
+  return null;
+}
+
+/**
+ * A stored row as typed pages. Unreadable `published` JSON counts as not
+ * published, so the route falls back to the legacy page or a 404 instead of
+ * rendering an empty page; an unreadable draft opens as an empty one.
+ */
+export function storyPageRowFromDb(r: RawPageRow & { slug: StoryPageSlug }): StoryPageRow {
+  const draft = readJson(r.draft);
+  if (!draft.ok) console.error(JSON.stringify({ msg: 'story page draft unreadable; opened empty', slug: r.slug }));
+  const published = readPublished(r.slug, r.published);
+  return {
+    slug: r.slug,
+    draft: draft.ok ? coerceStoryPage(draft.value) : emptyStoryPage(),
+    published,
+    draftSavedAt: r.draft_saved_at,
+    publishedAt: published ? r.published_at : null,
+  };
+}
 
 export async function getStoryPageRow(db: D1Database, slug: string): Promise<StoryPageRow | null> {
   if (!isStoryPageSlug(slug)) return null;
   const r = await db.prepare('SELECT slug, draft, published, draft_saved_at, published_at FROM story_pages WHERE slug = ?').bind(slug).first<RawPageRow>();
-  return r ? toPageRow({ ...r, slug }) : null;
+  return r ? storyPageRowFromDb({ ...r, slug }) : null;
 }
 
 /** never: no live version · published: live = draft · changed: the draft has unpublished edits. */
@@ -57,7 +91,7 @@ export type PageStatus = 'never' | 'published' | 'changed';
 
 export async function listStoryPages(db: D1Database): Promise<Array<{ slug: StoryPageSlug; status: PageStatus; draftSavedAt: string; publishedAt: string | null }>> {
   const { results } = await db.prepare('SELECT slug, draft, published, draft_saved_at, published_at FROM story_pages').all<RawPageRow>();
-  const rows = new Map(results.filter((r): r is RawPageRow & { slug: StoryPageSlug } => isStoryPageSlug(r.slug)).map((r) => [r.slug, toPageRow(r)]));
+  const rows = new Map(results.filter((r): r is RawPageRow & { slug: StoryPageSlug } => isStoryPageSlug(r.slug)).map((r) => [r.slug, storyPageRowFromDb(r)]));
   return STORY_PAGE_SLUGS.flatMap((slug) => {
     const r = rows.get(slug);
     if (!r) return [];
@@ -78,7 +112,7 @@ const contextFromRow = (r: ContextRow): ContextProduct => ({
   id: r.id,
   name: r.name,
   organic: { scheme: r.organic_scheme, conversionSince: r.organic_conversion_since, certNumber: r.organic_cert_number },
-  claims: ((parse(r.process_claims) as ProcessClaim[] | null) ?? []).filter((c) => c && typeof c.code === 'string'),
+  claims: parseProcessClaims(r.process_claims),
   perishable: r.perishable === 1,
   gi: { name: r.gi_name, auRegNumber: r.gi_au_reg_number },
   story: coerceProductStory(parse(r.story)),
@@ -104,27 +138,53 @@ export async function loadContextProducts(db: D1Database, ids: number[]): Promis
   return (await contextRows(db, ids)).map(contextFromRow);
 }
 
+export interface PageRecheck { blocking: string[]; warnings: string[] }
+
+const quotedList = (words: string[]) => {
+  const q = [...new Set(words)].map((w) => `'${w}'`);
+  return q.length > 1 ? `${q.slice(0, -1).join(', ')} and ${q[q.length - 1]}` : q[0];
+};
+
 /**
- * Published pages linking `changed.id` that would not pass their checks with
- * `changed` in place of the saved product. One message per failing field,
- * naming the page, the field and the wording. Nothing is ever unpublished:
- * the caller blocks the save instead.
+ * Re-checks one published page for a product change (spec: Claims
+ * Compliance 4). The page is checked with the saved products (before) and
+ * with `changed` in their place (after). A field whose message is new or
+ * different after the change blocks the save; a field failing identically
+ * before and after was already failing, so it comes back as a warning and
+ * never blocks an unrelated save. Nothing is ever unpublished.
  */
-export async function publishedPageConflicts(db: D1Database, changed: ContextProduct): Promise<string[]> {
+export function recheckPublishedPage(slug: StoryPageSlug, page: StoryPage, saved: ContextProduct[], changed: ContextProduct): PageRecheck {
+  const after = saved.some((p) => p.id === changed.id) ? saved.map((p) => (p.id === changed.id ? changed : p)) : [...saved, changed];
+  const before = checkStoryPage(slug, page, saved, { completeness: false });
+  const now = checkStoryPage(slug, page, after, { completeness: false });
+  const problems = storyPageProblems(slug, page, after);
+  const names = Object.fromEntries(after.map((p) => [String(p.id), p.name]));
+  const out: PageRecheck = { blocking: [], warnings: [] };
+  for (const [k, m] of Object.entries(now)) {
+    const label = fieldLabel(k, names);
+    const words = (problems[k] ?? []).map(problemWording);
+    const what = words.length ? `uses ${quotedList(words)} in ${label}` : `needs a fix in ${label} (${m.replace(/\.$/, '')})`;
+    if (before[k] === m) out.warnings.push(`/${slug} already ${what}; edit and republish the page to fix it.`);
+    else out.blocking.push(`/${slug} ${what}; edit and republish the page first.`);
+  }
+  return out;
+}
+
+/** `recheckPublishedPage` for every published page linking `changed.id`, with one query for their products. */
+export async function publishedPageConflicts(db: D1Database, changed: ContextProduct): Promise<PageRecheck> {
   const { results } = await db.prepare('SELECT slug, published FROM story_pages WHERE published IS NOT NULL ORDER BY slug').all<{ slug: string; published: string }>();
   const pages = results
     .filter((r): r is { slug: StoryPageSlug; published: string } => isStoryPageSlug(r.slug))
-    .map((r) => ({ slug: r.slug, page: coerceStoryPage(parse(r.published)) }))
-    .filter(({ page }) => page.productIds.includes(changed.id));
-  if (!pages.length) return [];
-  // One query for every product the affected pages link.
+    .map((r) => ({ slug: r.slug, page: readPublished(r.slug, r.published) }))
+    .filter((x): x is { slug: StoryPageSlug; page: StoryPage } => x.page !== null && x.page.productIds.includes(changed.id));
+  const out: PageRecheck = { blocking: [], warnings: [] };
+  if (!pages.length) return out;
   const saved = await loadContextProducts(db, pages.flatMap(({ page }) => page.productIds));
-  const products = saved.map((p) => (p.id === changed.id ? changed : p));
-  const names = Object.fromEntries(products.map((p) => [String(p.id), p.name]));
-  const out: string[] = [];
-  for (const { slug, page } of pages)
-    for (const [k, m] of Object.entries(checkStoryPage(slug, page, products, { completeness: false })))
-      out.push(`/${slug} would break in ${fieldLabel(k, names)}: ${m.replace(/\.?$/, '.')} Edit and republish the page first.`);
+  for (const { slug, page } of pages) {
+    const r = recheckPublishedPage(slug, page, saved, changed);
+    out.blocking.push(...r.blocking);
+    out.warnings.push(...r.warnings);
+  }
   return out;
 }
 
@@ -137,7 +197,9 @@ export async function saveStoryPageDraft(db: D1Database, slug: string, raw: unkn
   const errors = validateStoryPageStructure(slug, page);
   if (Object.keys(errors).length) return { ok: false, errors };
   const warnings = checkStoryPage(slug, page, await loadContextProducts(db, page.productIds), { completeness: true });
-  await db.prepare('UPDATE story_pages SET draft = ?, draft_saved_at = ? WHERE slug = ?').bind(JSON.stringify(page), nowIso(now), slug).run();
+  const res = await db.prepare('UPDATE story_pages SET draft = ?, draft_saved_at = ? WHERE slug = ?').bind(JSON.stringify(page), nowIso(now), slug).run();
+  // The rows are seeded by migration 0008; without one there is nothing to save into.
+  if (!res.meta.changes) return { ok: false, errors: { _: 'This page is missing. Run the latest migration.' } };
   return { ok: true, warnings };
 }
 
@@ -189,14 +251,17 @@ export async function saveProductStory(db: D1Database, productId: number, raw: u
     const errors = { ...validateProductStory(story), ...checkProductStory(story, p) };
     if (Object.keys(errors).length) return { ok: false, errors };
   }
-  const conflicts = await publishedPageConflicts(db, { ...p, story });
-  if (conflicts.length) return { ok: false, errors: { _pages: conflicts.join(' ') } };
+  const pages = await publishedPageConflicts(db, { ...p, story });
+  if (pages.blocking.length) return { ok: false, errors: { _pages: pages.blocking.join('\n') } };
 
   const warnings: FieldErrors = {};
+  if (pages.warnings.length) warnings._pages = pages.warnings.join('\n');
   if (story?.proofLine.some((x) => x.kind === 'lab')) {
     const summary = (await activeLabSummaries(db, [productId])).get(productId) ?? null;
     story.proofLine.forEach((x, i) => {
-      if (x.kind === 'lab' && !labValue(summary, x.key)) warnings[`proofLine.${i}`] = `The active batch's lab report has no '${x.key}', so this item is hidden on the page`;
+      if (x.kind !== 'lab') return;
+      if (!summary) warnings[`proofLine.${i}`] = "There's no active batch with a lab report yet, so lab items are hidden on the page";
+      else if (!labValue(summary, x.key)) warnings[`proofLine.${i}`] = `The active batch's lab report has no '${x.key}', so this item is hidden on the page`;
     });
   }
   const at = nowIso(now);
@@ -213,7 +278,7 @@ export async function storyLinkFor(db: D1Database, productId: number): Promise<{
     .prepare("SELECT slug, published FROM story_pages WHERE published IS NOT NULL AND slug IN ('rice', 'turmeric') ORDER BY slug")
     .all<{ slug: string; published: string }>();
   for (const r of results)
-    if (coerceStoryPage(parse(r.published)).productIds.includes(productId))
+    if (readPublished(r.slug, r.published)?.productIds.includes(productId))
       return { path: `/${r.slug}/`, label: r.slug === 'turmeric' ? 'The turmeric story →' : 'The rice story →' };
   return null;
 }
@@ -273,13 +338,14 @@ export async function loadStoryPageView(db: D1Database, slug: string, which: 'pu
   const page = row ? (which === 'published' ? row.published : row.draft) : null;
   if (!row || !page) return null;
   const ids = page.productIds;
-  const [products, summaries, rows, turmericPublishedAt] = await Promise.all([
+  const [products, summaries, rows, turmericPublished] = await Promise.all([
     getProductsByIds(db, ids),
     activeLabSummaries(db, ids),
     labTableRows(db, ids, page.labColumns),
+    // Whether /turmeric is live (the /spices hub links its card there); unreadable counts as not live, as on /turmeric itself.
     row.slug === 'turmeric'
-      ? Promise.resolve(row.publishedAt)
-      : db.prepare("SELECT published_at FROM story_pages WHERE slug = 'turmeric'").first<{ published_at: string | null }>().then((r) => r?.published_at ?? null),
+      ? Promise.resolve(row.published !== null)
+      : getStoryPageRow(db, 'turmeric').then((t) => Boolean(t?.published)),
   ]);
   // Cards only for the linked (active) products, not the whole catalogue.
   const cardList = await listProducts(db, { keys: products.map((p) => `${p.category.slug}/${p.slug}`), today });
@@ -307,6 +373,6 @@ export async function loadStoryPageView(db: D1Database, slug: string, which: 'pu
     }),
     certificationLine: lines.length > 0 && lines.every((l) => l && l === lines[0]) ? lines[0] : null,
     giBadge: from?.gi.name && from.gi.auRegNumber ? `GI-tagged ${from.gi.name} · Reg. ${from.gi.auRegNumber}` : null,
-    turmericPublished: Boolean(turmericPublishedAt),
+    turmericPublished,
   };
 }

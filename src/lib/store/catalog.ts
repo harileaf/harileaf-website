@@ -3,7 +3,7 @@
  * Only `active` products with `active` variants are ever shown to shoppers.
  */
 import { availability, inSeason, type Availability } from './availability';
-import type { OrganicScheme, ProcessClaim } from './claims';
+import { parseProcessClaims, type OrganicScheme, type ProcessClaim } from './claims';
 import { coerceProductStory, type ProductStory } from './story';
 import { formatUnitPrice, type Paise } from './money';
 import { publishedReviews, reviewSummary, type PublicReview, type ReviewSummary } from './reviews';
@@ -219,7 +219,7 @@ export function mapProduct(r: ProductRow): Product {
       certNumber: r.organic_cert_number,
       certUrl: r.organic_cert_r2_key ? mediaUrl(r.organic_cert_r2_key) : null,
     },
-    claims: json<ProcessClaim[]>(r.process_claims, []).filter((c) => c && typeof c.code === 'string'),
+    claims: parseProcessClaims(r.process_claims),
     howItsMade: strRecord(r.how_its_made),
     harvestInfo: strRecord(r.harvest_info),
     attributes: strRecord(r.attributes),
