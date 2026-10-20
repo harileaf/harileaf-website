@@ -2,12 +2,12 @@
   "items": [
     {
       "label": "Technology",
-      "url": "/technology",
+      "url": "/technology/",
       "children": []
     },
     {
       "label": "Solutions & Farms",
-      "url": "/solutions",
+      "url": "/solutions/",
       "children": []
     },
     {
@@ -34,17 +34,17 @@
     },
     {
       "label": "About",
-      "url": "/about",
+      "url": "/about/",
       "children": []
     },
     {
       "label": "Contact",
-      "url": "/contact",
+      "url": "/contact/",
       "children": []
     }
   ],
   "ctaButton": {
     "label": "Get Started",
-    "url": "/contact"
+    "url": "/contact/"
   }
 }

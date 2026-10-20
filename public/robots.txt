@@ -7,6 +7,7 @@ Disallow: /cart
 Disallow: /checkout
 Disallow: /order
 Disallow: /review
+Disallow: /store-unavailable
 
 Sitemap: https://harileaf.org/sitemap-index.xml
 Sitemap: https://harileaf.org/sitemap-store.xml

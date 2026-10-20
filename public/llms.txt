@@ -1,0 +1,23 @@
+# HariLeaf
+
+> HariLeaf is a farm in Wada, Palghar district, Maharashtra, India, that grows heritage rice, turmeric and seasonal fruit and sells them direct at harileaf.org. Rice is grown without synthetic pesticides or fertilisers, hand-harvested, sun-dried and milled in a single pass to remove only the husk, so the bran and germ stay on the grain. Turmeric is PGS-India Organic certified, boiled, sun-cured and slowly stone-ground at low temperature so more of its aromatic oils stay in the powder; curcumin is lab-tested. Kesar mangoes are ripened on hay at the farm, without calcium carbide. Every pack carries a batch code and packed-on date, and lab reports are published on product pages. The shop delivers across India (fresh mangoes within Mumbai MMR only); buyers outside India can register interest.
+
+## Products
+
+- [Heritage rice](https://harileaf.org/rice/): Karjat 3, Kolam rice from Wada, and red rice — unpolished, single-pass milled
+- [Turmeric and spices](https://harileaf.org/spices/): stone-ground turmeric powder and whole dried turmeric fingers
+- [Fresh produce](https://harileaf.org/produce/): hay-ripened Kesar mangoes in season, and other farm produce
+- [Shop](https://harileaf.org/shop/): all products with prices, pack sizes and availability
+
+## How it is made
+
+- [Our process](https://harileaf.org/our-process/): how HariLeaf grows, mills and grinds
+- [Guides](https://harileaf.org/learn/): milling, grinding, curing and ripening explained
+- [Recipes](https://harileaf.org/recipes/): everyday recipes with HariLeaf rice and spices
+
+## Buying
+
+- [Buying from outside India](https://harileaf.org/international/)
+- [Shipping policy](https://harileaf.org/shipping-policy/)
+- [Refund policy](https://harileaf.org/refund-policy/)
+- [Contact](https://harileaf.org/contact/)

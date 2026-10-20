@@ -12,6 +12,7 @@ export const SETTING_KEYS = [
   'min_order_paise', 'cod_max_order_paise', 'notify_email', 'low_stock_email',
   'pickup_pincode', 'shiprocket_pickup_location', 'cod_confirmation', 'cod_confirm_window_hours',
   'delivery_zones', 'dispatch_days', 'dispatch_blackouts', 'dispatch_cutoff_hour', 'shiprocket_auto_push',
+  'google_review_url',
 ] as const;
 export type SettingKey = (typeof SETTING_KEYS)[number];
 export type StoreSettings = Record<SettingKey, string>;
@@ -50,6 +51,8 @@ export const SETTING_DEFAULTS: StoreSettings = {
   dispatch_cutoff_hour: '11',
   /** 'on' (v1): orders go to Shiprocket automatically. 'off': the admin books each courier from the order page. */
   shiprocket_auto_push: 'on',
+  /** Google Business Profile "Ask for reviews" link; when set, the delivered email offers it beside the on-site review. */
+  google_review_url: '',
 };
 
 /** Required before Razorpay KYC / launch (E-Commerce Rules, Legal Metrology, FSSAI). */
@@ -70,6 +73,16 @@ export function isValidGstin(g: string): boolean {
     sum += Math.floor(product / 36) + (product % 36);
   }
   return GSTIN_CHARS[(36 - (sum % 36)) % 36] === g[14];
+}
+
+/** A Google review link: g.page short links, or Google Maps / Search review URLs. */
+export function isGoogleReviewUrl(raw: string): boolean {
+  try {
+    const u = new URL(raw);
+    return u.protocol === 'https:' && /^(g\.page|(www\.|search\.)?google\.[a-z.]+|maps\.app\.goo\.gl)$/.test(u.hostname);
+  } catch {
+    return false;
+  }
 }
 
 /** Indian phone → 10-digit mobile or 11-digit landline with STD code; null if invalid. */
@@ -130,6 +143,9 @@ export function validateSettings(input: Record<string, unknown>, current: StoreS
   if (!/^(0[1-9]|[12][0-9]|3[0-8])$/.test(value.state_code)) fail('state_code', 'Use the 2-digit GST state code, e.g. 27');
   if (value.gstin && !errors.gstin && !errors.state_code && value.gstin.slice(0, 2) !== value.state_code)
     fail('gstin', `GSTIN starts with ${value.gstin.slice(0, 2)} but the state code is ${value.state_code}`);
+
+  if (value.google_review_url && !isGoogleReviewUrl(value.google_review_url))
+    fail('google_review_url', 'Paste the link from Business Profile → Ask for reviews (https://g.page/r/…)');
 
   if (value.fssai_license && !/^\d{14}$/.test(value.fssai_license)) fail('fssai_license', 'FSSAI licence numbers have 14 digits');
 
