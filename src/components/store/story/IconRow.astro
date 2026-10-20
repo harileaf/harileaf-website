@@ -1,0 +1,14 @@
+---
+/** Up to 3 practice icons under the product title; the label is the meaning, the icon only decorates. */
+import StoryIconSvg from './StoryIcon.astro';
+import type { StoryIcon } from '../../../lib/store/story';
+interface Props { icons: Array<{ icon: StoryIcon; label: string }> }
+const { icons } = Astro.props;
+---
+{icons.length > 0 && (
+  <ul class="mt-3 flex flex-wrap gap-2" aria-label="How it's made">
+    {icons.map((i) => (
+      <li class="inline-flex items-center gap-1.5 rounded-full bg-surface-container-low px-3 py-1.5 text-xs font-bold text-on-surface"><StoryIconSvg icon={i.icon} size={16} />{i.label}</li>
+    ))}
+  </ul>
+)}

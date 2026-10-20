@@ -1,0 +1,15 @@
+---
+/** The product page's lab report card (moved unchanged from ProductPageView's bento; dark background). */
+import type { LabReport } from '../../../lib/store/catalog';
+interface Props { lab: LabReport }
+const { lab } = Astro.props;
+const fmtDate = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
+---
+<div id="lab-report" class="rounded-3xl p-7 border bg-white/[0.04]" style="border-color:rgba(139,212,198,.3);">
+  <h3 class="font-extrabold text-lg mb-1 text-white">Lab report · Batch {lab.batchCode}</h3>
+  <p class="text-xs mb-3" style="color:rgba(240,240,238,.55);">Tested {fmtDate(lab.testedOn)} by {lab.labName}{lab.labAccreditation ? ` (${lab.labAccreditation})` : ''}{lab.testScope ? ` · ${lab.testScope}` : ''}</p>
+  <dl class="text-sm flex flex-col gap-1.5" style="color:rgba(240,240,238,.78);">
+    {Object.entries(lab.summary).filter(([, v]) => typeof v === 'string').map(([k, v]) => (<div class="flex justify-between gap-3"><dt>{k}</dt><dd class="font-bold text-white text-right">{v as string}</dd></div>))}
+  </dl>
+  {lab.pdfUrl && <a href={lab.pdfUrl} class="inline-block mt-4 font-extrabold" style="color:#8bd4c6;" target="_blank" rel="noopener">Download the report (PDF) →</a>}
+</div>

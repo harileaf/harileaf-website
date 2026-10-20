@@ -1,0 +1,51 @@
+---
+/**
+ * The process as an ordered list: a vertical timeline (product page) or, when
+ * the steps have photos, the landing "photo strip". Nothing renders without steps.
+ */
+import Attribution from './Attribution.astro';
+import type { ProcessStep } from '../../../lib/store/story';
+import { mediaUrl } from '../../../lib/store/urls';
+interface Props { eyebrow: string; heading: string; steps: ProcessStep[]; variant?: 'list' | 'photos'; attribution?: { name: string; path: string } | null }
+const { eyebrow, heading, steps, variant = 'list', attribution = null } = Astro.props;
+const id = `timeline-${heading.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'steps'}`;
+// Literal class names so Tailwind keeps them; 7–8 steps wrap as two rows of 4.
+const cols: Record<number, string> = { 3: 'lg:grid-cols-3', 4: 'lg:grid-cols-4', 5: 'lg:grid-cols-5', 6: 'lg:grid-cols-6' };
+const photoCols = cols[steps.length] ?? 'lg:grid-cols-4';
+---
+{steps.length > 0 && (
+  <section class="py-14 px-6 text-white border-t border-white/10" style="background:#0c110c;" aria-labelledby={id}>
+    <div class="max-w-7xl mx-auto">
+      {eyebrow && <p class="text-xs uppercase tracking-widest font-extrabold mb-2" style="color:var(--accent,#9fb17d);">{eyebrow}</p>}
+      <h2 id={id} class="text-3xl font-extrabold tracking-tight mb-8">{heading}</h2>
+      {variant === 'photos' ? (
+        <ol class:list={['grid grid-cols-2 md:grid-cols-3 gap-4', photoCols]}>
+          {steps.map((s, i) => (
+            <li class="rounded-2xl overflow-hidden border border-white/10 bg-white/[0.04]">
+              {s.photoKey && <img src={mediaUrl(s.photoKey)} alt={s.photoAlt} width="400" height="300" loading="lazy" decoding="async" class="w-full aspect-[4/3] object-cover" />}
+              <div class="p-4">
+                <p aria-hidden="true" class="text-xs font-extrabold" style="color:var(--accent,#9fb17d);">{i + 1}</p>
+                <h3 class="font-extrabold">{s.title}</h3>
+                <p class="mt-1 text-sm leading-relaxed" style="color:rgba(240,240,238,.72);">{s.text}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <div class="relative max-w-3xl">
+          <div aria-hidden="true" class="absolute left-[6px] top-2 bottom-2 w-0.5 rounded-full" style="background:linear-gradient(var(--accent,#9fb17d), rgba(255,255,255,.08));"></div>
+          <ol class="flex flex-col gap-5 pl-8">
+            {steps.map((s) => (
+              <li class="relative">
+                <span aria-hidden="true" class="absolute -left-8 top-1.5 w-3.5 h-3.5 rounded-full" style="background:var(--accent,#9fb17d);"></span>
+                <h3 class="font-extrabold">{s.title}</h3>
+                <p class="text-sm leading-relaxed" style="color:rgba(240,240,238,.72);">{s.text}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+      <Attribution product={attribution} />
+    </div>
+  </section>
+)}

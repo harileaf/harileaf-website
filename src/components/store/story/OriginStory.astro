@@ -1,0 +1,22 @@
+---
+/** Where the variety comes from: heading, the story (basic markdown, HTML escaped by renderBasicMarkdown) and an optional photo. */
+import Attribution from './Attribution.astro';
+import type { OriginStory } from '../../../lib/store/story';
+import { renderBasicMarkdown } from '../../../lib/store/markdown';
+import { mediaUrl } from '../../../lib/store/urls';
+interface Props { origin: OriginStory | null; eyebrow?: string; attribution?: { name: string; path: string } | null }
+const { origin, eyebrow = 'The variety', attribution = null } = Astro.props;
+---
+{origin && (
+  <section class="py-14 px-6 text-white border-t border-white/10" style="background:#0c110c;" aria-labelledby="origin-heading">
+    <div class:list={['max-w-7xl mx-auto grid grid-cols-1 gap-8 lg:gap-12 items-center', { 'md:grid-cols-[1.3fr_1fr]': origin.photoKey }]}>
+      <div class="max-w-3xl">
+        {eyebrow && <p class="text-xs uppercase tracking-widest font-extrabold mb-2" style="color:var(--accent,#9fb17d);">{eyebrow}</p>}
+        <h2 id="origin-heading" class="text-3xl font-extrabold tracking-tight mb-4">{origin.heading}</h2>
+        <div class="leading-relaxed [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3 [&_strong]:text-white" style="color:rgba(240,240,238,.75);" set:html={renderBasicMarkdown(origin.bodyMd)} />
+        <Attribution product={attribution} />
+      </div>
+      {origin.photoKey && <img src={mediaUrl(origin.photoKey)} alt={origin.photoAlt} width="800" height="600" loading="lazy" decoding="async" class="w-full rounded-3xl object-cover aspect-[4/3]" />}
+    </div>
+  </section>
+)}

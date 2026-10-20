@@ -1,0 +1,25 @@
+---
+/**
+ * Under-title proof in the (light) buy box: resolved lab values and text,
+ * then the certification and GI badges. Every string arrives resolved; an
+ * empty line renders nothing.
+ */
+interface Props { items: string[]; certificationLine?: string | null; certUrl?: string | null; giBadge?: string | null }
+const { items, certificationLine = null, certUrl = null, giBadge = null } = Astro.props;
+---
+{(items.length > 0 || certificationLine || giBadge) && (
+  <div class="mt-3 flex flex-col gap-2" data-proof-line>
+    {items.length > 0 && <p class="text-sm font-bold text-on-surface">{items.join(' · ')}</p>}
+    {(certificationLine || giBadge) && (
+      <div class="flex flex-wrap gap-2">
+        {certificationLine && (
+          <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-extrabold" style="background:rgba(120,170,90,.16);color:#2f5a1f;border:1px solid rgba(120,170,90,.45);">
+            <svg aria-hidden="true" focusable="false" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6" /></svg>
+            <span>{certificationLine}{certUrl && <> · <a href={certUrl} class="underline" target="_blank" rel="noopener">View certificate</a></>}</span>
+          </span>
+        )}
+        {giBadge && <span class="inline-flex rounded-full px-3 py-1 text-xs font-extrabold" style="background:rgba(139,212,198,.16);color:#14524a;border:1px solid rgba(139,212,198,.5);">{giBadge}</span>}
+      </div>
+    )}
+  </div>
+)}

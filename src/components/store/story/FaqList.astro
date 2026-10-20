@@ -1,0 +1,19 @@
+---
+/** FAQ (extracted from ProductPageView): native <details>, the first one open. */
+interface Props { faq: Array<{ q: string; a: string }> }
+const { faq } = Astro.props;
+---
+{faq.length > 0 && (
+  <section aria-labelledby="faq-heading">
+    <p class="text-xs uppercase tracking-widest font-extrabold mb-2 text-secondary">Questions</p>
+    <h2 id="faq-heading" class="text-2xl font-extrabold tracking-tight mb-5">Frequently asked</h2>
+    <div class="flex flex-col gap-2 max-w-3xl">
+      {faq.map((f, i) => (
+        <details class="rounded-2xl bg-white px-5 py-4 border border-black/5" open={i === 0}>
+          <summary class="font-extrabold cursor-pointer">{f.q}</summary>
+          <p class="mt-2 text-on-surface-variant leading-relaxed">{f.a}</p>
+        </details>
+      ))}
+    </div>
+  </section>
+)}
