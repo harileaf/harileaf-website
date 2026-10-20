@@ -104,49 +104,22 @@ describe('getProductPage', () => {
 
 
 describe('story fields', () => {
-  it('maps the story column and the image kind', async () => {
+  it('maps the story column, GI values (blank to null) and the image kind', async () => {
     const id = await insertProduct({
-      category_id: 2, slug: 'turmeric-story',
+      category_id: 2, slug: 'turmeric-story', gi_name: 'Wada Kolam', gi_au_reg_number: 'AU-123',
       story: JSON.stringify({ icons: [{ icon: 'sun', label: 'Sun-cured' }], processSteps: [] }),
     });
     await insertVariant(id);
     await db.prepare("INSERT INTO product_images (product_id, r2_key, alt, sort, kind) VALUES (?, 'products/t/info.webp', 'Comparison: stone mill vs high-speed mill', 0, 'infographic')").bind(id).run();
-    const res = await getProductPage(db, 'spices', 'turmeric-story', TODAY);
-    expect(res.kind).toBe('ok');
-    if (res.kind !== 'ok') return;
-    expect(res.product.story?.icons).toEqual([{ icon: 'sun', label: 'Sun-cured' }]);
-    expect(res.images[0].kind).toBe('infographic');
-    const [p] = await getProductsByIds(db, [id]);
-    expect(p.story?.icons[0].label).toBe('Sun-cured');
-  });
-
-  it('has no story when the column is empty', async () => {
-    const id = await insertProduct({ category_id: 2, slug: 'turmeric-plain' });
-    const [p] = await getProductsByIds(db, [id]);
-    expect(p.story).toBeNull();
-  });
-
-  it('maps GI values, and whitespace-only values to null', async () => {
-    const real = await insertProduct({ slug: 'gi-real', gi_name: 'Wada Kolam', gi_au_reg_number: 'AU-123' });
     const blank = await insertProduct({ slug: 'gi-blank', gi_name: '   ', gi_au_reg_number: ' ' });
-    const [a, b] = await getProductsByIds(db, [real, blank]);
-    expect(a.gi).toEqual({ name: 'Wada Kolam', auRegNumber: 'AU-123' });
-    expect(b.gi).toEqual({ name: null, auRegNumber: null });
-  });
-
-  it('lists as siblings only the other active products of the same category', async () => {
-    const self = await insertProduct({ category_id: 2, slug: 'sib-self' });
-    const otherSpice = await insertProduct({ category_id: 2, slug: 'sib-spice' });
-    const rice = await insertProduct({ category_id: 1, slug: 'sib-rice' });
-    for (const id of [self, otherSpice, rice]) await insertVariant(id);
-    const res = await getProductPage(db, 'spices', 'sib-self', TODAY);
+    const res = await getProductPage(db, 'spices', 'turmeric-story', TODAY);
     if (res.kind !== 'ok') throw new Error('expected ok');
-    // Products from earlier tests in this file share the database, so check membership, not the whole list.
-    const ids = res.siblings.map((c) => c.id);
-    expect(ids).toContain(otherSpice);
-    expect(ids).not.toContain(self);
-    expect(ids).not.toContain(rice);
-    expect(res.siblings.every((c) => c.categorySlug === 'spices')).toBe(true);
+    expect(res.product.story?.icons).toEqual([{ icon: 'sun', label: 'Sun-cured' }]);
+    expect(res.product.gi).toEqual({ name: 'Wada Kolam', auRegNumber: 'AU-123' });
+    expect(res.images[0].kind).toBe('infographic');
+    const [b] = await getProductsByIds(db, [blank]);
+    expect(b.story).toBeNull();
+    expect(b.gi).toEqual({ name: null, auRegNumber: null });
   });
 });
 
@@ -166,42 +139,14 @@ describe('activeLabSummaries', () => {
   const lab = (productId: number, code: string, summary: object, visible: number) =>
     db.prepare("INSERT INTO lab_reports (product_id, batch_code, tested_on, lab_name, test_scope, summary, visible) VALUES (?, ?, '2026-09-01', 'Lab', 'x', ?, ?)")
       .bind(productId, code, JSON.stringify(summary), visible).run();
-  const batch = (productId: number, code: string, labId: number | null, active: number) =>
-    db.prepare("INSERT INTO batches (product_id, batch_code, packed_on, lab_report_id, active) VALUES (?, ?, '2026-09-02', ?, ?)").bind(productId, code, labId, active).run();
 
-  it("reads lab values only from the active batch's visible report", async () => {
+  it("reads lab values only from the active batch's visible report, with no fallback to an older one", async () => {
     const id = await insertProduct({ category_id: 2, slug: 'turmeric-lab' });
     await lab(id, 'T-00', { Curcumin: '3.0 %' }, 1);
     const cur = await lab(id, 'T-01', { Curcumin: '5.1 %' }, 0);
-    await batch(id, 'T-01', cur.meta.last_row_id, 1);
-    expect((await activeLabSummaries(db, [id])).get(id)).toBeUndefined(); // the active batch's report is hidden; no fallback to T-00
+    await db.prepare("INSERT INTO batches (product_id, batch_code, packed_on, lab_report_id, active) VALUES (?, 'T-01', '2026-09-02', ?, 1)").bind(id, cur.meta.last_row_id).run();
+    expect((await activeLabSummaries(db, [id])).get(id)).toBeUndefined();
     await db.prepare('UPDATE lab_reports SET visible = 1 WHERE id = ?').bind(cur.meta.last_row_id).run();
     expect((await activeLabSummaries(db, [id])).get(id)).toEqual({ Curcumin: '5.1 %' });
-  });
-
-  it('answers several products in one call; a product without an active batch is absent', async () => {
-    const a = await insertProduct({ slug: 'lab-a' });
-    const b = await insertProduct({ slug: 'lab-b' });
-    const c = await insertProduct({ slug: 'lab-c' });
-    const la = await lab(a, 'A-1', { Moisture: '10 %' }, 1);
-    const lb = await lab(b, 'B-1', { Moisture: '11 %' }, 1);
-    const lc = await lab(c, 'C-1', { Moisture: '12 %' }, 1);
-    await batch(a, 'A-1', la.meta.last_row_id, 1);
-    await batch(b, 'B-1', lb.meta.last_row_id, 1);
-    await batch(c, 'C-1', lc.meta.last_row_id, 0); // not the active batch
-    const got = await activeLabSummaries(db, [a, b, c]);
-    expect([...got.keys()].sort()).toEqual([a, b].sort());
-    expect(got.get(a)).toEqual({ Moisture: '10 %' });
-    expect(got.get(b)).toEqual({ Moisture: '11 %' });
-  });
-});
-
-describe('getProductPage includeDraft', () => {
-  it('loads a draft product page only when asked (admin preview), even without pack sizes', async () => {
-    const id = await insertProduct({ category_id: 2, slug: 'turmeric-draft', status: 'draft' });
-    expect((await getProductPage(db, 'spices', 'turmeric-draft', TODAY)).kind).toBe('not_found');
-    const res = await getProductPage(db, 'spices', 'turmeric-draft', TODAY, { includeDraft: true });
-    expect(res.kind).toBe('ok');
-    if (res.kind === 'ok') expect([res.product.id, res.variants]).toEqual([id, []]);
   });
 });

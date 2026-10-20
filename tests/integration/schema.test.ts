@@ -171,33 +171,16 @@ describe('order_events', () => {
 
 });
 
-describe('story pages (0008)', () => {
-  it('stores a product story only as a JSON object, and GI fields as text', async () => {
-    await expect(insertProduct({ story: '[]' })).rejects.toThrow(/CHECK/);
-    await expect(insertProduct({ story: 'not json' })).rejects.toThrow(/CHECK/);
-    await expect(insertProduct({ story: '{"processSteps":[]}', gi_name: 'Wada Kolam', gi_au_reg_number: 'AU-1' })).resolves.toBeTypeOf('number');
-    await expect(insertProduct({ story: null })).resolves.toBeTypeOf('number');
-  });
+it('0008 adds the story, GI and image-kind columns with their checks, and seeds three unpublished pages', async () => {
+  await expect(insertProduct({ story: '[]' })).rejects.toThrow(/CHECK/);
+  await expect(insertProduct({ story: '{"processSteps":[]}', gi_name: 'Wada Kolam', gi_au_reg_number: 'AU-1' })).resolves.toBeTypeOf('number');
+  const pid = await insertProduct();
+  await db.prepare("INSERT INTO product_images (product_id, r2_key, alt, sort) VALUES (?, 'products/x/a.jpg', 'a', 0)").bind(pid).run();
+  expect(await scalar(`SELECT kind FROM product_images WHERE product_id = ${pid}`)).toBe('photo');
+  await expect(db.prepare("INSERT INTO product_images (product_id, r2_key, alt, sort, kind) VALUES (?, 'products/x/b.jpg', 'b', 1, 'banner')").bind(pid).run()).rejects.toThrow(/CHECK/);
+  await expect(db.prepare("INSERT INTO story_pages (slug, draft, draft_saved_at) VALUES ('x', '[]', ?)").bind(AT).run()).rejects.toThrow(/CHECK/);
 
-  it('marks images as photo by default and allows only photo or infographic', async () => {
-    const pid = await insertProduct();
-    await db.prepare("INSERT INTO product_images (product_id, r2_key, alt, sort) VALUES (?, 'products/x/a.jpg', 'a', 0)").bind(pid).run();
-    expect(await scalar(`SELECT kind FROM product_images WHERE product_id = ${pid}`)).toBe('photo');
-    await expect(db.prepare("INSERT INTO product_images (product_id, r2_key, alt, sort, kind) VALUES (?, 'products/x/b.jpg', 'b', 1, 'banner')").bind(pid).run()).rejects.toThrow(/CHECK/);
-  });
-
-  it('seeds the three landing pages as unpublished drafts', async () => {
-    const { results } = await db.prepare('SELECT slug, published, json_type(draft) AS t FROM story_pages ORDER BY slug').all<{ slug: string; published: string | null; t: string }>();
-    expect(results).toEqual([
-      { slug: 'rice', published: null, t: 'object' },
-      { slug: 'spices', published: null, t: 'object' },
-      { slug: 'turmeric', published: null, t: 'object' },
-    ]);
-    const rice = await scalar("SELECT draft FROM story_pages WHERE slug = 'rice'");
-    expect(String(rice)).not.toMatch(/GI-tagged|Wada Kolam/i);
-  });
-
-  it('rejects a draft that is not a JSON object', async () => {
-    await expect(db.prepare("INSERT INTO story_pages (slug, draft, draft_saved_at) VALUES ('x', '[]', ?)").bind(AT).run()).rejects.toThrow(/CHECK/);
-  });
+  const { results } = await db.prepare('SELECT slug, published, json_type(draft) AS t FROM story_pages ORDER BY slug').all<{ slug: string; published: string | null; t: string }>();
+  expect(results).toEqual(['rice', 'spices', 'turmeric'].map((slug) => ({ slug, published: null, t: 'object' })));
+  expect(String(await scalar("SELECT draft FROM story_pages WHERE slug = 'rice'"))).not.toMatch(/GI-tagged|Wada Kolam/i);
 });

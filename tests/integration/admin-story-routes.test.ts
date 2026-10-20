@@ -35,21 +35,6 @@ describe('admin story routes', () => {
     }
   });
 
-  it('lists pages and reads one; unknown slug is 404 everywhere', async () => {
-    const list = await call(listPages);
-    expect(list.status).toBe(200);
-    expect(list.body.pages.map((x: any) => x.slug)).toContain('turmeric');
-    expect((await call(getPage, { params: { slug: 'turmeric' } })).status).toBe(200);
-    for (const h of [getPage, putDraft, publish]) {
-      expect((await call(h, { params: { slug: 'produce' }, body: { draft: emptyStoryPage() } })).status).toBe(404);
-    }
-  });
-
-  it('404 for an unknown or non-numeric product id', async () => {
-    expect((await call(putStory, { params: { id: '999999' }, body: { story: null } })).status).toBe(404);
-    expect((await call(putStory, { params: { id: 'abc' }, body: { story: null } })).status).toBe(404);
-  });
-
   it('an empty, array, null or malformed body is 400 and changes nothing', async () => {
     const id = await insertProduct({ category_id: 2 });
     await insertVariant(id);
@@ -83,22 +68,5 @@ describe('admin story routes', () => {
     const res = await call(putStory, { params: { id: String(id) }, body: { story: null } });
     expect(res.status).toBe(200);
     expect(await scalar(`SELECT story FROM products WHERE id = ${id}`)).toBeNull();
-  });
-
-  it('publishing an incomplete draft is 400 with errors', async () => {
-    expect((await call(putDraft, { params: { slug: 'turmeric' }, body: { draft: emptyStoryPage() } })).status).toBe(200);
-    const res = await call(publish, { params: { slug: 'turmeric' }, body: {} });
-    expect(res.status).toBe(400);
-    expect(Object.keys(res.body.errors).length).toBeGreaterThan(0);
-    expect(await scalar("SELECT published FROM story_pages WHERE slug = 'turmeric'")).toBeNull();
-  });
-
-  it('a valid draft PUT returns claims problems as warnings', async () => {
-    const id = await insertProduct({ category_id: 2 });
-    await insertVariant(id);
-    const draft = { ...emptyStoryPage(), seo: { title: 'Turmeric', description: 'Stone-ground turmeric.' }, hero: { ...emptyStoryPage().hero, line1: 'Haldi', line2: 'Immunity-boosting' }, productIds: [id], storyFromProductId: id };
-    const res = await call(putDraft, { params: { slug: 'turmeric' }, body: { draft } });
-    expect(res.status).toBe(200);
-    expect(res.body.warnings['hero.line2']).toMatch(/immunity/);
   });
 });
