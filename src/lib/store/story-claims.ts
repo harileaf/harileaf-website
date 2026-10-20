@@ -36,19 +36,30 @@ export interface ClaimContext {
   certs: CertContext[];
 }
 
-export const STRICTEST: ClaimContext = { organicScheme: 'none', claims: [], mayUseOrganic: false, allowedTerms: [], giRegistered: false, certs: [] };
+/** Deeply frozen so a caller can't loosen the strictest context by mutating it. */
+export const STRICTEST: ClaimContext = Object.freeze({
+  organicScheme: 'none',
+  claims: Object.freeze([]) as unknown as ProcessClaim[],
+  mayUseOrganic: false,
+  allowedTerms: Object.freeze([]) as readonly string[],
+  giRegistered: false,
+  certs: Object.freeze([]) as unknown as CertContext[],
+});
 
 const evidenced = (c: ProcessClaim) => c.text.trim() !== '' && c.evidence_note.trim() !== '';
 
 export function productContext(p: ContextProduct): ClaimContext {
-  const oc = organicCopy({ organicScheme: p.organic.scheme, conversionSince: p.organic.conversionSince, certNumber: p.organic.certNumber });
+  const organic = p.organic ?? { scheme: 'none' as OrganicScheme, conversionSince: null, certNumber: null };
+  const oc = organicCopy({ organicScheme: organic.scheme, conversionSince: organic.conversionSince, certNumber: organic.certNumber });
+  // An uncertified scheme (no certificate number) counts as no scheme at all.
+  const scheme: OrganicScheme = oc.badge ?? 'none';
   return {
-    organicScheme: p.organic.scheme,
-    claims: p.claims.filter(evidenced),
+    organicScheme: scheme,
+    claims: (p.claims ?? []).filter(evidenced),
     mayUseOrganic: oc.mayUseOrganic,
     allowedTerms: p.perishable ? RAW_PRODUCE_TERMS : [],
-    giRegistered: Boolean(p.gi.name?.trim() && p.gi.auRegNumber?.trim()),
-    certs: [{ scheme: p.organic.scheme, certified: oc.badge !== null }],
+    giRegistered: Boolean(p.gi?.name?.trim() && p.gi?.auRegNumber?.trim()),
+    certs: [{ scheme, certified: oc.badge !== null }],
   };
 }
 
@@ -68,25 +79,54 @@ export function intersectContexts(products: ContextProduct[]): ClaimContext {
   };
 }
 
-/** Every problem in one text for a context. */
-export function textProblems(text: string, ctx: ClaimContext, opts: { comparison?: boolean } = {}): string[] {
+export type ProblemKind = 'gi' | 'comparison' | 'health' | 'cert' | 'term' | 'organic' | 'banned';
+export interface Problem { kind: ProblemKind; label: string }
+
+/** The Reg 4 terms findBannedPhrases reports by bare name (claims.ts keeps its list private). */
+const CONDITIONAL = new Set(['natural', 'fresh', 'pure', 'traditional', 'authentic', 'genuine', 'real', 'original']);
+const HEALTH_PREFIX = 'health claim: ';
+
+function bannedProblem(label: string): Problem {
+  if (label.startsWith(HEALTH_PREFIX)) return { kind: 'health', label: label.slice(HEALTH_PREFIX.length) };
+  if (label === 'organic') return { kind: 'organic', label };
+  if (CONDITIONAL.has(label)) return { kind: 'term', label };
+  return { kind: 'banned', label };
+}
+
+/** Every problem in one text for a context, classified by the check that found it. */
+export function textProblems(text: string, ctx: ClaimContext, opts: { comparison?: boolean } = {}): Problem[] {
   return [
-    ...findBannedPhrases(text, ctx),
-    ...findGiProblems(text, ctx),
-    ...findCertificationWords(text, ctx.certs),
-    ...(opts.comparison ? findComparisonProblems(text).map((w) => `comparison: ${w}`) : []),
+    ...findBannedPhrases(text, ctx).map(bannedProblem),
+    ...findGiProblems(text, ctx).map((label): Problem => ({ kind: 'gi', label })),
+    ...findCertificationWords(text, ctx.certs).map((label): Problem => ({ kind: 'cert', label: label.replace(/^certification wording: /, '') })),
+    ...(opts.comparison ? findComparisonProblems(text).map((label): Problem => ({ kind: 'comparison', label })) : []),
   ];
 }
 
-/** A next-step message for the admin, never internal codes. */
-export function problemMessage(problems: string[]): string {
+const quoted = (labels: string[]) => [...new Set(labels)].map((l) => `'${l}'`).join(', ');
+
+function certMessage(label: string): string {
+  // "PGS (only when every product here holds PGS-India)" → "'PGS' can only appear when every product here holds PGS-India."
+  const m = label.match(/^(.*?) \(only (when|with) (.*)\)$/);
+  return m ? `'${m[1]}' can only appear ${m[2]} ${m[3]}.` : `'${label}' isn't allowed here.`;
+}
+
+/** A next-step message for the admin, grouped by kind; never internal codes. */
+export function problemMessage(problems: Problem[]): string {
+  const of = (kind: ProblemKind) => problems.filter((p) => p.kind === kind).map((p) => p.label);
   const parts: string[] = [];
-  if (problems.some((p) => p.startsWith('GI '))) parts.push(GI_MESSAGE);
-  const cmp = problems.filter((p) => p.startsWith('comparison: ')).map((p) => p.slice(12));
-  if (cmp.length) parts.push(`Describe the other process, not a competitor ('${cmp.join("', '")}' isn't allowed)`);
-  const rest = problems.filter((p) => !p.startsWith('GI ') && !p.startsWith('comparison: '));
-  if (rest.length) parts.push(`Remove or substantiate: ${rest.join(', ')} (see the claims guidance)`);
-  return parts.join('. ');
+  if (of('gi').length) parts.push(GI_MESSAGE);
+  const cmp = of('comparison');
+  if (cmp.length) parts.push(`Describe the other process, not a competitor (${quoted(cmp)} isn't allowed).`);
+  const health = of('health');
+  if (health.length) parts.push(`Health claims aren't allowed: remove ${quoted(health)}.`);
+  for (const label of new Set(of('cert'))) parts.push(certMessage(label));
+  if (of('organic').length) parts.push("'organic' can only appear when every product here has an organic scheme and certificate number (Products → Organic certification).");
+  const terms = of('term');
+  if (terms.length) parts.push(`${quoted(terms)} ${terms.length > 1 ? 'need' : 'needs'} a matching process claim with an evidence note on every product here (Products → Claims).`);
+  const banned = of('banned');
+  if (banned.length) parts.push(`Remove ${quoted(banned)}.`);
+  return parts.join(' ');
 }
 
 export function checkProductStory(story: ProductStory, p: ContextProduct): FieldErrors {
@@ -106,14 +146,17 @@ export function checkProductStory(story: ProductStory, p: ContextProduct): Field
 export function checkStoryPage(slug: StoryPageSlug, page: StoryPage, products: ContextProduct[], opts: { completeness: boolean }): FieldErrors {
   const e: FieldErrors = {};
   const linked = page.productIds.map((id) => products.find((p) => p.id === id)).filter((p): p is ContextProduct => Boolean(p));
-  const pageCtx = slug === 'spices' ? STRICTEST : intersectContexts(linked);
+  const dangling = linked.length < page.productIds.length;
+  // Hub copy, and any page with a missing product, is checked as strictly as possible (never loosened).
+  const pageCtx = slug === 'spices' || dangling ? STRICTEST : intersectContexts(linked);
+  if (dangling) e.productIds = 'A linked product no longer exists. Remove it from Products';
   for (const [field, text] of pageWideTexts(page)) {
     const problems = textProblems(text, pageCtx);
     if (problems.length) e[field] = problemMessage(problems);
   }
   for (const [id, text] of Object.entries(page.cardBlurbs)) {
     const p = linked.find((x) => String(x.id) === id);
-    const problems = textProblems(text, p ? productContext(p) : STRICTEST);
+    const problems = textProblems(text, slug === 'spices' || !p ? STRICTEST : productContext(p));
     if (problems.length) e[`cardBlurbs.${id}`] = problemMessage(problems);
   }
   const from = linked.find((p) => p.id === page.storyFromProductId);
@@ -123,8 +166,8 @@ export function checkStoryPage(slug: StoryPageSlug, page: StoryPage, products: C
     if (!page.seo.title) e['seo.title'] ??= 'Add a search title';
     if (!page.seo.description) e['seo.description'] ??= 'Add a search description';
     if (!page.hero.line1) e['hero.line1'] ??= 'Add the headline';
-    if (slug !== 'spices' && linked.length === 0) e.productIds = 'Link at least one product (Products section)';
-    if (slug !== 'spices' && linked.length > 0 && !from) e.storyFromProductId = "Choose the 'Story from' product";
+    if (slug !== 'spices' && page.productIds.length === 0) e.productIds = 'Link at least one product (Products section)';
+    if (slug !== 'spices' && page.productIds.length > 0 && !from) e.storyFromProductId = "Choose the 'Story from' product";
   }
   return e;
 }
@@ -135,6 +178,8 @@ const NAMED: Record<string, string> = {
   note: 'Note', closing: 'Closing line', productIds: 'Products', storyFromProductId: 'Story from',
   'originStory.heading': 'Origin heading', 'originStory.bodyMd': 'Origin story', 'comparison.heading': 'Comparison heading',
   'comparison.note': 'Comparison note', grower: 'Grower', 'use.heading': 'How to cook/use heading',
+  'originStory.photoAlt': 'Origin photo description', 'comparison.oursLabel': 'Comparison: our column', 'comparison.theirsLabel': 'Comparison: other column',
+  'comparison.imageAlt': 'Comparison photo description',
 };
 const INDEXED: Record<string, string> = {
   facts: 'Fact', faq: 'Question', processSteps: 'Step', proofLine: 'Proof item', icons: 'Icon', 'comparison.rows': 'Comparison row',
@@ -142,9 +187,12 @@ const INDEXED: Record<string, string> = {
 };
 
 /** "hero.line2" → "Hero line 2", "faq.0" → "Question 1", "storyFrom.processSteps.3" → "Story from product → Step 4". */
-export function fieldLabel(key: string): string {
-  if (key.startsWith('storyFrom.')) return `Story from product → ${fieldLabel(key.slice(10))}`;
-  if (key.startsWith('cardBlurbs.')) return 'Card blurb';
+export function fieldLabel(key: string, productNames: Record<string, string> = {}): string {
+  if (key.startsWith('storyFrom.')) return `Story from product → ${fieldLabel(key.slice(10), productNames)}`;
+  if (key.startsWith('cardBlurbs.')) {
+    const id = key.slice(11);
+    return `Card blurb (${productNames[id] ?? `product ${id}`})`;
+  }
   if (NAMED[key]) return NAMED[key];
   const m = key.match(/^(.*)\.(\d+)$/);
   if (m && INDEXED[m[1]]) return `${INDEXED[m[1]]} ${Number(m[2]) + 1}`;

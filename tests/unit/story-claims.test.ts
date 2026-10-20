@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { EMPTY_STORY, emptyStoryPage, type ProductStory } from '../../src/lib/store/story';
-import { checkProductStory, checkStoryPage, fieldLabel, intersectContexts, productContext, STRICTEST, type ContextProduct } from '../../src/lib/store/story-claims';
+import { checkProductStory, checkStoryPage, fieldLabel, intersectContexts, problemMessage, productContext, STRICTEST, textProblems, type ContextProduct } from '../../src/lib/store/story-claims';
 
 const traditional = { code: 'traditional', text: 'Boiled and sun-cured the traditional way', evidence_note: 'Village records, 40 years' };
 const cp = (over: Partial<ContextProduct> = {}): ContextProduct => ({
@@ -117,5 +117,95 @@ describe('extra coverage', () => {
   it('a blurb for a product outside the linked list is checked strictly', () => {
     const page = { ...emptyStoryPage(), productIds: [1], storyFromProductId: 1, cardBlurbs: { '99': 'The traditional way' } };
     expect(checkStoryPage('turmeric', page, [cp()], { completeness: false })['cardBlurbs.99']).toMatch(/traditional/);
+  });
+});
+
+describe('review fixes', () => {
+  const none = { scheme: 'none' as const, conversionSince: null, certNumber: null };
+  const plain = cp({ id: 5, organic: none, claims: [] });
+  const conv = 'Under conversion to organic';
+  const hero = (line1: string) => ({ ...emptyStoryPage().hero, line1 });
+
+  it('an uncertified PGS-Green product is treated as no scheme', () => {
+    const noCert = cp({ organic: { scheme: 'pgs_green', conversionSince: 2024, certNumber: null } });
+    const withCert = cp({ organic: { scheme: 'pgs_green', conversionSince: 2024, certNumber: 'G-1' } });
+    expect(productContext(noCert).organicScheme).toBe('none');
+    expect(checkProductStory(story({ proofLine: [{ kind: 'text', text: conv }] }), noCert)['proofLine.0']).toMatch(/organic/);
+    expect(checkProductStory(story({ proofLine: [{ kind: 'text', text: conv }] }), withCert)).toEqual({});
+  });
+
+  it('a missing linked product makes the page strictest and is reported', () => {
+    const page = { ...emptyStoryPage(), productIds: [1, 404], storyFromProductId: 1, hero: hero('Certified organic') };
+    const e = checkStoryPage('turmeric', page, [cp()], { completeness: false });
+    expect(e.productIds).toBe('A linked product no longer exists. Remove it from Products');
+    expect(e['hero.line1']).toBeDefined();
+  });
+
+  it('duplicate product ids do not change the outcome', () => {
+    const page = { ...emptyStoryPage(), productIds: [1, 1], storyFromProductId: 1, hero: hero('Certified organic') };
+    expect(checkStoryPage('turmeric', page, [cp()], { completeness: false })).toEqual({});
+  });
+
+  it('hub blurbs are strictest, even for an evidenced product', () => {
+    const page = { ...emptyStoryPage(), slug: 'spices', productIds: [1], cardBlurbs: { '1': 'Stone-ground the traditional way' } };
+    expect(checkStoryPage('spices', page, [cp()], { completeness: false })['cardBlurbs.1']).toMatch(/traditional/);
+  });
+
+  it('mixed schemes: organic is allowed, scheme names are not', () => {
+    const npop = cp({ id: 2, organic: { scheme: 'npop', conversionSince: null, certNumber: 'N-1' } });
+    const ctx = intersectContexts([cp(), npop]);
+    expect(ctx.mayUseOrganic).toBe(true);
+    expect(ctx.organicScheme).toBe('none');
+    const page = { ...emptyStoryPage(), productIds: [1, 2], storyFromProductId: 1, hero: { ...emptyStoryPage().hero, line1: 'Certified organic', line2: 'PGS grown', subtitle: 'NPOP tested' } };
+    const e = checkStoryPage('turmeric', page, [cp(), npop], { completeness: false });
+    expect(e['hero.line1']).toBeUndefined();
+    expect(e['hero.line2']).toMatch(/'PGS' can only appear when every product here holds PGS-India\./);
+    expect(e['hero.subtitle']).toMatch(/NPOP/);
+  });
+
+  it('a claim without an evidence note does not allow its term', () => {
+    const weak = cp({ claims: [{ code: 'traditional', text: 'Old way', evidence_note: '' }] });
+    expect(checkProductStory(story({ processSteps: steps('The traditional way') }), weak)['processSteps.0']).toMatch(/traditional/);
+  });
+
+  it("'fresh' is allowed page-wide only when every product is perishable", () => {
+    const page = { ...emptyStoryPage(), productIds: [1, 2], storyFromProductId: 1, note: 'Fresh from the field' };
+    const a = cp({ perishable: true });
+    expect(checkStoryPage('turmeric', page, [a, cp({ id: 2, perishable: true })], { completeness: false })).toEqual({});
+    expect(checkStoryPage('turmeric', page, [a, cp({ id: 2 })], { completeness: false }).note).toMatch(/fresh/);
+  });
+
+  it('a Story-from product that is not linked is not accepted on publish', () => {
+    const page = { ...emptyStoryPage(), productIds: [1], storyFromProductId: 9, seo: { title: 'T', description: 'D' }, hero: hero('H') };
+    const e = checkStoryPage('turmeric', page, [cp(), cp({ id: 9, story: story({ processSteps: steps('Chemical-free') }) })], { completeness: true });
+    expect(e.storyFromProductId).toBeDefined();
+    expect(Object.keys(e).some((k) => k.startsWith('storyFrom.'))).toBe(false);
+  });
+
+  it('messages give a next step per kind, without internal prefixes or double stops', () => {
+    const ctx = productContext(plain);
+    const msg = problemMessage(textProblems('Chemical-free, traditional, organic, PGS, boosts immunity, GI-tagged', ctx));
+    expect(msg).not.toMatch(/\.\./);
+    expect(msg).not.toMatch(/certification wording:|health claim:|claims guidance/);
+    expect(msg).toContain("Health claims aren't allowed: remove 'immunity'.");
+    expect(msg).toContain("'PGS' can only appear when every product here holds PGS-India.");
+    expect(msg).toContain("'traditional' needs a matching process claim with an evidence note on every product here (Products → Claims).");
+    expect(msg).toMatch(/'organic' can only appear/);
+    expect(msg).toMatch(/authorised-user registration number/);
+    expect(msg).toContain("Remove 'chemical-free'.");
+    expect(problemMessage(textProblems('Fake', ctx, { comparison: true }))).toBe("Describe the other process, not a competitor ('fake' isn't allowed).");
+  });
+
+  it('labels every story field, with the product in card blurbs', () => {
+    expect(fieldLabel('originStory.photoAlt')).toBe('Origin photo description');
+    expect(fieldLabel('comparison.oursLabel')).not.toBe('comparison.oursLabel');
+    expect(fieldLabel('comparison.imageAlt')).not.toBe('comparison.imageAlt');
+    expect(fieldLabel('cardBlurbs.10', { '10': 'Kolam' })).toBe('Card blurb (Kolam)');
+    expect(fieldLabel('cardBlurbs.10')).toBe('Card blurb (product 10)');
+  });
+
+  it('STRICTEST cannot be mutated and productContext tolerates missing parts', () => {
+    expect(() => (STRICTEST.claims as unknown[]).push(1)).toThrow();
+    expect(() => productContext({ id: 1, name: 'x', perishable: false, story: null } as unknown as ContextProduct)).not.toThrow();
   });
 });
