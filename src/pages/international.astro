@@ -95,7 +95,7 @@ const label = 'block text-xs font-bold uppercase tracking-widest text-on-surface
       <p class="text-xs text-on-surface-variant">We use your details only to answer this request. See our <a href="/privacy/" class="underline">privacy policy</a>.</p>
     </form>
 
-    <p id="intl-thanks" class="hidden mt-6 rounded-lg bg-primary/10 px-4 py-3 text-sm font-semibold text-primary" role="status">Thank you — we have your request and will write when we can ship to you.</p>
+    <p data-form-sent hidden class="[&[hidden]]:hidden mt-6 rounded-lg bg-primary/10 px-4 py-3 text-sm font-semibold text-primary" role="status">Thank you — we have your request and will write when we can ship to you.</p>
 
     <p class="mt-12 text-sm">
       <a href="/learn/" class="font-bold text-primary underline">Guides</a> ·
@@ -107,7 +107,5 @@ const label = 'block text-xs font-bold uppercase tracking-widest text-on-surface
 </SiteLayout>
 
 <script>
-  document.addEventListener('astro:page-load', () => {
-    if (new URLSearchParams(location.search).get('success') === 'true') document.getElementById('intl-thanks')?.classList.remove('hidden');
-  });
+  import '../scripts/form-sent';
 </script>

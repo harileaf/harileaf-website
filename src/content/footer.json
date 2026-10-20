@@ -3,27 +3,27 @@
   "legalLinks": [
     {
       "label": "Privacy Policy",
-      "url": "/privacy"
+      "url": "/privacy/"
     },
     {
       "label": "Terms of Service",
-      "url": "/terms"
+      "url": "/terms/"
     },
     {
       "label": "Shipping Policy",
-      "url": "/shipping-policy"
+      "url": "/shipping-policy/"
     },
     {
       "label": "Refund Policy",
-      "url": "/refund-policy"
+      "url": "/refund-policy/"
     },
     {
       "label": "Grievance Officer",
-      "url": "/grievance"
+      "url": "/grievance/"
     },
     {
       "label": "Buying from outside India",
-      "url": "/international"
+      "url": "/international/"
     }
   ],
   "columns": []
