@@ -219,6 +219,17 @@ describe('Geographical Indication', () => {
     const lab = { batchCode: 'B-GI', testedOn: '2026-10-01', labName: 'Lab', labAccreditation: null, testScope: 'Wada Kolam moisture', summary: {}, visible: true };
     expect(await addLabReport(db, r2, res.id, lab, null, NOW)).toEqual({ ok: false, error: GI_MESSAGE });
   });
+
+  it("can't clear the GI registration while an image description still uses the GI name, leaving the row alone", async () => {
+    const res = await saveProduct(db, null, input({ slug: 'gi-clear', ...reg }), [v()], NOW);
+    if (!res.ok) throw new Error('setup');
+    await addImage(db, r2, res.id, png(), 'Rice grains', NOW);
+    await addImage(db, r2, res.id, png(), 'Wada Kolam rice', NOW);
+    const before = await db.prepare('SELECT * FROM products WHERE id = ?').bind(res.id).first();
+    const blocked = await saveProduct(db, res.id, input({ slug: 'gi-clear' }), [], NOW);
+    expect(!blocked.ok && blocked.errors.giAuRegNumber).toMatch(/^Image 2's description still uses GI wording or the name 'Wada Kolam'\. Edit it first, then clear the GI registration\./);
+    expect(await db.prepare('SELECT * FROM products WHERE id = ?').bind(res.id).first()).toEqual(before);
+  });
 });
 
 it('image kind defaults to photo, accepts infographic and rejects anything else without changing the row', async () => {

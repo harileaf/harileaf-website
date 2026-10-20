@@ -184,7 +184,8 @@ export function storyPageProblems(slug: StoryPageSlug, page: StoryPage, products
 
 /**
  * Full check of a landing page. `completeness` adds the publish-only
- * requirements (title, headline, linked products).
+ * requirements (title, headline, linked products, the Story-from product or,
+ * on /spices, the Turmeric card's product).
  */
 export function checkStoryPage(slug: StoryPageSlug, page: StoryPage, products: ContextProduct[], opts: { completeness: boolean }): FieldErrors {
   const e: FieldErrors = {};
@@ -199,6 +200,7 @@ export function checkStoryPage(slug: StoryPageSlug, page: StoryPage, products: C
     if (!page.hero.line1) e['hero.line1'] ??= 'Add the headline';
     if (slug !== 'spices' && page.productIds.length === 0) e.productIds = 'Link at least one product (Products section)';
     if (slug !== 'spices' && page.productIds.length > 0 && !from) e.storyFromProductId = "Choose the 'Story from' product";
+    if (slug === 'spices' && !from) e.storyFromProductId = 'Choose the turmeric product for the Turmeric card';
   }
   return e;
 }
@@ -214,7 +216,7 @@ const NAMED: Record<string, string> = {
 };
 const INDEXED: Record<string, string> = {
   facts: 'Fact', faq: 'Question', processSteps: 'Step', proofLine: 'Proof item', icons: 'Icon', 'comparison.rows': 'Comparison row',
-  'use.steps': 'How to cook/use step', 'hero.proof': 'Hero proof item',
+  'use.steps': 'How to cook/use step', 'hero.proof': 'Hero proof item', labColumns: 'Lab table column',
 };
 
 /** "hero.line2" → "Hero line 2", "faq.0" → "Question 1", "storyFrom.processSteps.3" → "Story from product → Step 4". */

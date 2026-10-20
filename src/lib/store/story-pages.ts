@@ -190,6 +190,15 @@ export async function publishedPageConflicts(db: D1Database, changed: ContextPro
 
 // ── landing pages ─────────────────────────────────────────────────────────
 
+/** The product category each landing page may link: rice → rice; turmeric and the /spices hub → spices. */
+const PAGE_CATEGORY: Record<StoryPageSlug, string> = { rice: 'rice', turmeric: 'spices', spices: 'spices' };
+
+/** Linked products outside the page's category (an error on the Products list). */
+function categoryErrors(slug: StoryPageSlug, rows: ContextRow[]): FieldErrors {
+  const outside = rows.filter((r) => r.category_slug !== PAGE_CATEGORY[slug]).map((r) => `${r.name} isn't in this page's category`);
+  return outside.length ? { productIds: outside.join('. ') } : {};
+}
+
 export const STALE_DRAFT = 'This page was changed in another tab or window. Copy anything you want to keep, then reload to see the latest version.';
 
 export type DraftSave = { ok: true; warnings: FieldErrors; savedAt: string } | { ok: false; errors: FieldErrors; conflict?: true };
@@ -203,9 +212,10 @@ export type DraftSave = { ok: true; warnings: FieldErrors; savedAt: string } | {
 export async function saveStoryPageDraft(db: D1Database, slug: string, raw: unknown, now = new Date(), expectedSavedAt?: string): Promise<DraftSave> {
   if (!isStoryPageSlug(slug)) return { ok: false, errors: { _: 'Page not found' } };
   const page = coerceStoryPage(raw);
-  const errors = validateStoryPageStructure(slug, page);
+  const rows = await contextRows(db, page.productIds);
+  const errors = { ...categoryErrors(slug, rows), ...validateStoryPageStructure(slug, page) };
   if (Object.keys(errors).length) return { ok: false, errors };
-  const warnings = checkStoryPage(slug, page, await loadContextProducts(db, page.productIds), { completeness: true });
+  const warnings = checkStoryPage(slug, page, rows.map(contextFromRow), { completeness: true });
   const savedAt = nowIso(now);
   const res = await (expectedSavedAt === undefined
     ? db.prepare('UPDATE story_pages SET draft = ?, draft_saved_at = ? WHERE slug = ?').bind(JSON.stringify(page), savedAt, slug)
@@ -237,8 +247,10 @@ export async function publishStoryPage(db: D1Database, slug: string, now = new D
   const row = await getStoryPageRow(db, slug);
   if (!row) return { ok: false, errors: { _: 'Page not found' } };
   // checkStoryPage's completeness rules require the search title and description (an empty <title> must never go live).
+  const rows = await contextRows(db, row.draft.productIds);
   const errors = {
-    ...checkStoryPage(row.slug, row.draft, await loadContextProducts(db, row.draft.productIds), { completeness: true }),
+    ...checkStoryPage(row.slug, row.draft, rows.map(contextFromRow), { completeness: true }),
+    ...categoryErrors(row.slug, rows),
     ...validateStoryPageStructure(row.slug, row.draft),
   };
   if (Object.keys(errors).length) return { ok: false, errors };

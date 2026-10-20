@@ -220,7 +220,7 @@ export function validateProductStory(st: ProductStory): FieldErrors {
       if (!r.aspect || !r.ours || !r.theirs) e[`comparison.rows.${i}`] = `Row ${i + 1}: fill in what is compared and both sides`;
       else if ((DIGIT.test(r.ours) || DIGIT.test(r.theirs)) && !r.source) e[`comparison.rows.${i}`] = `Row ${i + 1}: numbers need a source, e.g. 'IFCT 2017' or 'Lab report T-01'`;
     });
-    if (c.imageKey && (!IMAGE_KEY.test(c.imageKey) || c.imageKey.includes('..'))) e['comparison.imageKey'] = 'Choose an image from this product or the photo library';
+    if (c.imageKey && (!IMAGE_KEY.test(c.imageKey) || c.imageKey.includes('..') || c.imageKey.includes('//'))) e['comparison.imageKey'] = 'Choose an image from this product or the photo library';
     else if (c.imageKey && !c.imageAlt) e['comparison.imageAlt'] = 'Describe the image (alt text)';
   }
   if (st.grower) {
@@ -308,6 +308,7 @@ export function pageWideTexts(p: StoryPage): Array<[string, string]> {
   p.hero.proof.forEach((x, i) => out.push([`hero.proof.${i}`, `${x.label} ${x.suffix ?? ''}`]));
   p.facts.forEach((f, i) => out.push([`facts.${i}`, `${f.title} ${f.text}`]));
   p.faq.forEach((f, i) => out.push([`faq.${i}`, `${f.q} ${f.a}`]));
+  p.labColumns.forEach((c, i) => out.push([`labColumns.${i}`, c]));
   return out.filter(([, t]) => t.trim() !== '');
 }
 

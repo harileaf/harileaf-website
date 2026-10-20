@@ -57,12 +57,13 @@ const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString('en-IN',
 
 const PARTS: Record<string, string> = { q: 'question', a: 'answer', title: 'title', text: 'text' };
 /** A human label for a message key; never an internal key when a name is known. */
-function pageLabel(key: string, names: Record<string, string>): string {
+function pageLabel(key: string, names: Record<string, string>, hub = false): string {
   if (key === '_') return '';
+  if (hub && key === 'storyFromProductId') return 'Products'; // the hub calls it the Turmeric card, chosen under Products
   if (key === 'hero' || key === 'hero.photoAlt') return 'Hero photo description';
   if (key === 'hero.photoKey') return 'Hero photo';
   if (key === 'hero.proof') return 'Hero lab proof';
-  if (key === 'labColumns' || key.startsWith('labColumns.')) return 'Lab table columns';
+  if (key === 'labColumns') return 'Lab table columns';
   if (key === 'facts') return 'Facts';
   if (key === 'faq') return 'Questions';
   if (key.startsWith('hidden.')) return 'Hidden sections';
@@ -326,8 +327,8 @@ export default function StoryPageEditor(props: Props) {
         <strong>{STATUS_TEXT[info.status]}</strong> · Last saved {fmt(info.draftSavedAt)} · Last published {fmt(info.publishedAt)}
         {info.publishedAt && <> · <a href={`/${props.slug}/`} target="_blank" rel="noopener" style={linkStyle}>View live<span className="sr-only"> (opens in a new tab)</span></a></>}
       </p>
-      <MessageList id="page-errors" kind="error" title={failed === 'publish' ? 'Not published. Please fix:' : 'Not saved. Please fix:'} messages={errors} label={(k) => pageLabel(k, names)} />
-      <MessageList id="page-warnings" kind="warning" title="Saved. Fix these before publishing:" messages={warnings} label={(k) => pageLabel(k, names)} />
+      <MessageList id="page-errors" kind="error" title={failed === 'publish' ? 'Not published. Please fix:' : 'Not saved. Please fix:'} messages={errors} label={(k) => pageLabel(k, names, hub)} />
+      <MessageList id="page-warnings" kind="warning" title="Saved. Fix these before publishing:" messages={warnings} label={(k) => pageLabel(k, names, hub)} />
 
       <section style={box} aria-labelledby="page-seo-h">
         <h2 id="page-seo-h" style={h2}>1. Search appearance</h2>

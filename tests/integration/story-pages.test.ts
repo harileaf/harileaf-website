@@ -31,9 +31,9 @@ beforeEach(async () => {
 describe('landing-page drafts and publish', () => {
   it('saves a draft with unsupported wording as warnings, and refuses to publish it', async () => {
     const [a] = await turmericProducts();
-    const rice = await insertProduct({ category_id: 1 });
-    await insertVariant(rice);
-    const draft = { ...emptyStoryPage(), seo, hero: hero({ line1: 'Haldi', line2: 'Organic and immunity-boosting' }), productIds: [a, rice], storyFromProductId: a };
+    const plain = await insertProduct({ category_id: 2 });
+    await insertVariant(plain);
+    const draft = { ...emptyStoryPage(), seo, hero: hero({ line1: 'Haldi', line2: 'Organic and immunity-boosting' }), productIds: [a, plain], storyFromProductId: a };
     const saved = await saveStoryPageDraft(db, 'turmeric', draft, NOW);
     expect(saved.ok && saved.warnings['hero.line2']).toMatch(/organic.*immunity|immunity.*organic/);
     expect(JSON.parse(String(await scalar("SELECT draft FROM story_pages WHERE slug = 'turmeric'"))).hero.line2).toBe('Organic and immunity-boosting');

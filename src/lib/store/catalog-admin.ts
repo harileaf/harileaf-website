@@ -305,6 +305,30 @@ const imageCount = async (db: D1Database, id: number) =>
 
 const purgeStmt = (db: D1Database, paths: string[], at: string) => purgeStmts(db, paths, at)[0];
 
+const andList = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}` : xs[0]);
+
+/**
+ * Image descriptions and visible lab reports that would show GI wording once
+ * the product's GI registration is cleared ("Image 2's description", "lab
+ * report T-01"). Run only when a save clears the registration.
+ */
+async function giTextStillUsed(db: D1Database, productId: number): Promise<string[]> {
+  const [images, reports] = await db.batch([
+    db.prepare('SELECT alt FROM product_images WHERE product_id = ? ORDER BY sort, id').bind(productId),
+    db.prepare('SELECT batch_code, test_scope, summary FROM lab_reports WHERE product_id = ? AND visible = 1 ORDER BY tested_on DESC, id DESC').bind(productId),
+  ]);
+  const gi = (text: string) => findGiProblems(text, { giRegistered: false }).length > 0;
+  const out: string[] = [];
+  (images.results as Array<{ alt: string }>).forEach((r, i) => { if (gi(r.alt)) out.push(`image ${i + 1}'s description`); });
+  for (const r of reports.results as Array<{ batch_code: string; test_scope: string; summary: string }>) {
+    let summary: unknown = null;
+    try { summary = JSON.parse(r.summary); } catch { /* unreadable: only the scope is checked */ }
+    const pairs = summary && typeof summary === 'object' && !Array.isArray(summary) ? Object.entries(summary).flat().filter((x): x is string => typeof x === 'string') : [];
+    if (gi([r.test_scope, ...pairs].join(' '))) out.push(`lab report ${r.batch_code}`);
+  }
+  return out;
+}
+
 /** Paths of every active product page (for broad purges after catalog or settings changes). */
 export async function allStorePaths(db: D1Database): Promise<string[]> {
   const { results } = await db
@@ -360,6 +384,15 @@ export async function saveProduct(
   if (id !== null) {
     const [saved] = await loadContextProducts(db, [id]);
     if (saved) {
+      const wasRegistered = Boolean(saved.gi.name?.trim() && saved.gi.auRegNumber?.trim());
+      if (wasRegistered && !(cols.gi_name && cols.gi_au_reg_number)) {
+        const stillGi = await giTextStillUsed(db, id);
+        if (stillGi.length) {
+          const [verb, them] = stillGi.length > 1 ? ['use', 'them'] : ['uses', 'it'];
+          const list = andList(stillGi);
+          return { ok: false, errors: { giAuRegNumber: `${list[0].toUpperCase()}${list.slice(1)} still ${verb} GI wording or the name 'Wada Kolam'. Edit ${them} first, then clear the GI registration. ${GI_MESSAGE}` } };
+        }
+      }
       // Built from `cols`, exactly what the batch writes.
       const changed: ContextProduct = {
         ...saved,
