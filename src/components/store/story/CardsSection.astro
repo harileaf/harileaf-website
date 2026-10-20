@@ -11,7 +11,7 @@ const shown = cards.map((c) => (blurbs[String(c.id)] ? { ...c, shortDescription:
   <section id={id} class="pt-16 pb-14 px-6 scroll-mt-24 text-white" style="background:#0c110c;" aria-labelledby={`${id}-heading`}>
     <div class="max-w-7xl mx-auto">
       {eyebrow && <p class="text-xs uppercase tracking-widest font-extrabold mb-2" style="color:var(--accent,#9fb17d);">{eyebrow}</p>}
-      <h2 id={`${id}-heading`} class="text-3xl font-extrabold tracking-tight mb-8">{heading}</h2>
+      <h2 id={`${id}-heading`} class="text-white text-3xl font-extrabold tracking-tight mb-8">{heading}</h2>
       <ProductGrid cards={shown} tone="dark" />
     </div>
   </section>

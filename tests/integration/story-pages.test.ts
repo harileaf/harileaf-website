@@ -202,6 +202,7 @@ describe('view model', () => {
     expect(v?.labTable.columns).toEqual(['Curcumin', 'Moisture']);
     expect(v?.labTable.rows[0]).toMatchObject({ batchCode: 'T-01', values: ['5.1 %', '8 %'], productName: 'Turmeric powder' });
     expect(v?.certificationLine).toBe('Certified organic (PGS-India Organic) · Certificate PGS-1');
+    expect(v?.certifications[String(a)]?.line).toBe(v?.certificationLine);
     expect(v?.growers.map((g) => g.names)).toEqual(['Patil family']);
     expect(v?.storyFrom?.product.id).toBe(a);
     expect(v?.turmericPublished).toBe(false);

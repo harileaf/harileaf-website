@@ -298,6 +298,10 @@ export interface StoryPageViewModel {
   heroProof: string[];
   /** Shown only when every active linked product has the same certification line. */
   certificationLine: string | null;
+  /** A certificate link for that shared line (the same certificate number on every product). */
+  certUrl: string | null;
+  /** Each certified active linked product's own line and certificate link, by product id (the /spices hub's turmeric card). */
+  certifications: Record<string, { line: string; url: string | null }>;
   giBadge: string | null;
   turmericPublished: boolean;
 }
@@ -359,6 +363,12 @@ export async function loadStoryPageView(db: D1Database, slug: string, which: 'pu
   for (const g of ordered.map((p) => p.story?.grower).filter((g): g is Grower => Boolean(g)))
     if (!growers.some((x) => x.names.toLowerCase() === g.names.toLowerCase())) growers.push(g);
   const lines = products.map((p) => organicCopy({ organicScheme: p.organic.scheme, conversionSince: p.organic.conversionSince, certNumber: p.organic.certNumber }).certificationLine);
+  const certificationLine = lines.length > 0 && lines.every((l) => l && l === lines[0]) ? lines[0] : null;
+  const certifications: StoryPageViewModel['certifications'] = {};
+  products.forEach((p, i) => {
+    const line = lines[i];
+    if (line) certifications[String(p.id)] = { line, url: p.organic.certUrl };
+  });
 
   return {
     slug: row.slug,
@@ -371,7 +381,9 @@ export async function loadStoryPageView(db: D1Database, slug: string, which: 'pu
       const v = active.has(x.productId) ? labValue(summaries.get(x.productId) ?? null, x.key) : null;
       return v ? [`${x.label} ${v}${x.suffix ?? ''}`] : [];
     }),
-    certificationLine: lines.length > 0 && lines.every((l) => l && l === lines[0]) ? lines[0] : null,
+    certificationLine,
+    certUrl: certificationLine ? (products.find((p) => p.organic.certUrl)?.organic.certUrl ?? null) : null,
+    certifications,
     giBadge: from?.gi.name && from.gi.auRegNumber ? `GI-tagged ${from.gi.name} · Reg. ${from.gi.auRegNumber}` : null,
     turmericPublished,
   };

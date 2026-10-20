@@ -1,0 +1,141 @@
+---
+/**
+ * A landing page (/rice, /turmeric, /spices) from its fixed layout
+ * (PAGE_LAYOUTS) and view model. Sections render only with content; the admin
+ * draft preview passes `preview` (banner, noindex).
+ */
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import SEO from '../seo/SEO.astro';
+import BatchLabTable from './story/BatchLabTable.astro';
+import CardsSection from './story/CardsSection.astro';
+import ComparisonBlock from './story/ComparisonBlock.astro';
+import FactsBlock from './story/FactsBlock.astro';
+import FaqList from './story/FaqList.astro';
+import GrowerCard from './story/GrowerCard.astro';
+import OriginStory from './story/OriginStory.astro';
+import ProcessTimeline from './story/ProcessTimeline.astro';
+import StoryHero from './story/StoryHero.astro';
+import UseBlock from './story/UseBlock.astro';
+import { recipesUsing } from '../../content/store/recipes';
+import { breadcrumbJsonLd, faqJsonLd, jsonLdString } from '../../lib/store/seo';
+import { PAGE_LAYOUTS, type SectionKey } from '../../lib/store/story';
+import type { StoryPageViewModel } from '../../lib/store/story-pages';
+import { absolute } from '../../lib/store/urls';
+
+interface Props { view: StoryPageViewModel; preview?: { messages: string[] } | null }
+const { view: v, preview = null } = Astro.props;
+const page = v.page;
+// Fixed per-page copy: name (breadcrumb), accent, section eyebrows and headings.
+const COPY = {
+  turmeric: { name: 'Turmeric', accent: '#e0a53a', cards: ['Buy', 'Stone-ground turmeric'], strip: ['From field to jar', 'A year in the field'], comparison: 'Why the grinding matters', facts: "What's in turmeric" },
+  rice: { name: 'Rice', accent: '#c9a86a', cards: ['Choose your rice', 'Three varieties, three characters'], strip: ['A season in the paddy', 'Monsoon to milling'], comparison: 'What polishing takes away', facts: 'Why we grow it this way' },
+  spices: { name: 'Spices', accent: '#e0a53a', cards: ['Our spices', 'Ground slowly, on stone'], strip: ['', ''], comparison: '', facts: '' },
+} as const;
+const c = COPY[v.slug];
+const hub = v.slug === 'spices';
+const shown = (k: SectionKey) => PAGE_LAYOUTS[v.slug].includes(k) && !(page.hidden as string[]).includes(k);
+const from = v.storyFrom;
+const attribution = from ? { name: from.product.name, path: from.product.path } : null;
+const title = page.seo.title || `${c.name} | HariLeaf`;
+const crumbs = [{ name: 'Home', path: '/' }, { name: c.name, path: `/${v.slug}/` }];
+// FAQPage only for questions actually on the page.
+const schemas = [breadcrumbJsonLd(crumbs), faqJsonLd(shown('faq') ? page.faq : [])].filter((s): s is Record<string, unknown> => s !== null);
+const recipes = from ? recipesUsing(from.product.category.slug, from.product.slug) : [];
+// The hub's hero is words only: it speaks for chilli too, so no certification, GI or lab badges.
+const hero = hub ? { certLine: null, certUrl: null, giBadge: null, badges: [] } : { certLine: v.certificationLine, certUrl: v.certUrl, giBadge: v.giBadge, badges: v.heroProof };
+// /spices hub: the turmeric card goes to /turmeric once it's published (else its product page); other linked products are chilli.
+const turmericCard = hub ? (v.cards.find((x) => x.id === page.storyFromProductId) ?? null) : null;
+const turmericCert = turmericCard ? (v.certifications[String(turmericCard.id)]?.line ?? null) : null;
+const otherCards = hub ? v.cards.filter((x) => x.id !== page.storyFromProductId) : [];
+const blurb = (x: { id: number; shortDescription: string }) => page.cardBlurbs[String(x.id)] || x.shortDescription;
+const hubCard = 'block rounded-3xl p-7 border border-white/10 bg-white/[0.04]';
+const hubLink = `${hubCard} hover:border-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white`;
+const use = shown('use') ? (from?.story.use ?? null) : null;
+const light = {
+  facts: shown('facts') ? page.facts : [],
+  note: shown('note') ? page.note : '',
+  faq: shown('faq') ? page.faq : [],
+  closing: shown('closing') ? page.closing : '',
+};
+const hasLight = Boolean(light.facts.length || use || light.note || light.faq.length || light.closing);
+---
+
+<SiteLayout title={title} description={page.seo.description} noIndex={Boolean(preview)}>
+  <slot name="head" slot="head">
+    <SEO title={title} description={page.seo.description} canonicalUrl={absolute(`/${v.slug}/`)} noIndex={Boolean(preview)} />
+    {schemas.map((s) => <script type="application/ld+json" is:inline set:html={jsonLdString(s)} />)}
+  </slot>
+
+  {preview && (
+    <div class="pt-20">{/* In the flow just below the fixed header (never over it). */}
+      <div class="bg-[#8a6d1d] text-white text-sm px-6 py-2" role="status">
+        <strong>Preview of the draft — not live.</strong>{preview.messages.length ? ` Fix before publishing: ${preview.messages.join(' · ')}` : ' Ready to publish.'}
+      </div>
+    </div>
+  )}
+
+  <div style={`--accent:${c.accent}`}>
+    <StoryHero hero={page.hero} {...hero} ctaHref="#cards" />
+
+    {hub ? (
+      <section id="cards" class="py-16 px-6 text-white scroll-mt-24" style="background:#0c110c;" aria-labelledby="cards-heading">
+        <div class="max-w-5xl mx-auto">
+          <p class="text-xs uppercase tracking-widest font-extrabold mb-2" style="color:var(--accent);">{c.cards[0]}</p>
+          <h2 id="cards-heading" class="text-white text-3xl font-extrabold tracking-tight mb-8">{c.cards[1]}</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {turmericCard && (
+              <a href={v.turmericPublished ? '/turmeric/' : turmericCard.path} class={hubLink}>
+                <h3 class="text-white text-2xl font-extrabold">Turmeric</h3>
+                <p class="mt-1" style="color:rgba(240,240,238,.7);">{blurb(turmericCard)}</p>
+                {turmericCert && (
+                  <p class="mt-3 inline-flex items-center gap-1.5 text-xs font-bold" style="color:#cfe7b7;">
+                    <svg aria-hidden="true" focusable="false" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6" /></svg>
+                    <span>{turmericCert}</span>
+                  </p>
+                )}
+                <span class="mt-4 block font-extrabold" style="color:var(--accent);">{v.turmericPublished ? 'The turmeric story' : 'Buy turmeric'} <span aria-hidden="true">→</span></span>
+              </a>
+            )}
+            {otherCards.length > 0 ? otherCards.map((x) => (
+              <a href={x.path} class={hubLink}>
+                <h3 class="text-white text-2xl font-extrabold break-words">{x.name}</h3>
+                <p class="mt-1" style="color:rgba(240,240,238,.7);">{blurb(x)}</p>
+                <span class="mt-4 block font-extrabold" style="color:var(--accent);">View <span aria-hidden="true">→</span></span>
+              </a>
+            )) : (
+              <div class={hubCard}>
+                <h3 class="text-white text-2xl font-extrabold">Red chilli</h3>
+                <p class="mt-1" style="color:rgba(240,240,238,.7);">Coming soon.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+    ) : (
+      <CardsSection id="cards" eyebrow={c.cards[0]} heading={c.cards[1]} cards={v.cards} blurbs={page.cardBlurbs} />
+    )}
+
+    {shown('origin') && <OriginStory origin={from?.story.originStory ?? null} attribution={attribution} />}
+    {shown('photo_strip') && from && <ProcessTimeline eyebrow={c.strip[0]} heading={c.strip[1]} steps={from.story.processSteps} variant="photos" attribution={attribution} />}
+    {shown('comparison') && <ComparisonBlock eyebrow={c.comparison} comparison={from?.story.comparison ?? null} attribution={attribution} />}
+    {shown('lab_table') && <BatchLabTable columns={v.labTable.columns} rows={v.labTable.rows} />}
+    {shown('growers') && v.growers.length > 0 && (
+      <section class="py-14 px-6 text-white border-t border-white/10" style="background:#0c110c;" aria-labelledby="growers-heading">
+        <div class="max-w-7xl mx-auto">
+          <h2 id="growers-heading" class="text-white text-3xl font-extrabold tracking-tight mb-6">Who grows it</h2>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">{v.growers.map((g) => <GrowerCard grower={g} />)}</div>
+        </div>
+      </section>
+    )}
+
+    {hasLight && (
+      <div class="max-w-7xl mx-auto px-6 py-16 flex flex-col gap-12">
+        <FactsBlock heading={c.facts} facts={light.facts} />
+        <UseBlock use={use} recipes={recipes} />
+        {light.note && <p class="max-w-3xl text-lg text-on-surface-variant">{light.note} <a href="/our-process/" class="font-bold text-primary hover:underline">How we grow, mill and grind <span aria-hidden="true">→</span></a></p>}
+        <FaqList faq={light.faq} />
+        {light.closing && <p class="text-3xl font-extrabold tracking-tight text-center text-on-surface break-words">{light.closing}</p>}
+      </div>
+    )}
+  </div>
+</SiteLayout>

@@ -1,0 +1,249 @@
+---
+/** Today's /spices, served until the spices hub is first published, and on D1 failure. Delete in rollout step 4. */
+import { articlesFor } from '../../../content/store/articles';
+import ProductGrid from '../ProductGrid.astro';
+import type { ProductCard } from '../../../lib/store/catalog';
+import { absolute, categoryPath } from '../../../lib/store/urls';
+import SiteLayout from '../../../layouts/SiteLayout.astro';
+import SEO from '../../seo/SEO.astro';
+import FadeIn from '../../animations/FadeIn.astro';
+import WaitlistForm from '../../produce/WaitlistForm.astro';
+import PhotoGallery from '../../produce/PhotoGallery.astro';
+
+interface Props { cards: ProductCard[] }
+const { cards } = Astro.props;
+
+// Stable canonical: the edge cache serves /spices and /spices/ from one entry.
+const canonicalURL = absolute(categoryPath('spices'));
+const pageTitle = 'Stone-Ground Turmeric & Red Chili Powder | HariLeaf';
+const pageDesc  = 'Buy HariLeaf turmeric and red chili powder — sun-dried and slowly stone-ground at low temperature so more of the aroma and colour stays in the powder.';
+
+const galleryFilters = [
+  { key: 'all', label: 'All' },
+  { key: 'spice:turmeric', label: 'Turmeric' },
+  { key: 'spice:chili', label: 'Red Chili' },
+];
+const selling = cards.length > 0;
+---
+
+<SiteLayout title={pageTitle} description={pageDesc}>
+  <slot name="head" slot="head">
+    <SEO title={pageTitle} description={pageDesc} canonicalUrl={canonicalURL} />
+  </slot>
+
+  <style>
+    .s-photoslot { border:1.5px dashed rgba(224,165,58,.4); background:repeating-linear-gradient(45deg,rgba(255,255,255,.02),rgba(255,255,255,.02) 10px,rgba(255,255,255,.04) 10px,rgba(255,255,255,.04) 20px); display:flex; align-items:center; justify-content:center; color:rgba(224,165,58,.75); font-size:12px; font-weight:700; text-align:center; }
+    .pcard { transition:transform .2s, box-shadow .2s, border-color .2s; cursor:pointer; }
+    .pcard:hover { transform:translateY(-4px); box-shadow:0 16px 38px rgba(0,0,0,.45); }
+    .s-grad { background:linear-gradient(90deg,#e8b84a,#d05656); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+    .gauge > span { display:block; height:100%; }
+    .g-hot > span { width:95%; background:linear-gradient(90deg,#e0a53a,#c0392b); }
+    .g-cold > span { width:28%; background:linear-gradient(90deg,#196a5e,#8bd4c6); }
+  </style>
+
+  <!-- HERO -->
+  <section class="relative overflow-hidden" style="background:linear-gradient(135deg,#1a0f06 0%,#1a0a08 100%);padding:8rem 0 4.5rem;">
+    <div class="absolute inset-0 pointer-events-none" aria-hidden="true">
+      <div style="position:absolute;top:0;right:0;width:50%;height:100%;background:radial-gradient(ellipse at 88% 25%, rgba(224,165,58,.22) 0%, transparent 55%);"></div>
+      <div style="position:absolute;bottom:0;left:0;width:45%;height:100%;background:radial-gradient(ellipse at 10% 80%, rgba(192,57,43,.2) 0%, transparent 55%);"></div>
+    </div>
+    <div class="absolute right-10 top-1/2 -translate-y-1/2 text-[9rem] opacity-[0.14] select-none pointer-events-none" aria-hidden="true">🌶️</div>
+    <div class="relative z-10 max-w-7xl mx-auto px-6">
+      <FadeIn><span class="text-xs uppercase tracking-widest font-extrabold" style="color:rgba(224,165,58,.9);">HariLeaf Farm · Stone-Ground Spices</span></FadeIn>
+      <FadeIn delay={100}><h1 class="text-5xl md:text-6xl font-extrabold tracking-tighter leading-[1.05] mt-4 text-white">Ground <span class="s-grad">slowly.</span><br />Dated on every pack.</h1></FadeIn>
+      <FadeIn delay={200}><p class="mt-5 text-lg max-w-xl leading-relaxed" style="color:rgba(255,255,255,.55);">Turmeric and red chili, sun-dried and ground slowly on stone — so more of the aromatic oils and colour stay in the powder instead of being driven off by the heat of high-speed mills.</p></FadeIn>
+      <FadeIn delay={300}>
+        <div class="mt-7 flex flex-wrap gap-3">
+          {['🪨 Stone-Ground','☀️ Sun-Dried','📦 Small-Batch','🏷️ Batch-Dated'].map((b) => (
+            <span class="text-xs font-extrabold uppercase tracking-wider px-4 py-2 rounded-full" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.75);">{b}</span>
+          ))}
+          {selling ? (
+            <a href="#spices-products" class="text-xs font-extrabold uppercase tracking-wider px-4 py-2 rounded-full" style="background:rgba(224,165,58,.16);border:1px solid rgba(224,165,58,.4);color:#e8b84a;">🛒 Order online ↓</a>
+          ) : (
+            <span class="text-xs font-extrabold uppercase tracking-wider px-4 py-2 rounded-full" style="background:rgba(255,180,80,.14);border:1px solid rgba(255,180,80,.35);color:rgba(255,200,120,.95);">🛒 Online Ordering — Coming Soon</span>
+          )}
+        </div>
+      </FadeIn>
+    </div>
+  </section>
+
+  {selling && (
+    <section id="spices-products" style="background:#0c0a08;" class="pt-16 px-6 scroll-mt-24" aria-labelledby="spices-products-heading">
+      <div class="max-w-7xl mx-auto">
+        <p class="text-xs uppercase tracking-widest font-extrabold mb-2" style="color:rgba(224,165,58,.75);">Order online · free delivery across India</p>
+        <h2 id="spices-products-heading" class="text-3xl font-extrabold tracking-tight mb-8 text-white">Buy our spices</h2>
+        <ProductGrid cards={cards} tone="dark" />
+      </div>
+    </section>
+  )}
+  <!-- Reading links stay when nothing is on sale (off season, sold out), so these pages keep their links in. -->
+  <div style="background:#0c0a08;" class="px-6">
+    <p class="max-w-7xl mx-auto pt-8 text-sm flex flex-wrap gap-x-5 gap-y-2" style="color:rgba(240,240,238,.75);">
+      {articlesFor('spices').map((a) => <a href={`/learn/${a.slug}/`} class="font-bold underline" style="color:#8bd4c6;">{a.title}</a>)}
+      <a href="/recipes/" class="font-bold underline" style="color:#8bd4c6;">Recipes</a>
+      <a href="/our-process/" class="font-bold underline" style="color:#8bd4c6;">How we grow, mill and grind</a>
+    </p>
+  </div>
+
+  <!-- PRODUCTS (scalable grid) -->
+  <section style="background:#0c0a08;" class="py-16 px-6">
+    <div class="max-w-7xl mx-auto">
+      <FadeIn>
+        <p class="text-xs uppercase tracking-widest font-extrabold mb-2" style="color:rgba(224,165,58,.75);">Our spices</p>
+        <h2 class="text-3xl font-extrabold tracking-tight mb-2 text-white">Ground for aroma, not for speed</h2>
+        <p class="mb-8" style="color:rgba(240,240,238,.55);">Tap a spice to see how it's grown, dried and stone-ground.</p>
+      </FadeIn>
+      <div class="grid gap-4" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr));">
+        <FadeIn>
+          <div class="pcard rounded-2xl overflow-hidden border h-full" style="border-color:rgba(224,165,58,.28);background:radial-gradient(ellipse at 80% 8%, rgba(224,165,58,.22), transparent 60%), rgba(255,255,255,.04);" data-gallery-cat="spice:turmeric">
+            <div style="height:180px;overflow:hidden;border-bottom:1px solid rgba(255,255,255,.06);">
+              <img data-card-photo src="/images/placeholders/spice-turmeric.jpg" alt="HariLeaf Turmeric Powder" loading="lazy" style="width:100%;height:100%;object-fit:cover;" />
+            </div>
+            <div class="p-7">
+              <h3 class="text-2xl font-extrabold text-white">Turmeric Powder</h3>
+              <p class="text-xs font-bold uppercase tracking-wide mb-3.5" style="color:#e8b84a;">Haldi · Stone-Ground</p>
+              <p class="text-sm mb-4" style="color:rgba(240,240,238,.62);">Sun-dried whole rhizomes, stone-ground slowly so the golden colour and earthy aroma stay locked in.</p>
+              <div class="flex flex-wrap gap-1.5 mb-4">{['Sun-dried','No additives'].map((c) => (<span class="text-[11px] font-bold px-2.5 py-1 rounded-full" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.82);">{c}</span>))}</div>
+              <span class="viewlink text-xs font-extrabold" style="color:#e8b84a;display:none;">View photos →</span>
+            </div>
+          </div>
+        </FadeIn>
+        <FadeIn delay={80}>
+          <div class="pcard rounded-2xl overflow-hidden border h-full" style="border-color:rgba(192,57,43,.3);background:radial-gradient(ellipse at 80% 8%, rgba(192,57,43,.22), transparent 60%), rgba(255,255,255,.04);" data-gallery-cat="spice:chili">
+            <div style="height:180px;overflow:hidden;border-bottom:1px solid rgba(255,255,255,.06);">
+              <img data-card-photo src="/images/placeholders/spice-chili.jpg" alt="HariLeaf Red Chili Powder" loading="lazy" style="width:100%;height:100%;object-fit:cover;" />
+            </div>
+            <div class="p-7">
+              <h3 class="text-2xl font-extrabold text-white">Red Chili Powder</h3>
+              <p class="text-xs font-bold uppercase tracking-wide mb-3.5" style="color:#e88;">Lal Mirchi · Stone-Ground</p>
+              <p class="text-sm mb-4" style="color:rgba(240,240,238,.62);">Whole sun-dried chilies, stone-ground to protect the deep red colour and fragrant oils that hot mills dull.</p>
+              <div class="flex flex-wrap gap-1.5 mb-4">{['Sun-dried','No colour added'].map((c) => (<span class="text-[11px] font-bold px-2.5 py-1 rounded-full" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.82);">{c}</span>))}</div>
+              <span class="viewlink text-xs font-extrabold" style="color:#e88;display:none;">View photos →</span>
+            </div>
+          </div>
+        </FadeIn>
+        <FadeIn delay={160}>
+          <div class="rounded-2xl flex flex-col items-center justify-center text-center h-full p-10" style="border:1.5px dashed rgba(224,165,58,.3);color:rgba(224,165,58,.7);min-height:340px;">
+            <div class="text-4xl mb-3 opacity-60">➕</div>
+            <div class="font-extrabold text-[15px] mb-1">More spices coming</div>
+            <div class="text-[13px]" style="color:rgba(240,240,238,.45);max-width:200px;">Coriander, cumin &amp; more — same slow stone grinding.</div>
+          </div>
+        </FadeIn>
+      </div>
+    </div>
+  </section>
+
+  <!-- TEMPERATURE EDUCATION -->
+  <section style="background:#0c0a08;" class="pb-16 px-6">
+    <div class="max-w-7xl mx-auto">
+      <FadeIn>
+        <p class="text-xs uppercase tracking-widest font-extrabold mb-2" style="color:rgba(224,165,58,.75);">The thing nobody tells you</p>
+        <h2 class="text-3xl font-extrabold tracking-tight mb-2 text-white">Why grinding <em class="not-italic" style="color:#d05656;">temperature</em> changes everything</h2>
+        <p class="mb-8 max-w-2xl" style="color:rgba(240,240,238,.55);">A spice's soul — its aroma and colour — lives in delicate volatile oils. Volatile oils are sensitive to heat. High-speed mills spin so fast that friction warms the powder; slow stone grinding runs much cooler.</p>
+      </FadeIn>
+      <div class="rounded-3xl p-8 md:p-12" style="background:linear-gradient(135deg,#15100a 0%,#0e0a08 100%);">
+        <div class="grid md:grid-cols-2 gap-4.5" style="gap:1.125rem;">
+          <div class="rounded-2xl p-7 border" style="background:radial-gradient(ellipse at 50% 0%, rgba(192,57,43,.14), transparent 70%), rgba(255,255,255,.03);border-color:rgba(255,255,255,.1);">
+            <div class="text-xs font-extrabold uppercase tracking-widest mb-1.5" style="color:#e07a6a;">🏭 High-speed industrial mill</div>
+            <h3 class="text-xl font-bold text-white mb-4">Hot &amp; fast</h3>
+            <div class="gauge g-hot h-3 rounded-lg mb-1.5" style="background:rgba(255,255,255,.08);overflow:hidden;"><span></span></div>
+            <div class="text-2xl font-extrabold mb-4" style="color:#e07a6a;">High heat</div>
+            <ul class="text-sm space-y-1.5" style="color:rgba(240,240,238,.65);"><li>• Very fast, high friction</li><li>• The powder heats up as it is ground</li><li>• Large batches</li><li>• Cheap and quick</li></ul>
+          </div>
+          <div class="rounded-2xl p-7 border" style="background:radial-gradient(ellipse at 50% 0%, rgba(25,106,94,.16), transparent 70%), rgba(255,255,255,.03);border-color:rgba(139,212,198,.3);">
+            <div class="text-xs font-extrabold uppercase tracking-widest mb-1.5" style="color:#8bd4c6;">🪨 Our slow stone grinding</div>
+            <h3 class="text-xl font-bold text-white mb-4">Cool &amp; slow</h3>
+            <div class="gauge g-cold h-3 rounded-lg mb-1.5" style="background:rgba(255,255,255,.08);overflow:hidden;"><span></span></div>
+            <div class="text-2xl font-extrabold mb-4" style="color:#8bd4c6;">Low heat</div>
+            <ul class="text-sm space-y-1.5" style="color:rgba(240,240,238,.65);"><li>• Slow, low friction</li><li>• The powder stays cooler while it is ground</li><li>• Small lots, batch-dated</li><li>• Slower and costlier</li></ul>
+          </div>
+        </div>
+        <div class="text-center mt-7 p-6 rounded-2xl" style="background:rgba(192,57,43,.1);border:1px solid rgba(192,57,43,.25);">
+          <b class="text-2xl font-extrabold block" style="color:#e8b84a;">Why we grind slowly</b>
+          <span class="text-sm" style="color:rgba(240,240,238,.6);">Aroma and colour come from compounds that are sensitive to heat, so we keep grinding slow and cool. As lab results for our batches arrive, we'll publish them on each product page.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PER-SPICE MODULES -->
+  <section style="background:#0c0a08;" class="pb-16 px-6">
+    <div class="max-w-7xl mx-auto">
+      <FadeIn>
+        <p class="text-xs uppercase tracking-widest font-extrabold mb-2" style="color:rgba(224,165,58,.75);">Get to know each spice</p>
+        <h2 class="text-3xl font-extrabold tracking-tight mb-2 text-white">What's inside each spice</h2>
+        <p class="mb-8 max-w-2xl" style="color:rgba(240,240,238,.55);">Each spice, what gives it colour and aroma, and how it's used.</p>
+      </FadeIn>
+
+      <div class="rounded-3xl p-8 md:p-11 border mb-5" style="background:radial-gradient(ellipse at 90% 0%, rgba(224,165,58,.12), transparent 60%), #12100b;border-color:rgba(255,255,255,.08);">
+        <div class="flex items-center gap-3.5 mb-1"><span class="text-3xl">🟡</span><div><h3 class="text-2xl font-extrabold text-white">Turmeric (Haldi)</h3><div class="text-xs font-bold uppercase tracking-wide" style="color:#e8b84a;">Golden · Earthy · Warming</div></div></div>
+        <p class="my-4 max-w-3xl" style="color:rgba(240,240,238,.6);">One of India's most loved spices. Its colour comes from curcumin and its aroma from volatile oils — the things slow grinding is meant to keep.</p>
+        <div class="grid md:grid-cols-2 gap-7">
+          <div>
+            <h4 class="text-[13px] uppercase tracking-wide font-extrabold mb-3.5" style="color:rgba(240,240,238,.5);">What stone grinding protects</h4>
+            {[['🌿','Aromatic oils (turmerone)','The warm, earthy smell — the first thing heat destroys.'],['✨','Golden colour (curcumin)','The pigment that gives haldi its colour — kept bright, not browned.'],['🫙','Oleoresin richness','The resinous compounds that carry flavour and body.']].map(([e,k,v]) => (
+              <div class="flex items-start gap-3 py-2.5 border-t" style="border-color:rgba(255,255,255,.07);"><span class="text-base">{e}</span><div><div class="font-extrabold text-sm text-white">{k}</div><div class="text-[13px]" style="color:rgba(240,240,238,.55);">{v}</div></div></div>
+            ))}
+          </div>
+          <div>
+            <h4 class="text-[13px] uppercase tracking-wide font-extrabold mb-3.5" style="color:rgba(240,240,238,.5);">How people use it</h4>
+            {[['🍛','Everyday cooking','Dal, sabzi, rice and pickles — colour and warmth in a pinch.'],['🍵','Haldi doodh','Warm milk with a spoon of turmeric, a classic at bedtime.'],['🫙','Pickles & masalas','A base for achaar and home-made masala blends.']].map(([e,k,v]) => (
+              <div class="flex items-start gap-3 py-2.5 border-t" style="border-color:rgba(255,255,255,.07);"><span class="text-base">{e}</span><div><div class="font-extrabold text-sm text-white">{k}</div><div class="text-[13px]" style="color:rgba(240,240,238,.55);">{v}</div></div></div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-3xl p-8 md:p-11 border mb-5" style="background:radial-gradient(ellipse at 90% 0%, rgba(192,57,43,.12), transparent 60%), #120c0b;border-color:rgba(255,255,255,.08);">
+        <div class="flex items-center gap-3.5 mb-1"><span class="text-3xl">🔴</span><div><h3 class="text-2xl font-extrabold text-white">Red Chili (Lal Mirchi)</h3><div class="text-xs font-bold uppercase tracking-wide" style="color:#e88;">Vivid · Fragrant · Bold</div></div></div>
+        <p class="my-4 max-w-3xl" style="color:rgba(240,240,238,.6);">More than just heat — good chili powder brings colour, aroma and depth. The colour comes from carotenoid pigments and the aroma from volatile oils, both of which fade under high-heat grinding.</p>
+        <div class="grid md:grid-cols-2 gap-7">
+          <div>
+            <h4 class="text-[13px] uppercase tracking-wide font-extrabold mb-3.5" style="color:rgba(240,240,238,.5);">What stone grinding protects</h4>
+            {[['🎨','Deep red colour (carotenoids)','Heat- and oxidation-sensitive — kept vivid, with no added colour.'],['🌿','Fragrant volatile oils','The aroma that tells you it\'s good chili, not just heat.'],['🌶️','Honest pungency (capsaicin)','The heat holds up well — what you pay for is colour & aroma.']].map(([e,k,v]) => (
+              <div class="flex items-start gap-3 py-2.5 border-t" style="border-color:rgba(255,255,255,.07);"><span class="text-base">{e}</span><div><div class="font-extrabold text-sm text-white">{k}</div><div class="text-[13px]" style="color:rgba(240,240,238,.55);">{v}</div></div></div>
+            ))}
+          </div>
+          <div>
+            <h4 class="text-[13px] uppercase tracking-wide font-extrabold mb-3.5" style="color:rgba(240,240,238,.5);">How people use it</h4>
+            {[['🔥','Tadka & curries','A spoon in hot oil for colour and heat.'],['🥘','Masalas & marinades','Colour and depth for roasts, tikkas and gravies.'],['🍲','Colour, heat & aroma','Transforms curries, masalas and roasts in one spoon.']].map(([e,k,v]) => (
+              <div class="flex items-start gap-3 py-2.5 border-t" style="border-color:rgba(255,255,255,.07);"><span class="text-base">{e}</span><div><div class="font-extrabold text-sm text-white">{k}</div><div class="text-[13px]" style="color:rgba(240,240,238,.55);">{v}</div></div></div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-2xl p-5 text-[13px]" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);color:rgba(240,240,238,.55);">
+        <b style="color:#cfe0b5;">What we promise.</b> No health claims — just what's in the pack: sun-dried, slowly stone-ground spice, with the batch code and packed-on date printed on it.
+      </div>
+    </div>
+  </section>
+
+  <!-- WHY IT COSTS MORE -->
+  <section style="background:#0c0a08;" class="pb-16 px-6">
+    <div class="max-w-7xl mx-auto">
+      <div class="rounded-3xl p-9 md:p-12" style="background:linear-gradient(135deg,#1a140b 0%,#120c0a 100%);">
+        <p class="text-xs uppercase tracking-widest font-extrabold mb-2" style="color:rgba(224,165,58,.75);">Yes, it costs more</p>
+        <h2 class="text-3xl font-extrabold tracking-tight mb-2 text-white">And here's exactly why it's worth it</h2>
+        <p class="max-w-2xl" style="color:rgba(240,240,238,.55);">Sun drying and stone grinding are slower, yield less and take more hands.</p>
+        <div class="grid md:grid-cols-3 gap-4 mt-7">
+          {[['🐢','Slow by design','Stone grinding takes far longer than a hammer mill, and runs much cooler.'],['☀️','Sun-dried whole','Whole rhizomes and chilies dried in the sun, never rushed with industrial heat.'],['🤏','Small batches','Ground in small lots and dated on the pack, not left for months on a shelf.']].map(([e,t,d]) => (
+            <div class="rounded-2xl p-6" style="background:rgba(255,255,255,.04);border:1px solid rgba(224,165,58,.18);"><div class="text-3xl mb-2.5">{e}</div><div class="font-extrabold text-white mb-1.5">{t}</div><div class="text-[13px]" style="color:rgba(240,240,238,.58);">{d}</div></div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- WAITLIST (until the first spice product is live) -->
+  {!selling && <div id="spices-waitlist" style="background:#0c0a08;">
+    <WaitlistForm
+      subject="Spices Waitlist — HariLeaf Farm"
+      heading="Get first access to our spices"
+      subtext="We're setting up online ordering for our stone-ground turmeric and red chili. Leave your number and we'll message you the moment they're available."
+      accent="gold"
+    />
+  </div>}
+
+  <PhotoGallery groupTitle="HariLeaf Spices" categoryPrefix="spice" filters={galleryFilters} accent="gold" />
+</SiteLayout>

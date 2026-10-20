@@ -35,7 +35,7 @@ const off = card.fromPrice && card.fromMrp && card.fromMrp > card.fromPrice ? Ma
     )}
   </div>
   <div class="p-5 flex flex-col gap-2 flex-1">
-    <H class="text-lg font-extrabold leading-snug">{card.name}</H>
+    <H class:list={['text-lg font-extrabold leading-snug', { 'text-white': dark }]}>{card.name}</H>
     {card.claims.length > 0 && (
       <ul class="flex flex-wrap gap-1.5" aria-label="Process">
         {card.claims.slice(0, 3).map((c) => (

@@ -26,7 +26,7 @@ const photoCols = cols[steps.length] ?? 'grid-cols-2 lg:grid-cols-4';
   <section class="py-14 px-6 text-white border-t border-white/10" style="background:#0c110c;" aria-labelledby={id}>
     <div class="max-w-7xl mx-auto">
       {eyebrow && <p class="text-xs uppercase tracking-widest font-extrabold mb-2" style="color:var(--accent,#9fb17d);">{eyebrow}</p>}
-      <h2 id={id} class="text-3xl font-extrabold tracking-tight mb-8 break-words">{heading}</h2>
+      <h2 id={id} class="text-white text-3xl font-extrabold tracking-tight mb-8 break-words">{heading}</h2>
       {photos ? (
         <ol class:list={['grid gap-4', photoCols]}>
           {steps.map((s, i) => (
@@ -34,7 +34,7 @@ const photoCols = cols[steps.length] ?? 'grid-cols-2 lg:grid-cols-4';
               {s.photoKey && <img src={mediaUrl(s.photoKey)} alt={s.photoAlt} width="400" height="300" loading="lazy" decoding="async" class="w-full aspect-[4/3] object-cover" />}
               <div class="p-4">
                 <p aria-hidden="true" class="text-xs font-extrabold" style="color:var(--accent,#9fb17d);">{i + 1}</p>
-                <h3 class="font-extrabold break-words">{s.title}</h3>
+                <h3 class="text-white font-extrabold break-words">{s.title}</h3>
                 <p class="mt-1 text-sm leading-relaxed" style="color:rgba(240,240,238,.72);">{s.text}</p>
               </div>
             </li>
@@ -47,7 +47,7 @@ const photoCols = cols[steps.length] ?? 'grid-cols-2 lg:grid-cols-4';
             {steps.map((s) => (
               <li class="relative">
                 <span aria-hidden="true" class="absolute -left-8 top-1.5 w-3.5 h-3.5 rounded-full" style="background:var(--accent,#9fb17d);"></span>
-                <h3 class="font-extrabold">{s.title}</h3>
+                <h3 class="text-white font-extrabold">{s.title}</h3>
                 <p class="text-sm leading-relaxed" style="color:rgba(240,240,238,.72);">{s.text}</p>
               </li>
             ))}
