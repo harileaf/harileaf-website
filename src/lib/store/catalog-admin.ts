@@ -11,11 +11,13 @@
  */
 import type { Faq, Nutrition, ProductRow, VariantRow } from './catalog';
 import { mapProduct } from './catalog';
-import { RAW_PRODUCE_TERMS, findBannedPhrases, organicCopy, validateProcessClaims, type OrganicScheme, type ProcessClaim } from './claims';
+import { GI_MESSAGE, RAW_PRODUCE_TERMS, findBannedPhrases, findGiProblems, organicCopy, parseProcessClaims, validateProcessClaims, type OrganicScheme, type ProcessClaim } from './claims';
 import { classifyD1Error, nowIso } from './db';
-import { productPurgePaths, purgeUrls } from './edge-cache';
-import { enqueueStmt } from './outbox';
+import { productPurgePaths } from './edge-cache';
+import { purgeStmts } from './purge';
 import { getSettings, type SettingKey } from './settings';
+import { checkProductStory, fieldLabel, type ContextProduct } from './story-claims';
+import { loadContextProducts, publishedPageConflicts } from './story-pages';
 import { isCategorySlug } from './urls';
 import { parseZones } from './zones';
 
@@ -44,6 +46,9 @@ export interface ProductInput {
   organicScheme: OrganicScheme;
   organicConversionSince: number | null;
   organicCertNumber: string | null;
+  /** Registered GI name (e.g. "Wada Kolam"); needs giAuRegNumber. */
+  giName: string | null;
+  giAuRegNumber: string | null;
   processClaims: ProcessClaim[];
   howItsMade: Record<string, string>;
   harvestInfo: Record<string, string>;
@@ -149,10 +154,19 @@ export function validateProduct(p: ProductInput, variants: VariantInput[], ctx: 
   if (p.organicConversionSince !== null && !isInt(p.organicConversionSince, 2000, 2100)) fail('organicConversionSince', 'Enter a year');
   const mayUseOrganic = organicCopy({ organicScheme: p.organicScheme, conversionSince: p.organicConversionSince, certNumber: p.organicCertNumber }).mayUseOrganic;
 
+  if (trimOrNull(p.giName) && !trimOrNull(p.giAuRegNumber)) fail('giAuRegNumber', 'Add the authorised-user registration number, or clear the GI name');
+  const giRegistered = Boolean(trimOrNull(p.giName) && trimOrNull(p.giAuRegNumber));
+  // Slugs are lowercase, so only the GI name, "gi-tagged" and "geographical-indication" can match here, not bare "GI".
+  // A published slug is frozen; a product being discontinued may keep it (its replacement gets a clean slug).
+  const slugFrozenForDiscontinue = ctx.published && p.slug === ctx.currentSlug && p.status === 'discontinued';
+  if (!slugFrozenForDiscontinue && findGiProblems(p.slug.replace(/-/g, ' '), { giRegistered }).length) fail('slug', GI_MESSAGE);
+  p.processClaims.forEach((c, i) => { if (findGiProblems(c.text, { giRegistered }).length) fail('processClaims', `Claim ${i + 1}: ${GI_MESSAGE}`); });
+
   const allowedTerms = p.perishable ? RAW_PRODUCE_TERMS : [];
   const claimErrors = validateProcessClaims(p.processClaims, { organicScheme: p.organicScheme, mayUseOrganic, allowedTerms });
   if (claimErrors.length) fail('processClaims', claimErrors.join('; '));
   for (const [field, text] of visibleTexts(p, variants)) {
+    if (findGiProblems(text, { giRegistered }).length) fail(field, GI_MESSAGE);
     const banned = findBannedPhrases(text, { organicScheme: p.organicScheme, claims: p.processClaims, mayUseOrganic, allowedTerms });
     if (banned.length) fail(field, `Remove or substantiate: ${banned.join(', ')} (see the claims guidance)`);
   }
@@ -217,7 +231,8 @@ export function publishChecklist(p: ProductInput, variants: VariantInput[], ctx:
 
 // ── writes ─────────────────────────────────────────────────────────────────
 
-export type SaveResult = { ok: true; id: number } | { ok: false; errors: FieldErrors };
+/** `warnings` are problems that were already there before this save (never blocking). */
+export type SaveResult = { ok: true; id: number; warnings?: FieldErrors } | { ok: false; errors: FieldErrors };
 
 function productColumns(p: ProductInput) {
   return {
@@ -231,6 +246,8 @@ function productColumns(p: ProductInput) {
     organic_scheme: p.organicScheme,
     organic_conversion_since: p.organicConversionSince,
     organic_cert_number: trimOrNull(p.organicCertNumber),
+    gi_name: trimOrNull(p.giName),
+    gi_au_reg_number: trimOrNull(p.giAuRegNumber),
     process_claims: JSON.stringify(p.processClaims.map((c) => ({ code: c.code, text: c.text.trim(), evidence_note: c.evidence_note.trim() }))),
     how_its_made: JSON.stringify(p.howItsMade),
     harvest_info: JSON.stringify(p.harvestInfo),
@@ -286,21 +303,31 @@ async function existing(db: D1Database, id: number) {
 const imageCount = async (db: D1Database, id: number) =>
   (await db.prepare('SELECT count(*) AS n FROM product_images WHERE product_id = ?').bind(id).first<{ n: number }>())?.n ?? 0;
 
-/**
- * Purge rows for a catalog change: the given paths plus every live product
- * page (any of them may show this product as "related"), now and again 30 s
- * later — the second purge clears pages that were mid-render during the write.
- */
-function purgeStmts(db: D1Database, paths: string[], at: string, allProductPaths: string[] = []): D1PreparedStatement[] {
-  const urls = purgeUrls([...paths, ...allProductPaths]);
-  const later = new Date(Date.parse(at) + 30_000).toISOString();
-  return [
-    enqueueStmt(db, { kind: 'cache.purge', payload: { urls }, at }),
-    enqueueStmt(db, { kind: 'cache.purge', payload: { urls }, at, notBefore: later }),
-  ];
-}
-
 const purgeStmt = (db: D1Database, paths: string[], at: string) => purgeStmts(db, paths, at)[0];
+
+const andList = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}` : xs[0]);
+
+/**
+ * Image descriptions and visible lab reports that would show GI wording once
+ * the product's GI registration is cleared ("Image 2's description", "lab
+ * report T-01"). Run only when a save clears the registration.
+ */
+async function giTextStillUsed(db: D1Database, productId: number): Promise<string[]> {
+  const [images, reports] = await db.batch([
+    db.prepare('SELECT alt FROM product_images WHERE product_id = ? ORDER BY sort, id').bind(productId),
+    db.prepare('SELECT batch_code, test_scope, summary FROM lab_reports WHERE product_id = ? AND visible = 1 ORDER BY tested_on DESC, id DESC').bind(productId),
+  ]);
+  const gi = (text: string) => findGiProblems(text, { giRegistered: false }).length > 0;
+  const out: string[] = [];
+  (images.results as Array<{ alt: string }>).forEach((r, i) => { if (gi(r.alt)) out.push(`image ${i + 1}'s description`); });
+  for (const r of reports.results as Array<{ batch_code: string; test_scope: string; summary: string }>) {
+    let summary: unknown = null;
+    try { summary = JSON.parse(r.summary); } catch { /* unreadable: only the scope is checked */ }
+    const pairs = summary && typeof summary === 'object' && !Array.isArray(summary) ? Object.entries(summary).flat().filter((x): x is string => typeof x === 'string') : [];
+    if (gi([r.test_scope, ...pairs].join(' '))) out.push(`lab report ${r.batch_code}`);
+  }
+  return out;
+}
 
 /** Paths of every active product page (for broad purges after catalog or settings changes). */
 export async function allStorePaths(db: D1Database): Promise<string[]> {
@@ -313,7 +340,7 @@ export async function allStorePaths(db: D1Database): Promise<string[]> {
 /** Statements that purge the whole storefront (used after store settings change). */
 export async function purgeStorefrontStmts(db: D1Database, at: string): Promise<D1PreparedStatement[]> {
   const products = await allStorePaths(db);
-  return purgeStmts(db, ['/shop', '/rice', '/spices', '/produce', '/sitemap-store.xml', '/feeds/google.xml'], at, products);
+  return purgeStmts(db, ['/shop', '/rice', '/spices', '/turmeric', '/produce', '/sitemap-store.xml', '/feeds/google.xml'], at, products);
 }
 
 /**
@@ -347,8 +374,51 @@ export async function saveProduct(
   });
   if (Object.keys(errors).length) return { ok: false, errors };
 
-  const at = nowIso(now);
+  // Evidence can't be removed from under live copy. Only problems this save
+  // introduces block it; ones already there come back as warnings, so price,
+  // stock and name edits are never locked out by an old story or page problem.
+  // The checks and the batch below are not one transaction (single-owner
+  // admin; same trade-off as story-pages.ts).
   const cols = productColumns(p);
+  const warnings: FieldErrors = {};
+  if (id !== null) {
+    const [saved] = await loadContextProducts(db, [id]);
+    if (saved) {
+      const wasRegistered = Boolean(saved.gi.name?.trim() && saved.gi.auRegNumber?.trim());
+      if (wasRegistered && !(cols.gi_name && cols.gi_au_reg_number)) {
+        const stillGi = await giTextStillUsed(db, id);
+        if (stillGi.length) {
+          const [verb, them] = stillGi.length > 1 ? ['use', 'them'] : ['uses', 'it'];
+          const list = andList(stillGi);
+          return { ok: false, errors: { giAuRegNumber: `${list[0].toUpperCase()}${list.slice(1)} still ${verb} GI wording or the name 'Wada Kolam'. Edit ${them} first, then clear the GI registration. ${GI_MESSAGE}` } };
+        }
+      }
+      // Built from `cols`, exactly what the batch writes.
+      const changed: ContextProduct = {
+        ...saved,
+        name: cols.name,
+        organic: { scheme: cols.organic_scheme, conversionSince: cols.organic_conversion_since, certNumber: cols.organic_cert_number },
+        claims: parseProcessClaims(cols.process_claims),
+        perishable: cols.perishable === 1,
+        gi: { name: cols.gi_name, auRegNumber: cols.gi_au_reg_number },
+      };
+      if (saved.story) {
+        const before = checkProductStory(saved.story, saved);
+        const blocking: string[] = [];
+        const old: string[] = [];
+        for (const [k, m] of Object.entries(checkProductStory(saved.story, changed)))
+          (before[k] === m ? old : blocking).push(`${fieldLabel(k)}: ${m.replace(/\.$/, '')}`);
+        if (blocking.length)
+          return { ok: false, errors: { story: `This change leaves this product's story with wording its evidence no longer supports. ${blocking.join('; ')}. Edit the story first.` } };
+        if (old.length) warnings.story = `This product's story already has problems. ${old.join('; ')}. Edit the story to fix them.`;
+      }
+      const pages = await publishedPageConflicts(db, changed);
+      if (pages.blocking.length) return { ok: false, errors: { _pages: pages.blocking.join('\n') } };
+      if (pages.warnings.length) warnings._pages = pages.warnings.join('\n');
+    }
+  }
+
+  const at = nowIso(now);
   const keys = Object.keys(cols);
   const stmts: D1PreparedStatement[] = [];
   // New products are referenced by their (category, slug), which is unique, so
@@ -405,7 +475,8 @@ export async function saveProduct(
 
   try {
     const res = await db.batch<{ id: number }>(stmts);
-    return { ok: true, id: res[res.length - 1].results[0].id };
+    const out = { ok: true as const, id: res[res.length - 1].results[0].id };
+    return Object.keys(warnings).length ? { ...out, warnings } : out;
   } catch (err) {
     const kind = classifyD1Error(err);
     const msg = err instanceof Error ? err.message : String(err);
@@ -419,21 +490,23 @@ export async function saveProduct(
 // ── images, batches, lab reports, certificates ─────────────────────────────
 
 /** Claims-policy check for extra shopper-visible text attached to a product. */
-async function textProblems(db: D1Database, productId: number, text: string): Promise<string | null> {
+type TextProblem = { kind: 'gi' } | { kind: 'banned'; phrases: string };
+
+/**
+ * Runs only when text is written (alt text, lab text); existing text isn't re-scanned.
+ * Returns null when the text is fine.
+ */
+async function textProblems(db: D1Database, productId: number, text: string): Promise<TextProblem | null> {
   const row = await db
-    .prepare('SELECT organic_scheme, organic_conversion_since, organic_cert_number, process_claims, perishable FROM products WHERE id = ?')
+    .prepare('SELECT organic_scheme, organic_conversion_since, organic_cert_number, process_claims, perishable, gi_name, gi_au_reg_number FROM products WHERE id = ?')
     .bind(productId)
-    .first<{ organic_scheme: OrganicScheme; organic_conversion_since: number | null; organic_cert_number: string | null; process_claims: string; perishable: number }>();
+    .first<{ organic_scheme: OrganicScheme; organic_conversion_since: number | null; organic_cert_number: string | null; process_claims: string; perishable: number; gi_name: string | null; gi_au_reg_number: string | null }>();
   if (!row) return null;
-  let claims: ProcessClaim[] = [];
-  try {
-    claims = JSON.parse(row.process_claims);
-  } catch {
-    claims = [];
-  }
+  const claims = parseProcessClaims(row.process_claims);
   const mayUseOrganic = organicCopy({ organicScheme: row.organic_scheme, conversionSince: row.organic_conversion_since, certNumber: row.organic_cert_number }).mayUseOrganic;
   const banned = findBannedPhrases(text, { organicScheme: row.organic_scheme, claims, mayUseOrganic, allowedTerms: row.perishable ? RAW_PRODUCE_TERMS : [] });
-  return banned.length ? banned.join(', ') : null;
+  if (findGiProblems(text, { giRegistered: Boolean(row.gi_name && row.gi_au_reg_number) }).length) return { kind: 'gi' };
+  return banned.length ? { kind: 'banned', phrases: banned.join(', ') } : null;
 }
 
 const IMAGE_TYPES: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/avif': 'avif' };
@@ -455,7 +528,7 @@ export async function addImage(db: D1Database, r2: R2Bucket, productId: number, 
   if (file.size > MAX_IMAGE_BYTES) return { ok: false as const, error: 'Images must be 5 MB or smaller' };
   if (!alt.trim()) return { ok: false as const, error: 'Describe the photo (alt text) for accessibility and search' };
   const altProblems = await textProblems(db, productId, alt);
-  if (altProblems) return { ok: false as const, error: `Alt text: remove or substantiate ${altProblems}` };
+  if (altProblems) return { ok: false as const, error: altProblems.kind === 'gi' ? `Alt text: ${GI_MESSAGE}` : `Alt text: remove or substantiate ${altProblems.phrases}` };
   const key = `products/${productId}/${now.getTime()}-${rand()}.${ext}`;
   await r2.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type } });
   const at = nowIso(now);
@@ -474,17 +547,19 @@ export async function addImage(db: D1Database, r2: R2Bucket, productId: number, 
   return { ok: true as const, key };
 }
 
-export async function updateImage(db: D1Database, productId: number, imageId: number, patch: { alt?: string; sort?: number }, now = new Date()) {
+export async function updateImage(db: D1Database, productId: number, imageId: number, patch: { alt?: string; sort?: number; kind?: 'photo' | 'infographic' }, now = new Date()) {
   const paths = await productPaths(db, productId);
   if (!paths) return { ok: false as const, error: 'Product not found' };
   if (patch.alt !== undefined && !patch.alt.trim()) return { ok: false as const, error: 'Alt text is required' };
+  if (patch.kind !== undefined && patch.kind !== 'photo' && patch.kind !== 'infographic') return { ok: false as const, error: 'Choose Photo or Infographic' };
   const altProblems = patch.alt ? await textProblems(db, productId, patch.alt) : null;
-  if (altProblems) return { ok: false as const, error: `Alt text: remove or substantiate ${altProblems}` };
+  if (altProblems) return { ok: false as const, error: altProblems.kind === 'gi' ? `Alt text: ${GI_MESSAGE}` : `Alt text: remove or substantiate ${altProblems.phrases}` };
+  const kind = patch.kind ?? null;
   const at = nowIso(now);
   await db.batch([
     db
-      .prepare('UPDATE product_images SET alt = COALESCE(?, alt), sort = COALESCE(?, sort) WHERE id = ? AND product_id = ?')
-      .bind(patch.alt?.trim() ?? null, Number.isInteger(patch.sort) ? patch.sort : null, imageId, productId),
+      .prepare('UPDATE product_images SET alt = COALESCE(?, alt), sort = COALESCE(?, sort), kind = COALESCE(?, kind) WHERE id = ? AND product_id = ?')
+      .bind(patch.alt?.trim() ?? null, Number.isInteger(patch.sort) ? patch.sort : null, kind, imageId, productId),
     db.prepare('UPDATE products SET updated_at = ? WHERE id = ?').bind(at, productId),
     purgeStmt(db, paths, at),
   ]);
@@ -578,7 +653,7 @@ export async function addLabReport(db: D1Database, r2: R2Bucket, productId: numb
   if (!l.batchCode.trim() || !l.labName.trim() || !DATE.test(l.testedOn)) return { ok: false as const, error: 'Batch code, lab name and test date are required' };
   if (pdf && (pdf.type !== 'application/pdf' || pdf.size > MAX_PDF_BYTES)) return { ok: false as const, error: 'Upload the report as a PDF of 10 MB or less' };
   const labProblems = await textProblems(db, productId, [l.testScope, ...Object.entries(l.summary).flat()].join(' '));
-  if (labProblems) return { ok: false as const, error: `Report text: remove or substantiate ${labProblems} (state measured results only)` };
+  if (labProblems) return { ok: false as const, error: labProblems.kind === 'gi' ? GI_MESSAGE : `Report text: remove or substantiate ${labProblems.phrases} (state measured results only)` };
   let key: string | null = null;
   if (pdf) {
     key = `lab-reports/${productId}/${now.getTime()}-${rand()}.pdf`;
@@ -652,7 +727,7 @@ export async function getProductForAdmin(db: D1Database, id: number) {
   if (!row) return null;
   const [variants, images, batches, labReports] = await Promise.all([
     db.prepare('SELECT * FROM variants WHERE product_id = ? ORDER BY active DESC, sort, id').bind(id).all<VariantRow>(),
-    db.prepare('SELECT id, r2_key, alt, sort FROM product_images WHERE product_id = ? ORDER BY sort, id').bind(id).all<{ id: number; r2_key: string; alt: string; sort: number }>(),
+    db.prepare('SELECT id, r2_key, alt, sort, kind FROM product_images WHERE product_id = ? ORDER BY sort, id').bind(id).all<{ id: number; r2_key: string; alt: string; sort: number; kind: 'photo' | 'infographic' }>(),
     db.prepare('SELECT * FROM batches WHERE product_id = ? ORDER BY packed_on DESC, id DESC').bind(id).all<{ id: number; batch_code: string; packed_on: string; ground_or_milled_on: string | null; lab_report_id: number | null; active: number }>(),
     db.prepare('SELECT * FROM lab_reports WHERE product_id = ? ORDER BY tested_on DESC, id DESC').bind(id).all<{ id: number; batch_code: string; tested_on: string; lab_name: string; lab_accreditation: string | null; test_scope: string; summary: string; pdf_r2_key: string | null; visible: number }>(),
   ]);
@@ -661,6 +736,9 @@ export async function getProductForAdmin(db: D1Database, id: number) {
     publishedAt: row.published_at,
     certKey: row.organic_cert_r2_key,
     replacementProductId: row.replacement_product_id,
+    story: row.story,
+    giName: row.gi_name,
+    giAuRegNumber: row.gi_au_reg_number,
     variants: variants.results,
     images: images.results,
     batches: batches.results,
@@ -741,6 +819,8 @@ export function coerceProductInput(raw: unknown): ProductInput {
     organicScheme: oneOf(r.organicScheme, ['none', 'pgs_green', 'pgs_organic', 'npop'] as const, 'none'),
     organicConversionSince: numOrNull(r.organicConversionSince),
     organicCertNumber: strOrNull(r.organicCertNumber),
+    giName: strOrNull(r.giName),
+    giAuRegNumber: strOrNull(r.giAuRegNumber),
     processClaims: Array.isArray(r.processClaims)
       ? r.processClaims.map((c) => ({ code: str((c as Record<string, unknown>)?.code).trim(), text: str((c as Record<string, unknown>)?.text), evidence_note: str((c as Record<string, unknown>)?.evidence_note) }))
       : [],

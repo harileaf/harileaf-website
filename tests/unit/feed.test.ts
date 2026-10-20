@@ -30,6 +30,15 @@ it('store sitemap lists product, category, shop and content URLs with lastmod', 
   for (const loc of ['/rice/', '/shop/', '/our-process/']) expect(xml).toContain(`<loc>https://harileaf.org${loc}</loc>`);
 });
 
+it('a duplicate extra raises the lastmod of an already-listed URL; a new extra keeps its own', () => {
+  const xml = storeSitemapXml([{ product: product(), variants: [variant()], images }], [{ path: '/rice/', lastmod: '2026-10-25' }, { path: '/turmeric/', lastmod: '2026-10-21' }]);
+  expect(xml.match(/<loc>https:\/\/harileaf.org\/rice\/<\/loc>/g)).toHaveLength(1);
+  expect(xml).toContain('<url><loc>https://harileaf.org/rice/</loc><lastmod>2026-10-25</lastmod></url>');
+  expect(xml).toContain('<url><loc>https://harileaf.org/turmeric/</loc><lastmod>2026-10-21</lastmod></url>');
+  const older = storeSitemapXml([{ product: product(), variants: [variant()], images }], [{ path: '/rice/', lastmod: '2026-01-01' }]);
+  expect(older).toContain('<url><loc>https://harileaf.org/rice/</loc><lastmod>2026-10-18</lastmod></url>');
+});
+
 it('zone-limited perishables ship only to their zone pincodes (Merchant Center postal codes for India)', () => {
   const zone = { id: 'mmr', name: 'Mumbai MMR', pincodes: ['400', '401', '410206'], expressOnly: true, maxTransitDays: 2, enabled: true };
   const { xml } = googleFeedXml([{ product: product({ perishable: true, deliveryZoneId: 'mmr' }), variants: [variant()], images, shippingZone: zone }]);

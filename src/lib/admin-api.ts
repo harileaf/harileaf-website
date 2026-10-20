@@ -22,6 +22,12 @@ export async function readJson(request: Request): Promise<unknown> {
   }
 }
 
+/** The request body as a plain JSON object, or null for bad JSON, a non-object or an array. */
+export async function readJsonObject(request: Request): Promise<Record<string, unknown> | null> {
+  const body = await readJson(request);
+  return body && typeof body === 'object' && !Array.isArray(body) ? (body as Record<string, unknown>) : null;
+}
+
 export function idParam(v: string | undefined): number | null {
   const n = Number(v);
   return Number.isInteger(n) && n > 0 ? n : null;

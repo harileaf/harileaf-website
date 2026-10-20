@@ -1,0 +1,78 @@
+---
+/**
+ * Landing-page editor shell. The page API returns only the row, so the
+ * editor's other data is loaded here: the products it can link (the page's
+ * category, plus any already linked), a summary of each one's story, and
+ * their active batches' lab values (for the hero proof items).
+ */
+export const prerender = false;
+import { env } from 'cloudflare:workers';
+import StoryPageEditor, { type StorySummary } from '../../../components/admin/StoryPageEditor';
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { validateSession } from '../../../lib/auth';
+import { activeLabSummaries } from '../../../lib/store/catalog';
+import { listProductsForAdmin } from '../../../lib/store/catalog-admin';
+import { LAB_KEYS, type ProductStory } from '../../../lib/store/story';
+import { getStoryPageRow, listStoryPages, loadContextProducts } from '../../../lib/store/story-pages';
+
+const NAMES = { rice: 'Rice', turmeric: 'Turmeric', spices: 'Spices hub' } as const;
+
+const summary = (s: ProductStory | null): StorySummary | null =>
+  s && {
+    origin: s.originStory?.heading || null,
+    steps: s.processSteps.length,
+    stepPhotos: s.processSteps.filter((x) => x.photoKey).length,
+    comparison: s.comparison ? { heading: s.comparison.heading, rows: s.comparison.rows.length } : null,
+    grower: s.grower?.names || null,
+    use: s.use ? { heading: s.use.heading, steps: s.use.steps.length } : null,
+  };
+
+const authenticated = await validateSession(env.HARILEAF_CMS, Astro.cookies);
+const slug = Astro.params.slug ?? '';
+let props: Parameters<typeof StoryPageEditor>[0] | null = null;
+let notFound = false;
+let dbError = false;
+if (authenticated) {
+  try {
+    const row = await getStoryPageRow(env.STORE_DB, slug);
+    if (!row) notFound = true;
+    else {
+      const category = row.slug === 'rice' ? 'rice' : 'spices';
+      const linked = new Set(row.draft.productIds);
+      const all = (await listProductsForAdmin(env.STORE_DB)).filter((p) => (p.categorySlug === category && p.status !== 'discontinued') || linked.has(p.id));
+      const ids = all.map((p) => p.id);
+      const [ctx, labs, pages] = await Promise.all([loadContextProducts(env.STORE_DB, ids), activeLabSummaries(env.STORE_DB, ids), listStoryPages(env.STORE_DB)]);
+      const info = pages.find((p) => p.slug === row.slug);
+      props = {
+        slug: row.slug,
+        draft: row.draft,
+        // draftSavedAt from the same read as the draft: the editor sends it back with each save (stale-tab check).
+        info: { status: info?.status ?? 'never', draftSavedAt: row.draftSavedAt, publishedAt: row.publishedAt },
+        products: all.map((p) => ({ id: p.id, name: p.name, status: p.status, story: summary(ctx.find((c) => c.id === p.id)?.story ?? null) })),
+        labByProduct: Object.fromEntries(
+          [...labs].map(([id, s]) => [String(id), Object.fromEntries(Object.entries(s).filter((e): e is [string, string] => typeof e[1] === 'string'))]),
+        ),
+        labKeys: LAB_KEYS[category] ?? [],
+      };
+    }
+  } catch (err) {
+    dbError = true;
+    console.error(JSON.stringify({ msg: 'story page editor load failed', slug, error: String(err) }));
+  }
+}
+if (notFound) Astro.response.status = 404;
+if (dbError) Astro.response.status = 500;
+---
+
+<AdminLayout title={props ? `Page: ${NAMES[props.slug]}` : 'Page'} active="pages">
+  <p style="margin-bottom:1rem;"><a href="/admin/pages" style="color:#196a5e;font-weight:700;">← All pages</a></p>
+  {notFound && <p class="warn">Page not found.</p>}
+  {dbError && <p class="warn">Couldn't load this page. Reload to try again.</p>}
+  {props && <h1 style="font-size:1.5rem;font-weight:800;margin-bottom:1rem;">{NAMES[props.slug]} page</h1>}
+  {props && <StoryPageEditor client:load {...props} />}
+</AdminLayout>
+
+<style is:global>
+  /* The editor's sticky action bar must never cover a focused field or the message list. */
+  html { scroll-padding-bottom: 5rem; }
+</style>

@@ -28,6 +28,8 @@ export function product(over: Partial<Product> = {}): Product {
     seoDescription: null,
     relatedIds: [],
     updatedAt: '2026-10-18T06:00:00.000Z',
+    story: null,
+    gi: { name: null, auRegNumber: null },
     ...over,
   };
 }
@@ -49,6 +51,6 @@ export function variant(over: Partial<Variant> = {}): Variant {
 }
 
 export const images: Image[] = [
-  { key: 'products/7/a.jpg', url: '/media/products/7/a.jpg', alt: 'Karjat 3 rice grains' },
-  { key: 'products/7/b.jpg', url: '/media/products/7/b.jpg', alt: 'Paddy field' },
+  { key: 'products/7/a.jpg', url: '/media/products/7/a.jpg', alt: 'Karjat 3 rice grains', kind: 'photo' },
+  { key: 'products/7/b.jpg', url: '/media/products/7/b.jpg', alt: 'Paddy field', kind: 'photo' },
 ];

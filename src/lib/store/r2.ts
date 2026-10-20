@@ -15,3 +15,10 @@ export function r2Response(object: R2ObjectBody, cacheControl = 'public, max-age
   headers.set('X-Content-Type-Options', 'nosniff');
   return new Response(object.body as unknown as BodyInit, { headers });
 }
+
+const PUBLIC_MEDIA_PREFIXES = ['products/', 'lab-reports/', 'certificates/', 'photos/'];
+
+/** Whether an R2 key may be served by the public /media route. */
+export function isPublicMediaKey(key: string): boolean {
+  return PUBLIC_MEDIA_PREFIXES.some((p) => key.startsWith(p)) && !key.includes('..') && !key.includes('//');
+}

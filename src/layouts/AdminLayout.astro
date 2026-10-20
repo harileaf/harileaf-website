@@ -9,7 +9,7 @@
 import { env } from 'cloudflare:workers';
 import { validateSession } from '../lib/auth';
 
-export type AdminSection = 'dashboard' | 'orders' | 'products' | 'coupons' | 'reviews' | 'remittance' | 'photos' | 'produce' | 'content' | 'settings';
+export type AdminSection = 'dashboard' | 'orders' | 'products' | 'pages' | 'coupons' | 'reviews' | 'remittance' | 'photos' | 'produce' | 'content' | 'settings';
 
 interface Props {
   title: string;
@@ -24,6 +24,7 @@ const nav: Array<{ key: AdminSection; label: string; href: string }> = [
   { key: 'dashboard', label: 'Dashboard', href: '/admin' },
   { key: 'orders', label: 'Orders', href: '/admin/orders' },
   { key: 'products', label: 'Products', href: '/admin/products' },
+  { key: 'pages', label: 'Pages', href: '/admin/pages' },
   { key: 'coupons', label: 'Coupons', href: '/admin/coupons' },
   { key: 'reviews', label: 'Reviews', href: '/admin/reviews' },
   { key: 'remittance', label: 'COD remittance', href: '/admin/remittance' },

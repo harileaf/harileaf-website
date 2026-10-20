@@ -115,8 +115,13 @@ export function storeSitemapXml(
   }
   for (const [slug, updated] of categories) urls.push({ loc: absolute(categoryPath(slug)), lastmod: updated.slice(0, 10) });
   urls.push({ loc: absolute('/shop/') });
-  // An extra page can also be a category with products (e.g. /produce/): list it once.
-  for (const e of extra) if (!urls.some((u) => u.loc === absolute(e.path))) urls.push({ loc: absolute(e.path), lastmod: e.lastmod });
+  // An extra page can also be a category with products (e.g. /rice/): list it once, with the newer lastmod.
+  for (const e of extra) {
+    const loc = absolute(e.path);
+    const hit = urls.find((u) => u.loc === loc);
+    if (!hit) urls.push({ loc, lastmod: e.lastmod });
+    else if (e.lastmod && (!hit.lastmod || e.lastmod > hit.lastmod)) hit.lastmod = e.lastmod;
+  }
   const body = urls
     .map((u) => `<url><loc>${xmlEscape(u.loc)}</loc>${u.lastmod ? `<lastmod>${u.lastmod}</lastmod>` : ''}</url>`)
     .join('');

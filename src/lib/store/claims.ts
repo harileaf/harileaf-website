@@ -23,6 +23,26 @@ export interface ProcessClaim {
   evidence_note: string;
 }
 
+/**
+ * Process claims from the stored `process_claims` JSON. Never throws: only an
+ * array counts, and only entries whose code, text and evidence_note are all
+ * strings are kept.
+ */
+export function parseProcessClaims(raw: string | null | undefined): ProcessClaim[] {
+  let v: unknown;
+  try {
+    v = raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(v)) return [];
+  return v.flatMap((c): ProcessClaim[] => {
+    if (!c || typeof c !== 'object') return [];
+    const { code, text, evidence_note } = c as Record<string, unknown>;
+    return typeof code === 'string' && typeof text === 'string' && typeof evidence_note === 'string' ? [{ code, text, evidence_note }] : [];
+  });
+}
+
 export interface OrganicCopy {
   certificationLine: string | null;
   mayUseOrganic: boolean;
@@ -77,7 +97,9 @@ const HEALTH: Array<{ re: RegExp; label: string }> = [
 ];
 
 /** FSSAI Advertising & Claims Regulations 2018, Reg 4: conditional terms. */
-const CONDITIONAL_TERMS = ['natural', 'fresh', 'pure', 'traditional', 'authentic', 'genuine', 'real', 'original'] as const;
+export const CONDITIONAL_TERMS = ['natural', 'fresh', 'pure', 'traditional', 'authentic', 'genuine', 'real', 'original'] as const;
+/** Prefix findBannedPhrases puts on health-claim labels. */
+export const HEALTH_LABEL_PREFIX = 'health claim: ';
 const conditionalRe = (term: string) => new RegExp(`\\b${term}(?:ly)?\\b`, 'i');
 
 function hasEvidencedClaim(claims: ProcessClaim[], code: string): boolean {
@@ -111,7 +133,7 @@ export function findBannedPhrases(
   for (const term of CONDITIONAL_TERMS)
     if (conditionalRe(term).test(withoutBanned) && !hasEvidencedClaim(ctx.claims, term) && !ctx.allowedTerms?.includes(term)) found.push(term);
 
-  for (const { re, label } of HEALTH) if (re.test(text)) found.push(`health claim: ${label}`);
+  for (const { re, label } of HEALTH) if (re.test(text)) found.push(`${HEALTH_LABEL_PREFIX}${label}`);
   return found;
 }
 
@@ -139,4 +161,77 @@ export function validateProcessClaims(
     if (banned.length) errors.push(`Claim ${n} ("${c.code}") uses banned wording: ${banned.join(', ')}`);
   });
   return errors;
+}
+
+// ── Geographical Indication (spec: GI) ───────────────────────────────────
+
+/** Registered GI names we must not use without authorised-user registration. */
+export const REGISTERED_GI_NAMES = ['Wada Kolam'] as const;
+
+export const GI_MESSAGE =
+  "GI wording (geographical indication) and the name 'Wada Kolam' need the authorised-user registration number (Products → Geographical Indication). If you meant glycemic index, that's a health claim and isn't allowed either.";
+
+/** Whitespace, hyphen and the Unicode dashes U+2010 to U+2015. */
+const SEP = '[\\s\\-‐-―]';
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const GI_NAME_RES = REGISTERED_GI_NAMES.map((name) => ({
+  name,
+  re: new RegExp(name.trim().split(/\s+/).map(escapeRe).join(`${SEP}*`), 'i'),
+}));
+const GI_WORD_RE = /\bG\.?I\b/; // case-sensitive on purpose: "gi", "Gift", "ginger" must not match
+const GI_TAGGED_RE = new RegExp(`\\bg\\.?i\\.?${SEP}*tagged\\b`, 'i');
+const GI_INDICATION_RE = /geographical\s+indication/i;
+
+/** GI words ("GI" / "G.I." as an uppercase word, "GI-tagged", "geographical indication") and registered GI names. */
+export function findGiProblems(text: string, ctx: { giRegistered: boolean }): string[] {
+  if (ctx.giRegistered) return [];
+  const found: string[] = [];
+  if (GI_WORD_RE.test(text) || GI_TAGGED_RE.test(text) || GI_INDICATION_RE.test(text)) found.push('GI wording');
+  for (const { name, re } of GI_NAME_RES) if (re.test(text)) found.push(`GI name: ${name}`);
+  return found;
+}
+
+// ── comparisons (spec: Claims 7) ─────────────────────────────────────────
+
+const COMPARISON_BANNED: Array<{ re: RegExp; label: string }> = [
+  { re: /\bfake\b/i, label: 'fake' },
+  { re: /\badulter\w*/i, label: 'adulterated' },
+  { re: /\btoxic\b/i, label: 'toxic' },
+  { re: /\bharmful\b/i, label: 'harmful' },
+  { re: /\bdangerous\b/i, label: 'dangerous' },
+  { re: /\bpoison\w*/i, label: 'poison' },
+  { re: /\bcheap\b/i, label: 'cheap' },
+];
+
+/** Words a comparison with another process may not use (describe the process, not a competitor). */
+export function findComparisonProblems(text: string): string[] {
+  return COMPARISON_BANNED.filter(({ re }) => re.test(text)).map(({ label }) => label);
+}
+
+// ── certification words (spec: Claims 5) ─────────────────────────────────
+
+export interface CertContext { scheme: OrganicScheme; certified: boolean }
+
+const CERT_WORDS: Array<{ re: RegExp; label: string; ok: (c: CertContext) => boolean; ignore?: RegExp }> = [
+  { re: /\bPGS\b/i, label: 'PGS (only when every product here holds PGS-India)', ok: (c) => c.certified && (c.scheme === 'pgs_green' || c.scheme === 'pgs_organic') },
+  {
+    re: new RegExp(`\\bNPOP\\b|\\bindia${SEP}*organic\\b`, 'i'),
+    // "PGS-India Organic" is the PGS scheme's own name, not NPOP's "India Organic" (no lookbehind: this module also ships to browsers).
+    // global: only for replace(), never .test()
+    ignore: new RegExp(`\\bPGS${SEP}+india${SEP}*organic\\b`, 'gi'),
+    label: 'NPOP / India Organic (only when every product here holds NPOP)',
+    ok: (c) => c.certified && c.scheme === 'npop',
+  },
+  { re: new RegExp(`\\bjaivik${SEP}*bharat\\b`, 'i'), label: 'Jaivik Bharat (only with PGS-India Organic or NPOP on every product here)', ok: (c) => c.certified && (c.scheme === 'pgs_organic' || c.scheme === 'npop') },
+  { re: new RegExp(`\\bcertified${SEP}*organic\\b`, 'i'), label: 'certified organic (only with PGS-India Organic or NPOP on every product here)', ok: (c) => c.certified && (c.scheme === 'pgs_organic' || c.scheme === 'npop') },
+];
+
+/**
+ * Certification words typed into copy are allowed only when every product in
+ * the text's context holds that certification (badges themselves always come
+ * from organicCopy()).
+ */
+export function findCertificationWords(text: string, certs: CertContext[]): string[] {
+  return CERT_WORDS.filter((w) => w.re.test(w.ignore ? text.replace(w.ignore, ' ') : text) && !(certs.length > 0 && certs.every(w.ok))).map((w) => `certification wording: ${w.label}`);
 }

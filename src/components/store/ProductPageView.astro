@@ -3,12 +3,27 @@
  * Product page — Layout C (Hybrid): light buy box above the fold, dark
  * "From our farm" bento band, FAQ, related products, sticky mobile bar.
  * Reviews render only when approved reviews exist.
+ *
+ * With a story (spec: Page Anatomy 1–2): proof line, icons and variety switcher
+ * under the title; origin, timeline, comparison and the lab + grower row as
+ * full-width sections between the buy box and the bento; the use block in the
+ * light band. A product without a story renders exactly as before.
  */
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import SEO from '../seo/SEO.astro';
 import BuyBox from './BuyBox.astro';
 import ProductGrid from './ProductGrid.astro';
 import ReviewsSection from './ReviewsSection.astro';
+import CategorySwitcher from './story/CategorySwitcher.astro';
+import ComparisonBlock from './story/ComparisonBlock.astro';
+import FaqList from './story/FaqList.astro';
+import GrowerCard from './story/GrowerCard.astro';
+import IconRow from './story/IconRow.astro';
+import LabReportCard from './story/LabReportCard.astro';
+import OriginStory from './story/OriginStory.astro';
+import ProcessTimeline from './story/ProcessTimeline.astro';
+import ProofLine from './story/ProofLine.astro';
+import UseBlock from './story/UseBlock.astro';
 import type { Batch, Image, LabReport, Product, ProductCard, Variant } from '../../lib/store/catalog';
 import type { PublicReview, ReviewSummary } from '../../lib/store/reviews';
 import type { Zone } from '../../lib/store/zones';
@@ -21,6 +36,7 @@ import type { StoreSettings } from '../../lib/store/settings';
 import { breadcrumbJsonLd, faqJsonLd, jsonLdString, productDescription, productGroupJsonLd, productTitle } from '../../lib/store/seo';
 import { absolute, categoryPath, productPath } from '../../lib/store/urls';
 import { displayPhone, orPending } from '../../lib/store/policy-settings';
+import { resolveProof } from '../../lib/store/story';
 
 interface Props {
   product: Product;
@@ -32,12 +48,20 @@ interface Props {
   reviews: { summary: ReviewSummary | null; items: PublicReview[] };
   zone: Zone | null;
   settings: StoreSettings;
+  /** Other active products of the category (variety switcher). */
+  siblings?: ProductCard[];
+  /** Link to the published landing page that features this product. */
+  storyLink?: { path: string; label: string } | null;
+  /** Admin preview of an unsaved story: banner with its validation messages. */
+  preview?: { messages: string[] } | null;
 }
 
-const { product: p, variants, images, batch, labReports, related, reviews, zone, settings } = Astro.props;
+const { product: p, variants, images, batch, labReports, related, reviews, zone, settings, siblings = [], storyLink = null, preview = null } = Astro.props;
+// No pack sizes happens only in the admin preview (the public route 404s first).
 const initial = variants.find((v) => v.availability === 'buy') ?? variants.find((v) => v.availability === 'preorder') ?? variants[0];
-const mayUseOrganic = organicCopy({ organicScheme: p.organic.scheme, conversionSince: p.organic.conversionSince, certNumber: p.organic.certNumber }).mayUseOrganic;
-const title = productTitle(p, initial, { mayUseOrganic });
+const cert = organicCopy({ organicScheme: p.organic.scheme, conversionSince: p.organic.conversionSince, certNumber: p.organic.certNumber });
+const mayUseOrganic = cert.mayUseOrganic;
+const title = initial ? productTitle(p, initial, { mayUseOrganic }) : `${p.name} | HariLeaf`;
 const description = productDescription(p);
 const canonical = absolute(productPath(p.category.slug, p.slug));
 const crumbs = [
@@ -45,30 +69,52 @@ const crumbs = [
   { name: p.category.name, path: categoryPath(p.category.slug) },
   { name: p.name, path: productPath(p.category.slug, p.slug) },
 ];
-const schemas = [productGroupJsonLd({ product: p, variants, images, reviews }), breadcrumbJsonLd(crumbs), faqJsonLd(p.faq)].filter(
-  (s): s is Record<string, unknown> => s !== null,
-);
+const schemas = initial
+  ? [productGroupJsonLd({ product: p, variants, images, reviews }), breadcrumbJsonLd(crumbs), faqJsonLd(p.faq)].filter((s): s is Record<string, unknown> => s !== null)
+  : [];
 const lab = batch?.labReport ?? labReports[0] ?? null;
 const description_html = renderBasicMarkdown(p.descriptionMd);
 const minOrder = /^\d+$/.test(settings.min_order_paise) ? Number(settings.min_order_paise) : null;
 const codMax = /^\d+$/.test(settings.cod_max_order_paise) ? Number(settings.cod_max_order_paise) : null;
-const howEntries = Object.entries(p.howItsMade);
+const story = p.story;
+// The proof line reads only the active batch's report (never the older-report fallback the lab card uses).
+const proof = story ? resolveProof(story.proofLine, batch?.labReport?.summary ?? null) : [];
+const giBadge = p.gi.name && p.gi.auRegNumber ? `GI-tagged ${p.gi.name} · Reg. ${p.gi.auRegNumber}` : null;
+const storyLabRow = Boolean(story && (lab || story.grower));
+// The story timeline replaces the bento's "How it's made" card; the story row's lab card isn't repeated in the bento.
+const howEntries = story?.processSteps.length ? [] : Object.entries(p.howItsMade);
 const harvestEntries = Object.entries(p.harvestInfo);
 const attrEntries = Object.entries(p.attributes);
 const fmtDate = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
 // Internal links (SEO §3.4): recipes that use this product, and the category's guide.
 const cookIt = recipesUsing(p.category.slug, p.slug);
 const readMore = articlesFor(p.category.slug);
-const hasBand = howEntries.length || harvestEntries.length || p.nutrition.rows.length || lab || description_html || attrEntries.length;
+// The story's use block already links these recipes; don't list them twice.
+const cookItList = story?.use ? [] : cookIt;
+const bentoLab = lab && !storyLabRow ? lab : null;
+// With a story timeline above, the bento no longer says how it's made.
+const bentoHeading = story?.processSteps.length ? `About ${p.name}` : `How ${p.name} is made`;
+const hasBand = howEntries.length || harvestEntries.length || p.nutrition.rows.length || bentoLab || description_html || attrEntries.length;
+const accent = p.category.slug === 'spices' ? '#e0a53a' : p.category.slug === 'rice' ? '#c9a86a' : '#9fb17d';
+const others = siblings.filter((c) => c.id !== p.id).map((c) => ({ name: c.name, path: c.path }));
+const ogImage = images[0] ? absolute(images[0].url) : undefined;
 ---
 
-<SiteLayout title={title} description={description} ogImage={images[0] ? absolute(images[0].url) : undefined}>
+<SiteLayout title={title} description={description} ogImage={ogImage} noIndex={Boolean(preview)}>
   <slot name="head" slot="head">
-    <SEO title={title} description={description} canonicalUrl={canonical} ogImage={images[0] ? absolute(images[0].url) : undefined} ogType="product" />
+    <SEO title={title} description={description} canonicalUrl={canonical} ogImage={ogImage} ogType="product" noIndex={Boolean(preview)} />
     {schemas.map((s) => <script type="application/ld+json" is:inline set:html={jsonLdString(s)} />)}
   </slot>
 
-  <div class="max-w-7xl mx-auto px-6 pt-28 pb-12">
+  {preview && (
+    <div class="pt-20">{/* In the flow just below the fixed header (never over it); the content below then needs less top padding. */}
+      <div class="bg-[#8a6d1d] text-white text-sm px-6 py-2" role="status">
+        <strong>Preview — not live.</strong>{preview.messages.length ? ` Fix before saving: ${preview.messages.join(' · ')}` : ' Looks good — save the story to publish it.'}
+      </div>
+    </div>
+  )}
+
+  <div class={`max-w-7xl mx-auto px-6 ${preview ? 'pt-8' : 'pt-28'} pb-12`}>
     <nav aria-label="Breadcrumb" class="text-xs text-on-surface-variant mb-5">
       <ol class="flex flex-wrap gap-1.5">
         {crumbs.map((c, i) => (
@@ -101,38 +147,70 @@ const hasBand = howEntries.length || harvestEntries.length || p.nutrition.rows.l
         )}
       </div>
 
-      <BuyBox product={p} variants={variants} batch={batch} minOrderPaise={minOrder} codMaxPaise={codMax} rating={reviews.summary} zone={zone} settings={settings}>
-        <details class="rounded-2xl bg-surface-container-low px-5 py-4">
-          <summary class="font-extrabold text-sm cursor-pointer">Product information</summary>
-          <dl class="mt-3 grid grid-cols-[9rem_1fr] gap-x-4 gap-y-1.5 text-sm text-on-surface-variant">
-            <dt class="font-bold text-on-surface">Product</dt><dd>{p.name}</dd>
-            <dt class="font-bold text-on-surface">Net quantity</dt><dd data-bb-netqty>{initial.netQtyLabel}</dd>
-            <dt class="font-bold text-on-surface">MRP</dt><dd><span data-bb-mrp>{formatINR(initial.mrp)}</span> (inclusive of all taxes)</dd>
-            <dt class="font-bold text-on-surface">Unit sale price</dt><dd data-bb-unit>{initial.unitPrice}</dd>
-            {p.listing.bestBeforeDays && <><dt class="font-bold text-on-surface">Best before</dt><dd>{p.listing.bestBeforeDays} days from packing{batch ? ` (packed ${fmtDate(batch.packedOn)})` : ''}</dd></>}
-            {p.listing.storage && <><dt class="font-bold text-on-surface">Storage</dt><dd>{p.listing.storage}</dd></>}
-            {p.listing.ingredients && <><dt class="font-bold text-on-surface">Ingredients</dt><dd>{p.listing.ingredients}</dd></>}
-            {p.listing.allergens && <><dt class="font-bold text-on-surface">Allergens</dt><dd>{p.listing.allergens}</dd></>}
-            <dt class="font-bold text-on-surface">Food type</dt>
-            <dd class="flex items-center gap-1.5">
-              <span aria-hidden="true" class:list={['inline-flex w-3.5 h-3.5 border-2 items-center justify-center', p.listing.veg ? 'border-[#1d7a3a]' : 'border-[#8a2a2a]']}><span class:list={['w-1.5 h-1.5 rounded-full', p.listing.veg ? 'bg-[#1d7a3a]' : 'bg-[#8a2a2a]']}></span></span>
-              {p.listing.veg ? 'Vegetarian' : 'Non-vegetarian'}
-            </dd>
-            <dt class="font-bold text-on-surface">Country of origin</dt><dd>{p.listing.countryOfOrigin}</dd>
-            <dt class="font-bold text-on-surface">Packed &amp; marketed by</dt><dd>{orPending(settings.legal_name)}{settings.address ? `, ${settings.address}` : ''}</dd>
-            <dt class="font-bold text-on-surface">FSSAI licence</dt><dd>{orPending(settings.fssai_license)}</dd>
-            <dt class="font-bold text-on-surface">Customer care</dt><dd>{displayPhone(settings.customer_care_phone)}{settings.customer_care_email ? ` · ${settings.customer_care_email}` : ''}</dd>
-          </dl>
-        </details>
-      </BuyBox>
+      {initial ? (
+        <BuyBox product={p} variants={variants} batch={batch} minOrderPaise={minOrder} codMaxPaise={codMax} rating={reviews.summary} zone={zone} settings={settings} hideCertLine={Boolean(story)} hideClaims={Boolean(story?.icons.length)}>
+          {story && (
+            <Fragment slot="under-title">
+              <ProofLine items={proof} certificationLine={cert.certificationLine} certUrl={p.organic.certUrl} giBadge={giBadge} />
+              <IconRow icons={story.icons} />
+              {story.showCategorySwitcher && <CategorySwitcher current={{ name: p.name, path: p.path }} others={others} />}
+            </Fragment>
+          )}
+          <details class="rounded-2xl bg-surface-container-low px-5 py-4">
+            <summary class="font-extrabold text-sm cursor-pointer">Product information</summary>
+            <dl class="mt-3 grid grid-cols-[9rem_1fr] gap-x-4 gap-y-1.5 text-sm text-on-surface-variant">
+              <dt class="font-bold text-on-surface">Product</dt><dd>{p.name}</dd>
+              <dt class="font-bold text-on-surface">Net quantity</dt><dd data-bb-netqty>{initial.netQtyLabel}</dd>
+              <dt class="font-bold text-on-surface">MRP</dt><dd><span data-bb-mrp>{formatINR(initial.mrp)}</span> (inclusive of all taxes)</dd>
+              <dt class="font-bold text-on-surface">Unit sale price</dt><dd data-bb-unit>{initial.unitPrice}</dd>
+              {p.listing.bestBeforeDays && <><dt class="font-bold text-on-surface">Best before</dt><dd>{p.listing.bestBeforeDays} days from packing{batch ? ` (packed ${fmtDate(batch.packedOn)})` : ''}</dd></>}
+              {p.listing.storage && <><dt class="font-bold text-on-surface">Storage</dt><dd>{p.listing.storage}</dd></>}
+              {p.listing.ingredients && <><dt class="font-bold text-on-surface">Ingredients</dt><dd>{p.listing.ingredients}</dd></>}
+              {p.listing.allergens && <><dt class="font-bold text-on-surface">Allergens</dt><dd>{p.listing.allergens}</dd></>}
+              <dt class="font-bold text-on-surface">Food type</dt>
+              <dd class="flex items-center gap-1.5">
+                <span aria-hidden="true" class:list={['inline-flex w-3.5 h-3.5 border-2 items-center justify-center', p.listing.veg ? 'border-[#1d7a3a]' : 'border-[#8a2a2a]']}><span class:list={['w-1.5 h-1.5 rounded-full', p.listing.veg ? 'bg-[#1d7a3a]' : 'bg-[#8a2a2a]']}></span></span>
+                {p.listing.veg ? 'Vegetarian' : 'Non-vegetarian'}
+              </dd>
+              <dt class="font-bold text-on-surface">Country of origin</dt><dd>{p.listing.countryOfOrigin}</dd>
+              <dt class="font-bold text-on-surface">Packed &amp; marketed by</dt><dd>{orPending(settings.legal_name)}{settings.address ? `, ${settings.address}` : ''}</dd>
+              <dt class="font-bold text-on-surface">FSSAI licence</dt><dd>{orPending(settings.fssai_license)}</dd>
+              <dt class="font-bold text-on-surface">Customer care</dt><dd>{displayPhone(settings.customer_care_phone)}{settings.customer_care_email ? ` · ${settings.customer_care_email}` : ''}</dd>
+            </dl>
+          </details>
+        </BuyBox>
+      ) : (
+        <div class="rounded-2xl bg-surface-container-low p-6"><h1 class="text-3xl font-extrabold">{p.name}</h1><p class="mt-2 text-on-surface-variant">No pack sizes yet.</p></div>
+      )}
     </div>
   </div>
+
+  {story && (
+    <div style={`--accent:${accent}`}>
+      <OriginStory origin={story.originStory} />
+      <ProcessTimeline eyebrow="From field to pack" heading={`How our ${p.name} is made`} steps={story.processSteps} variant={story.processSteps.some((s) => s.photoKey) ? 'photos' : 'list'} />
+      <ComparisonBlock eyebrow="Why it matters" comparison={story.comparison} />
+      {storyLabRow && (
+        <section class="py-14 px-6 border-t border-white/10" style="background:#0c110c;" aria-label="Lab report and grower">
+          <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
+            {lab && <LabReportCard lab={lab} />}
+            {story.grower && <GrowerCard grower={story.grower} />}
+          </div>
+        </section>
+      )}
+    </div>
+  )}
+  {!hasBand && storyLink && (
+    <section class="py-10 px-6 border-t border-white/10" style="background:#0c110c;">
+      <p class="max-w-7xl mx-auto text-sm"><a href={storyLink.path} class="font-bold" style="color:#8bd4c6;">{storyLink.label}</a></p>
+    </section>
+  )}
 
   {hasBand && (
     <section style="background:#0c110c;" class="py-16 px-6 text-white" aria-labelledby="farm-heading">
       <div class="max-w-7xl mx-auto">
         <p class="text-xs uppercase tracking-widest font-extrabold mb-2" style="color:rgba(159,177,125,.85);">From our farm</p>
-        <h2 id="farm-heading" class="text-3xl font-extrabold tracking-tight mb-8 text-white">How {p.name} is made</h2>
+        <h2 id="farm-heading" class="text-3xl font-extrabold tracking-tight mb-8 text-white">{bentoHeading}</h2>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           {description_html && (
             <div class="md:col-span-2 rounded-3xl p-7 border border-white/10 bg-white/[0.04] leading-relaxed text-[15px] [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_strong]:text-white" style="color:rgba(240,240,238,.72);" set:html={description_html} />
@@ -165,16 +243,7 @@ const hasBand = howEntries.length || harvestEntries.length || p.nutrition.rows.l
               </table>
             </div>
           )}
-          {lab && (
-            <div id="lab-report" class="rounded-3xl p-7 border bg-white/[0.04]" style="border-color:rgba(139,212,198,.3);">
-              <h3 class="font-extrabold text-lg mb-1 text-white">Lab report · Batch {lab.batchCode}</h3>
-              <p class="text-xs mb-3" style="color:rgba(240,240,238,.55);">Tested {fmtDate(lab.testedOn)} by {lab.labName}{lab.labAccreditation ? ` (${lab.labAccreditation})` : ''}{lab.testScope ? ` · ${lab.testScope}` : ''}</p>
-              <dl class="text-sm flex flex-col gap-1.5" style="color:rgba(240,240,238,.78);">
-                {Object.entries(lab.summary).filter(([, v]) => typeof v === 'string').map(([k, v]) => (<div class="flex justify-between gap-3"><dt>{k}</dt><dd class="font-bold text-white text-right">{v as string}</dd></div>))}
-              </dl>
-              {lab.pdfUrl && <a href={lab.pdfUrl} class="inline-block mt-4 font-extrabold" style="color:#8bd4c6;" target="_blank" rel="noopener">Download the report (PDF) →</a>}
-            </div>
-          )}
+          {bentoLab && <LabReportCard lab={bentoLab} />}
           {attrEntries.length > 0 && (
             <div class="rounded-3xl p-7 border border-white/10 bg-white/[0.04]">
               <h3 class="font-extrabold text-lg mb-3 text-white">Details</h3>
@@ -184,22 +253,24 @@ const hasBand = howEntries.length || harvestEntries.length || p.nutrition.rows.l
             </div>
           )}
         </div>
-        <p class="mt-6 text-sm"><a href="/our-process/" class="font-bold" style="color:#8bd4c6;">How we grow, mill and grind →</a></p>
+        <p class="mt-6 text-sm"><a href={storyLink?.path ?? '/our-process/'} class="font-bold" style="color:#8bd4c6;">{storyLink?.label ?? 'How we grow, mill and grind →'}</a></p>
       </div>
     </section>
   )}
 
   <div class="max-w-7xl mx-auto px-6 py-16 flex flex-col gap-16 pb-32 md:pb-16">
+    {story?.use && <UseBlock use={story.use} recipes={cookIt} />}
+
     {reviews.summary && <ReviewsSection productId={p.id} summary={reviews.summary} items={reviews.items} />}
 
-    {(cookIt.length > 0 || readMore.length > 0) && (
+    {(cookItList.length > 0 || readMore.length > 0) && (
       <section aria-labelledby="more-heading" class="grid grid-cols-1 md:grid-cols-2 gap-8">
         <h2 id="more-heading" class="sr-only">Recipes and guides</h2>
-        {cookIt.length > 0 && (
+        {cookItList.length > 0 && (
           <div>
             <p class="text-xs uppercase tracking-widest font-extrabold mb-2 text-secondary">Cook it</p>
             <ul class="flex flex-col gap-3">
-              {cookIt.map((r) => (
+              {cookItList.map((r) => (
                 <li><a href={`/recipes/${r.slug}/`} class="flex items-center gap-4 rounded-2xl bg-white border border-black/5 p-3 hover:shadow-sm">
                   <img src={r.image.src} alt="" width="96" height="72" loading="lazy" decoding="async" class="w-24 h-[72px] shrink-0 rounded-xl object-cover" />
                   <span><span class="font-extrabold block">{r.title}</span><span class="text-xs text-on-surface-variant">{r.prepMinutes + r.cookMinutes} min · serves {r.serves}</span></span>
@@ -219,20 +290,7 @@ const hasBand = howEntries.length || harvestEntries.length || p.nutrition.rows.l
       </section>
     )}
 
-    {p.faq.length > 0 && (
-      <section aria-labelledby="faq-heading">
-        <p class="text-xs uppercase tracking-widest font-extrabold mb-2 text-secondary">Questions</p>
-        <h2 id="faq-heading" class="text-2xl font-extrabold tracking-tight mb-5">Frequently asked</h2>
-        <div class="flex flex-col gap-2 max-w-3xl">
-          {p.faq.map((f, i) => (
-            <details class="rounded-2xl bg-white px-5 py-4 border border-black/5" open={i === 0}>
-              <summary class="font-extrabold cursor-pointer">{f.q}</summary>
-              <p class="mt-2 text-on-surface-variant leading-relaxed">{f.a}</p>
-            </details>
-          ))}
-        </div>
-      </section>
-    )}
+    <FaqList faq={p.faq} />
 
     {related.length > 0 && (
       <section aria-labelledby="related-heading">

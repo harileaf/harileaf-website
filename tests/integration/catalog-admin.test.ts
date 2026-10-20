@@ -2,10 +2,13 @@ import { env } from 'cloudflare:workers';
 import { describe, expect, it } from 'vitest';
 import {
   activateBatch, addBatch, addImage, addLabReport, deleteImage, getProductForAdmin, saveProduct,
-  setLabReportVisible, shelfLifeWarning, type ProductInput, type VariantInput,
+  setLabReportVisible, shelfLifeWarning, updateImage, type ProductInput, type VariantInput,
 } from '../../src/lib/store/catalog-admin';
 import { SETTING_DEFAULTS, putSettings } from '../../src/lib/store/settings';
 import { beforeAll } from 'vitest';
+import { GI_MESSAGE } from '../../src/lib/store/claims';
+import { emptyStoryPage } from '../../src/lib/store/story';
+import { saveProductStory } from '../../src/lib/store/story-pages';
 import { db, scalar } from '../helpers/fixtures';
 
 const LISTING_SETTINGS = {
@@ -23,6 +26,7 @@ function input(over: Partial<ProductInput> = {}): ProductInput {
   return {
     categorySlug: 'rice', slug: `rice-${n}`, name: `Rice ${n}`, shortDescription: 'Hearty short-grain rice.', descriptionMd: '',
     status: 'draft', replacementProductId: null, organicScheme: 'none', organicConversionSince: null, organicCertNumber: null,
+    giName: null, giAuRegNumber: null,
     processClaims: [{ code: 'unpolished', text: 'Unpolished', evidence_note: 'Mill setting log' }],
     howItsMade: { Milling: 'Husk removed only' }, harvestInfo: {}, attributes: { Grain: 'Short, bold' },
     faq: [{ q: 'How long to soak?', a: '20 minutes.' }], bestBeforeDays: 270, storageInstructions: 'Cool, dry, airtight',
@@ -184,5 +188,115 @@ describe('listing helpers', () => {
     expect(shelfLifeWarning('2026-10-01', 270, NOW)).toBeNull();
     expect(shelfLifeWarning('2026-02-01', 270, NOW)).toMatch(/too little shelf life/);
     expect(shelfLifeWarning(null, 270, NOW)).toBeNull();
+  });
+});
+
+describe('Geographical Indication', () => {
+  const reg = { giName: 'Wada Kolam', giAuRegNumber: 'AU-77' };
+
+  it('the GI name needs a registration number; GI wording is blocked without one and allowed and stored with one', async () => {
+    const res = await saveProduct(db, null, input({ name: 'Wada Kolam Rice', slug: 'wada-kolam' }), [v()], NOW);
+    expect(!res.ok && res.errors.name).toMatch(/authorised-user registration number/);
+    expect(!res.ok && res.errors.slug).toMatch(/authorised-user registration number/);
+    const gi = await saveProduct(db, null, input({ name: 'Rice', giName: 'Wada Kolam', giAuRegNumber: null }), [v()], NOW);
+    expect(!gi.ok && gi.errors.giAuRegNumber).toMatch(/registration number, or clear the GI name/);
+    const ok = await saveProduct(db, null, input({ name: 'Wada Kolam Rice', slug: 'wada-kolam-registered', ...reg }), [v()], NOW);
+    if (!ok.ok) throw new Error(JSON.stringify(ok.errors));
+    expect(await scalar(`SELECT gi_au_reg_number FROM products WHERE id = ${ok.id}`)).toBe('AU-77');
+    expect((await addImage(db, r2, ok.id, png(), 'Wada Kolam grains', NOW)).ok).toBe(true);
+  });
+
+  it('blocks GI wording in claims, SEO fields, image alt text and lab reports with the GI message', async () => {
+    const claim = [{ code: 'unpolished', text: 'GI-tagged unpolished', evidence_note: 'log' }] as ProductInput['processClaims'];
+    const bad = await saveProduct(db, null, input({ processClaims: claim, seoTitle: 'GI rice', seoDescription: 'Wada Kolam rice' }), [v()], NOW);
+    if (bad.ok) throw new Error('expected a block');
+    expect(bad.errors.processClaims).toContain(GI_MESSAGE);
+    expect(bad.errors.seoTitle).toBe(GI_MESSAGE);
+    expect(bad.errors.seoDescription).toBe(GI_MESSAGE);
+    const res = await saveProduct(db, null, input(), [v()], NOW);
+    if (!res.ok) throw new Error('setup');
+    expect(await addImage(db, r2, res.id, png(), 'GI-tagged rice in a bowl', NOW)).toEqual({ ok: false, error: `Alt text: ${GI_MESSAGE}` });
+    const lab = { batchCode: 'B-GI', testedOn: '2026-10-01', labName: 'Lab', labAccreditation: null, testScope: 'Wada Kolam moisture', summary: {}, visible: true };
+    expect(await addLabReport(db, r2, res.id, lab, null, NOW)).toEqual({ ok: false, error: GI_MESSAGE });
+  });
+
+  it("can't clear the GI registration while an image description still uses the GI name, leaving the row alone", async () => {
+    const res = await saveProduct(db, null, input({ slug: 'gi-clear', ...reg }), [v()], NOW);
+    if (!res.ok) throw new Error('setup');
+    await addImage(db, r2, res.id, png(), 'Rice grains', NOW);
+    await addImage(db, r2, res.id, png(), 'Wada Kolam rice', NOW);
+    const before = await db.prepare('SELECT * FROM products WHERE id = ?').bind(res.id).first();
+    const blocked = await saveProduct(db, res.id, input({ slug: 'gi-clear' }), [], NOW);
+    expect(!blocked.ok && blocked.errors.giAuRegNumber).toMatch(/^Image 2's description still uses GI wording or the name 'Wada Kolam'\. Edit it first, then clear the GI registration\./);
+    expect(await db.prepare('SELECT * FROM products WHERE id = ?').bind(res.id).first()).toEqual(before);
+  });
+});
+
+it('image kind defaults to photo, accepts infographic and rejects anything else without changing the row', async () => {
+  const res = await saveProduct(db, null, input({ slug: 'turmeric-kind', categorySlug: 'spices' }), [v()], NOW);
+  if (!res.ok) throw new Error('setup');
+  await addImage(db, r2, res.id, png(), 'Turmeric powder in a brass bowl', NOW);
+  const imageId = Number(await scalar(`SELECT id FROM product_images WHERE product_id = ${res.id}`));
+  const kind = () => scalar(`SELECT kind FROM product_images WHERE id = ${imageId}`);
+  expect(await kind()).toBe('photo');
+  expect(await updateImage(db, res.id, imageId, { kind: 'poster' as never }, NOW)).toEqual({ ok: false, error: 'Choose Photo or Infographic' });
+  expect(await kind()).toBe('photo');
+  expect(await updateImage(db, res.id, imageId, { kind: 'infographic' }, NOW)).toEqual({ ok: true });
+  expect(await kind()).toBe('infographic');
+});
+
+describe('saves re-check published pages and the product story', () => {
+  const certified = { categorySlug: 'spices' as const, organicScheme: 'pgs_organic' as const, organicCertNumber: 'PGS-9' };
+  const row = (id: number) => db.prepare('SELECT * FROM products WHERE id = ?').bind(id).first();
+  async function publishedTurmeric(slug: string) {
+    const res = await saveProduct(db, null, input({ ...certified, slug }), [v()], NOW);
+    if (!res.ok) throw new Error('setup');
+    const page = { ...emptyStoryPage(), productIds: [res.id], storyFromProductId: res.id, hero: { ...emptyStoryPage().hero, line1: 'Haldi', line2: 'Certified organic' } };
+    await db.prepare("UPDATE story_pages SET published = json(?), published_at = ? WHERE slug = 'turmeric'").bind(JSON.stringify(page), NOW.toISOString()).run();
+    return res.id;
+  }
+  const unpublish = () => db.prepare("UPDATE story_pages SET published = NULL, published_at = NULL WHERE slug = 'turmeric'").run();
+
+  it('blocks a change that breaks a published page, leaving the row alone; only warns about a problem the page already had', async () => {
+    const id = await publishedTurmeric('turmeric-cert');
+    const before = await row(id);
+    const blocked = await saveProduct(db, id, input({ categorySlug: 'spices', slug: 'turmeric-cert', organicScheme: 'none', organicCertNumber: null }), [], NOW);
+    expect(!blocked.ok && blocked.errors._pages).toBe("/turmeric uses 'organic' and 'certified organic' in Hero line 2; edit and republish the page first.");
+    expect(await row(id)).toEqual(before);
+
+    await db.prepare("UPDATE products SET organic_scheme = 'none', organic_cert_number = NULL WHERE id = ?").bind(id).run();
+    const res = await saveProduct(db, id, input({ categorySlug: 'spices', slug: 'turmeric-cert', name: 'Renamed turmeric' }), [], NOW);
+    expect(res.ok && res.warnings?._pages).toBe("/turmeric already uses 'organic' and 'certified organic' in Hero line 2; edit and republish the page to fix it.");
+    expect(await scalar('SELECT name FROM products WHERE id = ?', id)).toBe('Renamed turmeric');
+    await unpublish();
+  });
+
+  const traditional = { code: 'traditional', text: 'Transplanted by hand, the traditional way', evidence_note: 'Village records, 35 years' };
+  const stepStory = async (slug: string, text: string, over: Partial<ProductInput> = {}) => {
+    const res = await saveProduct(db, null, input({ slug, processClaims: [traditional], ...over }), [v()], NOW);
+    if (!res.ok) throw new Error('setup');
+    const steps = [1, 2, 3].map((n) => ({ title: `Step ${n}`, text, photoKey: null, photoAlt: '' }));
+    expect((await saveProductStory(db, res.id, { processSteps: steps }, NOW)).ok).toBe(true);
+    return res.id;
+  };
+
+  it("blocks removing the evidence the product's own story relies on, leaving the row alone", async () => {
+    const id = await stepStory('kolam-story', 'Done the traditional way');
+    const before = await row(id);
+    const blocked = await saveProduct(db, id, input({ slug: 'kolam-story', processClaims: [] }), [], NOW);
+    expect(!blocked.ok && blocked.errors.story).toMatch(/^This change leaves this product's story with wording its evidence no longer supports\. Step 1: .+; Step 2: .+; Step 3: [^;]+\. Edit the story first\.$/);
+    expect(!blocked.ok && blocked.errors.story).not.toMatch(/\.\./);
+    expect(await row(id)).toEqual(before);
+  });
+
+  it('only warns about own-story problems already there, but blocks when the edit adds to them', async () => {
+    const id = await stepStory('kolam-changed', 'Done the traditional organic way', { ...certified, categorySlug: 'rice' });
+    await db.prepare("UPDATE products SET process_claims = '[]' WHERE id = ?").bind(id).run();
+    const warned = await saveProduct(db, id, input({ ...certified, categorySlug: 'rice', slug: 'kolam-changed', name: 'Kolam renamed', processClaims: [] }), [], NOW);
+    expect(warned.ok && warned.warnings?.story).toMatch(/^This product's story already has problems\. Step 1: .+\. Edit the story to fix them\.$/);
+    expect(await scalar('SELECT name FROM products WHERE id = ?', id)).toBe('Kolam renamed');
+    // 'traditional' already fails; dropping the certificate adds 'organic' to the same field.
+    const blocked = await saveProduct(db, id, input({ slug: 'kolam-changed', processClaims: [] }), [], NOW);
+    expect(!blocked.ok && blocked.errors.story).toMatch(/Step 1: .*organic/);
   });
 });

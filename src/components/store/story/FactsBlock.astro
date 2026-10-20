@@ -1,0 +1,18 @@
+---
+/** Light band: page-owned facts ("What's in turmeric"), up to 6. */
+interface Props { heading: string; facts: Array<{ title: string; text: string }> }
+const { heading, facts } = Astro.props;
+---
+{facts.length > 0 && (
+  <section aria-labelledby="facts-heading">
+    <h2 id="facts-heading" class="text-2xl font-extrabold tracking-tight mb-5 text-on-surface">{heading}</h2>
+    <dl class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {facts.map((f) => (
+        <div class="rounded-2xl bg-white border border-black/5 p-5">
+          <dt class="font-extrabold text-on-surface">{f.title}</dt>
+          <dd class="mt-1 text-sm leading-relaxed text-on-surface-variant">{f.text}</dd>
+        </div>
+      ))}
+    </dl>
+  </section>
+)}

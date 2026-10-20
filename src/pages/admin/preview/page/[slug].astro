@@ -1,0 +1,35 @@
+---
+/**
+ * Preview of a landing page's saved draft (spec: API Routes) behind the admin
+ * gate. The banner lists what would block publishing (the same checks
+ * publish runs); never cached, never indexed.
+ */
+export const prerender = false;
+import { env } from 'cloudflare:workers';
+import StoryPageView from '../../../../components/store/StoryPageView.astro';
+import { validateSession } from '../../../../lib/auth';
+import { validateStoryPageStructure } from '../../../../lib/store/story';
+import { checkStoryPage, fieldLabel } from '../../../../lib/store/story-claims';
+import { loadContextProducts, loadStoryPageView, type StoryPageViewModel } from '../../../../lib/store/story-pages';
+
+const NO_CACHE = { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' };
+for (const [k, v] of Object.entries(NO_CACHE)) Astro.response.headers.set(k, v);
+
+let view: StoryPageViewModel | null;
+let messages: string[];
+try {
+  // Inside the try: a session-store error is a no-store, noindex 500 too.
+  if (!(await validateSession(env.HARILEAF_CMS, Astro.cookies))) return new Response('Unauthorised', { status: 401, headers: NO_CACHE });
+  view = await loadStoryPageView(env.STORE_DB, Astro.params.slug ?? '', 'draft', new Date());
+  if (!view) return new Response('Page not found', { status: 404, headers: NO_CACHE });
+  const errors = {
+    ...checkStoryPage(view.slug, view.page, await loadContextProducts(env.STORE_DB, view.page.productIds), { completeness: true }),
+    ...validateStoryPageStructure(view.slug, view.page),
+  };
+  messages = Object.entries(errors).map(([k, m]) => `${fieldLabel(k)}: ${m}`);
+} catch (err) {
+  console.error(JSON.stringify({ msg: 'page preview failed', slug: Astro.params.slug, error: String(err) }));
+  return new Response("Couldn't load the preview. Try again.", { status: 500, headers: NO_CACHE });
+}
+---
+<StoryPageView view={view} preview={{ messages }} />

@@ -26,9 +26,13 @@ interface Props {
   /** Perishables: the zone they're sold in (enables the delivery check). */
   zone?: Zone | null;
   settings?: StoreSettings;
+  /** The story's proof line shows the certification itself. */
+  hideCertLine?: boolean;
+  /** The story's icon row shows the practices instead of the process-claims grid. */
+  hideClaims?: boolean;
 }
 
-const { product: p, variants, batch, minOrderPaise, codMaxPaise, rating, zone, settings } = Astro.props;
+const { product: p, variants, batch, minOrderPaise, codMaxPaise, rating, zone, settings, hideCertLine = false, hideClaims = false } = Astro.props;
 const sellable = (v: Variant) => v.availability === 'buy' || v.availability === 'preorder';
 const initial = variants.find((v) => v.availability === 'buy') ?? variants.find(sellable) ?? variants[0];
 const fmtDay = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' });
@@ -47,6 +51,7 @@ const fmtDate = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateS
     <a href={`/${p.category.slug}/`} class="inline-block text-[11px] font-extrabold uppercase tracking-wider px-3 py-1.5 rounded-full bg-surface-container-high text-secondary">{p.category.name}</a>
     <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight leading-tight mt-3 text-on-surface">{p.name}</h1>
     {p.shortDescription && <p class="mt-2 text-on-surface-variant leading-relaxed">{p.shortDescription}</p>}
+    <slot name="under-title" />
     {rating && rating.count > 0 && (
       <p class="mt-2 text-sm" data-rating-line>
         <a href="#reviews" class="inline-flex items-center gap-2 font-bold text-on-surface hover:underline">
@@ -153,7 +158,7 @@ const fmtDate = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateS
     <li>{p.perishable ? 'Fresh produce isn’t returnable. Arrived damaged? Send a photo within 24 hours of delivery for a replacement or refund' : 'Damaged or wrong item? Replacement or refund'} — <a href="/refund-policy" class="underline">refund policy</a></li>
   </ul>
 
-  {p.claims.length > 0 && (
+  {p.claims.length > 0 && !hideClaims && (
     <ul class="grid grid-cols-2 gap-2" aria-label="How it's made">
       {p.claims.slice(0, 4).map((c) => (
         <li class="rounded-xl bg-surface-container-low px-3 py-2.5 text-sm font-bold text-on-surface">{c.text}</li>
@@ -161,7 +166,7 @@ const fmtDate = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateS
     </ul>
   )}
 
-  {cert.certificationLine && (
+  {cert.certificationLine && !hideCertLine && (
     <p class="text-sm text-on-surface-variant">
       {cert.certificationLine}
       {p.organic.certUrl && <> · <a href={p.organic.certUrl} class="underline" target="_blank" rel="noopener">View certificate</a></>}

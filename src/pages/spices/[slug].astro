@@ -5,6 +5,7 @@ import ProductPageView from '../../components/store/ProductPageView.astro';
 import { getProductPage } from '../../lib/store/catalog';
 import { PAGE_CACHE_CONTROL } from '../../lib/store/edge-cache';
 import { loadPolicySettings } from '../../lib/store/policy-settings';
+import { storyLinkFor } from '../../lib/store/story-pages';
 
 let res: Awaited<ReturnType<typeof getProductPage>>;
 try {
@@ -17,8 +18,12 @@ try {
 if (res.kind === 'redirect') return new Response(null, { status: 301, headers: { Location: res.to, 'Cache-Control': PAGE_CACHE_CONTROL } });
 if (res.kind === 'gone') return new Response('This product is no longer available.', { status: 410, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': PAGE_CACHE_CONTROL } });
 if (res.kind === 'not_found') return Astro.rewrite('/404');
-const settings = await loadPolicySettings(env.STORE_DB);
+const [settings, storyLink] = await Promise.all([
+  loadPolicySettings(env.STORE_DB),
+  // A missing story link must never break the product page.
+  storyLinkFor(env.STORE_DB, res.product.id).catch(() => null),
+]);
 Astro.response.headers.set('Cache-Control', PAGE_CACHE_CONTROL);
 ---
 
-<ProductPageView {...res} settings={settings} />
+<ProductPageView {...res} settings={settings} storyLink={storyLink} />

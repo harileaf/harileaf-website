@@ -1,11 +1,13 @@
 ---
 export const prerender = false;
 import { env } from 'cloudflare:workers';
-import ProductEditor, { type EditorProduct, type EditorVariant } from '../../../components/admin/ProductEditor';
+import ProductEditor, { type EditorProduct } from '../../../components/admin/ProductEditor';
+import ProductStoryEditor from '../../../components/admin/ProductStoryEditor';
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { validateSession } from '../../../lib/auth';
 import { getProductForAdmin, listProductsForAdmin, shelfLifeWarning } from '../../../lib/store/catalog-admin';
-import { editorMedia } from '../../../lib/store/editor-media';
+import { editorMedia, editorVariants } from '../../../lib/store/editor-media';
+import { LAB_KEYS } from '../../../lib/store/story';
 import { mediaUrl } from '../../../lib/store/urls';
 import { loadZones } from '../../../lib/store/catalog';
 
@@ -15,13 +17,14 @@ const id = isNew ? null : Number(Astro.params.id);
 
 const blank: EditorProduct = {
   categorySlug: 'rice', slug: '', name: '', shortDescription: '', descriptionMd: '', status: 'draft', replacementProductId: null,
-  organicScheme: 'none', organicConversionSince: null, organicCertNumber: null, processClaims: [], howItsMade: {}, harvestInfo: {},
+  organicScheme: 'none', organicConversionSince: null, organicCertNumber: null, giName: null, giAuRegNumber: null, processClaims: [], howItsMade: {}, harvestInfo: {},
   attributes: {}, faq: [], bestBeforeDays: null, storageInstructions: '', countryOfOrigin: 'India', ingredients: '', allergenInfo: null,
   vegMark: true, nutrition: { per: '100 g', source: null, rows: [] }, hsnCode: '', gstRateBp: 500, perishable: false, deliveryZoneId: null, codAllowed: true,
   seasonStartMd: null, seasonEndMd: null, offSeasonMode: null, preorderDispatchDate: null, seoTitle: null, seoDescription: null, relatedProductIds: [],
 };
 
 let props: Parameters<typeof ProductEditor>[0] | null = null;
+let storyProps: Parameters<typeof ProductStoryEditor>[0] | null = null;
 let notFound = false;
 if (authenticated) {
   const all = await listProductsForAdmin(env.STORE_DB);
@@ -40,7 +43,7 @@ if (authenticated) {
         initial: {
           categorySlug: p.category.slug, slug: p.slug, name: p.name, shortDescription: p.shortDescription, descriptionMd: p.descriptionMd,
           status: p.status, replacementProductId: a.replacementProductId, organicScheme: p.organic.scheme,
-          organicConversionSince: p.organic.conversionSince, organicCertNumber: p.organic.certNumber, processClaims: p.claims,
+          organicConversionSince: p.organic.conversionSince, organicCertNumber: p.organic.certNumber, giName: p.gi.name, giAuRegNumber: p.gi.auRegNumber, processClaims: p.claims,
           howItsMade: p.howItsMade, harvestInfo: p.harvestInfo, attributes: p.attributes, faq: p.faq,
           bestBeforeDays: p.listing.bestBeforeDays, storageInstructions: p.listing.storage, countryOfOrigin: p.listing.countryOfOrigin,
           ingredients: p.listing.ingredients, allergenInfo: p.listing.allergens, vegMark: p.listing.veg, nutrition: p.nutrition,
@@ -48,17 +51,32 @@ if (authenticated) {
           seasonStartMd: p.season.startMd, seasonEndMd: p.season.endMd, offSeasonMode: p.season.offSeasonMode,
           preorderDispatchDate: p.season.preorderDispatchDate, seoTitle: p.seoTitle, seoDescription: p.seoDescription, relatedProductIds: p.relatedIds,
         },
-        variants: a.variants.map((v): EditorVariant => ({
-          id: v.id, sku: v.sku, label: v.label, netQtyLabel: v.net_qty_label, unitQtyG: v.unit_qty_g, pricePaise: v.price_paise,
-          mrpPaise: v.mrp_paise, weightG: v.weight_g, lengthCm: v.length_cm, breadthCm: v.breadth_cm, heightCm: v.height_cm,
-          stockAdjust: 0, currentStock: v.stock_qty, lowStockThreshold: v.low_stock_threshold, active: v.active === 1, sort: v.sort,
-        })),
+        variants: editorVariants(a.variants),
         ...editorMedia(a),
         certUrl: a.certKey ? mediaUrl(a.certKey) : null,
         publishedAt: a.publishedAt,
         others,
         zones,
         shelfWarning: shelfLifeWarning(activeBatch?.packed_on ?? null, p.listing.bestBeforeDays, new Date()),
+      };
+      // The proof line's lab values come only from the active batch's visible report (as on the product page).
+      const activeReport = activeBatch?.lab_report_id ? a.labReports.find((l) => l.id === activeBatch.lab_report_id && l.visible === 1) : undefined;
+      let summary: Record<string, string> = {};
+      try {
+        const parsed: unknown = activeReport ? JSON.parse(activeReport.summary) : {};
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed))
+          summary = Object.fromEntries(Object.entries(parsed).filter((e): e is [string, string] => typeof e[1] === 'string'));
+      } catch {
+        summary = {};
+      }
+      storyProps = {
+        productId: p.id,
+        productName: p.name,
+        initial: p.story,
+        labKeys: LAB_KEYS[p.category.slug] ?? [],
+        activeLab: activeReport && activeBatch ? { batchCode: activeBatch.batch_code, summary } : null,
+        productImages: a.images.map((i) => ({ key: i.r2_key, url: mediaUrl(i.r2_key), alt: i.alt, kind: i.kind })),
+        howItsMade: p.howItsMade,
       };
     }
   } else notFound = true;
@@ -72,4 +90,5 @@ const saved = Astro.url.searchParams.get('saved') === '1';
   {saved && <p class="warn" style="background:#e8f5f3;border-color:#8bd4c6;color:#196a5e;" role="status">✓ Saved. Live pages refresh within a minute.</p>}
   {notFound && <p class="warn">Product not found.</p>}
   {props && <ProductEditor client:load {...props} />}
+  {storyProps && <ProductStoryEditor client:load {...storyProps} />}
 </AdminLayout>

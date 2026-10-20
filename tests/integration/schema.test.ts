@@ -170,3 +170,17 @@ describe('order_events', () => {
 
 
 });
+
+it('0008 adds the story, GI and image-kind columns with their checks, and seeds three unpublished pages', async () => {
+  await expect(insertProduct({ story: '[]' })).rejects.toThrow(/CHECK/);
+  await expect(insertProduct({ story: '{"processSteps":[]}', gi_name: 'Wada Kolam', gi_au_reg_number: 'AU-1' })).resolves.toBeTypeOf('number');
+  const pid = await insertProduct();
+  await db.prepare("INSERT INTO product_images (product_id, r2_key, alt, sort) VALUES (?, 'products/x/a.jpg', 'a', 0)").bind(pid).run();
+  expect(await scalar(`SELECT kind FROM product_images WHERE product_id = ${pid}`)).toBe('photo');
+  await expect(db.prepare("INSERT INTO product_images (product_id, r2_key, alt, sort, kind) VALUES (?, 'products/x/b.jpg', 'b', 1, 'banner')").bind(pid).run()).rejects.toThrow(/CHECK/);
+  await expect(db.prepare("INSERT INTO story_pages (slug, draft, draft_saved_at) VALUES ('x', '[]', ?)").bind(AT).run()).rejects.toThrow(/CHECK/);
+
+  const { results } = await db.prepare('SELECT slug, published, json_type(draft) AS t FROM story_pages ORDER BY slug').all<{ slug: string; published: string | null; t: string }>();
+  expect(results).toEqual(['rice', 'spices', 'turmeric'].map((slug) => ({ slug, published: null, t: 'object' })));
+  expect(String(await scalar("SELECT draft FROM story_pages WHERE slug = 'rice'"))).not.toMatch(/GI-tagged|Wada Kolam/i);
+});

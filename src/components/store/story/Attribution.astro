@@ -1,0 +1,6 @@
+---
+/** "From our <product> →" under a landing-page section that comes from a product's story (makes it product-scoped). */
+interface Props { product: { name: string; path: string } | null }
+const { product } = Astro.props;
+---
+{product && <p class="mt-6 text-sm"><a href={product.path} class="font-bold hover:underline" style="color:var(--accent,#8bd4c6);">From our {product.name}{' '}<span aria-hidden="true">→</span></a></p>}

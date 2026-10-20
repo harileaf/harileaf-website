@@ -1,0 +1,47 @@
+---
+/** Landing-page "Every batch, tested": one row per visible lab report of the linked products, newest first. */
+import type { LabTableRow } from '../../../lib/store/story-pages';
+interface Props { columns: string[]; rows: LabTableRow[] }
+const { columns, rows } = Astro.props;
+const fmt = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
+---
+{rows.length > 0 && (
+  <section class="py-14 px-6 text-white border-t border-white/10" style="background:#0c110c;" aria-labelledby="lab-table-heading">
+    <div class="max-w-7xl mx-auto">
+      <p class="text-xs uppercase tracking-widest font-extrabold mb-2" style="color:var(--accent,#9fb17d);">Nothing to hide</p>
+      <h2 id="lab-table-heading" class="text-white text-3xl font-extrabold tracking-tight mb-6">Every batch, tested</h2>
+      <div class="max-w-4xl overflow-x-auto rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#8bd4c6]" tabindex="0" role="region" aria-labelledby="lab-table-caption">
+        <table class="w-full text-sm">
+          <caption id="lab-table-caption" class="sr-only">Lab results per batch</caption>
+          <thead>
+            <tr class="text-left" style="color:rgba(240,240,238,.7);">
+              <th scope="col" class="py-2 pr-4 font-bold">Product / batch</th>
+              {columns.map((c) => <th scope="col" class="py-2 pr-4 font-bold">{c}</th>)}
+              <th scope="col" class="py-2 font-bold">Report</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr class="border-t border-white/10 align-top">
+                <th scope="row" class="py-2.5 pr-4 text-left font-normal">
+                  <a href={r.productPath} class="font-bold text-white hover:underline">{r.productName}</a>
+                  <span class="block text-xs" style="color:rgba(240,240,238,.65);">Batch {r.batchCode} · tested {fmt(r.testedOn)}</span>
+                </th>
+                {r.values.map((v) => (
+                  <td class="py-2.5 pr-4 font-bold">{v ?? <><span aria-hidden="true">—</span><span class="sr-only">Not reported</span></>}</td>
+                ))}
+                <td class="py-2.5">
+                  {r.pdfUrl ? (
+                    <a href={r.pdfUrl} target="_blank" rel="noopener" class="font-bold hover:underline" style="color:#8bd4c6;">Download PDF<span class="sr-only"> for {r.productName}, batch {r.batchCode}</span></a>
+                  ) : (
+                    <><span aria-hidden="true">—</span><span class="sr-only">No PDF</span></>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+)}

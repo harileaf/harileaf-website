@@ -190,3 +190,28 @@ test('shop filters hide the products outside the chosen category', async ({ page
   await expect(visible).not.toHaveCount(all);
   for (const card of await visible.all()) await expect(card).toHaveAttribute('data-category', 'spices');
 });
+
+test('the spices hub leads to the turmeric story page, whose card leads to a product page that adds to the cart', async ({ page }) => {
+  await page.goto('/spices/');
+  await page.getByRole('link', { name: /The turmeric story/ }).first().click();
+  await expect(page).toHaveURL(/\/turmeric\/$/);
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Haldi the slow way.');
+  await expect(page.getByRole('table', { name: /compared with High-speed mill/ })).toBeVisible();
+  await expect(page.getByRole('table', { name: 'Lab results per batch' })).toContainText('5.1 %');
+
+  await page.locator('[data-product-card]').getByRole('heading', { name: 'Stone-Ground Turmeric Powder' }).click();
+  await expect(page).toHaveURL(/\/spices\/turmeric-powder$/);
+  await expect(page.locator('[data-proof-line]')).toContainText('Curcumin 5.1 %');
+  await expect(page.getByRole('heading', { name: 'How our Stone-Ground Turmeric Powder is made' })).toBeVisible();
+  await expect(page.locator('section[aria-labelledby^="timeline-"] ol > li')).toHaveCount(3);
+  await expect(page.getByRole('table', { name: /compared with High-speed mill/ })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Add to cart' }).first().click();
+  await expect(page.getByRole('link', { name: /^Cart/ }).first()).toContainText('1');
+});
+
+test('legacy /rice renders until its story page is published, without GI wording', async ({ page }) => {
+  await page.goto('/rice/');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Rice with the bran');
+  await expect(page.locator('body')).not.toContainText(/GI-tagged/i);
+});

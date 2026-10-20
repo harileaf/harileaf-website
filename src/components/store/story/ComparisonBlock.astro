@@ -1,0 +1,49 @@
+---
+/**
+ * Ours vs theirs as a real table (caption, column and row headers), with the
+ * optional comparison image above it and the note below. A Source column
+ * appears when any row cites one (numeric rows must).
+ */
+import Attribution from './Attribution.astro';
+import type { Comparison } from '../../../lib/store/story';
+import { mediaUrl } from '../../../lib/store/urls';
+interface Props { eyebrow: string; comparison: Comparison | null; attribution?: { name: string; path: string } | null }
+const { eyebrow, comparison: c, attribution = null } = Astro.props;
+const hasSource = Boolean(c?.rows.some((r) => r.source));
+---
+{c && (
+  <section class="py-14 px-6 text-white border-t border-white/10" style="background:#0c110c;" aria-labelledby="comparison-heading">
+    <div class="max-w-7xl mx-auto">
+      {eyebrow && <p class="text-xs uppercase tracking-widest font-extrabold mb-2" style="color:var(--accent,#9fb17d);">{eyebrow}</p>}
+      <h2 id="comparison-heading" class="text-white text-3xl font-extrabold tracking-tight mb-6 break-words">{c.heading}</h2>
+      <div class="max-w-4xl">
+        {c.imageKey && <img src={mediaUrl(c.imageKey)} alt={c.imageAlt || `Comparison: ${c.oursLabel} vs ${c.theirsLabel}; details in the table below`} width="1200" height="900" loading="lazy" decoding="async" class="w-full aspect-[4/3] object-cover rounded-2xl mb-6" />}
+        <div class="overflow-x-auto rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#8bd4c6]" tabindex="0" role="region" aria-labelledby="comparison-caption">
+          <table class="w-full text-sm">
+            <caption id="comparison-caption" class="sr-only">{c.heading}: {c.oursLabel} compared with {c.theirsLabel}</caption>
+            <thead>
+              <tr class="text-left">
+                <th scope="col" class="py-2 pr-4"><span class="sr-only">Aspect</span></th>
+                <th scope="col" class="py-2 pr-4 font-extrabold" style="color:var(--accent,#9fb17d);">{c.oursLabel}</th>
+                <th scope="col" class="py-2 pr-4 font-bold" style="color:rgba(240,240,238,.7);">{c.theirsLabel}</th>
+                {hasSource && <th scope="col" class="py-2 font-bold" style="color:rgba(240,240,238,.7);">Source</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {c.rows.map((r) => (
+                <tr class="border-t border-white/10 align-top">
+                  <th scope="row" class="py-2.5 pr-4 text-left font-normal" style="color:rgba(240,240,238,.7);">{r.aspect}</th>
+                  <td class="py-2.5 pr-4 font-bold" style="color:var(--accent,#9fb17d);">{r.ours}</td>
+                  <td class="py-2.5 pr-4" style="color:rgba(240,240,238,.78);">{r.theirs}</td>
+                  {hasSource && <td class="py-2.5 text-xs" style="color:rgba(240,240,238,.65);">{r.source}</td>}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {c.note && <p class="mt-4 text-sm leading-relaxed" style="color:rgba(240,240,238,.7);">{c.note}</p>}
+      </div>
+      <Attribution product={attribution} />
+    </div>
+  </section>
+)}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getProductPage, listProducts } from '../../src/lib/store/catalog';
+import { activeLabSummaries, getProductPage, getProductsByIds, listProducts } from '../../src/lib/store/catalog';
 import { db, insertProduct, insertVariant } from '../helpers/fixtures';
 
 const TODAY = new Date('2026-10-18T06:30:00Z');
@@ -38,7 +38,6 @@ describe('listProducts', () => {
     expect((await listProducts(db, { keys: ['rice/karjat-3', 'rice/draft-thing', 'spices/karjat-3'], today: TODAY })).map((c) => c.slug)).toEqual(['karjat-3']);
     expect(await listProducts(db, { keys: [], today: TODAY })).toEqual([]);
   });
-
 
   it('treats pre-orders as notify in v1 (no pre-order checkout yet)', async () => {
     const m = await insertProduct({ slug: 'kesar', category_id: 3, perishable: 1, cod_allowed: 0, season_start_md: '04-01', season_end_md: '06-30', off_season_mode: 'preorder', preorder_dispatch_date: '2027-04-05' });
@@ -103,3 +102,51 @@ describe('getProductPage', () => {
   });
 });
 
+
+describe('story fields', () => {
+  it('maps the story column, GI values (blank to null) and the image kind', async () => {
+    const id = await insertProduct({
+      category_id: 2, slug: 'turmeric-story', gi_name: 'Wada Kolam', gi_au_reg_number: 'AU-123',
+      story: JSON.stringify({ icons: [{ icon: 'sun', label: 'Sun-cured' }], processSteps: [] }),
+    });
+    await insertVariant(id);
+    await db.prepare("INSERT INTO product_images (product_id, r2_key, alt, sort, kind) VALUES (?, 'products/t/info.webp', 'Comparison: stone mill vs high-speed mill', 0, 'infographic')").bind(id).run();
+    const blank = await insertProduct({ slug: 'gi-blank', gi_name: '   ', gi_au_reg_number: ' ' });
+    const res = await getProductPage(db, 'spices', 'turmeric-story', TODAY);
+    if (res.kind !== 'ok') throw new Error('expected ok');
+    expect(res.product.story?.icons).toEqual([{ icon: 'sun', label: 'Sun-cured' }]);
+    expect(res.product.gi).toEqual({ name: 'Wada Kolam', auRegNumber: 'AU-123' });
+    expect(res.images[0].kind).toBe('infographic');
+    const [b] = await getProductsByIds(db, [blank]);
+    expect(b.story).toBeNull();
+    expect(b.gi).toEqual({ name: null, auRegNumber: null });
+  });
+});
+
+describe('getProductsByIds', () => {
+  it('keeps the input order and returns only active products', async () => {
+    const a = await insertProduct({ slug: 'ids-a' });
+    const b = await insertProduct({ slug: 'ids-b' });
+    const draft = await insertProduct({ slug: 'ids-draft', status: 'draft' });
+    const gone = await insertProduct({ slug: 'ids-gone', status: 'discontinued' });
+    const got = await getProductsByIds(db, [b, draft, 999999, gone, a]);
+    expect(got.map((p) => p.id)).toEqual([b, a]);
+    expect(await getProductsByIds(db, [])).toEqual([]);
+  });
+});
+
+describe('activeLabSummaries', () => {
+  const lab = (productId: number, code: string, summary: object, visible: number) =>
+    db.prepare("INSERT INTO lab_reports (product_id, batch_code, tested_on, lab_name, test_scope, summary, visible) VALUES (?, ?, '2026-09-01', 'Lab', 'x', ?, ?)")
+      .bind(productId, code, JSON.stringify(summary), visible).run();
+
+  it("reads lab values only from the active batch's visible report, with no fallback to an older one", async () => {
+    const id = await insertProduct({ category_id: 2, slug: 'turmeric-lab' });
+    await lab(id, 'T-00', { Curcumin: '3.0 %' }, 1);
+    const cur = await lab(id, 'T-01', { Curcumin: '5.1 %' }, 0);
+    await db.prepare("INSERT INTO batches (product_id, batch_code, packed_on, lab_report_id, active) VALUES (?, 'T-01', '2026-09-02', ?, 1)").bind(id, cur.meta.last_row_id).run();
+    expect((await activeLabSummaries(db, [id])).get(id)).toBeUndefined();
+    await db.prepare('UPDATE lab_reports SET visible = 1 WHERE id = ?').bind(cur.meta.last_row_id).run();
+    expect((await activeLabSummaries(db, [id])).get(id)).toEqual({ Curcumin: '5.1 %' });
+  });
+});

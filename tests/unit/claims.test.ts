@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findBannedPhrases, organicCopy, validateProcessClaims, type ProcessClaim } from '../../src/lib/store/claims';
+import { findBannedPhrases, findCertificationWords, findComparisonProblems, findGiProblems, GI_MESSAGE, organicCopy, parseProcessClaims, validateProcessClaims, type ProcessClaim } from '../../src/lib/store/claims';
 
 const none = { organicScheme: 'none' as const, claims: [] as ProcessClaim[] };
 const noOrganic = { organicScheme: 'none' as const, mayUseOrganic: false };
@@ -69,4 +69,59 @@ it('validateProcessClaims requires code, text and evidence, unique codes and cle
     { code: 'unpolished', text: 'Unpolished', evidence_note: 'Mill setting' },
     { code: 'unpolished', text: 'Chemical-free', evidence_note: 'x' },
   ], noOrganic)).toEqual(['Claim 2 duplicates code "unpolished"', 'Claim 2 ("unpolished") uses banned wording: chemical-free']);
+});
+
+describe('GI wording', () => {
+  it('blocks GI words, dotted G.I. and Wada Kolam without a registration number; allows them with one', () => {
+    const W = ['GI wording'];
+    const WK = ['GI name: Wada Kolam'];
+    const cases: Array<[string, string[]]> = [
+      ['GI-tagged rice', W], ['A geographical indication', W], ['G.I.-tagged', W], ['Low GI rice', W],
+      ['Wada-Kolam', WK], ['WADA  KOLAM', WK], ['GI-tagged Wada Kolam', [...W, ...WK]],
+      ['Ginger and gin', []], ['e.g. I', []], ['Kolam rice from Wada, Palghar', []],
+    ];
+    for (const [t, expected] of cases) {
+      expect([t, findGiProblems(t, { giRegistered: false })]).toEqual([t, expected]);
+      expect([t, findGiProblems(t, { giRegistered: true })]).toEqual([t, []]);
+    }
+    expect(GI_MESSAGE).toMatch(/authorised-user registration number/);
+    expect(GI_MESSAGE).toMatch(/glycemic index/);
+  });
+});
+
+it('comparison wording rejects disparaging terms, including adulterant forms, but not neutral process words', () => {
+  expect(findComparisonProblems('Fake, adulterated and toxic powder')).toEqual(['fake', 'adulterated', 'toxic']);
+  expect(findComparisonProblems('common adulterants')).toEqual(['adulterated']);
+  expect(findComparisonProblems('High-speed mill; friction heats the powder; priced cheaply')).toEqual([]);
+});
+
+describe('certification words', () => {
+  const c = (scheme: 'none' | 'pgs_green' | 'pgs_organic' | 'npop', certified = true) => ({ scheme, certified });
+  const pgs = c('pgs_organic');
+  const PGS = 'certification wording: PGS (only when every product here holds PGS-India)';
+  const NPOP = 'certification wording: NPOP / India Organic (only when every product here holds NPOP)';
+  const JB = 'certification wording: Jaivik Bharat (only with PGS-India Organic or NPOP on every product here)';
+  const CO = 'certification wording: certified organic (only with PGS-India Organic or NPOP on every product here)';
+
+  it('are allowed only when every product in context holds that certification', () => {
+    expect(findCertificationWords('PGS-India Organic certified organic turmeric', [pgs, pgs])).toEqual([]);
+    expect(findCertificationWords('PGS-India Organic', [pgs, c('none', false)])).toEqual([PGS]);
+    expect(findCertificationWords('PGS', [c('pgs_organic', false)])).toEqual([PGS]);
+    expect(findCertificationWords('certified organic', [c('pgs_green')])).toEqual([CO]);
+    expect(findCertificationWords('NPOP India Organic', [pgs])).toEqual([NPOP]);
+  });
+
+  it('are caught in dashed and joined spellings; PGS-India Organic is not mistaken for India Organic', () => {
+    expect(findCertificationWords('India-Organic', [])).toEqual([NPOP]);
+    expect(findCertificationWords('JaivikBharat', [])).toEqual([JB]);
+    expect(findCertificationWords('certified-organic', [])).toEqual([CO]);
+    expect(findCertificationWords('PGS–India Organic', [pgs])).toEqual([]);
+    expect(findCertificationWords('pgs india organic and India Organic', [pgs])).toEqual([NPOP]);
+    expect(findCertificationWords('Grown in India, organic practices', [pgs])).toEqual([]);
+  });
+});
+
+it('parseProcessClaims keeps only well-formed entries of a stored array and never throws', () => {
+  expect(parseProcessClaims('[{"code":"pure","text":"Pure","evidence_note":"Lab","extra":1},{"code":"x"},null,7]')).toEqual([{ code: 'pure', text: 'Pure', evidence_note: 'Lab' }]);
+  for (const raw of ['{"code":"pure"}', 'not json', null]) expect(parseProcessClaims(raw)).toEqual([]);
 });
