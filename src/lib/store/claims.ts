@@ -146,16 +146,26 @@ export function validateProcessClaims(
 export const REGISTERED_GI_NAMES = ['Wada Kolam'] as const;
 
 export const GI_MESSAGE =
-  "GI wording and the name 'Wada Kolam' need the authorised-user registration number (Products → Geographical Indication)";
+  "GI wording (geographical indication) and the name 'Wada Kolam' need the authorised-user registration number (Products → Geographical Indication). If you meant glycemic index, that's a health claim and isn't allowed either.";
 
-const giNameRe = (name: string) => new RegExp(name.trim().split(/\s+/).join('[\\s-]*'), 'i');
+/** Whitespace, hyphen and the Unicode dashes U+2010 to U+2015. */
+const SEP = '[\\s\\-‐-―]';
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/** GI words ("GI" as an uppercase word, "GI-tagged", "geographical indication") and registered GI names. */
+const GI_NAME_RES = REGISTERED_GI_NAMES.map((name) => ({
+  name,
+  re: new RegExp(name.trim().split(/\s+/).map(escapeRe).join(`${SEP}*`), 'i'),
+}));
+const GI_WORD_RE = /\bG\.?I\b/; // case-sensitive on purpose: "gi", "Gift", "ginger" must not match
+const GI_TAGGED_RE = new RegExp(`\\bg\\.?i\\.?${SEP}*tagged\\b`, 'i');
+const GI_INDICATION_RE = /geographical\s+indication/i;
+
+/** GI words ("GI" / "G.I." as an uppercase word, "GI-tagged", "geographical indication") and registered GI names. */
 export function findGiProblems(text: string, ctx: { giRegistered: boolean }): string[] {
   if (ctx.giRegistered) return [];
   const found: string[] = [];
-  if (/\bGI\b/.test(text) || /\bgi[\s-]*tagged\b/i.test(text) || /geographical\s+indication/i.test(text)) found.push('GI wording');
-  for (const name of REGISTERED_GI_NAMES) if (giNameRe(name).test(text)) found.push(`GI name: ${name}`);
+  if (GI_WORD_RE.test(text) || GI_TAGGED_RE.test(text) || GI_INDICATION_RE.test(text)) found.push('GI wording');
+  for (const { name, re } of GI_NAME_RES) if (re.test(text)) found.push(`GI name: ${name}`);
   return found;
 }
 
@@ -163,7 +173,7 @@ export function findGiProblems(text: string, ctx: { giRegistered: boolean }): st
 
 const COMPARISON_BANNED: Array<{ re: RegExp; label: string }> = [
   { re: /\bfake\b/i, label: 'fake' },
-  { re: /\badulterat\w*/i, label: 'adulterated' },
+  { re: /\badulter\w*/i, label: 'adulterated' },
   { re: /\btoxic\b/i, label: 'toxic' },
   { re: /\bharmful\b/i, label: 'harmful' },
   { re: /\bdangerous\b/i, label: 'dangerous' },
@@ -181,11 +191,17 @@ export function findComparisonProblems(text: string): string[] {
 export interface CertContext { scheme: OrganicScheme; certified: boolean }
 
 const CERT_WORDS: Array<{ re: RegExp; label: string; ok: (c: CertContext) => boolean; ignore?: RegExp }> = [
-  { re: /\bPGS\b/i, label: 'PGS', ok: (c) => c.certified && (c.scheme === 'pgs_green' || c.scheme === 'pgs_organic') },
-  // "PGS-India Organic" is the PGS scheme's own name, not NPOP's "India Organic" (no lookbehind: this module also ships to browsers).
-  { re: /\bNPOP\b|\bindia\s+organic\b/i, ignore: /\bPGS[\s-]+india\s+organic\b/gi, label: 'NPOP / India Organic', ok: (c) => c.certified && c.scheme === 'npop' },
-  { re: /\bjaivik\s+bharat\b/i, label: 'Jaivik Bharat', ok: (c) => c.certified && (c.scheme === 'pgs_organic' || c.scheme === 'npop') },
-  { re: /\bcertified\s+organic\b/i, label: 'certified organic', ok: (c) => c.certified && (c.scheme === 'pgs_organic' || c.scheme === 'npop') },
+  { re: /\bPGS\b/i, label: 'PGS (only when every product here holds PGS-India)', ok: (c) => c.certified && (c.scheme === 'pgs_green' || c.scheme === 'pgs_organic') },
+  {
+    re: new RegExp(`\\bNPOP\\b|\\bindia${SEP}*organic\\b`, 'i'),
+    // "PGS-India Organic" is the PGS scheme's own name, not NPOP's "India Organic" (no lookbehind: this module also ships to browsers).
+    // global: only for replace(), never .test()
+    ignore: new RegExp(`\\bPGS${SEP}+india${SEP}*organic\\b`, 'gi'),
+    label: 'NPOP / India Organic (only when every product here holds NPOP)',
+    ok: (c) => c.certified && c.scheme === 'npop',
+  },
+  { re: new RegExp(`\\bjaivik${SEP}*bharat\\b`, 'i'), label: 'Jaivik Bharat (only with PGS-India Organic or NPOP on every product here)', ok: (c) => c.certified && (c.scheme === 'pgs_organic' || c.scheme === 'npop') },
+  { re: new RegExp(`\\bcertified${SEP}*organic\\b`, 'i'), label: 'certified organic (only with PGS-India Organic or NPOP on every product here)', ok: (c) => c.certified && (c.scheme === 'pgs_organic' || c.scheme === 'npop') },
 ];
 
 /**
