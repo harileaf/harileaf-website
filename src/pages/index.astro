@@ -38,14 +38,13 @@ const pageDesc     = seo?.metaDescription ?? (site.description ?? 'Sustainable i
     <JsonLd
       type="WebSite"
       data={{
-        name: siteName,
-        url: String(canonicalURL.origin),
+        // Google's site name in results: the short brand, with the longer forms as alternates.
+        // No SearchAction: the site has no search page (and Google retired the sitelinks search box).
+        name: 'HariLeaf',
+        alternateName: [siteName, 'harileaf.org'],
+        url: `${canonicalURL.origin}/`,
         description: pageDesc,
-        potentialAction: {
-          '@type': 'SearchAction',
-          target: `${canonicalURL.origin}/?s={search_term_string}`,
-          'query-input': 'required name=search_term_string',
-        },
+        publisher: { '@id': `${canonicalURL.origin}/#organization` },
       }}
     />
   </slot>

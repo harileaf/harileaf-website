@@ -34,9 +34,10 @@ export function deliveredEmail(o: OrderRow, viewUrl: string, s: StoreSettings, r
   // Fresh produce: report damage within 24 hours (refund policy); packs: 48 hours.
   const within = perishable ? '24 hours' : '48 hours';
   // A plain request: no reward, and no hint that only good reviews are wanted (IS 19000:2022).
-  const review = reviewUrl ? `<p>Once you've tried it, would you tell other shoppers what you thought? Good or bad, every honest review is published.</p>${button(reviewUrl, 'Review your order')}` : '';
+  const google = s.google_review_url ? `<p>You can also review us on <a href="${esc(s.google_review_url)}">Google</a>.</p>` : '';
+  const review = reviewUrl ? `<p>Once you've tried it, would you tell other shoppers what you thought? Good or bad, every honest review is published.</p>${button(reviewUrl, 'Review your order')}${google}` : '';
   const body = `<p>Hi ${first(o)}, your order <strong>${esc(o.order_no)}</strong> has been delivered. We hope you enjoy it!</p><p>Something not right — ${perishable ? 'fruit that arrived damaged' : 'a damaged pack'} or a wrong item? Reply to this email with a photo within ${within} and we'll send a replacement or refund it. See our <a href="${absolute('/refund-policy/')}">refund policy</a>.</p>${review}<p><a href="${esc(viewUrl)}">View your order</a></p>`;
-  return { to: o.email, subject: `Order ${o.order_no} delivered — HariLeaf`, html: wrap('Delivered', body, s), text: `Your order ${o.order_no} has been delivered. Damaged or wrong item? Reply with a photo within ${within}.${reviewUrl ? `\nReview your order: ${reviewUrl}` : ''}\n${viewUrl}`, idempotencyKey: `email.delivered/${o.order_no}`, replyTo: s.customer_care_email || undefined };
+  return { to: o.email, subject: `Order ${o.order_no} delivered — HariLeaf`, html: wrap('Delivered', body, s), text: `Your order ${o.order_no} has been delivered. Damaged or wrong item? Reply with a photo within ${within}.${reviewUrl ? `\nReview your order: ${reviewUrl}${s.google_review_url ? `\nReview us on Google: ${s.google_review_url}` : ''}` : ''}\n${viewUrl}`, idempotencyKey: `email.delivered/${o.order_no}`, replyTo: s.customer_care_email || undefined };
 }
 
 const longDay = (ymd: string) => new Date(`${ymd}T00:00:00+05:30`).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' });

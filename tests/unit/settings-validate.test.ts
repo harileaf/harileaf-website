@@ -41,3 +41,10 @@ it('needs at least one dispatch day', () => {
   expect(validateSettings({ dispatch_days: '4, 1 ,2' }, current)).toMatchObject({ ok: true, value: { dispatch_days: '1,2,4' } });
   expect(validateSettings({ dispatch_days: '' }, current)).toMatchObject({ ok: false, errors: { dispatch_days: 'Choose at least one dispatch day' } });
 });
+
+it('accepts only a Google review link for google_review_url (empty is fine)', () => {
+  for (const url of ['', 'https://g.page/r/CabcDEF123/review', 'https://search.google.com/local/writereview?placeid=ChIJ123', 'https://maps.app.goo.gl/abc123'])
+    expect([url, validateSettings({ google_review_url: url }, SETTING_DEFAULTS).ok]).toEqual([url, true]);
+  for (const url of ['http://g.page/r/abc/review', 'https://example.com/review', 'https://g.page.evil.com/r/x', 'not a url'])
+    expect(validateSettings({ google_review_url: url }, SETTING_DEFAULTS)).toMatchObject({ ok: false, errors: { google_review_url: expect.any(String) } });
+});

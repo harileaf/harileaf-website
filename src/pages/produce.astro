@@ -11,12 +11,13 @@ import FadeIn from '../components/animations/FadeIn.astro';
 import SEO from '../components/seo/SEO.astro';
 import contactJson from '../content/contact-page.json';
 import PhotoStrip from '../components/produce/PhotoStrip.astro';
+import { breadcrumbJsonLd, jsonLdString } from '../lib/store/seo';
 
 const web3formsKey = contactJson.form.web3formsKey;
 // One canonical for /produce and /produce/ (same form as the sitemap and navigation).
 const canonicalURL = new URL('/produce/', Astro.site ?? 'https://harileaf.org');
-const pageTitle = 'Fresh Produce from HariLeaf Farm — Fruits, Vegetables & Flowers';
-const pageDesc  = 'Fruits, vegetables, herbs and flowers grown on HariLeaf Farm. Mangoes, dragon fruit, roses and more — available in bulk, farm direct.';
+const pageTitle = 'Hay-Ripened Kesar Mangoes & Farm-Fresh Produce | HariLeaf';
+const pageDesc  = 'Kesar mangoes ripened on hay at our farm in Wada — no carbide — delivered fresh across Mumbai. Plus dragon fruit, vegetables and flowers, farm direct.';
 
 const mangoVarieties = ['Alphonso', 'Kesar Gir', 'Payri', 'Langda', 'Rajapuri', 'Badami'];
 
@@ -69,6 +70,7 @@ try {
 
   <slot name="head" slot="head">
     <SEO title={pageTitle} description={pageDesc} canonicalUrl={canonicalURL} />
+    <script type="application/ld+json" is:inline set:html={jsonLdString(breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Fresh produce', path: '/produce/' }]))} />
   </slot>
 
   <!-- ══════════════════════════════════════════════════════

@@ -4,7 +4,10 @@
  * - Certification wording comes only from `organicCopy()`, and only when the
  *   product has a scheme AND a certificate number.
  * - Every process claim must carry an evidence note.
- * - Some phrases are banned outright. "Organic" is allowed only when
+ * - Some phrases are banned outright. "Pesticide-free" is not: the owner allows
+ *   it (2026-10-20) on the strength of the farm's no-synthetic-inputs practice,
+ *   against advice that absolute "free-from" claims want residue testing of
+ *   every batch — back it with lab reports showing pesticides not detected. "Organic" is allowed only when
  *   organicCopy() says so (scheme + certificate). The FSSAI Reg 4 terms —
  *   natural, fresh, pure, traditional, authentic, genuine, real, original —
  *   are allowed only when a process claim with that code carries evidence.
@@ -73,8 +76,6 @@ const ALWAYS_BANNED: Array<{ re: RegExp; label: string }> = [
   { re: /chemical[\s-]*free/i, label: 'chemical-free' },
   { re: /100\s*%\s*organic/i, label: '100% organic' },
   { re: /naturally[\s-]*grown/i, label: 'naturally grown' },
-  // Absolute "free-from" claims need certified testing of every batch.
-  { re: /pesticide[\s-]*free|no\s+pesticides?/i, label: 'pesticide-free' },
   { re: /no\s+(?:synthetic\s+)?chemicals?|chemicals?\s+free/i, label: 'no chemicals' },
   { re: /\bsuper[\s-]*food/i, label: 'superfood' },
 ];

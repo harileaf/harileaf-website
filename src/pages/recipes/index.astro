@@ -4,6 +4,7 @@ import SiteLayout from '../../layouts/SiteLayout.astro';
 import { Image } from 'astro:assets';
 import SEO from '../../components/seo/SEO.astro';
 import { RECIPES } from '../../content/store/recipes';
+import { breadcrumbJsonLd, itemListJsonLd, jsonLdString } from '../../lib/store/seo';
 import { absolute } from '../../lib/store/urls';
 
 const title = 'Recipes with heritage rice and stone-ground spices | HariLeaf';
@@ -11,7 +12,11 @@ const description = 'Everyday Indian recipes made with HariLeaf heritage rice an
 ---
 
 <SiteLayout title={title} description={description}>
-  <slot name="head" slot="head"><SEO title={title} description={description} canonicalUrl={absolute('/recipes/')} /></slot>
+  <slot name="head" slot="head">
+    <SEO title={title} description={description} canonicalUrl={absolute('/recipes/')} />
+    <script type="application/ld+json" is:inline set:html={jsonLdString(breadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Recipes', path: '/recipes/' }]))} />
+    <script type="application/ld+json" is:inline set:html={jsonLdString(itemListJsonLd(RECIPES.map((r) => ({ name: r.title, path: `/recipes/${r.slug}/` }))))} />
+  </slot>
   <div class="max-w-7xl mx-auto px-6 pt-32 pb-24">
     <h1 class="text-4xl md:text-5xl font-extrabold tracking-tighter">Recipes</h1>
     <p class="mt-3 text-lg text-on-surface-variant max-w-2xl">Simple, everyday cooking with our rice and spices.</p>

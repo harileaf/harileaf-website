@@ -27,7 +27,7 @@ describe('findBannedPhrases', () => {
       ['CHEMICAL FREE rice', 'chemical-free'], ['100 % organic', '100% organic'], ['naturally-grown', 'naturally grown'],
       ['organically farmed', 'organic'], ['a traditional stone mill', 'traditional'], ['Pure turmeric', 'pure'], ['freshly ground', 'fresh'],
       ['All natural', 'natural'], ['Authentic Wada Kolam', 'authentic'], ['the real taste', 'real'], ['Genuine rice', 'genuine'], ['the original recipe', 'original'],
-      ['Pesticide-free turmeric', 'pesticide-free'], ['No pesticides, no chemicals', 'no chemicals'], ['A superfood', 'superfood'],
+      ['No pesticides, no chemicals', 'no chemicals'], ['A superfood', 'superfood'],
       ['Good for diabetics', 'health claim: diabet'], ['Lowers cholesterol', 'health claim: cholesterol'], ['Boosts immunity', 'health claim: immunity'],
       ['Anti-inflammatory', 'health claim: inflammation'], ['gentle on blood sugar', 'health claim: blood sugar'], ['Antioxidant-rich', 'health claim: antioxidant'],
       ['Good for heart health', 'health claim: heart health'], ['A natural detox', 'health claim: detox'], ['Helps weight loss', 'health claim: weight/metabolism'], ['A cure for colds', 'health claim: cure'],
@@ -37,7 +37,7 @@ describe('findBannedPhrases', () => {
   });
 
   it('has no false positives on factual process wording', () => {
-    for (const text of ['Sun-cured red chillies', 'Turmeric curing: boiled and sun dried', 'Inorganic fertilisers are never used', 'Secure packaging', 'Net weight 5 kg; packed weight 5.1 kg', 'Stone ground below 40 °C. No synthetic pesticides or fertilisers used. 3.2 g fibre per 100 g.'])
+    for (const text of ['Sun-cured red chillies', 'Turmeric curing: boiled and sun dried', 'Inorganic fertilisers are never used', 'Secure packaging', 'Net weight 5 kg; packed weight 5.1 kg', 'Stone ground below 40 °C. No synthetic pesticides or fertilisers used. 3.2 g fibre per 100 g.', 'Pesticide-free turmeric', 'Grown with no pesticides'])
       expect([text, findBannedPhrases(text, none)]).toEqual([text, []]);
   });
 

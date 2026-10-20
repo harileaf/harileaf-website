@@ -25,8 +25,11 @@ const schema = {
   mainEntityOfPage: absolute(path),
   datePublished: a.published,
   dateModified: a.updated,
-  author: { '@type': 'Organization', name: BRAND, url: absolute('/') },
-  publisher: { '@type': 'Organization', name: BRAND, url: absolute('/'), logo: { '@type': 'ImageObject', url: absolute('/images/brand/logo-color.png') } },
+  // Guides have no photos yet: the farm card (1200×630) keeps them eligible for article rich results.
+  image: [absolute('/images/brand/og-farm.png')],
+  // Same node as the site-wide Organization (SiteLayout), so Google joins them into one entity.
+  author: { '@type': 'Organization', '@id': `${absolute('/')}#organization`, name: BRAND, url: absolute('/') },
+  publisher: { '@type': 'Organization', '@id': `${absolute('/')}#organization`, name: BRAND, url: absolute('/'), logo: { '@type': 'ImageObject', url: absolute('/images/brand/logo-color.png') } },
 };
 const day = (d: string) => new Date(`${d}T00:00:00+05:30`).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' });
 ---
