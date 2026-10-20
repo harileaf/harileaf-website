@@ -5,6 +5,7 @@ import { createOrder } from '../../src/lib/store/orders';
 import { abortPendingOrder, expireReservations, markPaid } from '../../src/lib/store/payments';
 import { quoteCart } from '../../src/lib/store/quote';
 import { SETTING_DEFAULTS } from '../../src/lib/store/settings';
+import { shiprocketOrderPayload } from '../../src/lib/store/shiprocket-orders';
 import { AT, db, insertOrder, insertProduct, insertVariant, scalar } from '../helpers/fixtures';
 
 let n = 0;
@@ -140,5 +141,19 @@ describe('coupons at checkout', () => {
     expect(await scalar('SELECT phone FROM coupon_redemptions WHERE order_id = ?', first.res.orderId)).toBe(phone);
     await cancelOrder(db, first.res.orderId, { now: NOW, actor: 'customer', reason: 'wrong address' });
     expect((await place([{ variantId: v, qty: 1 }], { coupon: code, phone })).res.ok).toBe(true);
+  });
+
+  it('tells Shiprocket the discount exactly, so the items add up to the COD amount when it doesn’t split evenly per unit', async () => {
+    const code = await insertCoupon({ kind: 'flat', value: 1000, min_order_paise: 10001 });
+    const v = await insertVariant(await insertProduct(), { price_paise: 14900, mrp_paise: 14900, stock_qty: 10 });
+    const { res } = await place([{ variantId: v, qty: 3 }], { coupon: code });
+    if (!res.ok) throw new Error(res.message);
+    const order = await db.prepare('SELECT * FROM orders WHERE id = ?').bind(res.orderId).first<Parameters<typeof shiprocketOrderPayload>[0]>();
+    const items = (await db.prepare('SELECT *, 0 AS weight_g, 1 AS length_cm, 1 AS breadth_cm, 1 AS height_cm FROM order_items WHERE order_id = ?').bind(res.orderId).all<Parameters<typeof shiprocketOrderPayload>[1][number]>()).results;
+    const sr = shiprocketOrderPayload(order!, items, 'Farm');
+    const itemsTotal = sr.order_items.reduce((a, i) => a + Math.round(Number(i.selling_price) * 100) * i.units - Math.round(Number(i.discount) * 100) * i.units, 0);
+    expect(sr.total_discount).toBe('10.00');
+    expect(itemsTotal - Math.round(Number(sr.total_discount) * 100)).toBe(Math.round(Number(sr.sub_total) * 100));
+    expect(sr.sub_total).toBe('437.00');
   });
 });
