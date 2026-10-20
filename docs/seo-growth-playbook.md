@@ -27,15 +27,16 @@ What the code does for search, and what the owner does outside it. Audience: peo
 
 Work through this in order. Use one Google account for Search Console, Merchant Center and the Business Profile, and add a second owner to each so access never depends on one login.
 
-### 1. Cloudflare, before anything else
+### 1. Cloudflare: done 2026-10-20 (through the API), except one click
 
-1. **Redirect www to the bare domain.** `https://www.harileaf.org/` currently serves a full copy of the site; it should redirect.
-   - *Rules → Redirect Rules → Create from template → "Redirect from WWW to root"*.
-   - Status 301, keep the path and the query string.
-   - Check: `curl -sI https://www.harileaf.org/rice/` shows `301` and `location: https://harileaf.org/rice/`.
-   - This is a dashboard rule because prerendered pages are served as static assets before the Worker runs, so a code redirect wouldn't catch them.
-2. **Turn on Crawler Hints.** *Caching → Configuration → Crawler Hints*. It pings Bing and Yandex through IndexNow whenever a page changes.
-3. **Keep AI search crawlers allowed.** *Security → Bots* (or *AI Crawl Control*): "Block AI bots" off, and Cloudflare's managed robots.txt off, if you want to appear in ChatGPT, Perplexity and Gemini answers.
+- ✅ **www → root redirect:** a Redirect Rule, "www to root (SEO: one canonical host)", returns 301 and keeps the path and query string. `http://www.` reaches `https://harileaf.org` in one hop.
+- ✅ **Minimum TLS 1.2.** It was 1.0. Always Use HTTPS, SSL Full (strict) and Rocket Loader off were already right.
+- ✅ **AI crawlers:** "Block AI bots" is off and "AI training" stays *disallow*. Search and fetch agents can read the site:
+  - allowed: Googlebot, Bingbot, Applebot, OAI-SearchBot, ChatGPT-User, Claude-SearchBot, Claude-User, Perplexity-User;
+  - blocked: training crawlers, i.e. GPTBot, ClaudeBot and PerplexityBot (Cloudflare classes PerplexityBot with them).
+
+  To appear more in Perplexity, allow PerplexityBot under *Security → Bots → AI Crawl Control*.
+- ⬜ **Crawler Hints** (owner, dashboard only; API tokens can't switch it): *Caching → Configuration → Crawler Hints → On*.
 
 ### 2. Search Console (search.google.com/search-console)
 
