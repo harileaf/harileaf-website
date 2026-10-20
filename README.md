@@ -11,6 +11,7 @@ Marketing site and (in progress) online store for HariLeaf — Astro 6 (SSR) on 
 | :-- | :-- |
 | `npm install` | Install dependencies (Node ≥ 22.12) |
 | `npm run dev` | Dev server at `localhost:4321` with local D1/KV/R2 from `wrangler.toml` |
+| `npm run cms` | Keystatic editor at `localhost:4322/keystatic`: edits the JSON in `src/content/` (commit the changes). It runs in Node because `npm run dev` runs routes in workerd, which can't write the repo's files |
 | `npm run build` | Production build into `dist/` |
 | `npm run check` | `astro check` (types) |
 | `npm test` | Store tests — Vitest running inside workerd with a real local D1 |
