@@ -46,7 +46,8 @@ if (authenticated) {
       props = {
         slug: row.slug,
         draft: row.draft,
-        info: { status: info?.status ?? 'never', draftSavedAt: info?.draftSavedAt ?? row.draftSavedAt, publishedAt: info?.publishedAt ?? row.publishedAt },
+        // draftSavedAt from the same read as the draft: the editor sends it back with each save (stale-tab check).
+        info: { status: info?.status ?? 'never', draftSavedAt: row.draftSavedAt, publishedAt: row.publishedAt },
         products: all.map((p) => ({ id: p.id, name: p.name, status: p.status, story: summary(ctx.find((c) => c.id === p.id)?.story ?? null) })),
         labByProduct: Object.fromEntries(
           [...labs].map(([id, s]) => [String(id), Object.fromEntries(Object.entries(s).filter((e): e is [string, string] => typeof e[1] === 'string'))]),
@@ -70,3 +71,8 @@ if (dbError) Astro.response.status = 500;
   {props && <h1 style="font-size:1.5rem;font-weight:800;margin-bottom:1rem;">{NAMES[props.slug]} page</h1>}
   {props && <StoryPageEditor client:load {...props} />}
 </AdminLayout>
+
+<style is:global>
+  /* The editor's sticky action bar must never cover a focused field or the message list. */
+  html { scroll-padding-bottom: 5rem; }
+</style>

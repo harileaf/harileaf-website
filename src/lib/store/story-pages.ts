@@ -190,17 +190,33 @@ export async function publishedPageConflicts(db: D1Database, changed: ContextPro
 
 // ── landing pages ─────────────────────────────────────────────────────────
 
-/** Saves the draft when its structure is valid; claims and completeness problems come back as warnings. */
-export async function saveStoryPageDraft(db: D1Database, slug: string, raw: unknown, now = new Date()): Promise<SaveWithWarnings> {
+export const STALE_DRAFT = 'This page was changed in another tab or window. Reload to see the latest version.';
+
+export type DraftSave = { ok: true; warnings: FieldErrors; savedAt: string } | { ok: false; errors: FieldErrors; conflict?: true };
+
+/**
+ * Saves the draft when its structure is valid; claims and completeness
+ * problems come back as warnings. With `expectedSavedAt` (the draft_saved_at
+ * the editor loaded), the write happens only if the stored draft is still
+ * that one, in the same UPDATE, so a stale tab can't overwrite a newer draft.
+ */
+export async function saveStoryPageDraft(db: D1Database, slug: string, raw: unknown, now = new Date(), expectedSavedAt?: string): Promise<DraftSave> {
   if (!isStoryPageSlug(slug)) return { ok: false, errors: { _: 'Page not found' } };
   const page = coerceStoryPage(raw);
   const errors = validateStoryPageStructure(slug, page);
   if (Object.keys(errors).length) return { ok: false, errors };
   const warnings = checkStoryPage(slug, page, await loadContextProducts(db, page.productIds), { completeness: true });
-  const res = await db.prepare('UPDATE story_pages SET draft = ?, draft_saved_at = ? WHERE slug = ?').bind(JSON.stringify(page), nowIso(now), slug).run();
-  // The rows are seeded by migration 0008; without one there is nothing to save into.
-  if (!res.meta.changes) return { ok: false, errors: { _: 'This page is missing. Run the latest migration.' } };
-  return { ok: true, warnings };
+  const savedAt = nowIso(now);
+  const res = await (expectedSavedAt === undefined
+    ? db.prepare('UPDATE story_pages SET draft = ?, draft_saved_at = ? WHERE slug = ?').bind(JSON.stringify(page), savedAt, slug)
+    : db.prepare('UPDATE story_pages SET draft = ?, draft_saved_at = ? WHERE slug = ? AND draft_saved_at = ?').bind(JSON.stringify(page), savedAt, slug, expectedSavedAt)
+  ).run();
+  if (!res.meta.changes) {
+    // The rows are seeded by migration 0008; without one there is nothing to save into.
+    const exists = expectedSavedAt !== undefined && (await db.prepare('SELECT 1 FROM story_pages WHERE slug = ?').bind(slug).first());
+    return exists ? { ok: false, conflict: true, errors: { _: STALE_DRAFT } } : { ok: false, errors: { _: 'This page is missing. Run the latest migration.' } };
+  }
+  return { ok: true, warnings, savedAt };
 }
 
 /**

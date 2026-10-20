@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { emptyStoryPage } from '../../src/lib/store/story';
 import { getProductsByIds } from '../../src/lib/store/catalog';
-import { getStoryPageRow, listStoryPages, loadContextProducts, loadStoryPageView, publishedPageConflicts, publishStoryPage, saveProductStory, saveStoryPageDraft, storyLinkFor } from '../../src/lib/store/story-pages';
+import { getStoryPageRow, listStoryPages, loadContextProducts, loadStoryPageView, publishedPageConflicts, publishStoryPage, saveProductStory, saveStoryPageDraft, STALE_DRAFT, storyLinkFor } from '../../src/lib/store/story-pages';
 import { GET as sitemap } from '../../src/pages/sitemap-store.xml';
 import { db, insertProduct, insertVariant, scalar } from '../helpers/fixtures';
 
@@ -55,6 +55,16 @@ describe('landing-page drafts and publish', () => {
     const bad = await saveStoryPageDraft(db, 'turmeric', { ...emptyStoryPage(), seo: { title: 'x'.repeat(80), description: '' } }, NOW);
     expect(!bad.ok && bad.errors['seo.title']).toMatch(/70/);
     expect(await scalar("SELECT draft_saved_at FROM story_pages WHERE slug = 'turmeric'")).toBe(savedAt);
+  });
+
+  it('refuses a save from a stale tab (409) and keeps the newer draft', async () => {
+    const loaded = String(await scalar("SELECT draft_saved_at FROM story_pages WHERE slug = 'rice'"));
+    const first = await saveStoryPageDraft(db, 'rice', { ...emptyStoryPage(), closing: 'From tab one.' }, NOW, loaded);
+    expect(first.ok).toBe(true);
+    const second = await saveStoryPageDraft(db, 'rice', { ...emptyStoryPage(), closing: 'From tab two.' }, new Date(NOW.getTime() + 1000), loaded);
+    expect(second).toEqual({ ok: false, conflict: true, errors: { _: STALE_DRAFT } });
+    expect(JSON.parse(String(await scalar("SELECT draft FROM story_pages WHERE slug = 'rice'"))).closing).toBe('From tab one.');
+    expect(await scalar("SELECT draft_saved_at FROM story_pages WHERE slug = 'rice'")).toBe(first.ok ? first.savedAt : null);
   });
 
   it('reports a missing seeded row instead of pretending to save', async () => {

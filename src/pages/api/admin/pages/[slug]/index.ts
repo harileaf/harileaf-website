@@ -23,7 +23,10 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
   if (!isStoryPageSlug(slug)) return json({ error: 'Not found' }, 404);
   const body = await readJsonObject(request);
   if (!body || !body.draft || typeof body.draft !== 'object' || Array.isArray(body.draft)) return json({ error: UNREADABLE }, 400);
-  const res = await saveStoryPageDraft(env.STORE_DB, slug, body.draft);
+  // Optional: the draft_saved_at the editor loaded; a different stored one means another tab saved since (409, nothing written).
+  const expected = typeof body.expectedSavedAt === 'string' ? body.expectedSavedAt : undefined;
+  const res = await saveStoryPageDraft(env.STORE_DB, slug, body.draft, new Date(), expected);
+  if (!res.ok && res.conflict) return json({ error: res.errors._ }, 409);
   if (!res.ok) return json({ error: 'Not saved', errors: res.errors }, res.errors._ === 'Page not found' ? 404 : 400);
-  return json(Object.keys(res.warnings).length ? { ok: true, warnings: res.warnings } : { ok: true });
+  return json({ ok: true, savedAt: res.savedAt, ...(Object.keys(res.warnings).length ? { warnings: res.warnings } : {}) });
 };

@@ -57,6 +57,9 @@ export interface StoryPage {
   hidden: HideableSection[];
 }
 
+/** Landing-page limits, shared by the structural check and the admin editor. */
+export const PAGE_LIMITS = { seoTitle: 70, seoDescription: 170, products: 8, heroProof: 2, labColumns: 4, facts: 6, faq: 12 } as const;
+
 /** Section order per page. The owner can hide sections but never add or reorder them. */
 export const PAGE_LAYOUTS: Record<StoryPageSlug, SectionKey[]> = {
   turmeric: ['hero', 'cards', 'photo_strip', 'comparison', 'lab_table', 'growers', 'facts', 'use', 'faq', 'closing'],
@@ -237,13 +240,14 @@ export function validateProductStory(st: ProductStory): FieldErrors {
 
 export function validateStoryPageStructure(slug: StoryPageSlug, p: StoryPage): FieldErrors {
   const e: FieldErrors = {};
-  if (p.seo.title.length > 70) e['seo.title'] = 'Keep it to 70 characters or fewer';
-  if (p.seo.description.length > 170) e['seo.description'] = 'Keep it to 170 characters or fewer';
-  if (p.hero.proof.length > 2) e['hero.proof'] = 'Use at most 2 lab proof items in the hero';
-  if (p.facts.length > 6) e.facts = 'Keep to 6 facts';
-  if (p.faq.length > 12) e.faq = 'Keep to 12 questions';
-  if (p.labColumns.length > 4) e.labColumns = 'Use at most 4 lab columns';
-  if (p.productIds.length > 8) e.productIds = 'Link at most 8 products';
+  const L = PAGE_LIMITS;
+  if (p.seo.title.length > L.seoTitle) e['seo.title'] = `Keep it to ${L.seoTitle} characters or fewer`;
+  if (p.seo.description.length > L.seoDescription) e['seo.description'] = `Keep it to ${L.seoDescription} characters or fewer`;
+  if (p.hero.proof.length > L.heroProof) e['hero.proof'] = `Use at most ${L.heroProof} lab proof items in the hero`;
+  if (p.facts.length > L.facts) e.facts = `Keep to ${L.facts} facts`;
+  if (p.faq.length > L.faq) e.faq = `Keep to ${L.faq} questions`;
+  if (p.labColumns.length > L.labColumns) e.labColumns = `Use at most ${L.labColumns} lab columns`;
+  if (p.productIds.length > L.products) e.productIds = `Link at most ${L.products} products`;
   if (p.storyFromProductId !== null && !p.productIds.includes(p.storyFromProductId)) e.storyFromProductId = "'Story from' must be one of the linked products";
   p.faq.forEach((f, i) => {
     if (!f.q || !f.a) e[`faq.${i}`] = 'Each question needs an answer';

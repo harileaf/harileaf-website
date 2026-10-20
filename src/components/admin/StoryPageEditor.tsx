@@ -7,7 +7,7 @@
  * saves, then runs the full checks.
  */
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { coerceStoryPage, HIDEABLE_SECTIONS, labValue, PAGE_LAYOUTS, type HideableSection, type SectionKey, type StoryPage } from '../../lib/store/story';
+import { coerceStoryPage, HIDEABLE_SECTIONS, labValue, PAGE_LAYOUTS, PAGE_LIMITS as LIMIT, type HideableSection, type SectionKey, type StoryPage } from '../../lib/store/story';
 import { fieldLabel } from '../../lib/store/story-claims';
 import type { PageStatus } from '../../lib/store/story-pages';
 import type { StoryPageSlug } from '../../lib/store/urls';
@@ -44,7 +44,6 @@ const SECTION_NAMES: Record<SectionKey, string> = {
 const FROM_PRODUCT: Partial<Record<SectionKey, string>> = { origin: 'originStory', photo_strip: 'processSteps', comparison: 'comparison', growers: 'grower', use: 'use' };
 const STATUS_TEXT: Record<PageStatus, string> = { never: 'Never published', published: 'Published', changed: 'Unpublished changes' };
 const SIGNED_OUT = 'Your sign-in has expired. Sign in again in another tab (your edits here are kept), then try again.';
-const MAX_PRODUCTS = 8;
 
 const inline: CSSProperties = { textTransform: 'none', letterSpacing: 0, fontSize: '0.9rem', color: 'inherit', margin: 0 };
 const linkStyle: CSSProperties = { color: '#196a5e', fontWeight: 700 };
@@ -100,7 +99,10 @@ export default function StoryPageEditor(props: Props) {
 
   useEffect(() => {
     if (!dirty) return;
-    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = ''; // older browsers ask only when returnValue is set
+    };
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
   }, [dirty]);
@@ -128,6 +130,11 @@ export default function StoryPageEditor(props: Props) {
   const rowMsg = (k: string) => (errors[k] || warnings[k] ? <Msg id={rowMsgId(k)} kind={errors[k] ? 'error' : 'warning'}>{errors[k] ?? warnings[k]}</Msg> : null);
   const linkRow = (k: string) => ({ invalid: Boolean(errors[k]), describedBy: errors[k] || warnings[k] ? rowMsgId(k) : undefined });
 
+  /** The draft_saved_at of the draft on screen: sent with each save so a stale tab can't overwrite a newer draft (409). */
+  const savedAt = useRef(props.info.draftSavedAt);
+  /** Read in click handlers: the buttons stay focusable while busy (aria-disabled), so clicks are ignored here. */
+  const busyNow = useRef(false);
+
   async function refreshInfo() {
     const res = await send('/api/admin/pages', {});
     const pages = Array.isArray(res.data.pages) ? (res.data.pages as Array<Partial<PageInfo> & { slug?: string }>) : [];
@@ -135,60 +142,88 @@ export default function StoryPageEditor(props: Props) {
     if (p?.status && p.status in STATUS_TEXT && typeof p.draftSavedAt === 'string') setInfo({ status: p.status, draftSavedAt: p.draftSavedAt, publishedAt: p.publishedAt ?? null });
   }
 
+  /** A failure that isn't about a field (sign-in, network, another tab) is shown as its own text. */
+  const failure = (e: Messages, prefix: string, rest: string) => {
+    const keys = Object.keys(e);
+    return keys.length === 1 && keys[0] === '_' ? `${prefix}: ${e._}` : `${prefix}: ${plural(keys.length, 'thing', 'things')} to fix ${rest}`;
+  };
+
   async function saveDraft(forPublish = false): Promise<boolean> {
     // Send what the server stores (trimmed, empty rows dropped), so message positions match the rows on screen.
     const page = coerceStoryPage(d);
     setD(page);
     const sent = version.current;
     setMsg('Saving…');
-    const res = await send(`/api/admin/pages/${props.slug}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ draft: page }) });
+    const res = await send(`/api/admin/pages/${props.slug}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ draft: page, expectedSavedAt: savedAt.current }),
+    });
     if (!res.ok) {
+      // The edits stay on screen (a 409 included), so nothing typed is lost.
       const e = readErrors(res.status, res.data, "Couldn't save. Try again.");
       setErrors(e);
       setWarnings({});
       setFailed('save');
-      setMsg(`${forPublish ? 'Not published. ' : ''}Not saved: ${plural(Object.keys(e).length, 'thing', 'things')} to fix (listed at the top).`);
+      setMsg(failure(e, forPublish ? 'Not published. Not saved' : 'Not saved', '(listed at the top).'));
       focusFirstError('page-editor', 'page-errors');
       return false;
     }
+    if (typeof res.data.savedAt === 'string') savedAt.current = res.data.savedAt;
     const w = isMessages(res.data.warnings) ? res.data.warnings : {};
     setErrors({});
     setWarnings(w);
     if (version.current === sent) setDirty(false);
-    void refreshInfo();
     const n = Object.keys(w).length;
     setMsg(n ? `Saved — ${plural(n, 'thing', 'things')} to fix before publishing (listed at the top and marked on the fields).` : 'Saved — ready to publish.');
+    // Publish refreshes the status itself once it's done, so an earlier refresh can't land last.
+    if (!forPublish) await refreshInfo();
     return true;
   }
 
   async function withBusy(fn: () => Promise<void>) {
+    if (busyNow.current) return;
+    busyNow.current = true;
     setBusy(true);
     try {
       await fn();
     } finally {
+      busyNow.current = false;
       setBusy(false);
     }
   }
 
   const previewUrl = `/admin/preview/page/${props.slug}`;
   function preview() {
+    if (busyNow.current) return;
     setPreviewBlocked(false);
     // Open the tab inside the click (a tab opened after an await is often blocked), then point it at the preview once the draft is saved.
     const tab = window.open('', '_blank');
-    void withBusy(async () => {
-      if (!(await saveDraft())) {
-        tab?.close();
-        return;
-      }
+    try {
       if (tab) {
+        tab.document.title = 'Preview';
+        tab.document.body.style.cssText = 'font-family:system-ui,sans-serif;padding:2rem';
+        tab.document.body.textContent = 'Saving preview…';
+      }
+    } catch {
+      // Only a placeholder; the preview still opens.
+    }
+    void withBusy(async () => {
+      let shown = false;
+      try {
+        if (!(await saveDraft())) return;
+        if (!tab) return setPreviewBlocked(true);
+        if (tab.closed) return;
         tab.opener = null;
         tab.location.href = previewUrl;
-      } else setPreviewBlocked(true);
+        shown = true;
+      } finally {
+        if (!shown && tab && !tab.closed) tab.close();
+      }
     });
   }
 
-  const publish = () =>
-    withBusy(async () => {
+  function publish() {
+    if (busyNow.current || !window.confirm('Publish this page to the live site?')) return;
+    void withBusy(async () => {
       if (!(await saveDraft(true))) return;
       setMsg('Publishing…');
       const res = await send(`/api/admin/pages/${props.slug}/publish`, { method: 'POST' });
@@ -196,16 +231,19 @@ export default function StoryPageEditor(props: Props) {
         setErrors({});
         setWarnings({});
         setMsg('✓ Published. The live page refreshes within a minute.');
-        void refreshInfo();
+        await refreshInfo();
         return;
       }
       const e = readErrors(res.status, res.data, "Couldn't publish. Try again.");
       setErrors(e);
       setWarnings({});
       setFailed('publish');
-      setMsg(`Not published — ${plural(Object.keys(e).length, 'thing', 'things')} to fix (listed at the top and marked on the fields). The draft is saved.`);
+      setMsg(failure(e, 'Not published', '(listed at the top and marked on the fields). The draft is saved.'));
+      // A failed publish still saved the draft: refresh its status (in this same busy step, so nothing overwrites it later).
+      await refreshInfo();
       focusFirstError('page-editor', 'page-errors');
     });
+  }
 
   // ── products ────────────────────────────────────────────────────────────
   const linked = d.productIds;
@@ -279,6 +317,7 @@ export default function StoryPageEditor(props: Props) {
       .map(([key, m]) => <Msg key={key} kind={errors[key] ? 'error' : 'warning'}>{pageLabel(key, names)}: {m} Fix it on the product.</Msg>);
   };
 
+  const busyStyle = (base: CSSProperties): CSSProperties => (busy ? { ...base, opacity: 0.5, cursor: 'progress' } : base);
   const seoHint = (n: number, max: number, what: string) => `${n}/${max} characters${n > max ? ' — too long' : ''}. ${what}`;
 
   return (
@@ -292,10 +331,10 @@ export default function StoryPageEditor(props: Props) {
 
       <section style={box} aria-labelledby="page-seo-h">
         <h2 id="page-seo-h" style={h2}>1. Search appearance</h2>
-        <Field label="Search title" {...note('seo.title')} hint={seoHint(d.seo.title.length, 70, 'Shown in Google results and the browser tab.')}>
+        <Field label="Search title" {...note('seo.title')} hint={seoHint(d.seo.title.length, LIMIT.seoTitle, 'Shown in Google results and the browser tab.')}>
           <input type="text" value={d.seo.title} onChange={(e) => set('seo', { ...d.seo, title: e.target.value })} />
         </Field>
-        <Field label="Search description" {...note('seo.description')} hint={seoHint(d.seo.description.length, 170, 'Shown under the title in Google results.')}>
+        <Field label="Search description" {...note('seo.description')} hint={seoHint(d.seo.description.length, LIMIT.seoDescription, 'Shown under the title in Google results.')}>
           <textarea rows={2} value={d.seo.description} onChange={(e) => set('seo', { ...d.seo, description: e.target.value })} />
         </Field>
       </section>
@@ -316,7 +355,7 @@ export default function StoryPageEditor(props: Props) {
         />
         {!hub && (
           <>
-            <h3 style={h3}>Lab proof (up to 2)</h3>
+            <h3 style={h3}>Lab proof (up to {LIMIT.heroProof})</h3>
             <p style={small}>Each value is read from that product's active batch lab report. A missing value hides the item.</p>
             {rowMsg('hero.proof')}
             {d.hero.proof.map((x, i) => (
@@ -347,7 +386,7 @@ export default function StoryPageEditor(props: Props) {
                 </div>
               </div>
             ))}
-            {d.hero.proof.length < 2 && (linked.length > 0 ? (
+            {d.hero.proof.length < LIMIT.heroProof && (linked.length > 0 ? (
               <button type="button" id="page-proof-add" style={addBtn} onClick={() => {
                 const id = d.storyFromProductId ?? linked[0];
                 const key = labKeysFor(id, '')[0] ?? '';
@@ -385,7 +424,7 @@ export default function StoryPageEditor(props: Props) {
             </div>
           );
         })}
-        {linked.length < MAX_PRODUCTS ? (
+        {linked.length < LIMIT.products ? (
           <Field label="Add a product" {...note('productIds')}>
             <select id="page-prod-add" style={sel} value="" onChange={(e) => e.target.value && addProduct(Number(e.target.value))}>
               <option value="">Choose…</option>
@@ -416,26 +455,26 @@ export default function StoryPageEditor(props: Props) {
 
               {k === 'lab_table' && (
                 <>
-                  <p style={small}>One row per visible lab report of the linked products, newest first (up to 8). Choose up to 4 lab results as columns.</p>
+                  <p style={small}>One row per visible lab report of the linked products, newest first (up to 8). Choose up to {LIMIT.labColumns} lab results as columns.</p>
                   {rowMsg('labColumns')}
                   {d.labColumns.map((c, i) => (
                     <div key={i} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: '0.5rem', alignItems: 'start' }}>
                       <Field label={`Column ${i + 1}`} {...note(`labColumns.${i}`)} {...linkRow('labColumns')}>
                         <input type="text" list="page-lab-keys" value={c} onChange={(e) => set('labColumns', d.labColumns.map((x, j) => (j === i ? e.target.value : x)))} />
                       </Field>
-                      <MoveButtons idPrefix="page-col" index={i} count={d.labColumns.length} noun="column"
+                      <MoveButtons idPrefix="page-col" index={i} count={d.labColumns.length} noun="column" confirmRemove={filled(c) ? `Remove column ${i + 1} (“${c}”)?` : undefined}
                         onMove={(a, b) => { set('labColumns', moved(d.labColumns, a, b)); dropMessages('labColumns'); }}
                         onRemove={() => { set('labColumns', d.labColumns.filter((_, j) => j !== i)); dropMessages('labColumns'); }} />
                     </div>
                   ))}
-                  {d.labColumns.length < 4 && <button type="button" id="page-col-add" style={addBtn} onClick={() => set('labColumns', [...d.labColumns, ''])}>+ Add column</button>}
+                  {d.labColumns.length < LIMIT.labColumns && <button type="button" id="page-col-add" style={addBtn} onClick={() => set('labColumns', [...d.labColumns, ''])}>+ Add column</button>}
                   <datalist id="page-lab-keys">{allLabKeys.map((x) => <option key={x} value={x} />)}</datalist>
                 </>
               )}
 
               {k === 'facts' && (
                 <>
-                  <p style={small}>Up to 6 short facts. Facts only: no health claims.</p>
+                  <p style={small}>Up to {LIMIT.facts} short facts. Facts only: no health claims.</p>
                   {rowMsg('facts')}
                   {d.facts.map((f, i) => (
                     <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
@@ -453,13 +492,13 @@ export default function StoryPageEditor(props: Props) {
                       </div>
                     </div>
                   ))}
-                  {d.facts.length < 6 && <button type="button" id="page-fact-add" style={addBtn} onClick={() => set('facts', [...d.facts, { title: '', text: '' }])}>+ Add fact</button>}
+                  {d.facts.length < LIMIT.facts && <button type="button" id="page-fact-add" style={addBtn} onClick={() => set('facts', [...d.facts, { title: '', text: '' }])}>+ Add fact</button>}
                 </>
               )}
 
               {k === 'faq' && (
                 <>
-                  <p style={small}>Up to 12 questions, each with an answer.</p>
+                  <p style={small}>Up to {LIMIT.faq} questions, each with an answer.</p>
                   {rowMsg('faq')}
                   {d.faq.map((f, i) => (
                     <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
@@ -477,7 +516,7 @@ export default function StoryPageEditor(props: Props) {
                       </div>
                     </div>
                   ))}
-                  {d.faq.length < 12 && <button type="button" id="page-faq-add" style={addBtn} onClick={() => set('faq', [...d.faq, { q: '', a: '' }])}>+ Add question</button>}
+                  {d.faq.length < LIMIT.faq && <button type="button" id="page-faq-add" style={addBtn} onClick={() => set('faq', [...d.faq, { q: '', a: '' }])}>+ Add question</button>}
                 </>
               )}
 
@@ -499,9 +538,10 @@ export default function StoryPageEditor(props: Props) {
       </section>
 
       <div style={{ position: 'sticky', bottom: 0, zIndex: 10, background: '#f6f6f3', padding: '0.75rem 0', borderTop: '1px solid rgba(0,0,0,0.1)', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-        <button type="button" style={btn} disabled={busy} onClick={() => void withBusy(async () => { await saveDraft(); })}>Save draft</button>
-        <button type="button" style={btn} disabled={busy} onClick={preview}>Preview<span className="sr-only"> (saves, then opens in a new tab)</span><span aria-hidden="true"> ↗</span></button>
-        <button type="button" className="brand-btn" style={{ padding: '0.6rem 1.4rem' }} disabled={busy} onClick={() => void publish()}>Publish</button>
+        {/* aria-disabled, not disabled, while busy: a disabled button drops keyboard focus to the page. */}
+        <button type="button" style={busyStyle(btn)} aria-disabled={busy} onClick={() => void withBusy(async () => { await saveDraft(); })}>Save draft</button>
+        <button type="button" style={busyStyle(btn)} aria-disabled={busy} onClick={preview}>Preview<span className="sr-only"> (saves, then opens in a new tab)</span><span aria-hidden="true"> ↗</span></button>
+        <button type="button" className="brand-btn" style={busyStyle({ padding: '0.6rem 1.4rem' })} aria-disabled={busy} onClick={publish}>Publish</button>
         <p className="muted" role="status" aria-live="polite">
           {msg}
           {previewBlocked && <> <a href={previewUrl} target="_blank" rel="noopener" style={linkStyle}>Open the preview<span className="sr-only"> (opens in a new tab)</span></a></>}
