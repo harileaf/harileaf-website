@@ -1,0 +1,53 @@
+---
+/** Landing pages list (spec: Admin UX → Pages): status, last saved, last published, Edit / View live. */
+export const prerender = false;
+import { env } from 'cloudflare:workers';
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { validateSession } from '../../../lib/auth';
+import { listStoryPages, type PageStatus } from '../../../lib/store/story-pages';
+
+const authenticated = await validateSession(env.HARILEAF_CMS, Astro.cookies);
+let pages: Awaited<ReturnType<typeof listStoryPages>> = [];
+let dbError = false;
+if (authenticated) {
+  try {
+    pages = await listStoryPages(env.STORE_DB);
+  } catch (err) {
+    dbError = true;
+    console.error(JSON.stringify({ msg: 'story page list failed', error: String(err) }));
+  }
+}
+const NAMES = { rice: 'Rice', turmeric: 'Turmeric', spices: 'Spices hub' } as const;
+const STATUS: Record<PageStatus, [string, string]> = { never: ['Never published', '#7a5f14'], published: ['Published', '#196a5e'], changed: ['Unpublished changes', '#8a4b00'] };
+const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata' }) : '—');
+const link = 'color:#196a5e;font-weight:700;';
+---
+
+<AdminLayout title="Pages" active="pages">
+  <p class="muted" style="margin-bottom:1.25rem;">Landing pages with fixed layouts. Edit the words and photos, preview the draft, then publish. Story sections (timeline, comparison, origin, grower, how to cook/use) are edited on the page's “Story from” product.</p>
+  {dbError && <p class="warn">The store database isn't reachable yet (README → Store development).</p>}
+  {!dbError && authenticated && pages.length === 0 && <p class="warn">No pages yet. Run the latest database migration.</p>}
+  {pages.length > 0 && (
+    <table style="width:100%;border-collapse:collapse;font-size:0.875rem;background:#fff;border-radius:12px;overflow:hidden;">
+      <thead>
+        <tr style="text-align:left;background:#ebebea;">
+          <th scope="col" style="padding:0.6rem;">Page</th><th scope="col">Status</th><th scope="col">Last saved</th><th scope="col">Last published</th><th scope="col"><span class="sr-only">Links</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {pages.map((p) => (
+          <tr style="border-top:1px solid rgba(0,0,0,0.06);">
+            <th scope="row" style="padding:0.6rem;text-align:left;">{NAMES[p.slug]}<br /><span class="muted" style="font-size:0.75rem;font-weight:400;">/{p.slug}</span></th>
+            <td><span style={`color:${STATUS[p.status][1]};font-weight:700;`}>{STATUS[p.status][0]}</span></td>
+            <td>{fmt(p.draftSavedAt)}</td>
+            <td>{fmt(p.publishedAt)}</td>
+            <td style="text-align:right;padding-right:0.6rem;white-space:nowrap;">
+              <a href={`/admin/pages/${p.slug}`} style={link}>Edit<span class="sr-only"> {NAMES[p.slug]}</span></a>
+              {p.publishedAt && <> · <a href={`/${p.slug}/`} target="_blank" rel="noopener" style={link}>View live<span class="sr-only"> {NAMES[p.slug]} (opens in a new tab)</span></a></>}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )}
+</AdminLayout>

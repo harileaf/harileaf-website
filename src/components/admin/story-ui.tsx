@@ -168,7 +168,7 @@ export type PickerImage = { key: string; url: string; alt: string; kind: 'photo'
  */
 export function ImagePicker(props: {
   label: string; value: string | null; alt: string; onChange: (key: string | null, alt: string) => void;
-  productImages?: PickerImage[]; error?: string; altError?: string; altHint?: string;
+  productImages?: PickerImage[]; error?: string; altError?: string; altWarning?: string; altHint?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [photos, setPhotos] = useState<LibraryPhoto[] | null>(null);
@@ -225,7 +225,7 @@ export function ImagePicker(props: {
       {props.error && <Msg id={errId} kind="error">{props.error}</Msg>}
       {props.value && (
         <div style={{ marginTop: '0.5rem' }}>
-          <Field label="Describe the image (alt text)" error={props.altError} hint={props.altHint ?? 'Say what it shows, e.g. “Turmeric drying on mats in the sun”.'}>
+          <Field label="Describe the image (alt text)" error={props.altError} warning={props.altWarning} hint={props.altHint ?? 'Say what it shows, e.g. “Turmeric drying on mats in the sun”.'}>
             <input type="text" value={props.alt} onChange={(e) => props.onChange(props.value, e.target.value)} />
           </Field>
         </div>
