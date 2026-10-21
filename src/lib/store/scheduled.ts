@@ -16,12 +16,20 @@ import { getSettings } from './settings';
 import { anonymiseStaleOrders } from './retention';
 import { purgeNotifyRequests, queueBackInStock } from './notify';
 
-/** Must match the every-minute entry in wrangler.toml [triggers] crons. */
+/** Must match wrangler.toml [triggers] crons. */
 export const DRAIN_CRON = '* * * * *';
+export const MAINTENANCE_CRON = '*/5 * * * *';
 
 export async function runScheduled(env: Env, now: Date, cron: string): Promise<void> {
   if (cron === DRAIN_CRON) return runDrain(env, now);
-  return runMaintenance(env, now);
+  if (cron === MAINTENANCE_CRON) return runMaintenance(env, now);
+  // A cron edited in wrangler.toml but not here (or a bare /__scheduled in dev): run both, so the outbox never stalls.
+  console.error(JSON.stringify({ msg: 'unknown cron; running maintenance and the outbox drain', cron }));
+  try {
+    await runMaintenance(env, now);
+  } finally {
+    await runDrain(env, now);
+  }
 }
 
 async function runDrain(env: Env, now: Date): Promise<void> {

@@ -37,15 +37,17 @@ export function idParam(v: string | undefined): number | null {
  * After a write: queue "notify me" emails if a product just became buyable
  * (a no-op unless requests are waiting), then drain due outbox rows (cache
  * purges, emails) without delaying the response; anything that fails is
- * retried by the cron. OUTBOX_DRAIN_SOON_LIMIT = "0" leaves the drain to the
- * every-minute cron (Workers Free: the request has already used most of its
- * 50 subrequests).
+ * retried by the cron. OUTBOX_DRAIN_SOON_LIMIT = "0" skips both and leaves
+ * them to the crons (Workers Free: waitUntil shares the request's 50
+ * subrequests, most of them already used; the 5-minute run queues notify
+ * emails too).
  */
 export function drainSoon(env: Env, locals: App.Locals): void {
   const now = new Date();
   const limit = drainLimit(env.OUTBOX_DRAIN_SOON_LIMIT, 10);
+  if (limit === 0) return;
   const job = queueBackInStock(env.STORE_DB, now)
-    .then(() => (limit > 0 ? drainOutbox(env.STORE_DB, OUTBOX_HANDLERS, { env, now, limit }) : undefined))
+    .then(() => drainOutbox(env.STORE_DB, OUTBOX_HANDLERS, { env, now, limit }))
     .catch((err) =>
     console.error(JSON.stringify({ msg: 'post-write drain failed', error: String(err) })),
   );
