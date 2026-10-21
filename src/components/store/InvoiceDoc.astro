@@ -5,6 +5,7 @@
  */
 import type { DocSnapshot } from '../../lib/store/invoices';
 import { formatINR } from '../../lib/store/money';
+import { fssaiLabel } from '../../lib/store/settings';
 
 interface Props {
   snapshot: DocSnapshot;
@@ -28,7 +29,7 @@ const sameAddress = JSON.stringify(d.buyer.billing) === JSON.stringify(d.buyer.s
       {d.seller.tradeName && d.seller.tradeName !== d.seller.legalName && <p>Trading as {d.seller.tradeName}</p>}
       <p class="pre">{d.seller.address}</p>
       <p>GSTIN <strong>{d.seller.gstin}</strong> · State {d.seller.state} ({d.seller.stateCode})</p>
-      {d.seller.fssai && <p>FSSAI Lic. No. {d.seller.fssai}</p>}
+      {d.seller.fssai && <p>{fssaiLabel(d.seller.fssai)} {d.seller.fssai}</p>}
     </div>
     <div class="meta">
       <h1>{d.title}</h1>

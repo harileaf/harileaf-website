@@ -59,10 +59,20 @@ describe('verifyAccessJwt', () => {
     expect(await verify(await sign(good(), { kid: 'unknown' }))).toBeNull();
     expect(await verify(await sign(good(), { alg: 'HS256' }))).toBeNull();
     expect(await verify('not.a.jwt')).toBeNull();
+    const svc = { ...good(), email: undefined, common_name: 'abc.access' };
+    expect(await verify(await sign(svc))).toBeNull(); // service token not allow-listed
     expect(await verify('')).toBeNull();
     const t = await sign(good());
     const [h, , s] = t.split('.');
     expect(await verify(`${h}.${b64url(JSON.stringify({ ...good(), email: 'attacker@x.com' }))}.${s}`)).toBeNull();
+  });
+
+  it('accepts an allow-listed service token', async () => {
+    const svcCfg = { ...cfg, serviceTokens: ['abc.access'] };
+    const fetchJwks = async () => jwks;
+    const svc = { ...good(), email: undefined, common_name: 'abc.access' };
+    expect(await verifyAccessJwt(await sign(svc), svcCfg, { now: NOW, fetchJwks })).toEqual({ email: 'service-token:abc.access' });
+    expect(await verifyAccessJwt(await sign({ ...svc, common_name: 'other.access' }), svcCfg, { now: NOW, fetchJwks })).toBeNull();
   });
 });
 

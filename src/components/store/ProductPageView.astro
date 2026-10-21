@@ -32,7 +32,7 @@ import { articlesFor } from '../../content/store/articles';
 import { organicCopy } from '../../lib/store/claims';
 import { renderBasicMarkdown } from '../../lib/store/markdown';
 import { formatINR } from '../../lib/store/money';
-import type { StoreSettings } from '../../lib/store/settings';
+import { fssaiLabel, type StoreSettings } from '../../lib/store/settings';
 import { breadcrumbJsonLd, faqJsonLd, jsonLdString, productDescription, productGroupJsonLd, productTitle } from '../../lib/store/seo';
 import { absolute, categoryPath, productPath } from '../../lib/store/urls';
 import { displayPhone, orPending } from '../../lib/store/policy-settings';
@@ -174,7 +174,7 @@ const ogImage = images[0] ? absolute(images[0].url) : undefined;
               </dd>
               <dt class="font-bold text-on-surface">Country of origin</dt><dd>{p.listing.countryOfOrigin}</dd>
               <dt class="font-bold text-on-surface">Packed &amp; marketed by</dt><dd>{orPending(settings.legal_name)}{settings.address ? `, ${settings.address}` : ''}</dd>
-              <dt class="font-bold text-on-surface">FSSAI licence</dt><dd>{orPending(settings.fssai_license)}</dd>
+              <dt class="font-bold text-on-surface">{fssaiLabel(settings.fssai_license)}</dt><dd>{orPending(settings.fssai_license)}</dd>
               <dt class="font-bold text-on-surface">Customer care</dt><dd>{displayPhone(settings.customer_care_phone)}{settings.customer_care_email ? ` · ${settings.customer_care_email}` : ''}</dd>
             </dl>
           </details>

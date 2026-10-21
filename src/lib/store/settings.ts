@@ -147,7 +147,8 @@ export function validateSettings(input: Record<string, unknown>, current: StoreS
   if (value.google_review_url && !isGoogleReviewUrl(value.google_review_url))
     fail('google_review_url', 'Paste the link from Business Profile → Ask for reviews (https://g.page/r/…)');
 
-  if (value.fssai_license && !/^\d{14}$/.test(value.fssai_license)) fail('fssai_license', 'FSSAI licence numbers have 14 digits');
+  if (value.fssai_license && !/^(\d{14}|\d{17})$/.test(value.fssai_license))
+    fail('fssai_license', 'Use the 14-digit FSSAI licence number, or the 17-digit application number until the licence is issued');
 
   for (const k of PHONE_KEYS) {
     if (!value[k]) continue;
@@ -188,4 +189,12 @@ export async function getSettings(db: D1Database): Promise<StoreSettings> {
 export async function putSettings(db: D1Database, value: StoreSettings): Promise<void> {
   const stmt = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
   await db.batch(SETTING_KEYS.map((k) => stmt.bind(k, value[k])));
+}
+
+/**
+ * What to call the FSSAI number shown to customers: licences have 14 digits;
+ * until one is issued the 17-digit application number is shown, labelled as such.
+ */
+export function fssaiLabel(no: string): string {
+  return /^\d{17}$/.test(no) ? 'FSSAI application no.' : 'FSSAI licence no.';
 }
