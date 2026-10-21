@@ -110,18 +110,19 @@ export function productPurgePaths(categorySlug: string, productSlug: string | nu
 const PURGE_BATCH = 100;
 
 /**
- * Outbox handler for `cache.purge` ({ urls: string[] }). Without CF_ZONE_ID /
- * CF_PURGE_API_TOKEN (local dev) it only clears this data centre and logs.
+ * Outbox handler for `cache.purge` ({ urls: string[] }). The API purge clears
+ * every data centre (Cache API entries included) in one subrequest per 100
+ * URLs. Without CF_ZONE_ID / CF_PURGE_API_TOKEN (local dev) it falls back to
+ * deleting each URL from this data centre's cache, one subrequest per URL.
  */
 export function makePurgeHandler(fetchImpl: typeof fetch = fetch): OutboxHandler {
   return async (payload: { urls?: unknown }, { env }) => {
     // Payloads hold page URLs; purge this build's keys for them.
     const urls = (Array.isArray(payload.urls) ? payload.urls.filter((u): u is string => typeof u === 'string') : []).map((u) => versionedKey(u));
     if (!urls.length) return;
-    const local = (globalThis as { caches?: { default?: Cache } }).caches?.default;
-    if (local) await Promise.all(urls.map((u) => local.delete(new Request(u)).catch(() => false)));
-
     if (!env.CF_ZONE_ID || !env.CF_PURGE_API_TOKEN) {
+      const local = (globalThis as { caches?: { default?: Cache } }).caches?.default;
+      if (local) await Promise.all(urls.map((u) => local.delete(new Request(u)).catch(() => false)));
       console.log(JSON.stringify({ msg: 'cache purge skipped (no CF_ZONE_ID / CF_PURGE_API_TOKEN)', urls: urls.length }));
       return;
     }

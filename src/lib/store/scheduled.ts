@@ -1,11 +1,13 @@
 /**
- * Cron entry point (every 5 minutes). Each job is safe to run twice and to
- * overlap with itself (outbox rows are leased; order changes are ops claims).
- * Reconciliation runs before expiry so a payment whose callbacks were missed
- * places the order instead of releasing its stock.
+ * Cron entry points. Every 5 minutes: the maintenance jobs below. Every
+ * minute (DRAIN_CRON): the outbox drain on its own, so it gets a whole
+ * invocation's subrequest budget (Workers Free: 50). Each job is safe to run
+ * twice and to overlap with itself (outbox rows are leased; order changes are
+ * ops claims). Reconciliation runs before expiry so a payment whose callbacks
+ * were missed places the order instead of releasing its stock.
  */
 import { OUTBOX_HANDLERS } from './handlers';
-import { drainOutbox } from './outbox';
+import { drainLimit, drainOutbox } from './outbox';
 import { expireReservations, reconcilePending, requeueStuckCaptures } from './payments';
 import { razorpayConfig } from './razorpay';
 import { reconcileRefunds } from './refunds';
@@ -14,7 +16,25 @@ import { getSettings } from './settings';
 import { anonymiseStaleOrders } from './retention';
 import { purgeNotifyRequests, queueBackInStock } from './notify';
 
-export async function runScheduled(env: Env, now: Date): Promise<void> {
+/** Must match the every-minute entry in wrangler.toml [triggers] crons. */
+export const DRAIN_CRON = '* * * * *';
+
+export async function runScheduled(env: Env, now: Date, cron: string): Promise<void> {
+  if (cron === DRAIN_CRON) return runDrain(env, now);
+  return runMaintenance(env, now);
+}
+
+async function runDrain(env: Env, now: Date): Promise<void> {
+  try {
+    const outbox = await drainOutbox(env.STORE_DB, OUTBOX_HANDLERS, { env, now, limit: drainLimit(env.OUTBOX_CRON_LIMIT, 50) });
+    if (outbox.done || outbox.failed || outbox.dead) console.log(JSON.stringify({ msg: 'scheduled drain', at: now.toISOString(), outbox }));
+  } catch (err) {
+    console.error(JSON.stringify({ msg: 'scheduled drain failed', at: now.toISOString(), error: err instanceof Error ? `${err.name}: ${err.message}` : String(err) }));
+    throw err;
+  }
+}
+
+async function runMaintenance(env: Env, now: Date): Promise<void> {
   const failed: string[] = [];
   try {
     const report: Record<string, unknown> = { at: now.toISOString() };
@@ -37,7 +57,6 @@ export async function runScheduled(env: Env, now: Date): Promise<void> {
     // Seasons open on the calendar, not on a write: check waiting "notify me" requests every run.
     await step('notify_queued', () => queueBackInStock(env.STORE_DB, now));
     await step('notify_purged', () => purgeNotifyRequests(env.STORE_DB, now));
-    await step('outbox', () => drainOutbox(env.STORE_DB, OUTBOX_HANDLERS, { env, now, limit: 50 }));
     console.log(JSON.stringify({ msg: 'scheduled', ...report }));
   } catch (err) {
     // Each job already catches its own errors; this guards the runner itself.

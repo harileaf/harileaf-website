@@ -32,6 +32,16 @@ describe('drainOutbox', () => {
     expect((await row(other))?.state).toBe('pending');
   });
 
+  it('runs payments and emails before cache purges', async () => {
+    const purge = await enqueue('test.purge_like');
+    await db.prepare("UPDATE outbox SET kind = 'cache.purge' WHERE id = ?").bind(purge).run();
+    const email = await enqueue('test.ok');
+    const seen: string[] = [];
+    const handlers: Record<string, OutboxHandler> = { 'cache.purge': async () => void seen.push('purge'), 'test.ok': async () => void seen.push('email') };
+    await drainOutbox(db, handlers, { env, now: T0, ids: [purge, email], limit: 1 });
+    expect(seen).toEqual(['email']);
+  });
+
   it('backs off after a failure and retries when due', async () => {
     const id = await enqueue('test.flaky');
     let calls = 0;
