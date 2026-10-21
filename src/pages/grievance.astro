@@ -2,6 +2,7 @@
 export const prerender = false;
 import { env } from 'cloudflare:workers';
 import PolicyPage, { type PolicySection } from '../components/policy/PolicyPage.astro';
+import { fssaiLabel } from '../lib/store/settings';
 import { POLICY_CACHE, displayPhone, loadPolicySettings, phoneHref, orPending } from '../lib/store/policy-settings';
 
 const s = await loadPolicySettings(env.STORE_DB);
@@ -18,7 +19,7 @@ const sections: PolicySection[] = [
       { label: 'Trade name', value: orPending(s.trade_name) },
       { label: 'Address', value: orPending(s.address) },
       { label: 'GSTIN', value: orPending(s.gstin) },
-      { label: 'FSSAI licence no.', value: orPending(s.fssai_license) },
+      { label: fssaiLabel(s.fssai_license), value: orPending(s.fssai_license) },
     ],
   },
   {

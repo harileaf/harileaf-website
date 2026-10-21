@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { SETTING_DEFAULTS, isValidGstin, validateSettings } from '../../src/lib/store/settings';
+import { SETTING_DEFAULTS, fssaiLabel, isValidGstin, validateSettings } from '../../src/lib/store/settings';
 
 const current = { ...SETTING_DEFAULTS };
 
@@ -47,4 +47,10 @@ it('accepts only a Google review link for google_review_url (empty is fine)', ()
     expect([url, validateSettings({ google_review_url: url }, SETTING_DEFAULTS).ok]).toEqual([url, true]);
   for (const url of ['http://g.page/r/abc/review', 'https://example.com/review', 'https://g.page.evil.com/r/x', 'not a url'])
     expect(validateSettings({ google_review_url: url }, SETTING_DEFAULTS)).toMatchObject({ ok: false, errors: { google_review_url: expect.any(String) } });
+});
+
+it('accepts a 17-digit FSSAI application number until the licence is issued, and labels it as such', () => {
+  const res = validateSettings({ fssai_license: '30261020127743193' }, current);
+  expect(res.ok).toBe(true);
+  expect([fssaiLabel('30261020127743193'), fssaiLabel('11524999000123')]).toEqual(['FSSAI application no.', 'FSSAI licence no.']);
 });
