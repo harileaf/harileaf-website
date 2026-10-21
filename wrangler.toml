@@ -33,13 +33,22 @@ migrations_dir = "migrations"
 
 [triggers]
 # Every 5 min: payment reconciliation, reservation expiry, refund re-checks,
-# stuck-capture sweep, COD reminders, then the outbox drain (src/lib/store/scheduled.ts).
-crons = ["*/5 * * * *"]
+# stuck-capture sweep, COD reminders. Every minute: the outbox drain (payment
+# capture, emails, Shiprocket, cache purges) in its own invocation, so it has
+# a full subrequest budget (src/lib/store/scheduled.ts DRAIN_CRON).
+crons = ["*/5 * * * *", "* * * * *"]
 
 [vars]
 # Turnstile widget "HariLeaf Store" (public). .dev.vars overrides it with
 # Cloudflare's always-pass test key, since this one only works on harileaf.org.
 PUBLIC_TURNSTILE_SITE_KEY = "0x4AAAAAAFdgCACaacNRdXfz"
+
+# Workers Free allows 50 subrequests (D1 queries, fetches, cache calls) per
+# invocation. Until the Paid plan: no inline drain after a request (it has
+# already used most of its budget), and a few outbox rows per minute from the
+# cron. On Workers Paid, delete both lines (defaults: 10 and 50).
+OUTBOX_DRAIN_SOON_LIMIT = "0"
+OUTBOX_CRON_LIMIT = "4"
 
 # Workers Logs: keeps the JSON console logs (order, payment, webhook, outbox
 # failures) searchable in the dashboard. Included in Workers Paid.

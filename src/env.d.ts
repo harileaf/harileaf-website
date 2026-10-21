@@ -20,6 +20,10 @@ interface Env {
   STORE_RATE_LIMITER?: { limit(opts: { key: string }): Promise<{ success: boolean }> };
   /** Optional: store-wide daily cap on “find your order” link emails (default 40). */
   ORDER_LINK_DAILY_CAP?: string;
+  /** Optional: outbox rows drained inline after a write (default 10; "0" = cron only, for Workers Free). */
+  OUTBOX_DRAIN_SOON_LIMIT?: string;
+  /** Optional: outbox rows per every-minute cron run (default 50; keep small on Workers Free). */
+  OUTBOX_CRON_LIMIT?: string;
   // Secrets / vars (.env.example lists every one)
   ADMIN_PASSPHRASE: string;
   CF_ACCESS_TEAM_DOMAIN?: string;

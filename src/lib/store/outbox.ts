@@ -77,7 +77,9 @@ export async function drainOutbox(
   tally.dead += swept.meta.changes ?? 0;
 
   const { results: due } = await db
-    .prepare(`SELECT id FROM outbox WHERE ${CLAIMABLE}${idFilter} ORDER BY id LIMIT ?${ids.length + 2}`)
+    // Payments and emails before cache purges: when a run is cut short (Workers Free allows 50
+    // subrequests per invocation), the customer-facing work has already happened.
+    .prepare(`SELECT id FROM outbox WHERE ${CLAIMABLE}${idFilter} ORDER BY kind = 'cache.purge', id LIMIT ?${ids.length + 2}`)
     .bind(opts.now.toISOString(), ...ids, opts.limit ?? 25)
     .all<{ id: number }>();
 
@@ -143,4 +145,10 @@ async function finish(db: D1Database, row: OutboxRow, state: 'done' | 'dead', no
     )
     .bind(state, error?.slice(0, 1000) ?? null, now, row.id, row.attempts)
     .run();
+}
+
+/** A non-negative integer setting from an env var, else the default. */
+export function drainLimit(raw: string | undefined, fallback: number): number {
+  const n = Number(raw);
+  return raw !== undefined && raw.trim() !== '' && Number.isInteger(n) && n >= 0 ? n : fallback;
 }
