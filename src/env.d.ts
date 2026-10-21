@@ -24,6 +24,8 @@ interface Env {
   ADMIN_PASSPHRASE: string;
   CF_ACCESS_TEAM_DOMAIN?: string;
   CF_ACCESS_AUD?: string;
+  /** Optional: comma-separated Access service-token client IDs allowed into admin. */
+  CF_ACCESS_SERVICE_TOKEN_IDS?: string;
   RAZORPAY_KEY_ID?: string;
   RAZORPAY_KEY_SECRET?: string;
   RAZORPAY_WEBHOOK_SECRET?: string;

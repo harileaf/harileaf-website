@@ -12,17 +12,24 @@ export interface AccessConfig {
   teamDomain: string;
   /** Application Audience (AUD) tag of the Access application. */
   aud: string;
+  /**
+   * Client IDs of Access service tokens allowed in (scripts that load content
+   * through the admin API). Service-token JWTs carry `common_name` instead of
+   * an email; any other service token is refused.
+   */
+  serviceTokens?: string[];
 }
 
 export type AccessMode = { mode: 'off' } | { mode: 'misconfigured' } | { mode: 'enforce'; cfg: AccessConfig };
 
 /** Off = session-only admin (today's behaviour). Half-configured fails closed. */
-export function accessDecision(env: { CF_ACCESS_AUD?: string; CF_ACCESS_TEAM_DOMAIN?: string }): AccessMode {
+export function accessDecision(env: { CF_ACCESS_AUD?: string; CF_ACCESS_TEAM_DOMAIN?: string; CF_ACCESS_SERVICE_TOKEN_IDS?: string }): AccessMode {
   const aud = env.CF_ACCESS_AUD?.trim();
   const team = env.CF_ACCESS_TEAM_DOMAIN?.trim().replace(/^https?:\/\//, '').replace(/\/+$/, '');
   if (!aud && !team) return { mode: 'off' };
   if (!aud || !team) return { mode: 'misconfigured' };
-  return { mode: 'enforce', cfg: { aud, teamDomain: team } };
+  const serviceTokens = (env.CF_ACCESS_SERVICE_TOKEN_IDS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+  return { mode: 'enforce', cfg: { aud, teamDomain: team, ...(serviceTokens.length ? { serviceTokens } : {}) } };
 }
 
 /**
@@ -113,7 +120,9 @@ export async function verifyAccessJwt(
   if (payload.iss !== `https://${cfg.teamDomain}`) return null;
   if (typeof payload.exp !== 'number' || payload.exp <= now) return null;
   if (typeof payload.nbf === 'number' && payload.nbf > now) return null;
-  if (typeof payload.email !== 'string' || !payload.email) return null;
+  const email = typeof payload.email === 'string' && payload.email ? payload.email : null;
+  const service = !email && typeof payload.common_name === 'string' && cfg.serviceTokens?.includes(payload.common_name) ? payload.common_name : null;
+  if (!email && !service) return null;
 
   const url = `https://${cfg.teamDomain}/cdn-cgi/access/certs`;
   const jwk = await findKey(url, header.kid, opts.fetchJwks);
@@ -122,7 +131,7 @@ export async function verifyAccessJwt(
   try {
     const key = await crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
     const ok = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, b64urlBytes(s), new TextEncoder().encode(`${h}.${p}`));
-    return ok ? { email: payload.email } : null;
+    return ok ? { email: email ?? `service-token:${service}` } : null;
   } catch {
     return null;
   }
